@@ -5,6 +5,32 @@ defmodule Cairnloop.Automation do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  def create_draft(conversation_id, attrs) do
+    attrs =
+      attrs
+      |> Enum.into(%{})
+      |> Map.put(:conversation_id, conversation_id)
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(
+      :draft,
+      Draft.changeset(%Draft{}, attrs)
+    )
+    |> repo().transaction()
+    |> case do
+      {:ok, %{draft: draft}} ->
+        :telemetry.execute(
+          [:cairnloop, :automation, :draft, :created],
+          %{count: 1},
+          %{draft_id: draft.id}
+        )
+        {:ok, draft}
+
+      {:error, :draft, changeset, _changes} ->
+        {:error, changeset}
+    end
+  end
+
   def approve_draft(draft_id) do
     draft = repo().get!(Draft, draft_id)
 

@@ -41,6 +41,7 @@ defmodule Cairnloop.AutomationTest do
     :telemetry.attach_many(
       handler_id,
       [
+        [:cairnloop, :automation, :draft, :created],
         [:cairnloop, :automation, :draft, :approved],
         [:cairnloop, :automation, :draft, :discarded],
         [:cairnloop, :automation, :draft, :edited]
@@ -57,6 +58,17 @@ defmodule Cairnloop.AutomationTest do
     end)
     
     :ok
+  end
+
+  describe "create_draft/2" do
+    test "inserts a Draft, emits telemetry, and returns {:ok, draft}" do
+      assert {:ok, draft} = Cairnloop.Automation.create_draft(100, %{content: "mocked AI draft", status: :pending})
+      
+      assert draft.conversation_id == 100
+      assert draft.content == "mocked AI draft"
+      
+      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :created], %{count: 1}, %{draft_id: _}}
+    end
   end
 
   describe "approve_draft/1" do
