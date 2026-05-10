@@ -26,7 +26,8 @@ defmodule Cairnloop.MixProject do
       {:postgrex, ">= 0.0.0"},
       {:igniter, "~> 0.5"},
       {:phoenix_live_view, "~> 1.0"},
-      {:jason, "~> 1.2"}
+      {:jason, "~> 1.2"},
+      {:oban, "~> 2.17"}
     ]
   end
 end
