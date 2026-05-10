@@ -5,7 +5,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def mount(%{"id" => id}, _session, socket) do
     conversation = Chat.get_conversation!(id)
-    
+
     context =
       case Application.get_env(:cairnloop, :context_provider) do
         provider when is_atom(provider) and not is_nil(provider) ->
@@ -14,11 +14,17 @@ defmodule Cairnloop.Web.ConversationLive do
           else
             %{}
           end
+
         _ ->
           %{}
       end
 
-    {:ok, assign(socket, conversation: conversation, form: to_form(%{"content" => ""}), host_context: context)}
+    {:ok,
+     assign(socket,
+       conversation: conversation,
+       form: to_form(%{"content" => ""}),
+       host_context: context
+     )}
   end
 
   def handle_event("reply", %{"content" => content}, socket) do
@@ -27,7 +33,10 @@ defmodule Cairnloop.Web.ConversationLive do
         {:ok, _result} ->
           # Reload conversation to get new messages
           conversation = Chat.get_conversation!(socket.assigns.conversation.id)
-          {:noreply, assign(socket, conversation: conversation, form: to_form(%{"content" => ""}))}
+
+          {:noreply,
+           assign(socket, conversation: conversation, form: to_form(%{"content" => ""}))}
+
         {:error, _failed_operation, _failed_value, _changes_so_far} ->
           {:noreply, put_flash(socket, :error, "Failed to send reply.")}
       end
@@ -35,9 +44,42 @@ defmodule Cairnloop.Web.ConversationLive do
       {:noreply, socket}
     end
   end
-  
+
   def handle_event("change", %{"content" => content}, socket) do
     {:noreply, assign(socket, form: to_form(%{"content" => content}))}
+  end
+
+  def handle_event("approve_draft", %{"draft-id" => draft_id}, socket) do
+    case Cairnloop.Automation.approve_draft(String.to_integer(draft_id)) do
+      {:ok, _} ->
+        conversation = Chat.get_conversation!(socket.assigns.conversation.id)
+        {:noreply, assign(socket, conversation: conversation)}
+      _error ->
+        {:noreply, put_flash(socket, :error, "Failed to approve draft.")}
+    end
+  end
+
+  def handle_event("edit_draft", %{"draft-id" => draft_id}, socket) do
+    draft_id = String.to_integer(draft_id)
+    draft = Enum.find(socket.assigns.conversation.drafts, &(&1.id == draft_id))
+    
+    case Cairnloop.Automation.mark_draft_edited(draft_id) do
+      {:ok, _} ->
+        conversation = Chat.get_conversation!(socket.assigns.conversation.id)
+        {:noreply, assign(socket, conversation: conversation, form: to_form(%{"content" => draft.content}))}
+      _error ->
+        {:noreply, put_flash(socket, :error, "Failed to edit draft.")}
+    end
+  end
+
+  def handle_event("discard_draft", %{"draft-id" => draft_id}, socket) do
+    case Cairnloop.Automation.discard_draft(String.to_integer(draft_id)) do
+      {:ok, _} ->
+        conversation = Chat.get_conversation!(socket.assigns.conversation.id)
+        {:noreply, assign(socket, conversation: conversation)}
+      _error ->
+        {:noreply, put_flash(socket, :error, "Failed to discard draft.")}
+    end
   end
 
   def render(assigns) do
@@ -63,6 +105,23 @@ defmodule Cairnloop.Web.ConversationLive do
             <strong><%= msg.role %>:</strong>
             <p><%= msg.content %></p>
           </div>
+        <% end %>
+      </div>
+
+      <div class="drafts">
+        <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
+          <h3>Drafts</h3>
+          <%= for draft <- @conversation.drafts do %>
+            <div class="draft">
+              <p><strong>Draft:</strong> <%= draft.content %></p>
+              <p><em>Status: <%= draft.status %></em></p>
+              <%= if draft.status in [:pending, :edited] do %>
+                <button phx-click="approve_draft" phx-value-draft-id={draft.id}>Approve & Send</button>
+                <button phx-click="edit_draft" phx-value-draft-id={draft.id}>Edit</button>
+                <button phx-click="discard_draft" phx-value-draft-id={draft.id}>Discard</button>
+              <% end %>
+            </div>
+          <% end %>
         <% end %>
       </div>
 

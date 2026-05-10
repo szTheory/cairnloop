@@ -3,13 +3,14 @@ defmodule Cairnloop.Conversation do
   import Ecto.Changeset
 
   schema "cairnloop_conversations" do
-    field :status, Ecto.Enum, values: [:open, :resolved, :archived], default: :open
-    field :subject, :string
-    
-    # External reference for the user or host context
-    field :host_user_id, :string
+    field(:status, Ecto.Enum, values: [:open, :resolved, :archived], default: :open)
+    field(:subject, :string)
 
-    has_many :messages, Cairnloop.Message
+    # External reference for the user or host context
+    field(:host_user_id, :string)
+
+    has_many(:messages, Cairnloop.Message)
+    has_many(:drafts, Cairnloop.Automation.Draft)
 
     timestamps()
   end

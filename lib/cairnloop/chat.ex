@@ -15,39 +15,50 @@ defmodule Cairnloop.Chat do
   def get_conversation!(id) do
     Conversation
     |> repo().get!(id)
-    |> repo().preload(messages: (from m in Message, order_by: [asc: m.inserted_at]))
+    |> repo().preload([
+      messages: from(m in Message, order_by: [asc: m.inserted_at]),
+      drafts: from(d in Cairnloop.Automation.Draft, order_by: [asc: d.inserted_at])
+    ])
   end
 
   def reply_to_conversation(conversation_id, content, role \\ :agent) do
     conversation = repo().get!(Conversation, conversation_id)
-    
+
     Ecto.Multi.new()
-    |> Ecto.Multi.insert(:message, Message.changeset(%Message{}, %{
-      conversation_id: conversation.id,
-      content: content,
-      role: role
-    }))
+    |> Ecto.Multi.insert(
+      :message,
+      Message.changeset(%Message{}, %{
+        conversation_id: conversation.id,
+        content: content,
+        role: role
+      })
+    )
     |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
     |> repo().transaction()
   end
 
   def resolve_conversation(conversation_id, metadata \\ %{}) do
     conversation = repo().get!(Conversation, conversation_id)
-    
+
     Ecto.Multi.new()
     |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :resolved}))
     |> repo().transaction()
     |> case do
       {:ok, %{conversation: updated_conversation}} ->
         notify_resolved(updated_conversation, metadata)
-        
+
         :telemetry.execute(
           [:cairnloop, :conversation, :resolved],
           %{count: 1},
-          %{conversation_id: updated_conversation.id, host_user_id: updated_conversation.host_user_id, metadata: metadata}
+          %{
+            conversation_id: updated_conversation.id,
+            host_user_id: updated_conversation.host_user_id,
+            metadata: metadata
+          }
         )
-        
+
         {:ok, updated_conversation}
+
       error ->
         error
     end
@@ -57,6 +68,7 @@ defmodule Cairnloop.Chat do
     case Application.get_env(:cairnloop, :notifier) do
       notifier when is_atom(notifier) and not is_nil(notifier) ->
         notifier.on_conversation_resolved(conversation, metadata)
+
       _ ->
         :ok
     end
