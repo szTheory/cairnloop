@@ -5,7 +5,20 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def mount(%{"id" => id}, _session, socket) do
     conversation = Chat.get_conversation!(id)
-    {:ok, assign(socket, conversation: conversation, form: to_form(%{"content" => ""}))}
+    
+    context =
+      case Application.get_env(:cairnloop, :context_provider) do
+        provider when is_atom(provider) and not is_nil(provider) ->
+          if conversation.host_user_id do
+            provider.get_context(conversation.host_user_id)
+          else
+            %{}
+          end
+        _ ->
+          %{}
+      end
+
+    {:ok, assign(socket, conversation: conversation, form: to_form(%{"content" => ""}), host_context: context)}
   end
 
   def handle_event("reply", %{"content" => content}, socket) do
@@ -33,6 +46,17 @@ defmodule Cairnloop.Web.ConversationLive do
       <.link navigate="/">Back to Inbox</.link>
       <h2><%= @conversation.subject || "No Subject" %></h2>
       
+      <%= if map_size(@host_context) > 0 do %>
+        <div class="host-context">
+          <h3>Customer Context</h3>
+          <ul>
+            <%= for {key, value} <- @host_context do %>
+              <li><strong><%= key %>:</strong> <%= inspect(value) %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
       <div class="messages">
         <%= for msg <- @conversation.messages do %>
           <div class={"message role-#{msg.role}"}>
