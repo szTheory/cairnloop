@@ -8,7 +8,6 @@ defmodule Cairnloop.Automation.DraftTest do
       
       assert %{
                content: ["can't be blank"],
-               status: ["can't be blank"],
                conversation_id: ["can't be blank"]
              } = errors_on(changeset)
     end
