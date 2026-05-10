@@ -1,0 +1,81 @@
+parapet overview
+
+---
+
+
+    1 # Parapet: Phoenix Reliability & SRE Substrate
+    2
+    3 ## 1. What is Parapet?
+    4 **Core Value:** A Phoenix SaaS team can install Parapet and immediately know whether their
+      critical user journeys are healthy — with evidence, not just dashboards.
+    5
+    6 Parapet is an open-source Phoenix reliability layer designed for Elixir SaaS teams. It acts as
+      an opinionated SRE substrate that turns existing telemetry into safe metrics, user-journey SLOs
+      (Service Level Objectives), deploy correlation, incident evidence, runbooks, and operator-grade
+      diagnostics. 
+    7
+    8 It does not replace existing tools (like Phoenix Telemetry, Oban, OpenTelemetry, Prometheus, or
+      Grafana). Instead, it composes them into a coherent reliability story, providing the "paved
+      road" between them.
+    9
+   10 ## 2. Engineering DNA & Principles
+   11 Parapet inherits a strict, convergent engineering DNA from its family of sibling Elixir OSS
+      libraries (Sigra, Chimeway, Mailglass, Threadline, Rulestead, etc.). 
+   12
+   13 When building integrations or cross-library awareness with Parapet, adhere to these core
+      tenets:
+   14 * **Host-Owned Over Magical Black-Boxes:** Adopters own their reliability wiring. Parapet
+      generates scaffolded instrumenters and scripts (e.g., via `Igniter`) directly into the host app
+      rather than hiding behavior behind opaque DSLs.
+   15 * **Telemetry as a Strict Public API:** Telemetry event names, measurements, and metadata are
+      deliberate and documented. Breaking a telemetry contract is a semver-major breaking change.
+   16 * **Redaction & Cardinality Safety:** Parapet forces safe defaults. High-cardinality fields
+      (like raw paths or user IDs) are strictly rejected from metric labels and pushed to structured
+      metadata (wide events) to prevent Prometheus cardinality explosions.
+   17 * **Operator UX is a First-Class Product Feature:** Investigation UX is not an afterthought.
+      Parapet demands out-of-the-box `mix parapet.doctor` diagnostics, health proof lanes, deploy
+      markers, and runbook definitions.
+   18 * **Evidence vs. Telemetry:** Telemetry is lossy and ephemeral; evidence is durable. Parapet
+      maintains a strict conceptual separation between emitting metrics (v0.1) and capturing durable
+      incident context (v0.2+).
+   19
+   20 ## 3. Core Features & "Slices"
+   21 * **Foundation:** A strict label policy, an exception-safe telemetry handler wrapper, and an
+      idempotent install generator.
+   22 * **Universal Phoenix Metrics:** Out-of-the-box instrumentation for HTTP (latency, error rates
+      by bounded route), Ecto (queue vs. query saturation), and Oban (job failure rates and
+      throughput).
+   23 * **SLO DSL:** Adopters define objectives in code (e.g., `Parapet.SLO.define/2`), which compile
+      down into mathematically correct, multi-window burn-rate Prometheus alerting and recording
+      rules.
+   24 * **Deploy & Change Correlation:** Emit deploy markers that natively render as vertical
+      annotations in generated Grafana dashboards, directly linking code/flag changes to reliability
+      regressions.
+   25 * **Artifact Generation:** Autogenerate PromQL rules and importable Grafana dashboards so
+      operators don't have to hand-write them.
+   26
+   27 ## 4. Integration & Synergy Opportunities
+   28 Parapet is designed to create ecosystem leverage for other Elixir libraries. If you are
+      developing a new OSS library, consider how it overlaps with these known Parapet integration
+      seams:
+   29
+   30 * **Sigra (Auth/Identity):** Auth is a massive user-harm surface. Parapet provides the SLIs,
+      burn-rate alerts, and investigation context for login journeys, MFA failures, and account
+      lockouts.
+   31 * **Chimeway & Mailglass (Notifications & Email):** Delivery latency, provider health, bounce
+      rates, and queue backlogs benefit directly from Parapet's reliability layering and runbooks.
+   32 * **Rulestead (Deterministic Config/Flags):** Correlating feature flag toggles or config drifts
+      with reliability regressions is high-leverage. Parapet's deploy markers serve this perfectly.
+   33 * **Threadline (Durable Evidence/Audit):** Threadline provides the durable incident context
+      (who did what) where ephemeral telemetry falls short, forming a perfect "evidence bundle" link
+      with Parapet traces.
+   34 * **Accrue & Rindle (Billing & Processing):** Checkout journeys and async media processing
+      funnels are prime targets for out-of-the-box SLOs and runbook templates.
+   35
+   36 ## 5. What Parapet is NOT (Out of Scope)
+   37 * **Not a Hosted SaaS:** It is host-owned infrastructure.
+   38 * **Not a Trace/Log Store:** It composes tools like Loki/Tempo/Prometheus but does not reinvent
+      their storage.
+   39 * **Not a Magic Autopilot:** It focuses on evidence-first tooling for operators, not unbounded
+      autonomous remediation.
+

@@ -1,0 +1,75 @@
+scoria overview
+---
+
+  Scoria: Library Context & Ecosystem Integration Guide
+
+  1. Project Overview & Mission
+  Name: Scoria
+  Core Value: A Phoenix-native "AI Application Quality Layer" providing deep observability,
+  continuous evaluation, and secure governance tailored for Elixir and Phoenix applications.
+  Positioning: For Phoenix developers building chat, copilots, RAG, tool-using agents, or MCP
+  workflows, Scoria provides the missing production-quality layer: traces, evals, prompt versions,
+  replay, cost/latency visibility, tool approvals, and regression gates.
+  Brand Archetype: The Field Engineer (Grounded, composed, operator-grade, evidence-based). "Make the
+  fire inspectable."
+
+  2. The szTheory "SaaS in a Box" DNA
+  Scoria is built on the same architectural principles as other szTheory libraries (e.g., Sigra,
+  Rindle, Accrue, Lockspire, Chimeway):
+   * Batteries-Included but Composable: Opinionated defaults that solve the complete problem (the
+     "happy path") out of the box (e.g., mix scoria.install), while exposing modular layers for
+     advanced customization.
+   * Unix Philosophy: It doesn't reinvent the wheel. It delegates LLM execution to ReqLLM, agent
+     logic to Jido, and test execution to Tribunal. It strictly owns the operational domain (tracing,
+     evals, governance, UI).
+   * Operator-First DX: Built for solo operators and small teams. It prioritizes Day-0 visual
+     onboarding and Day-2 operations (debugging, configuration, monitoring) entirely within an
+     embedded LiveView dashboard.
+   * Ecto-Native State: Leverages Ecto schemas and migrations over opaque in-memory state. Traces,
+     spans, datasets, and tool approvals are durable database records, ensuring auditability.
+
+  3. Core Architecture & Boundaries
+  Scoria is divided into four distinct phases/layers:
+   1. Core Observability (scoria_observe): Ecto-native trace store based entirely on OpenInference
+      (OTel) standards. It uses Erlang :telemetry to capture spans (LLM, AGENT, TOOL, etc.)
+      asynchronously via Oban/OTP Tasks to avoid blocking main execution loops.
+   2. MCP Gateway & Tool Governance: A secure boundary for model actions. It handles JSON-RPC/MCP
+      protocol transport via standard HTTP Plug (separated from UI WebSockets) and executes all tools
+      in heavily isolated OTP processes (Task/GenServer) to prevent runaway hallucinations from
+      crashing the host app.
+   3. LiveView Operator UX: An embedded control plane. It uses recursive CSS-grid rendering for
+      massive trace trees (lazy loaded) and coalesces streaming token chunks into the DOM to prevent
+      LiveView crashes. Includes Human-in-the-loop (HITL) approval modals for risky tool execution.
+   4. Evaluation Flywheel (scoria_eval): Closes the loop from production back to CI. Allows operators
+      to click "Promote to Dataset" on a failed production trace, converting it to an immutable test
+      case, which can then be scored deterministically or via LLM-as-a-judge.
+
+  4. Telemetry & Protocols (Integration Opportunities)
+  When building new Elixir libraries that should be aware of (or interact with) Scoria, adhere to the
+  following interaction models:
+
+   * OpenInference Telemetry: Scoria relies heavily on the OpenInference semantic conventions. Any
+     future library that performs an AI-adjacent action (e.g., vector search, tool execution, chunk
+     reranking) should emit standard :telemetry events matching OpenInference span kinds (e.g.,
+     RETRIEVER, RERANKER, GUARDRAIL). Scoria will automatically catch these and weave them into the
+     trace tree.
+   * MCP (Model Context Protocol): Scoria acts as an MCP Gateway. Future libraries that expose
+     internal domain data (e.g., a billing library exposing customer invoice lookups) should be
+     designed to easily expose themselves as MCP Tools or MCP Resources.
+   * OTP Process Isolation: Future libraries creating side effects should assume they might be
+     executed by an AI agent inside a Task.yield timeout boundary. They must handle sudden process
+     termination gracefully without corrupting global state.
+
+  5. Cross-Library Synergy (Ecosystem Awareness)
+  Scoria is designed to compose cleanly with the existing szTheory ecosystem. New libraries should
+  follow these integration patterns:
+   * Sigra (Auth): Used to authorize access to Scoria's LiveView dashboard and to attach an actor_id
+     to MCP Tool execution requests.
+   * Threadline (Audit): Scoria pushes human-in-the-loop (HITL) tool approvals, dataset promotions,
+     and policy changes to Threadline for actor/intent tracing.
+   * Parapet (SRE/Alerts): Scoria exposes SLIs (e.g., token latency, budget overruns, eval regression
+     rates) that Parapet will consume for SLO alerting.
+   * Chimeway / Mailglass (Notifications): Used by Scoria to asynchronously alert the operator when
+     an eval suite fails in CI or when a critical MCP tool is awaiting manual approval.
+   * Scrypath (Search): Can be used to index Scoria's vast trace and transcript history for fast
+     operator querying.

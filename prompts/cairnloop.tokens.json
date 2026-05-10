@@ -1,0 +1,128 @@
+{
+  "brand": {
+    "name": "Cairnloop",
+    "package": "cairn_loop",
+    "module_namespace": "CairnLoop",
+    "tagline": "Support that leaves a trail.",
+    "positioning": "Phoenix-native embedded support automation for solo SaaS founders and small teams."
+  },
+  "color": {
+    "primitive": {
+      "basalt": {
+        "value": "#18211F",
+        "description": "core text / dark surface"
+      },
+      "moss_ink": {
+        "value": "#263A2E",
+        "description": "secondary dark / deep UI"
+      },
+      "trailpaper": {
+        "value": "#F5F0E6",
+        "description": "main canvas"
+      },
+      "warm_stone": {
+        "value": "#FBF7EE",
+        "description": "card surface"
+      },
+      "granite": {
+        "value": "#D8D0BF",
+        "description": "quiet border"
+      },
+      "slate_lichen": {
+        "value": "#677066",
+        "description": "muted text / disabled"
+      },
+      "path_copper": {
+        "value": "#A94F30",
+        "description": "primary action / active route"
+      },
+      "copper_glow": {
+        "value": "#C46A3A",
+        "description": "decorative accent only"
+      },
+      "lichen": {
+        "value": "#A8B56C",
+        "description": "success accent / safe sourced answer"
+      },
+      "deep_lichen": {
+        "value": "#4A6238",
+        "description": "success text / positive state"
+      },
+      "glacier_mist": {
+        "value": "#DDE8E3",
+        "description": "info surface / retrieval panel"
+      },
+      "waypoint_blue": {
+        "value": "#3F6F80",
+        "description": "info text / links when needed"
+      },
+      "heather": {
+        "value": "#7A5D78",
+        "description": "AI/eval accent"
+      },
+      "ember": {
+        "value": "#8B531E",
+        "description": "warning text / budget risk"
+      },
+      "fault_clay": {
+        "value": "#B54C36",
+        "description": "danger text / blocked policy"
+      }
+    },
+    "semantic_light": {
+      "bg": "#F5F0E6",
+      "surface": "#FBF7EE",
+      "surface_raised": "#FFFFFF",
+      "text": "#18211F",
+      "text_muted": "#677066",
+      "border": "#D8D0BF",
+      "primary": "#A94F30",
+      "primary_text": "#FFFFFF",
+      "success": "#4A6238",
+      "info": "#3F6F80",
+      "ai": "#7A5D78",
+      "warning": "#8B531E",
+      "danger": "#B54C36",
+      "focus": "#A94F30"
+    },
+    "semantic_dark": {
+      "bg": "#101614",
+      "surface": "#18211F",
+      "surface_raised": "#1F2C28",
+      "text": "#F5F0E6",
+      "text_muted": "#B7C0B2",
+      "border": "#34443D",
+      "primary": "#D98A4A",
+      "primary_text": "#18211F",
+      "success": "#A8B56C",
+      "info": "#9EC3CF",
+      "ai": "#C9A7C6",
+      "warning": "#D98A4A",
+      "danger": "#E18C7D",
+      "focus": "#D98A4A"
+    }
+  },
+  "typography": {
+    "sans": "Atkinson Hyperlegible Next, Atkinson Hyperlegible, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    "display": "Fraunces, Atkinson Hyperlegible Next, Georgia, serif",
+    "mono": "Martian Mono, Atkinson Hyperlegible Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+  },
+  "voice": {
+    "pillars": [
+      "Grounded",
+      "Kind",
+      "Explicit",
+      "Practical",
+      "Durable"
+    ],
+    "tagline": "Support that leaves a trail.",
+    "avoid": [
+      "chatbot",
+      "AI agent replacement",
+      "ticket crushing",
+      "omnichannel suite",
+      "magic",
+      "zero-touch"
+    ]
+  }
+}

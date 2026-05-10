@@ -1,0 +1,85 @@
+/* Cairnloop brand tokens v0.1 */
+:root {
+  --cl-color-basalt: #18211F;
+  --cl-color-moss-ink: #263A2E;
+  --cl-color-trailpaper: #F5F0E6;
+  --cl-color-warm-stone: #FBF7EE;
+  --cl-color-granite: #D8D0BF;
+  --cl-color-slate-lichen: #677066;
+  --cl-color-path-copper: #A94F30;
+  --cl-color-copper-glow: #C46A3A;
+  --cl-color-lichen: #A8B56C;
+  --cl-color-deep-lichen: #4A6238;
+  --cl-color-glacier-mist: #DDE8E3;
+  --cl-color-waypoint-blue: #3F6F80;
+  --cl-color-heather: #7A5D78;
+  --cl-color-ember: #8B531E;
+  --cl-color-fault-clay: #B54C36;
+
+  --cl-bg: var(--cl-color-trailpaper);
+  --cl-surface: var(--cl-color-warm-stone);
+  --cl-surface-raised: #FFFFFF;
+  --cl-text: var(--cl-color-basalt);
+  --cl-text-muted: var(--cl-color-slate-lichen);
+  --cl-border: var(--cl-color-granite);
+  --cl-primary: var(--cl-color-path-copper);
+  --cl-primary-text: #FFFFFF;
+  --cl-success: var(--cl-color-deep-lichen);
+  --cl-info: var(--cl-color-waypoint-blue);
+  --cl-ai: var(--cl-color-heather);
+  --cl-warning: var(--cl-color-ember);
+  --cl-danger: var(--cl-color-fault-clay);
+  --cl-focus: var(--cl-color-path-copper);
+
+  --cl-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cl-font-display: "Fraunces", "Atkinson Hyperlegible Next", Georgia, serif;
+  --cl-font-mono: "Martian Mono", "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --cl-radius-sm: 6px;
+  --cl-radius-md: 10px;
+  --cl-radius-lg: 14px;
+  --cl-shadow-raised: 0 1px 2px rgba(24, 33, 31, 0.08), 0 8px 24px rgba(24, 33, 31, 0.06);
+}
+
+[data-theme="dark"] {
+  --cl-bg: #101614;
+  --cl-surface: #18211F;
+  --cl-surface-raised: #1F2C28;
+  --cl-text: #F5F0E6;
+  --cl-text-muted: #B7C0B2;
+  --cl-border: #34443D;
+  --cl-primary: #D98A4A;
+  --cl-primary-text: #18211F;
+  --cl-success: #A8B56C;
+  --cl-info: #9EC3CF;
+  --cl-ai: #C9A7C6;
+  --cl-warning: #D98A4A;
+  --cl-danger: #E18C7D;
+  --cl-focus: #D98A4A;
+}
+
+.cl-button-primary {
+  background: var(--cl-primary);
+  color: var(--cl-primary-text);
+  border: 1px solid transparent;
+  border-radius: var(--cl-radius-md);
+  font-family: var(--cl-font-sans);
+  font-weight: 650;
+}
+
+.cl-card {
+  background: var(--cl-surface);
+  color: var(--cl-text);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-lg);
+  box-shadow: var(--cl-shadow-raised);
+}
+
+.cl-route-active {
+  border-left: 3px solid var(--cl-primary);
+}
+
+.cl-focusable:focus-visible {
+  outline: 2px solid var(--cl-focus);
+  outline-offset: 2px;
+}
