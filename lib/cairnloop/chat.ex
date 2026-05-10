@@ -24,17 +24,33 @@ defmodule Cairnloop.Chat do
   def reply_to_conversation(conversation_id, content, role \\ :agent) do
     conversation = repo().get!(Conversation, conversation_id)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.insert(
-      :message,
-      Message.changeset(%Message{}, %{
-        conversation_id: conversation.id,
-        content: content,
-        role: role
-      })
-    )
-    |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
-    |> repo().transaction()
+    multi =
+      Ecto.Multi.new()
+      |> Ecto.Multi.insert(
+        :message,
+        Message.changeset(%Message{}, %{
+          conversation_id: conversation.id,
+          content: content,
+          role: role
+        })
+      )
+      |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
+
+    multi =
+      if role == :user do
+        Ecto.Multi.insert(
+          multi,
+          :draft_job,
+          Cairnloop.Automation.Workers.DraftWorker.new(
+            %{"conversation_id" => conversation.id},
+            schedule_in: 5
+          )
+        )
+      else
+        multi
+      end
+
+    repo().transaction(multi)
   end
 
   def resolve_conversation(conversation_id, metadata \\ %{}) do
