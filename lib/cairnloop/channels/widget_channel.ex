@@ -25,4 +25,17 @@ defmodule Cairnloop.Channels.WidgetChannel do
 
     {:reply, :ok, socket}
   end
+
+  @impl true
+  def handle_in("submit_csat", %{"rating" => rating}, socket) do
+    "widget:" <> conversation_id = socket.topic
+
+    case Cairnloop.Chat.submit_csat(conversation_id, rating) do
+      {:ok, _conversation} ->
+        {:reply, :ok, socket}
+
+      {:error, _changeset} ->
+        {:reply, {:error, %{reason: "invalid_rating"}}, socket}
+    end
+  end
 end
