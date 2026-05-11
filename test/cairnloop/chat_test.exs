@@ -8,7 +8,8 @@ defmodule Cairnloop.ChatTest do
         %Cairnloop.Conversation{
           id: 1,
           status: :open,
-          host_user_id: 10
+          host_user_id: 10,
+          inserted_at: DateTime.utc_now() |> DateTime.add(-100, :second)
         }
       else
         raise Ecto.NoResultsError, queryable: Cairnloop.Conversation
@@ -17,25 +18,36 @@ defmodule Cairnloop.ChatTest do
 
     def transaction(multi) do
       operations = Ecto.Multi.to_list(multi)
-      
-      results = Enum.into(operations, %{}, fn 
-        {name, {:insert, changeset, _}} -> 
-          {name, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)}
-        {name, {:update, changeset, _}} -> 
-          {name, Ecto.Changeset.apply_changes(changeset)}
-      end)
-      
+
+      results =
+        Enum.into(operations, %{}, fn
+          {name, {:insert, changeset, _}} ->
+            {name, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)}
+
+          {name, {:update, changeset, _}} ->
+            {name, Ecto.Changeset.apply_changes(changeset)}
+        end)
+
       {:ok, results}
+    end
+  end
+
+  defmodule MockNotifier do
+    def on_conversation_resolved(conversation, metadata) do
+      send(self(), {:notified, conversation, metadata})
+      :ok
     end
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
-    
+    Application.put_env(:cairnloop, :notifier, MockNotifier)
+
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
+      Application.delete_env(:cairnloop, :notifier)
     end)
-    
+
     :ok
   end
 
@@ -43,8 +55,8 @@ defmodule Cairnloop.ChatTest do
     test "inserts message and job when role is :user" do
       assert {:ok, results} = Chat.reply_to_conversation(1, "hello", :user)
       assert %{content: "hello", role: :user, conversation_id: 1} = results.message
-      assert %{status: :open} = results.conversation
-      
+      assert %{status: :open, resolved_at: nil} = results.conversation
+
       assert job = results.draft_job
       assert job.worker == "Cairnloop.Automation.Workers.DraftWorker"
       assert job.args == %{"conversation_id" => 1}
@@ -53,8 +65,53 @@ defmodule Cairnloop.ChatTest do
     test "inserts message but no job when role is :agent" do
       assert {:ok, results} = Chat.reply_to_conversation(1, "hello again", :agent)
       assert %{content: "hello again", role: :agent, conversation_id: 1} = results.message
-      
+
       refute Map.has_key?(results, :draft_job)
+    end
+  end
+
+  describe "resolve_conversation/2" do
+    test "sets status to :resolved and resolved_at to current UTC time" do
+      actor = %{type: "user", id: 1}
+      assert {:ok, conversation} = Chat.resolve_conversation(1, resolved_by: actor)
+      assert conversation.status == :resolved
+      assert conversation.resolved_at != nil
+      assert %DateTime{} = conversation.resolved_at
+    end
+
+    test "requires resolved_by in options and emits telemetry" do
+      actor = %{type: "system", id: "system"}
+      
+      # Attach handler to capture telemetry
+      :telemetry.attach(
+        "test-resolve-handler",
+        [:cairnloop, :conversation, :resolved],
+        fn _event, measurements, metadata, _config ->
+          send(self(), {:telemetry_event, measurements, metadata})
+        end,
+        nil
+      )
+
+      assert {:ok, _} = Chat.resolve_conversation(1, resolved_by: actor, custom_meta: "foo")
+
+      assert_receive {:telemetry_event, measurements, metadata}
+      assert Map.has_key?(measurements, :duration_seconds)
+      assert measurements.duration_seconds >= 100
+      
+      assert metadata.actor == actor
+      assert metadata.metadata[:custom_meta] == "foo"
+      assert metadata.conversation_id == 1
+
+      :telemetry.detach("test-resolve-handler")
+    end
+
+    test "invokes the configured Notifier behaviour" do
+      actor = %{type: "user", id: 2}
+      assert {:ok, _} = Chat.resolve_conversation(1, resolved_by: actor)
+
+      assert_receive {:notified, conversation, metadata}
+      assert conversation.id == 1
+      assert metadata[:resolved_by] == actor
     end
   end
 end
