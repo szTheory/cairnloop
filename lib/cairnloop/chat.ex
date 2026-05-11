@@ -57,16 +57,29 @@ defmodule Cairnloop.Chat do
     {actor, metadata} = Keyword.pop!(opts, :resolved_by)
     conversation = repo().get!(Conversation, conversation_id)
     resolved_at = DateTime.utc_now()
-    
+
     # Safely handle missing inserted_at for old rows or test mock edge cases
     inserted_at = conversation.inserted_at || resolved_at
     duration_seconds = DateTime.diff(resolved_at, inserted_at, :second)
 
     Ecto.Multi.new()
-    |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at}))
+    |> Ecto.Multi.update(
+      :conversation,
+      Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at})
+    )
+    |> Ecto.Multi.insert(
+      :system_message,
+      Message.changeset(%Message{}, %{
+        conversation_id: conversation.id,
+        content: "Please rate your experience.",
+        role: :system,
+        metadata: %{"type" => "csat_request"}
+      })
+    )
     |> repo().transaction()
     |> case do
-      {:ok, %{conversation: updated_conversation}} ->
+      {:ok, results} ->
+        updated_conversation = results.conversation
         notify_resolved(updated_conversation, opts)
 
         :telemetry.execute(
@@ -78,6 +91,26 @@ defmodule Cairnloop.Chat do
             actor: actor,
             metadata: Enum.into(metadata, %{})
           }
+        )
+
+        {:ok, results}
+
+      error ->
+        error
+    end
+  end
+
+  def submit_csat(conversation_id, rating) do
+    conversation = repo().get!(Conversation, conversation_id)
+
+    case conversation
+         |> Ecto.Changeset.cast(%{"csat_rating" => rating}, [:csat_rating])
+         |> repo().update() do
+      {:ok, updated_conversation} ->
+        :telemetry.execute(
+          [:cairnloop, :feedback, :csat_submitted],
+          %{count: 1},
+          %{conversation_id: updated_conversation.id, rating: rating}
         )
 
         {:ok, updated_conversation}

@@ -30,6 +30,10 @@ defmodule Cairnloop.ChatTest do
 
       {:ok, results}
     end
+
+    def update(changeset) do
+      {:ok, Ecto.Changeset.apply_changes(changeset)}
+    end
   end
 
   defmodule MockNotifier do
@@ -71,17 +75,25 @@ defmodule Cairnloop.ChatTest do
   end
 
   describe "resolve_conversation/2" do
-    test "sets status to :resolved and resolved_at to current UTC time" do
+    test "sets status to :resolved, resolved_at to current UTC time, and inserts system message" do
       actor = %{type: "user", id: 1}
-      assert {:ok, conversation} = Chat.resolve_conversation(1, resolved_by: actor)
+      assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: actor)
+      conversation = results.conversation
       assert conversation.status == :resolved
       assert conversation.resolved_at != nil
       assert %DateTime{} = conversation.resolved_at
+
+      assert %{
+               content: "Please rate your experience.",
+               role: :system,
+               conversation_id: 1,
+               metadata: %{"type" => "csat_request"}
+             } = results.system_message
     end
 
     test "requires resolved_by in options and emits telemetry" do
       actor = %{type: "system", id: "system"}
-      
+
       # Attach handler to capture telemetry
       :telemetry.attach(
         "test-resolve-handler",
@@ -97,7 +109,7 @@ defmodule Cairnloop.ChatTest do
       assert_receive {:telemetry_event, measurements, metadata}
       assert Map.has_key?(measurements, :duration_seconds)
       assert measurements.duration_seconds >= 100
-      
+
       assert metadata.actor == actor
       assert metadata.metadata[:custom_meta] == "foo"
       assert metadata.conversation_id == 1
@@ -107,11 +119,32 @@ defmodule Cairnloop.ChatTest do
 
     test "invokes the configured Notifier behaviour" do
       actor = %{type: "user", id: 2}
-      assert {:ok, _} = Chat.resolve_conversation(1, resolved_by: actor)
+      assert {:ok, _results} = Chat.resolve_conversation(1, resolved_by: actor)
 
       assert_receive {:notified, conversation, metadata}
       assert conversation.id == 1
       assert metadata[:resolved_by] == actor
+    end
+  end
+
+  describe "submit_csat/2" do
+    test "updates csat_rating and emits telemetry" do
+      # Attach handler to capture telemetry
+      :telemetry.attach(
+        "test-csat-handler",
+        [:cairnloop, :feedback, :csat_submitted],
+        fn _event, measurements, metadata, _config ->
+          send(self(), {:csat_telemetry, measurements, metadata})
+        end,
+        nil
+      )
+
+      assert {:ok, conversation} = Chat.submit_csat(1, "positive")
+      assert conversation.csat_rating == :positive
+
+      assert_receive {:csat_telemetry, %{count: 1}, %{conversation_id: 1, rating: "positive"}}
+
+      :telemetry.detach("test-csat-handler")
     end
   end
 end
