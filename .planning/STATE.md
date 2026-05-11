@@ -2,14 +2,14 @@
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 0 / 2 (vM004 Roadmap Created)
 Plan: —
-Status: Defining requirements
-Last activity: 2024-05-11 — Milestone vM004 started
+Status: Ready for planning
+Last activity: Created roadmap for vM004
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2024-05-11)
+See: .planning/PROJECT.md
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 **Current focus:** Customer Voice Activation (M004)

@@ -23,4 +23,11 @@
 
 ## Traceability
 
-*(To be filled by the roadmapper)*
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| TLM-01 | M004-S01 | Pending |
+| TLM-02 | M004-S01 | Pending |
+| EXT-01 | M004-S01 | Pending |
+| SNT-01 | M004-S02 | Pending |
+| SNT-02 | M004-S02 | Pending |
+| SNT-03 | M004-S02 | Pending |
