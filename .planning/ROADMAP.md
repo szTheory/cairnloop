@@ -3,7 +3,7 @@
 **Milestone:** vM004 Customer Voice Activation
 
 ## Phases
-- [ ] **M004-S01: Resolution Telemetry & Host Extensibility** - Core telemetry pipeline and documentation for resolution events.
+- [x] **M004-S01: Resolution Telemetry & Host Extensibility** - Core telemetry pipeline and documentation for resolution events.
 - [ ] **M004-S02: Customer Satisfaction (CSAT) Capture** - User-facing CSAT rating UI, storage, and telemetry emission.
 
 ## Phase Details
@@ -15,7 +15,8 @@
 **Success Criteria** (what must be TRUE):
   1. Resolving a conversation emits the `[:cairnloop, :conversation, :resolved]` telemetry event with conversation ID and duration.
   2. Developers can consult documentation and a reference handler to hook external actions (like App Store prompts) to the resolution event.
-**Plans**: TBD
+**Plans**: 1
+**UI hint**: no
 
 ### M004-S02: Customer Satisfaction (CSAT) Capture
 **Goal**: Users can seamlessly provide feedback upon conversation resolution, which is durably stored and emitted as telemetry.
@@ -32,5 +33,5 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| M004-S01: Resolution Telemetry & Host Extensibility | 0/? | Not started | - |
+| M004-S01: Resolution Telemetry & Host Extensibility | 1/1 | Completed | 2024-05-18 |
 | M004-S02: Customer Satisfaction (CSAT) Capture | 0/? | Not started | - |

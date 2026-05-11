@@ -3,8 +3,8 @@
 ## Active Requirements
 
 ### Core Telemetry Pipeline
-- [ ] **TLM-01**: System emits `[:cairnloop, :conversation, :resolved]` telemetry event upon conversation resolution.
-- [ ] **TLM-02**: Event payload includes conversation ID, duration, and operator context.
+- [x] **TLM-01**: System emits `[:cairnloop, :conversation, :resolved]` telemetry event upon conversation resolution.
+- [x] **TLM-02**: Event payload includes conversation ID, duration, and operator context.
 
 ### Sentiment Capture (CSAT/CES)
 - [ ] **SNT-01**: Upon resolution, user is presented with a frictionless CSAT (Customer Satisfaction) rating UI in the widget.
@@ -12,7 +12,7 @@
 - [ ] **SNT-03**: CSAT score is durably appended to the Conversation history in the database.
 
 ### Host Extensibility
-- [ ] **EXT-01**: Documentation and reference handler implementation is provided for listening to the resolution event and triggering host-specific logic.
+- [x] **EXT-01**: Documentation and reference handler implementation is provided for listening to the resolution event and triggering host-specific logic.
 
 ## Future Requirements (Deferred)
 - Aggregated CSAT reporting dashboard.
@@ -25,9 +25,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TLM-01 | M004-S01 | Pending |
-| TLM-02 | M004-S01 | Pending |
-| EXT-01 | M004-S01 | Pending |
+| TLM-01 | M004-S01 | Completed |
+| TLM-02 | M004-S01 | Completed |
+| EXT-01 | M004-S01 | Completed |
 | SNT-01 | M004-S02 | Pending |
 | SNT-02 | M004-S02 | Pending |
 | SNT-03 | M004-S02 | Pending |
