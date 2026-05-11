@@ -8,6 +8,7 @@ defmodule Cairnloop.Conversation do
 
     # External reference for the user or host context
     field(:host_user_id, :string)
+    field(:resolved_at, :utc_datetime_usec)
 
     has_many(:messages, Cairnloop.Message)
     has_many(:drafts, Cairnloop.Automation.Draft)
@@ -17,7 +18,7 @@ defmodule Cairnloop.Conversation do
 
   def changeset(conversation, attrs) do
     conversation
-    |> cast(attrs, [:status, :subject, :host_user_id])
+    |> cast(attrs, [:status, :subject, :host_user_id, :resolved_at])
     |> validate_required([:status])
   end
 end
