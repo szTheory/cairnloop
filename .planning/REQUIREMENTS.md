@@ -3,31 +3,28 @@
 ## Active Requirements
 
 ### Core Telemetry Pipeline
-- [x] **TLM-01**: System emits `[:cairnloop, :conversation, :resolved]` telemetry event upon conversation resolution.
-- [x] **TLM-02**: Event payload includes conversation ID, duration, and operator context.
+- [x] **M004-REQ-01**: System emits `[:cairnloop, :conversation, :resolved]` telemetry event upon conversation resolution.
+- [x] **M004-REQ-02**: Event payload includes conversation ID, duration, and any available metadata.
 
-### Sentiment Capture (CSAT/CES)
-- [ ] **SNT-01**: Upon resolution, user is presented with a frictionless CSAT (Customer Satisfaction) rating UI in the widget.
-- [ ] **SNT-02**: System emits `[:cairnloop, :feedback, :csat_submitted]` telemetry event when rating is provided.
-- [ ] **SNT-03**: CSAT score is durably appended to the Conversation history in the database.
+### Sentiment Capture (CSAT UI)
+- [ ] **M004-REQ-03**: Upon resolution, user is presented with a frictionless CSAT (Customer Satisfaction) rating UI directly in the LiveView widget.
+- [ ] **M004-REQ-04**: System durably stores the rating and emits `[:cairnloop, :feedback, :csat_submitted]` telemetry event when rating is provided.
 
 ### Host Extensibility
-- [x] **EXT-01**: Documentation and reference handler implementation is provided for listening to the resolution event and triggering host-specific logic.
-
-## Future Requirements (Deferred)
-- Aggregated CSAT reporting dashboard.
-- Natural language sentiment analysis of the conversation to automatically infer CSAT.
+- [x] **M004-REQ-05**: Documentation exists demonstrating how a host application can listen to the resolution telemetry event to trigger external actions.
+- [ ] **M004-REQ-06**: Reference implementation (e.g., an Oban worker) is provided for handling these signals asynchronously without blocking the synchronous telemetry handler.
 
 ## Out of Scope
-- Marketing automation or "drip campaigns" for reviews. Cairnloop emits the spark (telemetry); the host app handles the downstream marketing workflow.
+- Marketing automation or generic marketing CRMs.
+- Generic email surveys for CSAT.
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TLM-01 | M004-S01 | Completed |
-| TLM-02 | M004-S01 | Completed |
-| EXT-01 | M004-S01 | Completed |
-| SNT-01 | M004-S02 | Pending |
-| SNT-02 | M004-S02 | Pending |
-| SNT-03 | M004-S02 | Pending |
+| M004-REQ-01 | Phase 1 | Completed |
+| M004-REQ-02 | Phase 1 | Completed |
+| M004-REQ-03 | Phase 2 | Pending |
+| M004-REQ-04 | Phase 2 | Pending |
+| M004-REQ-05 | Phase 3 | Completed |
+| M004-REQ-06 | Phase 3 | Pending |

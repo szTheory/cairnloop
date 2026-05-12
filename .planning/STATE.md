@@ -1,24 +1,34 @@
-# Project State
-
-## Current Position
-
-Phase: 1 / 2
-Plan: 1 / 1
-Status: In Progress
-Last activity: Completed Phase M004-S01 Plan 01
+# Cairnloop Project State
 
 ## Project Reference
+**Core Value**: A deeply embedded, SaaS-in-a-box customer support engine for Elixir applications.
+**Current Focus**: M004 Customer Voice Activation (Customer-Led Growth). Transforming support from a cost-center to a growth-engine by capturing sentiment and triggering host actions via telemetry.
 
-See: .planning/PROJECT.md
+## Current Position
+**Phase**: 1. Foundation (Telemetry & Events)
+**Plan**: None
+**Status**: Not started
+**Progress**: 0/3 Phases Complete
+```text
+[                                        ] 0%
+```
 
-**Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Customer Voice Activation (M004)
-
-## Pending Todos
-
-*(None)*
+## Performance Metrics
+- **Test Coverage**: TBD
+- **Lines of Code**: TBD
 
 ## Accumulated Context
+### Decisions
+- Adopted Elixir native `:telemetry` for the M004 pipeline to maintain strict decoupling from host growth infrastructure.
+- CSAT/CES UI must be frictionless and embedded directly within the LiveView widget to avoid survey fatigue.
 
-- Milestone M003 successfully delivered ContextProvider behaviour and deep integration hooks.
-- M004 will leverage Telemetry heavily; must ensure payloads are cardinality-safe.
+### Todos
+- Plan Phase 1 using `/gsd-plan-phase 1`.
+- Review UI/UX for Phase 2 CSAT widget.
+
+### Blockers
+- None at this time.
+
+## Session Continuity
+Completed 1-01-PLAN.md. Next step is to begin planning the second phase.
+Run: `/gsd-plan-phase 2`
