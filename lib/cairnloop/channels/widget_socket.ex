@@ -2,7 +2,7 @@ defmodule Cairnloop.Channels.WidgetSocket do
   use Phoenix.Socket
 
   ## Channels
-  channel "widget:*", Cairnloop.Channels.WidgetChannel
+  channel("widget:*", Cairnloop.Channels.WidgetChannel)
 
   @impl true
   def connect(params, socket, _connect_info) do
@@ -11,6 +11,7 @@ defmodule Cairnloop.Channels.WidgetSocket do
       %{"token" => token} when is_binary(token) ->
         # In a real app, verify the token here
         {:ok, assign(socket, :user_token, token)}
+
       _ ->
         {:error, :unauthorized}
     end

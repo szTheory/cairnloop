@@ -1,6 +1,6 @@
-defmodule SupportOS.Notifier do
+defmodule Cairnloop.Notifier do
   @moduledoc """
-  Behaviour for notifying the host application of important SupportOS events.
+  Behaviour for notifying the host application of important Cairnloop events.
   """
 
   @doc """

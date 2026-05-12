@@ -10,4 +10,4 @@ Cairnloop is designed to create ecosystem leverage by integrating with the szThe
 * **Accrue & Rindle**: Provide billing and media context to support conversations.
 
 ## Extensibility Contracts
-Cairnloop relies on explicit Elixir behaviours (`SupportOS.ContextProvider`, `SupportOS.ChannelAdapter`, `SupportOS.Notifier`) to allow the host app to stitch these libraries together seamlessly.
+Cairnloop relies on explicit Elixir behaviours (`Cairnloop.ContextProvider`, `Cairnloop.ChannelAdapter`, `Cairnloop.Notifier`) to allow the host app to stitch these libraries together seamlessly.

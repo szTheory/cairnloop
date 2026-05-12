@@ -78,17 +78,16 @@ Use past-tense domain events to hook into successful business actions. This is t
 :telemetry.attach(
   "cairnloop-domain-hooks",
   [:cairnloop, :conversation, :resolved],
-  fn _event, _measurements, metadata, _config ->
+  fn _event, measurements, metadata, _config ->
     require Logger
-    Logger.info("Conversation #{metadata.conversation_id} resolved by #{metadata.actor.id} in #{metadata.business_duration_seconds}s")
-    
+    Logger.info("Conversation #{metadata.conversation_id} resolved by #{metadata.actor.id} in #{measurements.duration_seconds}s")
+
     # Example: Broadcast to LiveView to show a CSAT modal or App Store prompt
     # Phoenix.PubSub.broadcast(MyApp.PubSub, "user_sessions:#{metadata.host_user_id}", :support_issue_resolved)
   end,
   nil
 )
 ```
-
 ### 2. Business Logic (Notifier Behaviour)
 
 For critical side-effects like syncing with a CRM or sending an email, use the `Cairnloop.Notifier` behaviour. This ensures data consistency and allows you to enqueue background jobs reliably.

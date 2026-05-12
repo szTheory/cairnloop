@@ -53,7 +53,7 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Epic 4: Customer Voice Activation (Customer-Led Growth)
+## Epic 4: Customer Voice Activation (Customer-Led Growth) (Completed)
 **Goal:** Transform the support center from a cost-center to a growth-engine by triggering actions when users are happiest.
 
 * **Idiomatic Elixir Approach:** 
@@ -106,8 +106,66 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Next Steps: Structuring M003
-Based on the above, **Milestone 3 (M003)** should focus strictly on **Epic 3: Deep Context Enrichment (The "SaaS in a Box" Integrations)**.
-1. **ContextProvider Behaviour:** Define the protocols for mapping generic support users to host-specific entities (e.g., Sigra identities).
-2. **Dynamic Context Pane:** Build the LiveView extensions for the host to inject billing/account data (e.g., Accrue).
-3. **Default Implementations:** Provide mock/reference implementations to ensure the developer experience is seamless.
+## Epic 8: The Knowledge Base Engine (RAG Substrate)
+**Goal:** Build a highly-structured, RAG-optimized CMS entirely within Elixir/Phoenix that serves as the source-of-truth for self-service and Scoria AI triage.
+
+* **Idiomatic Elixir Approach:** 
+  * Use an immutable **Revision-Based** architecture (`Article`, `Revision`, `Chunk`) inside Ecto.
+  * Use `MDEx` or `Earmark` via an Oban worker to semantically chunk Markdown headers (H2/H3).
+  * Use `pgvector` inside PostgreSQL for embeddings instead of external vector DBs.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Zero external dependencies, trivial to join relational visibility rules (authenticated vs public).
+  * *Cons:* Requires building semantic Markdown parsing in Elixir rather than simple string splits.
+* **Lessons Learned:** Zendesk Guide is too disjointed; Pylon/Plain succeed by keeping articles Markdown-native. Avoid WYSIWYG HTML as it destroys RAG parsing fidelity. Immutable revisions prevent "Orphaned Vectors" where AI cites deprecated policy.
+* **UX/DX:** Operators author in Markdown with a LiveView side-by-side preview. The AI chunking and embedding happens completely transparently via Oban.
+
+---
+
+## Epic 9: AI Tool Governance & MCP Integration
+**Goal:** Safely expose policy-gated support tools (like Accrue billing lookups or Stripe refunds) to the AI drafting engine without runaway agency.
+
+* **Idiomatic Elixir Approach:** 
+  * Use an **Asynchronous State Machine** with Oban and Ecto. When the LLM calls a high-risk MCP tool, halt the Oban worker, persist a `ToolApproval` record, and broadcast a PubSub event.
+  * Resume via a new Oban job only after LiveView operator approval.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Prevents process timeouts and provides operator-grade safety (Human-in-the-Loop).
+  * *Cons:* High complexity requiring pause/resume state management rather than simple `GenServer.call` blocks.
+* **Lessons Learned:** Pylon's "Runbooks" succeed by replacing raw JSON with domain-specific UI. Never rely purely on "confidence scores" for mutations.
+* **UX/DX:** Operators don't approve raw JSON. The `ContextProvider` renders rich LiveComponents (e.g., an Accrue "Refund Preview" card) inside `ConversationLive` for frictionless HITL approval.
+
+---
+
+## Epic 10: Intent Classification & Knowledge Gap Clustering
+**Goal:** Transform unhandled support failures into direct product roadmap inputs by identifying structural gaps in the Knowledge Base.
+
+* **Idiomatic Elixir Approach:** 
+  * Define a `Cairnloop.Intent` behaviour with a default `Req`-based LLM adapter, allowing for future local ML via `Nx.Serving` (Bumblebee).
+  * Use `pgvector` to store embeddings of failed/unhandled user messages.
+  * Run periodic background Oban cron jobs to cluster similar vectors (`<->`) using similarity thresholds.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* High resilience by pushing clustering to Oban. Pluggable adapters avoid forcing Nx/EXLA on the host application.
+  * *Cons:* Background clustering means gaps aren't instantly real-time.
+* **Lessons Learned:** Zendesk's Intelligent Triage focuses on SNGP for "Uncertainty Estimation." Knowing when to defer to a human is more critical than guessing the right intent.
+* **UX/DX:** The Operator Gap Dashboard sorts by volume and impact. A "One-Click Draft" button takes the top 10 messages from a cluster and uses an LLM to propose a new KB Article.
+
+---
+
+## Epic 11: Support-Triggered Outbound Lifecycle
+**Goal:** Trigger proactive, support-related outbound campaigns (e.g. incident recovery, bug-fix notifications) without building a generic marketing CRM.
+
+* **Idiomatic Elixir Approach:** 
+  * Use **Oban** to schedule high-context outbound actions (e.g., `schedule_in: {2, :hours}`).
+  * Define a `Cairnloop.Notifier` behaviour wired to Chimeway (routing) and Mailglass (templates) for delivery.
+  * Treat outbound messages as Ecto `system_outbound` records appended to the `Conversation`.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Strictly scoped to support events. Maintains the "SaaS in a Box" DNA.
+  * *Cons:* Requires the host to wire up Mailglass templates for delivery.
+* **Lessons Learned:** Mixing support lifecycle with marketing (Intercom Series) leads to message collisions and bloat. Plain correctly treats support outbound as transactional events linked to ticket resolutions.
+* **UX/DX:** "Bulk Incident Recovery" allows fanning out a resolution message to 50 tagged conversations seamlessly. Outbound is clearly differentiated in the LiveView timeline using distinct design tokens.
+
+---
+
+## Next Steps: Structuring M005
+Based on the backlog, **Milestone 5 (M005)** should focus on **Epic 5: Durable Auditing & SRE Observability (Threadline & Parapet)** to ensure enterprise-grade compliance and reliability for the support operations.
+1. **Durable Auditing:** Integrate with Threadline for immutable audit logging.
+2. **SRE Observability:** Integrate with Parapet to consume Cairnloop's SLIs into SLO alerts.

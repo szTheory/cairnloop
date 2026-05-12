@@ -1,4 +1,4 @@
-# Domain Vision: Cairnloop (SupportOS)
+# Domain Vision: Cairnloop (Cairnloop)
 
 ## Core Concept
 Cairnloop is a Phoenix-native, embedded customer support automation layer. It is built for solo SaaS operators and small engineering teams running Phoenix apps. It rejects the "standalone helpdesk clone" model in favor of an Ecto-native, host-owned substrate that lives *inside* the application.

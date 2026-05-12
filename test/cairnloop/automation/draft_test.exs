@@ -5,7 +5,7 @@ defmodule Cairnloop.Automation.DraftTest do
   describe "changeset/2" do
     test "requires content, status, and conversation_id" do
       changeset = Draft.changeset(%Draft{}, %{})
-      
+
       assert %{
                content: ["can't be blank"],
                conversation_id: ["can't be blank"]
@@ -13,22 +13,24 @@ defmodule Cairnloop.Automation.DraftTest do
     end
 
     test "status only accepts valid values" do
-      invalid_changeset = Draft.changeset(%Draft{}, %{
-        content: "test", 
-        status: :unknown_status, 
-        conversation_id: 1
-      })
+      invalid_changeset =
+        Draft.changeset(%Draft{}, %{
+          content: "test",
+          status: :unknown_status,
+          conversation_id: 1
+        })
 
       assert %{status: ["is invalid"]} = errors_on(invalid_changeset)
 
       valid_values = [:pending, :approved, :edited, :discarded]
 
       for status <- valid_values do
-        changeset = Draft.changeset(%Draft{}, %{
-          content: "test",
-          status: status,
-          conversation_id: 1
-        })
+        changeset =
+          Draft.changeset(%Draft{}, %{
+            content: "test",
+            status: status,
+            conversation_id: 1
+          })
 
         assert changeset.valid?
       end

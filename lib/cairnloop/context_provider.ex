@@ -1,4 +1,4 @@
-defmodule SupportOS.ContextProvider do
+defmodule Cairnloop.ContextProvider do
   @moduledoc """
   Behaviour for providing host application context to Cairnloop.
 
@@ -31,5 +31,6 @@ defmodule SupportOS.ContextProvider do
   responsible for mapping this string to their internal domain (e.g., resolving integer
   IDs, UUIDs, or emails).
   """
-  @callback get_context(actor_id :: String.t(), opts :: keyword()) :: {:ok, map()} | {:error, term()}
+  @callback get_context(actor_id :: String.t(), opts :: keyword()) ::
+              {:ok, map()} | {:error, term()}
 end

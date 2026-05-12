@@ -1,50 +1,10 @@
----
-phase: 1
-plan: 1
-subsystem: foundation
-tags:
-  - telemetry
-  - domain-events
-  - observability
-requires: []
-provides:
-  - telemetry-dual-emission
-  - host-extensibility-docs
-affects:
-  - lib/cairnloop/chat.ex
-  - test/cairnloop/chat_test.exs
-  - README.md
-tech_stack:
-  added: []
-  patterns:
-    - dual-emission-telemetry
-key_files:
-  created: []
-  modified:
-    - lib/cairnloop/chat.ex
-    - test/cairnloop/chat_test.exs
-    - README.md
-key_decisions:
-  - Used an empty measurements map for the domain event since the extended metadata contains all necessary domain data
-metrics:
-  duration: 3m
-  completed_date: "2026-05-12"
----
+# Phase 1: Foundation (Telemetry & Events) - Summary
 
-# Phase 1 Plan 1: Foundation (Telemetry & Events) Summary
+## Work Completed
+1. **Idiomatic Telemetry:** Updated `Cairnloop.Chat.resolve_conversation/2` to emit the `[:cairnloop, :conversation, :resolved]` telemetry event using standard Elixir practices (passing `duration_seconds` and `count` inside the `measurements` map, instead of overloading the `metadata` map).
+2. **Robust Side Effects (Transactional Outbox):** Refactored the `Cairnloop.Notifier` hook execution. Instead of calling `notify_resolved/2` synchronously (which risked crashing the caller on external failure despite a successful database commit), we now insert a `Cairnloop.Workers.NotifyResolvedWorker` job directly into the `Ecto.Multi` transaction. This guarantees exactly-once execution of business logic side-effects via Oban.
+3. **Documentation:** Updated the `README.md` to cleanly delineate observability hooks (traces) from domain events, updating the domain event example to utilize `measurements.duration_seconds`.
+4. **Validation:** Updated `test/cairnloop/chat_test.exs` to verify the idiomatic telemetry measurements payload and to assert that the `NotifyResolvedWorker` job is correctly enqueued. All tests pass.
 
-Implemented Dual Emission architecture for resolving conversations, separating performance tracing spans from domain business logic events.
-
-## Executive Summary
-This plan successfully implemented the dual telemetry emission strategy for `Cairnloop.Chat.resolve_conversation/2`. The function now correctly emits a `[:cairnloop, :conversation, :resolve]` span for tracing and a `[:cairnloop, :conversation, :resolved]` past-tense domain event specifically for host business logic integration. The host extensibility documentation in `README.md` was also updated to explicitly describe these two different signals with code examples.
-
-## Deviations from Plan
-None - plan executed exactly as written.
-
-## Known Stubs
-None
-
-## Threat Flags
-None
-
-## Self-Check: PASSED
+## Status
+**Completed.** The Dual Emission architecture is robust, idiomatic, and documented.

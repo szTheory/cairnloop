@@ -13,7 +13,7 @@ defmodule Cairnloop.Automation.ScoriaEngine do
       content: "Simulated Scoria AI Draft",
       conversation_id: conversation_id
     }
-    
+
     {:ok, proposal}
   end
 end

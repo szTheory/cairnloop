@@ -106,17 +106,19 @@ defmodule Cairnloop.Web.ConversationLive do
 
       if changeset.valid? do
         tool_struct = Ecto.Changeset.apply_changes(changeset)
-        
+
         try do
           case tool_module.execute(tool_struct, actor_id, context) do
             {:ok, result} ->
               {:noreply, put_flash(socket, :info, result)}
+
             {:error, reason} ->
               {:noreply, put_flash(socket, :error, "Execution failed: #{inspect(reason)}")}
           end
         rescue
           e ->
-             {:noreply, put_flash(socket, :error, "Tool execution failed: #{Exception.message(e)}")}
+            {:noreply,
+             put_flash(socket, :error, "Tool execution failed: #{Exception.message(e)}")}
         end
       else
         {:noreply, put_flash(socket, :error, "Invalid tool parameters.")}
@@ -138,7 +140,8 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   defp load_host_context(conversation) do
-    provider = Application.get_env(:cairnloop, :context_provider, Cairnloop.DefaultContextProvider)
+    provider =
+      Application.get_env(:cairnloop, :context_provider, Cairnloop.DefaultContextProvider)
 
     if conversation.host_user_id do
       case provider.get_context(conversation.host_user_id, []) do
@@ -239,7 +242,13 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   def context_pane(assigns) do
-    assigns = assign(assigns, :available_tools, Cairnloop.ToolRegistry.get_available_tools(assigns.actor_id, assigns.context))
+    assigns =
+      assign(
+        assigns,
+        :available_tools,
+        Cairnloop.ToolRegistry.get_available_tools(assigns.actor_id, assigns.context)
+      )
+
     ~H"""
     <div class={["rail-card host-context", @error && "error"]}>
       <h3>Customer Context</h3>
@@ -274,9 +283,10 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def tool_renderer(assigns) do
     custom_ui = assigns.tool.custom_ui()
-    
+
     if custom_ui do
       assigns = assign(assigns, :custom_ui, custom_ui)
+
       ~H"""
       <div class="tool-custom-ui" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
         <%= live_render(@socket, @custom_ui, id: "tool-#{inspect(@tool)}", session: %{"actor_id" => @actor_id, "context" => @context}) %>
@@ -284,9 +294,9 @@ defmodule Cairnloop.Web.ConversationLive do
       """
     else
       schema_fields = assigns.tool.__schema__(:fields) -- [:id]
-      
+
       assigns = assign(assigns, :schema_fields, schema_fields)
-      
+
       if length(schema_fields) == 0 do
         ~H"""
         <button phx-click="execute_tool" phx-value-tool={inspect(@tool)} style="width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer;">
@@ -296,6 +306,7 @@ defmodule Cairnloop.Web.ConversationLive do
       else
         params = Enum.into(schema_fields, %{}, fn f -> {to_string(f), ""} end)
         assigns = assign(assigns, :form, to_form(params, as: :tool_params))
+
         ~H"""
         <div class="tool-form" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
           <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>
@@ -314,7 +325,7 @@ defmodule Cairnloop.Web.ConversationLive do
       end
     end
   end
-  
+
   defp last_module_part(module) do
     module |> Module.split() |> List.last()
   end
@@ -338,6 +349,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def context_field(assigns) do
     assigns = assign_new(assigns, :hide_label, fn -> false end)
+
     ~H"""
     <div class="context-field">
       <%= if not @hide_label do %>
@@ -379,6 +391,7 @@ defmodule Cairnloop.Web.ConversationLive do
     |> Map.to_list()
     |> Enum.sort_by(fn {k, _v} -> to_string(k) end)
   end
+
   def normalize_context_sections(_), do: []
 
   def humanize_context_label(label) do
@@ -393,6 +406,7 @@ defmodule Cairnloop.Web.ConversationLive do
   def normalize_context_value(value) when is_binary(value), do: value
   def normalize_context_value(value) when is_number(value), do: to_string(value)
   def normalize_context_value(value) when is_boolean(value), do: to_string(value)
+
   def normalize_context_value(value) when is_list(value) do
     if Enum.all?(value, fn v -> is_binary(v) or is_number(v) or is_boolean(v) end) do
       Enum.map(value, &normalize_context_value/1) |> Enum.join(", ")
@@ -400,5 +414,6 @@ defmodule Cairnloop.Web.ConversationLive do
       "Unsupported value"
     end
   end
+
   def normalize_context_value(_), do: "Unsupported value"
 end

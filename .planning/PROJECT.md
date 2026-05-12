@@ -6,14 +6,14 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
-## Current Milestone: vM004 Customer Voice Activation
+## Current Milestone: vM005 Durable Auditing & SRE Observability
 
-**Goal:** Transform the support center from a cost-center to a growth-engine by triggering actions when users are happiest.
+**Goal:** Ensure enterprise-grade compliance and reliability for the support operations.
 
 **Target features:**
-- Telemetry Triggers: High-signal `[:cairnloop, :conversation, :resolved]` pipeline.
-- Sentiment Capture: Frictionless CSAT/CES metrics tracking at resolution.
-- Host Extensibility: Reference handlers for the host to wire these signals to external growth actions (e.g., App Store review prompts).
+- Immutable audit logging for critical operator actions (e.g., manual AI draft approvals, PII redaction).
+- Service Level Indicators (SLIs) for support responsiveness (e.g., Time to First Response).
+- Integration interfaces for external alerting and audit systems (Threadline and Parapet).
 
 ## Requirements
 
@@ -21,11 +21,11 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ Multi-Channel Ingress Engine — vM001
 - ✓ AI Triage, Drafting, & Governance — vM002
 - ✓ Deep Context Enrichment — vM003
+- ✓ Customer Voice Activation — vM004
 
 ### Active
-- [ ] Implement resolved conversation telemetry pipeline.
-- [ ] Implement CSAT capture mechanism.
-- [ ] Build reference implementation for App Store prompts.
+- [ ] Implement Threadline integration for immutable audit logs.
+- [ ] Implement Parapet integration for SLA/SLI alerting.
 
 ### Out of Scope
 - Visual drip campaign builder.
@@ -49,4 +49,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2024-05-11 after vM003 milestone*
+*Last updated: 2026-05-12 after vM004 milestone*

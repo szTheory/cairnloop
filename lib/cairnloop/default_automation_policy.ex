@@ -1,10 +1,10 @@
-defmodule SupportOS.DefaultAutomationPolicy do
+defmodule Cairnloop.DefaultAutomationPolicy do
   @moduledoc """
-  Default implementation of SupportOS.AutomationPolicy.
+  Default implementation of Cairnloop.AutomationPolicy.
   Always returns :draft_only to ensure AI generated outputs are treated safely by default.
   """
 
-  @behaviour SupportOS.AutomationPolicy
+  @behaviour Cairnloop.AutomationPolicy
 
   @impl true
   def decide(_proposal, _opts) do

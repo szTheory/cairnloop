@@ -4,7 +4,11 @@ defmodule Cairnloop.Automation.Draft do
 
   schema "cairnloop_drafts" do
     field(:content, :string)
-    field(:status, Ecto.Enum, values: [:pending, :approved, :edited, :discarded], default: :pending)
+
+    field(:status, Ecto.Enum,
+      values: [:pending, :approved, :edited, :discarded],
+      default: :pending
+    )
 
     belongs_to(:conversation, Cairnloop.Conversation)
 

@@ -18,7 +18,8 @@ defmodule Cairnloop.Automation.Workers.DraftWorker do
     result =
       case Cairnloop.Automation.ScoriaEngine.generate_draft(conversation_id) do
         {:ok, proposal} ->
-          policy = Application.get_env(:cairnloop, :automation_policy, SupportOS.DefaultAutomationPolicy)
+          policy =
+            Application.get_env(:cairnloop, :automation_policy, Cairnloop.DefaultAutomationPolicy)
 
           case policy.decide(proposal, %{}) do
             decision when decision in [:draft_only, :require_approval] ->
@@ -51,7 +52,12 @@ defmodule Cairnloop.Automation.Workers.DraftWorker do
   defp handle_create_draft(conversation_id, content, status) do
     case Cairnloop.Automation.create_draft(conversation_id, %{content: content, status: status}) do
       {:ok, draft} ->
-        Phoenix.PubSub.broadcast(Cairnloop.PubSub, "conversation:#{conversation_id}", {:draft_created, draft.id})
+        Phoenix.PubSub.broadcast(
+          Cairnloop.PubSub,
+          "conversation:#{conversation_id}",
+          {:draft_created, draft.id}
+        )
+
         :ok
 
       {:error, _changeset} ->

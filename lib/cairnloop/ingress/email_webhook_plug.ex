@@ -10,12 +10,11 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
     with {:ok, :verified} <- verify_signature(conn),
          {:ok, body, conn} <- Plug.Conn.read_body(conn),
          {:ok, payload} <- Jason.decode(body) do
-      
-      content = 
+      content =
         payload
         |> extract_email_body()
         |> Cairnloop.Ingress.EmailParser.parse()
-        
+
       %{channel: "email", content: content}
       |> Cairnloop.Workers.ProcessMessage.new()
       |> Oban.insert()
@@ -28,6 +27,7 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(401, Jason.encode!(%{error: "Unauthorized"}))
+
       _ ->
         conn
         |> put_resp_content_type("application/json")

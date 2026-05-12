@@ -31,21 +31,23 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   defmodule NestedSuccessContextProvider do
     @behaviour Cairnloop.ContextProvider
     def get_context("user_42", _opts) do
-      {:ok, %{
-        "identity" => %{"full_name" => "Alice", "id" => 42},
-        "billing" => %{"plan" => "Pro", "tags" => ["vip", "active"]}
-      }}
+      {:ok,
+       %{
+         "identity" => %{"full_name" => "Alice", "id" => 42},
+         "billing" => %{"plan" => "Pro", "tags" => ["vip", "active"]}
+       }}
     end
   end
 
   defmodule UnsupportedContextProvider do
     @behaviour Cairnloop.ContextProvider
     def get_context("user_42", _opts) do
-      {:ok, %{
-        "pid" => self(),
-        "tuple" => {:error, :reason},
-        "func" => fn -> :ok end
-      }}
+      {:ok,
+       %{
+         "pid" => self(),
+         "tuple" => {:error, :reason},
+         "func" => fn -> :ok end
+       }}
     end
   end
 
@@ -76,11 +78,12 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     use Cairnloop.Tool
 
     embedded_schema do
-      field :reason, :string
+      field(:reason, :string)
     end
 
     def changeset(tool, attrs) do
       import Ecto.Changeset
+
       tool
       |> cast(attrs, [:reason])
       |> validate_required([:reason])
@@ -89,7 +92,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     def can_execute?(_actor_id, _context), do: true
 
     def execute(tool, _actor_id, _context) do
-      if tool.reason == "crash", do: raise "Boom"
+      if tool.reason == "crash", do: raise("Boom")
       {:ok, "executed with #{tool.reason}"}
     end
   end
@@ -134,7 +137,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   describe "mount/3 context resolution" do
     test "uses DefaultContextProvider when nothing is configured" do
       Application.delete_env(:cairnloop, :context_provider)
-      
+
       assert {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
       assert socket.assigns.host_context == %{}
       assert socket.assigns.context_error == nil
@@ -142,7 +145,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "handles success tuple from configured context provider" do
       Application.put_env(:cairnloop, :context_provider, SuccessContextProvider)
-      
+
       assert {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
       assert socket.assigns.host_context == %{"Plan" => "Pro"}
       assert socket.assigns.context_error == nil
@@ -150,7 +153,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "handles error tuple from configured context provider" do
       Application.put_env(:cairnloop, :context_provider, ErrorContextProvider)
-      
+
       assert {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
       assert socket.assigns.host_context == %{}
       assert socket.assigns.context_error == :not_found
@@ -185,7 +188,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       html = render_html(assigns)
       assert html =~ "No customer context yet"
-      assert html =~ "This conversation has no host context to show. Continue with the thread, or reload after host data becomes available."
+
+      assert html =~
+               "This conversation has no host context to show. Continue with the thread, or reload after host data becomes available."
     end
 
     test "renders error shell with correct copy when context_error is present" do
@@ -199,7 +204,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
-      assert html =~ "Customer context is unavailable right now. Continue handling the conversation, then reload to try again."
+
+      assert html =~
+               "Customer context is unavailable right now. Continue handling the conversation, then reload to try again."
+
       # The shell 'Customer Context' should still be visible
       assert html =~ "Customer Context"
     end
@@ -218,7 +226,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
-      
+
       # Assert correct humanization and content presence
       assert html =~ "Billing"
       assert html =~ "Identity"
@@ -226,7 +234,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Alice"
       assert html =~ "vip"
       assert html =~ "active"
-      
+
       # Assert ordering (Billing before Identity alphabetically)
       billing_idx = :binary.match(html, "Billing") |> elem(0)
       identity_idx = :binary.match(html, "Identity") |> elem(0)
@@ -248,7 +256,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
-      
+
       assert html =~ "Unsupported value"
       refute html =~ "PID"
       refute html =~ "{:error, :reason}"
@@ -260,8 +268,12 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "renders AI Draft / Audit section with draft content and inline actions" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
-          id: 1, subject: "Test", messages: [],
-          drafts: [%Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}]
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [
+            %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
+          ]
         },
         host_context: %{},
         context_error: nil,
@@ -274,15 +286,20 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "AI Draft / Audit"
       assert html =~ "Hello from AI"
       assert html =~ "Approve & Send"
-      assert html =~ "Apply to Composer" # Renamed from Edit
+      # Renamed from Edit
+      assert html =~ "Apply to Composer"
       assert html =~ "Discard"
     end
 
     test "renders inline discard confirmation when pending_discard_draft_id is set" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
-          id: 1, subject: "Test", messages: [],
-          drafts: [%Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}]
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [
+            %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
+          ]
         },
         host_context: %{},
         context_error: nil,
@@ -292,7 +309,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
-      assert html =~ "Discard draft: Remove this draft from the rail? This action is recorded and cannot be undone."
+
+      assert html =~
+               "Discard draft: Remove this draft from the rail? This action is recorded and cannot be undone."
+
       assert html =~ "phx-click=\"confirm_discard_draft\""
       assert html =~ "phx-click=\"cancel_discard_draft\""
     end
@@ -302,7 +322,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "renders available tools in the context pane" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
-          id: 1, subject: "Test", messages: [],
+          id: 1,
+          subject: "Test",
+          messages: [],
           drafts: [],
           host_user_id: "user_42"
         },
@@ -314,13 +336,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
-      
+
       assert html =~ "Actions"
-      
+
       # Simple tool (no inputs) should render a simple button
       assert html =~ "phx-click=\"execute_tool\""
       assert html =~ "phx-value-tool=\"Cairnloop.Web.ConversationLiveTest.SimpleTool\""
-      
+
       # Input tool should render a form
       assert html =~ "phx-submit=\"execute_tool\""
       assert html =~ "<input"
@@ -338,12 +360,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
-      assert {:noreply, socket} = ConversationLive.handle_event(
-               "execute_tool",
-               %{"tool" => to_string(SimpleTool), "params" => %{}},
-               socket
-             )
-      
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => to_string(SimpleTool), "params" => %{}},
+                 socket
+               )
+
       assert socket.assigns.flash["info"] == "simple action executed"
     end
 
@@ -358,12 +381,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
-      assert {:noreply, socket} = ConversationLive.handle_event(
-               "execute_tool",
-               %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "refund"}},
-               socket
-             )
-      
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "refund"}},
+                 socket
+               )
+
       assert socket.assigns.flash["info"] == "executed with refund"
     end
 
@@ -378,15 +402,16 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
-      assert {:noreply, socket} = ConversationLive.handle_event(
-               "execute_tool",
-               %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "crash"}},
-               socket
-             )
-      
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "crash"}},
+                 socket
+               )
+
       assert socket.assigns.flash["error"] == "Tool execution failed: Boom"
     end
-    
+
     test "handle_event execute_tool catches unauthorized access" do
       socket = %Phoenix.LiveView.Socket{
         endpoint: Cairnloop.Web.Endpoint,
@@ -400,18 +425,22 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       defmodule DeniedTool do
         use Cairnloop.Tool
-        embedded_schema do end
+
+        embedded_schema do
+        end
+
         def changeset(t, attrs), do: Ecto.Changeset.cast(t, attrs, [])
         def can_execute?(_actor, _context), do: false
         def execute(_t, _a, _c), do: {:ok, "done"}
       end
-      
-      assert {:noreply, socket} = ConversationLive.handle_event(
-               "execute_tool",
-               %{"tool" => to_string(DeniedTool), "params" => %{}},
-               socket
-             )
-             
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => to_string(DeniedTool), "params" => %{}},
+                 socket
+               )
+
       assert socket.assigns.flash["error"] == "Not authorized to execute this tool."
     end
   end

@@ -1,7 +1,7 @@
 # Cairnloop: Research Synthesis
 
 ## The Vision
-Cairnloop (SupportOS) is an embedded, Ecto-native customer support automation library for Phoenix.
+Cairnloop (Cairnloop) is an embedded, Ecto-native customer support automation library for Phoenix.
 
 ## Core Value Loop
 1. **Ingress**: Capture support requests (Web Widget, Email).

@@ -51,7 +51,7 @@ defmodule Cairnloop.ToolRegistryTest do
   describe "get_available_tools/2" do
     test "filters tools based on can_execute?/2" do
       tools = Cairnloop.ToolRegistry.get_available_tools("actor1", %{})
-      
+
       assert AllowTool in tools
       refute DenyTool in tools
     end

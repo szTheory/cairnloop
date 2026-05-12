@@ -1,7 +1,7 @@
 # M000: Cairnloop Foundation & Core Ingress Loop
 
 ## Goal
-Establish the Ecto-native foundation, the Igniter installation pipeline, and the fundamental SupportOS loop. 
+Establish the Ecto-native foundation, the Igniter installation pipeline, and the fundamental Cairnloop loop. 
 
 ## Vertical Slices
 
@@ -15,8 +15,8 @@ Establish the Ecto-native foundation, the Igniter installation pipeline, and the
 
 ### Slice 3: Host Context Provider
 * **Objective**: Establish the extensibility contract for host context.
-* **Details**: Define `SupportOS.ContextProvider` behaviour, display context in the dashboard.
+* **Details**: Define `Cairnloop.ContextProvider` behaviour, display context in the dashboard.
 
 ### Slice 4: Resolution Telemetry & Growth Signal (CLG Hook)
 * **Objective**: Lay the groundwork for "Customer Voice Activation".
-* **Details**: Define `SupportOS.Notifier` behaviour. Emit telemetry upon conversation resolution with sentiment/intent metadata so the host app can trigger growth loops (App Store reviews, referrals).
+* **Details**: Define `Cairnloop.Notifier` behaviour. Emit telemetry upon conversation resolution with sentiment/intent metadata so the host app can trigger growth loops (App Store reviews, referrals).
