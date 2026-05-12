@@ -26,6 +26,13 @@ defmodule Cairnloop.ChatTest do
 
           {name, {:update, changeset, _}} ->
             {name, Ecto.Changeset.apply_changes(changeset)}
+
+          {name, %Oban.Job{} = job} ->
+            {name, job}
+            
+          {name, {:run, run_fn}} ->
+            {:ok, result} = run_fn.(__MODULE__, %{})
+            {name, result}
         end)
 
       {:ok, results}
@@ -36,20 +43,11 @@ defmodule Cairnloop.ChatTest do
     end
   end
 
-  defmodule MockNotifier do
-    def on_conversation_resolved(conversation, metadata) do
-      send(self(), {:notified, conversation, metadata})
-      :ok
-    end
-  end
-
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
-    Application.put_env(:cairnloop, :notifier, MockNotifier)
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
-      Application.delete_env(:cairnloop, :notifier)
     end)
 
     :ok
@@ -117,13 +115,13 @@ defmodule Cairnloop.ChatTest do
 
       assert_receive {:telemetry_event, measurements, metadata}
       assert Map.has_key?(measurements, :duration)
-      assert metadata.business_duration_seconds >= 100
       assert metadata.actor == actor
       assert metadata.metadata[:custom_meta] == "foo"
       assert metadata.conversation_id == 1
 
-      assert_receive {:telemetry_domain_event, _measurements, domain_metadata}
-      assert domain_metadata.business_duration_seconds >= 100
+      assert_receive {:telemetry_domain_event, domain_measurements, domain_metadata}
+      assert domain_measurements.duration_seconds >= 100
+      assert domain_measurements.count == 1
       assert domain_metadata.actor == actor
       assert domain_metadata.metadata[:custom_meta] == "foo"
       assert domain_metadata.conversation_id == 1
@@ -132,13 +130,13 @@ defmodule Cairnloop.ChatTest do
       :telemetry.detach("test-resolved-domain-handler")
     end
 
-    test "invokes the configured Notifier behaviour" do
+    test "enqueues the NotifyResolvedWorker job" do
       actor = %{type: "user", id: 2}
-      assert {:ok, _results} = Chat.resolve_conversation(1, resolved_by: actor)
+      assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: actor, custom_meta: "foo")
 
-      assert_receive {:notified, conversation, metadata}
-      assert conversation.id == 1
-      assert metadata[:resolved_by] == actor
+      assert job = results.notify_job
+      assert job.worker == "Cairnloop.Workers.NotifyResolvedWorker"
+      assert job.args == %{"conversation_id" => 1, "metadata" => %{custom_meta: "foo"}}
     end
   end
 
@@ -163,6 +161,29 @@ defmodule Cairnloop.ChatTest do
       assert metadata.rating == "positive"
 
       :telemetry.detach("test-csat-handler")
+    end
+  end
+
+  describe "auditor integration" do
+    defmodule TestAuditor do
+      @behaviour Cairnloop.Auditor
+
+      @impl true
+      def audit(multi, action, actor, metadata) do
+        Ecto.Multi.run(multi, :audit, fn _repo, _changes ->
+          {:ok, %{action: action, actor: actor, metadata: metadata}}
+        end)
+      end
+    end
+
+    test "reply_to_conversation/4 injects auditor" do
+      assert {:ok, results} = Chat.reply_to_conversation(1, "hello", :agent, actor: "agent_smith", auditor: TestAuditor)
+      assert %{action: :reply_to_conversation, actor: "agent_smith", metadata: %{conversation_id: 1}} = results.audit
+    end
+
+    test "resolve_conversation/2 injects auditor" do
+      assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: "agent_smith", auditor: TestAuditor)
+      assert %{action: :resolve_conversation, actor: "agent_smith", metadata: %{conversation_id: 1}} = results.audit
     end
   end
 end

@@ -21,8 +21,10 @@ defmodule Cairnloop.Chat do
     )
   end
 
-  def reply_to_conversation(conversation_id, content, role \\ :agent) do
+  def reply_to_conversation(conversation_id, content, role \\ :agent, opts \\ []) do
     conversation = repo().get!(Conversation, conversation_id)
+    actor = Keyword.get(opts, :actor)
+    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
     meta = %{conversation_id: conversation.id, role: role}
 
     Cairnloop.Telemetry.span([:conversation, :reply], meta, fn ->
@@ -37,6 +39,7 @@ defmodule Cairnloop.Chat do
           })
         )
         |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
+        |> auditor.audit(:reply_to_conversation, actor, %{conversation_id: conversation.id})
 
       multi =
         if role == :user do
@@ -59,6 +62,7 @@ defmodule Cairnloop.Chat do
 
   def resolve_conversation(conversation_id, opts) when is_list(opts) do
     {actor, metadata} = Keyword.pop!(opts, :resolved_by)
+    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
     conversation = repo().get!(Conversation, conversation_id)
     resolved_at = DateTime.utc_now()
 
@@ -88,16 +92,21 @@ defmodule Cairnloop.Chat do
           metadata: %{"type" => "csat_request"}
         })
       )
+      |> Ecto.Multi.insert(
+        :notify_job,
+        Cairnloop.Workers.NotifyResolvedWorker.new(%{
+          "conversation_id" => conversation.id,
+          "metadata" => Enum.into(metadata, %{})
+        })
+      )
+      |> auditor.audit(:resolve_conversation, actor, %{conversation_id: conversation.id})
       |> repo().transaction()
       |> case do
         {:ok, results} ->
-          updated_conversation = results.conversation
-          notify_resolved(updated_conversation, opts)
+          measurements = %{duration_seconds: duration_seconds, count: 1}
+          :telemetry.execute([:cairnloop, :conversation, :resolved], measurements, meta)
 
-          extended_meta = Map.put(meta, :business_duration_seconds, duration_seconds)
-          :telemetry.execute([:cairnloop, :conversation, :resolved], %{}, extended_meta)
-
-          {{:ok, results}, extended_meta}
+          {{:ok, results}, meta}
 
         error ->
           {error, meta}
@@ -120,15 +129,5 @@ defmodule Cairnloop.Chat do
           {error, meta}
       end
     end)
-  end
-
-  defp notify_resolved(conversation, metadata) do
-    case Application.get_env(:cairnloop, :notifier) do
-      notifier when is_atom(notifier) and not is_nil(notifier) ->
-        notifier.on_conversation_resolved(conversation, metadata)
-
-      _ ->
-        :ok
-    end
   end
 end
