@@ -20,15 +20,15 @@ Cairnloop turns support conversations into answers, product signals, knowledge-b
 ## 🏗️ Architecture at a Glance
 
 ```mermaid
-graph TD;
+graph TD
     User[End User Widget] -->|WebSockets| Ingress[Phoenix Channels]
     Email[Inbound Email] -->|Webhook| Ingress
     Ingress --> Conv[(Conversations / Ecto)]
-    Conv --> |Oban Async| Draft[AI Drafting Engine]
-    Draft -.-> |Pending Approval| Operator[LiveView Dashboard]
-    Operator --> |Approve/Send| Conv
-    Conv --> |Resolved| Telemetry[Telemetry & Oban Callbacks]
-    Telemetry -.-> |CSAT / Growth Actions| Host[Host Application]
+    Conv -->|Oban Async| Draft[AI Drafting Engine]
+    Draft -. Pending Approval .-> Operator[LiveView Dashboard]
+    Operator -->|Approve/Send| Conv
+    Conv -->|Resolved| Telemetry[Telemetry & Oban Callbacks]
+    Telemetry -. CSAT / Growth Actions .-> Host[Host Application]
 ```
 
 ## 🚀 Installation
