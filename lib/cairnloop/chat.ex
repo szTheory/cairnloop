@@ -23,34 +23,38 @@ defmodule Cairnloop.Chat do
 
   def reply_to_conversation(conversation_id, content, role \\ :agent) do
     conversation = repo().get!(Conversation, conversation_id)
+    meta = %{conversation_id: conversation.id, role: role}
 
-    multi =
-      Ecto.Multi.new()
-      |> Ecto.Multi.insert(
-        :message,
-        Message.changeset(%Message{}, %{
-          conversation_id: conversation.id,
-          content: content,
-          role: role
-        })
-      )
-      |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
-
-    multi =
-      if role == :user do
-        Ecto.Multi.insert(
-          multi,
-          :draft_job,
-          Cairnloop.Automation.Workers.DraftWorker.new(
-            %{"conversation_id" => conversation.id},
-            schedule_in: 5
-          )
+    Cairnloop.Telemetry.span([:conversation, :reply], meta, fn ->
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(
+          :message,
+          Message.changeset(%Message{}, %{
+            conversation_id: conversation.id,
+            content: content,
+            role: role
+          })
         )
-      else
-        multi
-      end
+        |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
 
-    repo().transaction(multi)
+      multi =
+        if role == :user do
+          Ecto.Multi.insert(
+            multi,
+            :draft_job,
+            Cairnloop.Automation.Workers.DraftWorker.new(
+              %{"conversation_id" => conversation.id},
+              schedule_in: 5
+            )
+          )
+        else
+          multi
+        end
+
+      result = repo().transaction(multi)
+      {result, meta}
+    end)
   end
 
   def resolve_conversation(conversation_id, opts) when is_list(opts) do
@@ -62,62 +66,60 @@ defmodule Cairnloop.Chat do
     inserted_at = conversation.inserted_at || resolved_at
     duration_seconds = DateTime.diff(resolved_at, inserted_at, :second)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(
-      :conversation,
-      Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at})
-    )
-    |> Ecto.Multi.insert(
-      :system_message,
-      Message.changeset(%Message{}, %{
-        conversation_id: conversation.id,
-        content: "Please rate your experience.",
-        role: :system,
-        metadata: %{"type" => "csat_request"}
-      })
-    )
-    |> repo().transaction()
-    |> case do
-      {:ok, results} ->
-        updated_conversation = results.conversation
-        notify_resolved(updated_conversation, opts)
+    meta = %{
+      conversation_id: conversation.id,
+      host_user_id: conversation.host_user_id,
+      actor: actor,
+      metadata: Enum.into(metadata, %{})
+    }
 
-        :telemetry.execute(
-          [:cairnloop, :conversation, :resolved],
-          %{count: 1, duration_seconds: duration_seconds},
-          %{
-            conversation_id: updated_conversation.id,
-            host_user_id: updated_conversation.host_user_id,
-            actor: actor,
-            metadata: Enum.into(metadata, %{})
-          }
-        )
+    Cairnloop.Telemetry.span([:conversation, :resolve], meta, fn ->
+      Ecto.Multi.new()
+      |> Ecto.Multi.update(
+        :conversation,
+        Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at})
+      )
+      |> Ecto.Multi.insert(
+        :system_message,
+        Message.changeset(%Message{}, %{
+          conversation_id: conversation.id,
+          content: "Please rate your experience.",
+          role: :system,
+          metadata: %{"type" => "csat_request"}
+        })
+      )
+      |> repo().transaction()
+      |> case do
+        {:ok, results} ->
+          updated_conversation = results.conversation
+          notify_resolved(updated_conversation, opts)
 
-        {:ok, results}
+          extended_meta = Map.put(meta, :business_duration_seconds, duration_seconds)
+          :telemetry.execute([:cairnloop, :conversation, :resolved], %{}, extended_meta)
 
-      error ->
-        error
-    end
+          {{:ok, results}, extended_meta}
+
+        error ->
+          {error, meta}
+      end
+    end)
   end
 
   def submit_csat(conversation_id, rating) do
     conversation = repo().get!(Conversation, conversation_id)
+    meta = %{conversation_id: conversation.id, rating: rating}
 
-    case conversation
-         |> Ecto.Changeset.cast(%{"csat_rating" => rating}, [:csat_rating])
-         |> repo().update() do
-      {:ok, updated_conversation} ->
-        :telemetry.execute(
-          [:cairnloop, :feedback, :csat_submitted],
-          %{count: 1},
-          %{conversation_id: updated_conversation.id, rating: rating}
-        )
+    Cairnloop.Telemetry.span([:feedback, :csat], meta, fn ->
+      case conversation
+           |> Ecto.Changeset.cast(%{"csat_rating" => rating}, [:csat_rating])
+           |> repo().update() do
+        {:ok, updated_conversation} ->
+          {{:ok, updated_conversation}, meta}
 
-        {:ok, updated_conversation}
-
-      error ->
-        error
-    end
+        error ->
+          {error, meta}
+      end
+    end)
   end
 
   defp notify_resolved(conversation, metadata) do

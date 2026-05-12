@@ -94,12 +94,21 @@ defmodule Cairnloop.ChatTest do
     test "requires resolved_by in options and emits telemetry" do
       actor = %{type: "system", id: "system"}
 
-      # Attach handler to capture telemetry
+      # Attach handlers to capture both span and domain telemetry
       :telemetry.attach(
         "test-resolve-handler",
-        [:cairnloop, :conversation, :resolved],
+        [:cairnloop, :conversation, :resolve, :stop],
         fn _event, measurements, metadata, _config ->
           send(self(), {:telemetry_event, measurements, metadata})
+        end,
+        nil
+      )
+
+      :telemetry.attach(
+        "test-resolved-domain-handler",
+        [:cairnloop, :conversation, :resolved],
+        fn _event, measurements, metadata, _config ->
+          send(self(), {:telemetry_domain_event, measurements, metadata})
         end,
         nil
       )
@@ -107,14 +116,20 @@ defmodule Cairnloop.ChatTest do
       assert {:ok, _} = Chat.resolve_conversation(1, resolved_by: actor, custom_meta: "foo")
 
       assert_receive {:telemetry_event, measurements, metadata}
-      assert Map.has_key?(measurements, :duration_seconds)
-      assert measurements.duration_seconds >= 100
-
+      assert Map.has_key?(measurements, :duration)
+      assert metadata.business_duration_seconds >= 100
       assert metadata.actor == actor
       assert metadata.metadata[:custom_meta] == "foo"
       assert metadata.conversation_id == 1
 
+      assert_receive {:telemetry_domain_event, _measurements, domain_metadata}
+      assert domain_metadata.business_duration_seconds >= 100
+      assert domain_metadata.actor == actor
+      assert domain_metadata.metadata[:custom_meta] == "foo"
+      assert domain_metadata.conversation_id == 1
+
       :telemetry.detach("test-resolve-handler")
+      :telemetry.detach("test-resolved-domain-handler")
     end
 
     test "invokes the configured Notifier behaviour" do
@@ -132,7 +147,7 @@ defmodule Cairnloop.ChatTest do
       # Attach handler to capture telemetry
       :telemetry.attach(
         "test-csat-handler",
-        [:cairnloop, :feedback, :csat_submitted],
+        [:cairnloop, :feedback, :csat, :stop],
         fn _event, measurements, metadata, _config ->
           send(self(), {:csat_telemetry, measurements, metadata})
         end,
@@ -142,7 +157,10 @@ defmodule Cairnloop.ChatTest do
       assert {:ok, conversation} = Chat.submit_csat(1, "positive")
       assert conversation.csat_rating == :positive
 
-      assert_receive {:csat_telemetry, %{count: 1}, %{conversation_id: 1, rating: "positive"}}
+      assert_receive {:csat_telemetry, measurements, metadata}
+      assert Map.has_key?(measurements, :duration)
+      assert metadata.conversation_id == 1
+      assert metadata.rating == "positive"
 
       :telemetry.detach("test-csat-handler")
     end
