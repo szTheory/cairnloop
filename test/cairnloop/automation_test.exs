@@ -19,15 +19,21 @@ defmodule Cairnloop.AutomationTest do
       # Simulate a successful transaction
       # We extract the changes from the multi
       operations = Ecto.Multi.to_list(multi)
-      
+
       # We can just return a dummy map based on what multi contains
-      results = Enum.into(operations, %{}, fn 
-        {name, {:insert, changeset, _}} -> 
-          {name, Ecto.Changeset.apply_changes(changeset)}
-        {name, {:update, changeset, _}} -> 
-          {name, Ecto.Changeset.apply_changes(changeset)}
-      end)
-      
+      results =
+        Enum.into(operations, %{}, fn
+          {name, {:insert, changeset, _}} ->
+            {name, Ecto.Changeset.apply_changes(changeset)}
+
+          {name, {:update, changeset, _}} ->
+            {name, Ecto.Changeset.apply_changes(changeset)}
+            
+          {name, {:run, run_fn}} ->
+            {:ok, result} = run_fn.(__MODULE__, %{})
+            {name, result}
+        end)
+
       {:ok, results}
     end
   end
@@ -37,7 +43,7 @@ defmodule Cairnloop.AutomationTest do
     # attach telemetry handler
     parent = self()
     handler_id = "test-automation-#{System.unique_integer()}"
-    
+
     :telemetry.attach_many(
       handler_id,
       [
@@ -56,49 +62,85 @@ defmodule Cairnloop.AutomationTest do
       :telemetry.detach(handler_id)
       Application.delete_env(:cairnloop, :repo)
     end)
-    
+
     :ok
   end
 
   describe "create_draft/2" do
     test "inserts a Draft, emits telemetry, and returns {:ok, draft}" do
-      assert {:ok, draft} = Cairnloop.Automation.create_draft(100, %{content: "mocked AI draft", status: :pending})
-      
+      assert {:ok, draft} =
+               Cairnloop.Automation.create_draft(100, %{
+                 content: "mocked AI draft",
+                 status: :pending
+               })
+
       assert draft.conversation_id == 100
       assert draft.content == "mocked AI draft"
-      
-      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :created], %{count: 1}, %{draft_id: _}}
+
+      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :created], %{count: 1},
+                      %{draft_id: _}}
     end
   end
 
   describe "approve_draft/1" do
     test "updates draft status to :approved, inserts Message with role :agent, and emits telemetry" do
       assert {:ok, result} = Cairnloop.Automation.approve_draft(1)
-      
+
       assert %{status: :approved} = result.draft
       assert %{content: "draft content", role: :agent, conversation_id: 100} = result.message
-      
-      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :approved], %{count: 1}, %{draft_id: 1}}
+
+      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :approved], %{count: 1},
+                      %{draft_id: 1}}
     end
   end
 
   describe "discard_draft/1" do
     test "updates draft status to :discarded and emits telemetry" do
       assert {:ok, result} = Cairnloop.Automation.discard_draft(1)
-      
+
       assert %{status: :discarded} = result.draft
-      
-      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :discarded], %{count: 1}, %{draft_id: 1}}
+
+      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :discarded],
+                      %{count: 1}, %{draft_id: 1}}
     end
   end
 
   describe "mark_draft_edited/1" do
     test "updates draft status to :edited and emits telemetry" do
       assert {:ok, result} = Cairnloop.Automation.mark_draft_edited(1)
-      
+
       assert %{status: :edited} = result.draft
-      
-      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :edited], %{count: 1}, %{draft_id: 1}}
+
+      assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :edited], %{count: 1},
+                      %{draft_id: 1}}
+    end
+  end
+
+  describe "auditor integration" do
+    defmodule TestAuditor do
+      @behaviour Cairnloop.Auditor
+
+      @impl true
+      def audit(multi, action, actor, metadata) do
+        Ecto.Multi.run(multi, :audit, fn _repo, _changes ->
+          {:ok, %{action: action, actor: actor, metadata: metadata}}
+        end)
+      end
+    end
+
+    test "approve_draft/2 injects auditor" do
+      assert {:ok, result} = Cairnloop.Automation.approve_draft(1, actor: "test_actor", auditor: TestAuditor)
+      assert %{action: :approve_draft, actor: "test_actor", metadata: %{draft_id: 1}} = result.audit
+    end
+
+    test "discard_draft/2 injects auditor" do
+      assert {:ok, result} = Cairnloop.Automation.discard_draft(1, actor: %{id: 42}, auditor: TestAuditor)
+      assert %{action: :discard_draft, actor: %{id: 42}, metadata: %{draft_id: 1}} = result.audit
+    end
+
+    test "mark_draft_edited/2 injects auditor" do
+      assert {:ok, result} = Cairnloop.Automation.mark_draft_edited(1, actor: "test_actor", auditor: TestAuditor)
+      assert %{action: :mark_draft_edited, actor: "test_actor", metadata: %{draft_id: 1}} = result.audit
     end
   end
 end

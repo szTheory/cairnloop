@@ -24,6 +24,7 @@ defmodule Cairnloop.Automation do
           %{count: 1},
           %{draft_id: draft.id}
         )
+
         {:ok, draft}
 
       {:error, :draft, changeset, _changes} ->
@@ -31,8 +32,10 @@ defmodule Cairnloop.Automation do
     end
   end
 
-  def approve_draft(draft_id) do
+  def approve_draft(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
+    actor = Keyword.get(opts, :actor)
+    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(
@@ -44,6 +47,7 @@ defmodule Cairnloop.Automation do
       })
     )
     |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :approved}))
+    |> auditor.audit(:approve_draft, actor, %{draft_id: draft_id})
     |> repo().transaction()
     |> case do
       {:ok, _result} = success ->
@@ -52,6 +56,7 @@ defmodule Cairnloop.Automation do
           %{count: 1},
           %{draft_id: draft.id}
         )
+
         success
 
       error ->
@@ -59,11 +64,14 @@ defmodule Cairnloop.Automation do
     end
   end
 
-  def discard_draft(draft_id) do
+  def discard_draft(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
+    actor = Keyword.get(opts, :actor)
+    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :discarded}))
+    |> auditor.audit(:discard_draft, actor, %{draft_id: draft_id})
     |> repo().transaction()
     |> case do
       {:ok, _result} = success ->
@@ -72,6 +80,7 @@ defmodule Cairnloop.Automation do
           %{count: 1},
           %{draft_id: draft.id}
         )
+
         success
 
       error ->
@@ -79,11 +88,14 @@ defmodule Cairnloop.Automation do
     end
   end
 
-  def mark_draft_edited(draft_id) do
+  def mark_draft_edited(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
+    actor = Keyword.get(opts, :actor)
+    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :edited}))
+    |> auditor.audit(:mark_draft_edited, actor, %{draft_id: draft_id})
     |> repo().transaction()
     |> case do
       {:ok, _result} = success ->
@@ -92,6 +104,7 @@ defmodule Cairnloop.Automation do
           %{count: 1},
           %{draft_id: draft.id}
         )
+
         success
 
       error ->
