@@ -49,19 +49,41 @@ Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_do
 
 Cairnloop explicitly separates **Observability** (metrics, tracing) from **Business Logic** (side-effects, CRM sync, state changes). When a conversation is resolved, Cairnloop exposes two integration points for host applications.
 
-### 1. Observability (Telemetry)
+### 1. Observability & Domain Events (Telemetry)
 
-Use `:telemetry` to capture metrics and traces without blocking the resolution process. This is ideal for exporting metrics to APMs (DataDog, Prometheus) or logging duration.
+Cairnloop uses a **Dual Emission** architecture via `:telemetry` to separate performance tracing from domain business logic. This ensures non-blocking execution while providing rich extensibility.
+
+**A. Tracing Spans (Performance & APMs)**
+
+Use the span lifecycle events (`:start`, `:stop`, `:exception`) to capture execution metrics. This is ideal for exporting to APMs (DataDog, Prometheus) or logging function execution duration.
 
 ```elixir
 :telemetry.attach(
   "cairnloop-apm-tracker",
-  [:cairnloop, :conversation, :resolved],
+  [:cairnloop, :conversation, :resolve, :stop],
   fn _event, measurements, metadata, _config ->
     require Logger
-    Logger.info("Conversation #{metadata.conversation_id} resolved by #{metadata.actor.id} in #{measurements.duration_seconds}s")
+    # Execution time is available in `measurements.duration`
+    Logger.info("Resolve function took #{System.convert_time_unit(measurements.duration, :native, :millisecond)}ms")
+  end,
+  nil
+)
+```
+
+**B. Domain Events (Business Logic & Extensibility)**
+
+Use past-tense domain events to hook into successful business actions. This is the recommended approach for reacting to support lifecycle changes, such as triggering an in-app "App Store Rating" prompt when an issue is successfully resolved.
+
+```elixir
+:telemetry.attach(
+  "cairnloop-domain-hooks",
+  [:cairnloop, :conversation, :resolved],
+  fn _event, _measurements, metadata, _config ->
+    require Logger
+    Logger.info("Conversation #{metadata.conversation_id} resolved by #{metadata.actor.id} in #{metadata.business_duration_seconds}s")
     
-    # Example: Statix.histogram("cairnloop.conversation.duration", measurements.duration_seconds)
+    # Example: Broadcast to LiveView to show a CSAT modal or App Store prompt
+    # Phoenix.PubSub.broadcast(MyApp.PubSub, "user_sessions:#{metadata.host_user_id}", :support_issue_resolved)
   end,
   nil
 )
