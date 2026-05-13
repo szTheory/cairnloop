@@ -6,10 +6,10 @@ defmodule Mix.Tasks.Cairnloop.Install.SlosTest do
     igniter = test_project() |> Igniter.compose_task("cairnloop.install.slos")
 
     # Verify SLOs module creation
-    assert_creates(igniter, "lib/cairnloop/slos.ex")
+    assert_creates(igniter, "lib/cairnloop/sl_os.ex")
     
     rewrite = igniter.rewrite
-    source = Rewrite.source!(rewrite, "lib/cairnloop/slos.ex")
+    source = Rewrite.source!(rewrite, "lib/cairnloop/sl_os.ex")
     content = source.content
     
     assert content =~ "defmodule Cairnloop.SLOs do"
