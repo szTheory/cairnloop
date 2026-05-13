@@ -5,14 +5,14 @@ defmodule Mix.Tasks.Cairnloop.Install.ParapetTest do
   test "scaffolds HostApp.CairnloopInstrumenter with proper metrics" do
     igniter = test_project() |> Igniter.compose_task("cairnloop.install.parapet")
 
-    assert_creates(igniter, "lib/test/cairnloop_instrumenter.ex")
+    assert_creates(igniter, "lib/cairnloop_instrumenter.ex")
     
     # We can inspect the igniter struct
     rewrite = igniter.rewrite
-    source = Rewrite.source!(rewrite, "lib/test/cairnloop_instrumenter.ex")
+    source = Rewrite.source!(rewrite, "lib/cairnloop_instrumenter.ex")
     content = source.content
     
-    assert content =~ "defmodule Test.CairnloopInstrumenter do"
+    assert content =~ "defmodule CairnloopInstrumenter do"
     assert content =~ "import Telemetry.Metrics"
     assert content =~ "def metrics do"
     
