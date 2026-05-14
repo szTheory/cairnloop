@@ -31,4 +31,19 @@ defmodule Cairnloop.Workers.CheckSLATest do
     assert conversation.id == "123"
     assert sla.target_type == "first_response"
   end
+
+  test "worker gracefully defaults to :ok when notifier is not configured" do
+    Application.delete_env(:cairnloop, :notifier)
+
+    args = %{
+      "conversation_id" => "123",
+      "sla" => %{
+        "target_type" => "first_response",
+        "completed_at" => DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    }
+
+    assert :ok = Cairnloop.Workers.CheckSLA.perform(%Oban.Job{args: args})
+    refute_received {:sla_breached, _, _, _}
+  end
 end
