@@ -13,9 +13,14 @@ defmodule Cairnloop.Notifier.Chimeway do
       idempotency_key: "sla_breach_#{conversation.id}_#{sla.target_type}"
     ]
 
-    _ = Chimeway.trigger(Cairnloop.Chimeway.SLABreachNotifier, payload, opts)
+    chimeway_client = Application.get_env(:cairnloop, :chimeway_client, Chimeway)
 
-    :ok
+    if Code.ensure_loaded?(chimeway_client) do
+      _ = chimeway_client.trigger(Cairnloop.Chimeway.SLABreachNotifier, payload, opts)
+      :ok
+    else
+      {:error, :missing_chimeway_dependency}
+    end
   end
 
   @impl true
