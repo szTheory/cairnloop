@@ -16,6 +16,7 @@ defmodule Cairnloop.Notifier.Chimeway do
     chimeway_client = Application.get_env(:cairnloop, :chimeway_client, Chimeway)
 
     if Code.ensure_loaded?(chimeway_client) do
+      # Dynamically dispatch to the loaded module
       _ = chimeway_client.trigger(Cairnloop.Chimeway.SLABreachNotifier, payload, opts)
       :ok
     else
