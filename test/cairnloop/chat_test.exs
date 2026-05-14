@@ -1,12 +1,13 @@
 defmodule Cairnloop.ChatTest do
   use ExUnit.Case, async: false
   alias Cairnloop.Chat
+  alias Cairnloop.Conversations.SLA
 
   defmodule MockRepo do
     def get!(Cairnloop.Conversation, id) do
-      if id == 1 do
+      if id in [1, 2] do
         %Cairnloop.Conversation{
-          id: 1,
+          id: id,
           status: :open,
           host_user_id: 10,
           inserted_at: DateTime.utc_now() |> DateTime.add(-100, :second)
@@ -17,34 +18,49 @@ defmodule Cairnloop.ChatTest do
     end
 
     def transaction(multi) do
+      execute_multi(multi, %{})
+    end
+
+    defp execute_multi(multi, acc) do
       operations = Ecto.Multi.to_list(multi)
 
-      results =
-        Enum.into(operations, %{}, fn
-          {name, {:insert, changeset, _}} ->
-            {name, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)}
+      Enum.reduce_while(operations, {:ok, acc}, fn
+        {name, {:insert, changeset, _}}, {:ok, results} ->
+          result = Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)
+          {:cont, {:ok, Map.put(results, name, result)}}
 
-          {name, {:update, changeset, _}} ->
-            {name, Ecto.Changeset.apply_changes(changeset)}
+        {name, {:update, changeset, _}}, {:ok, results} ->
+          result = Ecto.Changeset.apply_changes(changeset)
+          {:cont, {:ok, Map.put(results, name, result)}}
 
-          {name, %Oban.Job{} = job} ->
-            {name, job}
-            
-          {name, {:run, run_fn}} ->
-            {:ok, result} = run_fn.(__MODULE__, %{})
-            {name, result}
-        end)
+        {name, %Oban.Job{} = job}, {:ok, results} ->
+          {:cont, {:ok, Map.put(results, name, job)}}
 
-      {:ok, results}
+        {name, {:run, run_fn}}, {:ok, results} ->
+          {:ok, result} = run_fn.(__MODULE__, results)
+          {:cont, {:ok, Map.put(results, name, result)}}
+
+        {_name, {:merge, merge_fn}}, {:ok, results} ->
+          merged_multi = merge_fn.(results)
+          case execute_multi(merged_multi, results) do
+            {:ok, new_results} -> {:cont, {:ok, new_results}}
+            error -> {:halt, error}
+          end
+      end)
     end
 
     def update(changeset) do
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
+
+    def one(%Ecto.Query{}) do
+      Process.get(:mock_sla)
+    end
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.delete(:mock_sla)
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
@@ -62,24 +78,60 @@ defmodule Cairnloop.ChatTest do
       assert job = results.draft_job
       assert job.worker == "Cairnloop.Automation.Workers.DraftWorker"
       assert job.args == %{"conversation_id" => 1}
+
+      assert sla = results.new_sla
+      assert sla.target_type == :first_response
+      assert sla.status == :active
+      
+      assert sla_job = results.sla_job
+      assert sla_job.worker == "Cairnloop.Workers.SlaCountdownWorker"
+      assert sla_job.args == %{"sla_id" => 999}
     end
 
-    test "inserts message but no job when role is :agent" do
+    test "user message does not create duplicate SLA if one is active" do
+      Process.put(:mock_sla, %SLA{id: 5, conversation_id: 2, status: :active})
+      
+      assert {:ok, results} = Chat.reply_to_conversation(2, "hello again", :user)
+      refute Map.has_key?(results, :new_sla)
+      refute Map.has_key?(results, :sla_job)
+    end
+
+    test "inserts message but no draft job when role is :agent, fulfills active SLA and creates resolution SLA" do
+      Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
+
       assert {:ok, results} = Chat.reply_to_conversation(1, "hello again", :agent)
       assert %{content: "hello again", role: :agent, conversation_id: 1} = results.message
 
       refute Map.has_key?(results, :draft_job)
+
+      assert fulfilled_sla = results.fulfill_sla
+      assert fulfilled_sla.status == :fulfilled
+      assert fulfilled_sla.completed_at != nil
+
+      assert new_sla = results.new_sla
+      assert new_sla.target_type == :resolution
+      assert new_sla.status == :active
+
+      assert sla_job = results.sla_job
+      assert sla_job.worker == "Cairnloop.Workers.SlaCountdownWorker"
+      assert sla_job.args == %{"sla_id" => 999}
     end
   end
 
   describe "resolve_conversation/2" do
-    test "sets status to :resolved, resolved_at to current UTC time, and inserts system message" do
+    test "sets status to :resolved, fulfills any active SLA, and inserts system message" do
+      Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
+      
       actor = %{type: "user", id: 1}
       assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: actor)
       conversation = results.conversation
       assert conversation.status == :resolved
       assert conversation.resolved_at != nil
       assert %DateTime{} = conversation.resolved_at
+
+      assert fulfilled_sla = results.fulfill_sla
+      assert fulfilled_sla.status == :fulfilled
+      assert fulfilled_sla.completed_at != nil
 
       assert %{
                content: "Please rate your experience.",
@@ -92,7 +144,6 @@ defmodule Cairnloop.ChatTest do
     test "requires resolved_by in options and emits telemetry" do
       actor = %{type: "system", id: "system"}
 
-      # Attach handlers to capture both span and domain telemetry
       :telemetry.attach(
         "test-resolve-handler",
         [:cairnloop, :conversation, :resolve, :stop],
@@ -142,7 +193,6 @@ defmodule Cairnloop.ChatTest do
 
   describe "submit_csat/2" do
     test "updates csat_rating and emits telemetry" do
-      # Attach handler to capture telemetry
       :telemetry.attach(
         "test-csat-handler",
         [:cairnloop, :feedback, :csat, :stop],
