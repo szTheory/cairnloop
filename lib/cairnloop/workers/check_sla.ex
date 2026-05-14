@@ -21,6 +21,7 @@ defmodule Cairnloop.Workers.CheckSLA do
         notifier.on_sla_breach(conversation, sla, %{})
 
       _ ->
+        # Gracefully default to :ok if no notifier is configured
         :ok
     end
     
