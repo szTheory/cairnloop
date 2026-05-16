@@ -18,7 +18,15 @@ defmodule Cairnloop.Workers.CheckSLA do
 
     case Application.get_env(:cairnloop, :notifier) do
       notifier when is_atom(notifier) and not is_nil(notifier) ->
-        notifier.on_sla_breach(conversation, sla, %{})
+        try do
+          notifier.on_sla_breach(conversation, sla, %{})
+        rescue
+          e ->
+            require Logger
+            Logger.warning("Notifier #{inspect(notifier)} failed: #{Exception.message(e)}")
+            :telemetry.execute([:cairnloop, :notifier, :failed], %{}, %{error: e, conversation: conversation, sla: sla})
+            :ok
+        end
 
       _ ->
         # Gracefully default to :ok if no notifier is configured
