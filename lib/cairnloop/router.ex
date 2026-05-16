@@ -6,6 +6,8 @@ defmodule Cairnloop.Router do
 
         live_session :cairnloop_dashboard, opts do
           live("/", Cairnloop.Web.InboxLive, :index, as: :cairnloop_inbox)
+          live("/knowledge-base", Cairnloop.Web.KnowledgeBaseLive.Index, :index)
+          live("/knowledge-base/:id/edit", Cairnloop.Web.KnowledgeBaseLive.Editor, :edit)
           live("/settings", Cairnloop.Web.SettingsLive, :index, as: :cairnloop_settings)
           live("/:id", Cairnloop.Web.ConversationLive, :show, as: :cairnloop_conversation)
         end
