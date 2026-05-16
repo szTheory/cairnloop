@@ -1,5 +1,6 @@
 defmodule Cairnloop.Web.SearchModalComponent do
   use Phoenix.LiveComponent
+  alias Phoenix.LiveView.JS
 
   def mount(socket) do
     {:ok, assign(socket, show: false, query: "", results: [])}
@@ -9,21 +10,22 @@ defmodule Cairnloop.Web.SearchModalComponent do
     ~H"""
     <div phx-window-keydown="toggle_search" phx-target={@myself}>
       <%= if @show do %>
-        <div class="search-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: flex-start; padding-top: 10vh; z-index: 50;">
-          <div class="search-modal-content" style="background: white; padding: 20px; border-radius: 8px; width: 600px; max-width: 90vw; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" phx-click-away="close" phx-target={@myself}>
+        <div class="search-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: flex-start; padding-top: var(--cl-spacing-3xl, 64px); z-index: 50;">
+          <div class="search-modal-content" style="background: var(--cl-surface, #fff); padding: var(--cl-spacing-md, 16px); border-radius: 8px; width: 600px; max-width: 90vw; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" phx-click-away="close" phx-target={@myself}>
             <form phx-change="search" phx-submit="search" phx-target={@myself}>
-              <input type="text" name="query" value={@query} phx-debounce="300" placeholder="Search resolved conversations (cmd+k)..." style="width: 100%; padding: 12px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px;" autofocus />
+              <input type="text" name="query" value={@query} phx-debounce="300" phx-mounted={JS.focus()} placeholder="Search resolved conversations (cmd+k)..." style="width: 100%; padding: var(--cl-spacing-md, 16px); font-size: 16px; border: 1px solid var(--cl-border, #ccc); border-radius: 4px; outline-color: var(--cl-primary, #A94F30);" />
             </form>
-            <div class="search-results" style="margin-top: 20px; max-height: 400px; overflow-y: auto;">
+            <div class="search-results" style="margin-top: 16px; max-height: 400px; overflow-y: auto;">
               <%= if Enum.empty?(@results) and @query != "" do %>
-                <p>No results found.</p>
+                <h3 style="margin-bottom: 8px; font-weight: 600; font-size: 20px;">No results found.</h3>
+                <p style="color: var(--cl-text-muted, #666);">Try adjusting your search terms to find relevant history.</p>
               <% else %>
                 <ul style="list-style: none; padding: 0; margin: 0;">
                   <%= for result <- @results do %>
-                    <li style="padding: 12px; border-bottom: 1px solid #eee;">
-                      <.link navigate={"/#{result["conversation_id"] || result["id"]}"} style="text-decoration: none; color: #333; display: block;" phx-click="close" phx-target={@myself}>
+                    <li style="padding: 12px; border-bottom: 1px solid var(--cl-border, #eee);">
+                      <.link navigate={"/#{result["conversation_id"] || result["id"]}"} style="text-decoration: none; color: var(--cl-text, #333); display: block;" phx-click="close" phx-target={@myself}>
                         <strong><%= result["subject"] || "Conversation ##{result["conversation_id"] || result["id"]}" %></strong>
-                        <p style="margin: 5px 0 0; font-size: 0.9em; color: #666;"><%= (result["text"] || "") |> String.slice(0..150) %>...</p>
+                        <p style="margin: 5px 0 0; font-size: 0.9em; color: var(--cl-text-muted, #666);"><%= (result["text"] || "") |> String.slice(0..150) %>...</p>
                       </.link>
                     </li>
                   <% end %>
@@ -85,7 +87,11 @@ defmodule Cairnloop.Web.SearchModalComponent do
         {:noreply, assign(socket, query: query, results: results)}
       
       _ ->
-        {:noreply, assign(socket, query: query, results: [])}
+        {:noreply, 
+          socket
+          |> assign(query: query, results: [])
+          |> put_flash(:error, "Search service unavailable. Please try again later.")
+        }
     end
   end
 end
