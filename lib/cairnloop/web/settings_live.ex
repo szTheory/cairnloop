@@ -48,6 +48,7 @@ defmodule Cairnloop.Web.SettingsLive do
 
   def render(assigns) do
     ~H"""
+    <.live_component module={Cairnloop.Web.SearchModalComponent} id="search-modal" />
     <div class="cairnloop-settings">
       <h1>SLA Policies</h1>
       
