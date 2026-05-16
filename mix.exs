@@ -30,7 +30,8 @@ defmodule Cairnloop.MixProject do
       {:oban, "~> 2.17"},
       {:mailglass, "~> 0.2"},
       {:hackney, "~> 1.9"},
-      {:chimeway, "~> 1.0", optional: true}
+      {:chimeway, "~> 1.0", optional: true},
+      {:scrypath, ">= 0.0.0", optional: true}
     ]
   end
 end
