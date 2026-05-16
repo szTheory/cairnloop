@@ -24,6 +24,7 @@ defmodule Cairnloop.MixProject do
     [
       {:ecto_sql, "~> 3.10"},
       {:postgrex, ">= 0.0.0"},
+      {:pgvector, "~> 0.3.1"},
       {:igniter, "~> 0.5"},
       {:phoenix_live_view, "~> 1.0"},
       {:jason, "~> 1.2"},
