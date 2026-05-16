@@ -14,7 +14,6 @@ defmodule Cairnloop.Web.InboxLive do
 
   def render(assigns) do
     ~H"""
-    <.live_component module={Cairnloop.Web.SearchModalComponent} id="search-modal" />
     <div class="cairnloop-inbox">
       <h1>Inbox</h1>
       <ul>
@@ -28,6 +27,7 @@ defmodule Cairnloop.Web.InboxLive do
         <% end %>
       </ul>
     </div>
+    <.live_component module={Cairnloop.Web.SearchModalComponent} id="search-modal" />
     """
   end
 end
