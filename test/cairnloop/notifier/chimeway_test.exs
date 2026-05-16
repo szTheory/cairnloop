@@ -2,6 +2,7 @@ defmodule Cairnloop.Notifier.ChimewayTest do
   use ExUnit.Case, async: true
 
   test "implements Notifier behaviour" do
+    Code.ensure_loaded(Cairnloop.Notifier.Chimeway)
     assert function_exported?(Cairnloop.Notifier.Chimeway, :on_conversation_resolved, 2)
     assert function_exported?(Cairnloop.Notifier.Chimeway, :on_sla_breach, 3)
   end
