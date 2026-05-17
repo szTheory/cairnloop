@@ -155,7 +155,14 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def render(assigns) do
     ~H"""
-    <.live_component module={Cairnloop.Web.SearchModalComponent} id="search-modal" />
+    <.live_component
+      module={Cairnloop.Web.SearchModalComponent}
+      id="search-modal"
+      host_surface="conversation"
+      host_user_id={@conversation.host_user_id}
+      current_path={"/#{@conversation.id}"}
+      preserve_reply_form={true}
+    />
     <style>
       .conversation-layout {
         display: flex;

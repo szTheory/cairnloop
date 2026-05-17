@@ -26,11 +26,22 @@ defmodule Cairnloop.Web.SearchModalComponent do
 
   def render(assigns) do
     ~H"""
-    <div phx-window-keydown="toggle_search" phx-target={@myself}>
+    <div
+      id={"#{@id}-search-root"}
+      data-host-surface={@host_surface}
+      data-host-user-id={@host_user_id}
+      data-current-path={@current_path}
+      data-preserve-reply-form={to_string(@preserve_reply_form)}
+      phx-window-keydown="toggle_search"
+      phx-key="k"
+      phx-target={@myself}
+    >
       <%= if @open do %>
         <div
           class="search-modal-backdrop"
           style="position: fixed; inset: 0; background: rgba(44, 38, 31, 0.42); display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px; z-index: 50;"
+          phx-window-keydown="handle_palette_key"
+          phx-target={@myself}
         >
           <div
             class="search-modal-content"
@@ -93,6 +104,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                               <button
                                 type="button"
                                 phx-click="activate_result"
+                                phx-mouseenter="activate_result"
                                 phx-value-dom_id={presenter.dom_id}
                                 phx-target={@myself}
                                 style={result_row_style(active?)}
@@ -158,14 +170,14 @@ defmodule Cairnloop.Web.SearchModalComponent do
 
                   <div style="margin-top: 24px;">
                     <%= if @preview.open_path do %>
-                      <.link
-                        navigate={@preview.open_path}
-                        phx-click="close"
+                      <button
+                        type="button"
+                        phx-click="open_active_result"
                         phx-target={@myself}
                         style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; text-decoration: none; background: var(--cl-primary, #A94F30); color: white; font-weight: 600;"
                       >
                         <%= @preview.open_action_label %>
-                      </.link>
+                      </button>
                     <% else %>
                       <span style="display: inline-flex; min-height: 44px; align-items: center; color: rgba(47, 36, 29, 0.62);">
                         <%= @preview.open_action_label %>
@@ -205,12 +217,50 @@ defmodule Cairnloop.Web.SearchModalComponent do
     end
   end
 
+  def handle_event("handle_palette_key", %{"key" => key} = params, socket) do
+    cond do
+      not socket.assigns.open ->
+        {:noreply, socket}
+
+      key == "ArrowDown" ->
+        {:noreply, move_active_result(socket, 1)}
+
+      key == "ArrowUp" ->
+        {:noreply, move_active_result(socket, -1)}
+
+      key == "Enter" ->
+        {:noreply, open_active_result(socket, new_tab?: new_tab_shortcut?(params))}
+
+      key == "Escape" and socket.assigns.query != "" ->
+        {:noreply, clear_query(socket)}
+
+      key == "Escape" ->
+        {:noreply, close_palette(socket)}
+
+      true ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("close", _, socket) do
     {:noreply, close_palette(socket)}
   end
 
   def handle_event("activate_result", %{"dom_id" => dom_id}, socket) do
     {:noreply, set_active_result(socket, dom_id)}
+  end
+
+  def handle_event("open_active_result", params, socket) do
+    {:noreply, open_active_result(socket, new_tab?: truthy?(params["new_tab"]))}
+  end
+
+  def handle_event("open_result", %{"dom_id" => dom_id} = params, socket) do
+    socket =
+      socket
+      |> set_active_result(dom_id)
+      |> open_result(dom_id, new_tab?: truthy?(params["new_tab"]))
+
+    {:noreply, socket}
   end
 
   def handle_event("search", %{"query" => query}, socket) when byte_size(query) < 2 do
@@ -248,7 +298,11 @@ defmodule Cairnloop.Web.SearchModalComponent do
       active_dom_id: nil,
       sections: build_sections([]),
       preview: nil,
-      retrieval_module: Cairnloop.Retrieval
+      retrieval_module: Cairnloop.Retrieval,
+      host_surface: nil,
+      host_user_id: nil,
+      current_path: nil,
+      preserve_reply_form: false
     )
   end
 
@@ -311,6 +365,22 @@ defmodule Cairnloop.Web.SearchModalComponent do
     |> ensure_preview_state()
   end
 
+  defp move_active_result(socket, delta) do
+    results = all_results(socket.assigns.sections)
+
+    case results do
+      [] ->
+        socket
+
+      _ ->
+        dom_ids = Enum.map(results, &SearchResultPresenter.dom_id/1)
+        current_index = Enum.find_index(dom_ids, &(&1 == socket.assigns.active_dom_id)) || 0
+        next_index = clamp_index(current_index + delta, length(dom_ids) - 1)
+
+        set_active_result(socket, Enum.at(dom_ids, next_index))
+    end
+  end
+
   defp build_sections(results) do
     Enum.map(@section_order, fn source_type ->
       %{
@@ -370,6 +440,42 @@ defmodule Cairnloop.Web.SearchModalComponent do
     ((key == "k" or key == "K") and truthy?(params["metaKey"])) or
       (truthy?(params["ctrlKey"]) and (key == "k" or key == "K"))
   end
+
+  defp new_tab_shortcut?(params) do
+    truthy?(params["metaKey"]) or truthy?(params["ctrlKey"])
+  end
+
+  defp open_active_result(socket, opts) do
+    open_result(socket, socket.assigns.active_dom_id, opts)
+  end
+
+  defp open_result(socket, nil, _opts), do: socket
+
+  defp open_result(socket, dom_id, _opts) do
+    case preview_for_dom_id(socket.assigns.sections, dom_id) do
+      %{open_path: open_path} when is_binary(open_path) ->
+        socket
+        |> close_palette()
+        |> push_navigate(to: open_path)
+
+      _ ->
+        socket
+    end
+  end
+
+  defp preview_for_dom_id(sections, dom_id) do
+    sections
+    |> all_results()
+    |> Enum.find(&(SearchResultPresenter.dom_id(&1) == dom_id))
+    |> case do
+      nil -> nil
+      result -> present(result)
+    end
+  end
+
+  defp clamp_index(index, _max_index) when index < 0, do: 0
+  defp clamp_index(index, max_index) when index > max_index, do: max_index
+  defp clamp_index(index, _max_index), do: index
 
   defp truthy?(value), do: value in [true, "true"]
 

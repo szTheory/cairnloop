@@ -1,5 +1,6 @@
 defmodule Cairnloop.Web.ConversationLiveTest do
   use ExUnit.Case, async: false
+  import Phoenix.LiveViewTest
 
   alias Cairnloop.Web.ConversationLive
 
@@ -178,7 +179,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   describe "render/1 normalizes context and shell" do
     test "renders empty shell with correct copy when context is empty" do
       assigns = %{
-        conversation: %Cairnloop.Conversation{id: 1, subject: "Test", messages: [], drafts: []},
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
         host_context: %{},
         context_error: nil,
         form: Phoenix.Component.to_form(%{"content" => ""}),
@@ -187,6 +194,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
 
       html = render_html(assigns)
+      assert html =~ "data-host-surface=\"conversation\""
+      assert html =~ "data-host-user-id=\"user_42\""
+      assert html =~ "data-preserve-reply-form=\"true\""
       assert html =~ "No customer context yet"
 
       assert html =~
@@ -195,7 +205,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "renders error shell with correct copy when context_error is present" do
       assigns = %{
-        conversation: %Cairnloop.Conversation{id: 1, subject: "Test", messages: [], drafts: []},
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
         host_context: %{},
         context_error: :timeout,
         form: Phoenix.Component.to_form(%{"content" => ""}),
@@ -214,7 +230,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "renders ordered nested context sections and humanizes labels" do
       assigns = %{
-        conversation: %Cairnloop.Conversation{id: 1, subject: "Test", messages: [], drafts: []},
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
         host_context: %{
           "identity" => %{"full_name" => "Alice", "id" => 42},
           "billing" => %{"plan" => "Pro", "tags" => ["vip", "active"]}
@@ -243,7 +265,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "renders Unsupported value for unsupported terms instead of raw inspect" do
       assigns = %{
-        conversation: %Cairnloop.Conversation{id: 1, subject: "Test", messages: [], drafts: []},
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
         host_context: %{
           "pid" => self(),
           "tuple" => {:error, :reason},
@@ -273,7 +301,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           messages: [],
           drafts: [
             %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
-          ]
+          ],
+          host_user_id: "user_42"
         },
         host_context: %{},
         context_error: nil,
@@ -299,7 +328,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           messages: [],
           drafts: [
             %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
-          ]
+          ],
+          host_user_id: "user_42"
         },
         host_context: %{},
         context_error: nil,
@@ -315,6 +345,32 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       assert html =~ "phx-click=\"confirm_discard_draft\""
       assert html =~ "phx-click=\"cancel_discard_draft\""
+    end
+  end
+
+  describe "reply form safety during search integration" do
+    test "keeps draft reply content and search mount contract together" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test Subject",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => "Draft reply in progress"}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "Draft reply in progress"
+      assert html =~ "class=\"reply-form\""
+      assert html =~ "data-host-surface=\"conversation\""
+      assert html =~ "data-preserve-reply-form=\"true\""
     end
   end
 
@@ -446,9 +502,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   defp render_html(assigns) do
-    assigns
-    |> ConversationLive.render()
-    |> Phoenix.HTML.Safe.to_iodata()
-    |> IO.iodata_to_binary()
+    render_component(&ConversationLive.render/1, assigns)
   end
 end

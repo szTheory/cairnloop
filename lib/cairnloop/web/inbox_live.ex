@@ -27,7 +27,12 @@ defmodule Cairnloop.Web.InboxLive do
         <% end %>
       </ul>
     </div>
-    <.live_component module={Cairnloop.Web.SearchModalComponent} id="search-modal" />
+    <.live_component
+      module={Cairnloop.Web.SearchModalComponent}
+      id="search-modal"
+      host_surface="inbox"
+      current_path="/"
+    />
     """
   end
 end
