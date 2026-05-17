@@ -32,6 +32,7 @@ defmodule Cairnloop.MixProject do
       {:mailglass, "~> 0.2"},
       {:hackney, "~> 1.9"},
       {:earmark, "~> 1.4"},
+      {:req, "~> 0.5"},
       {:chimeway, "~> 1.0", optional: true},
       {:scrypath, ">= 0.0.0", optional: true}
     ]
