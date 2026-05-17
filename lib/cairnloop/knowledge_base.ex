@@ -54,10 +54,18 @@ defmodule Cairnloop.KnowledgeBase do
     |> Ecto.Multi.update(:article, fn %{revision: rev} ->
       Article.changeset(repo().get!(Article, rev.article_id), %{status: :published})
     end)
+    |> Ecto.Multi.insert(:chunk_job, Cairnloop.KnowledgeBase.Workers.ChunkRevision.new(%{revision_id: revision.id}))
     |> repo().transaction()
     |> case do
       {:ok, %{revision: published_revision}} -> {:ok, published_revision}
       {:error, _failed_operation, failed_value, _changes_so_far} -> {:error, failed_value}
     end
+  end
+
+  def search_chunks(embedding_vector, limit \\ 5) do
+    Cairnloop.KnowledgeBase.Chunk
+    |> order_by([c], fragment("? <-> ?", c.embedding, ^Pgvector.new(embedding_vector)))
+    |> limit(^limit)
+    |> repo().all()
   end
 end
