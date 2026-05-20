@@ -1,64 +1,48 @@
-# Requirements: vM006 Omnichannel SLA Escalation, vM007 Semantic Search & vM008 Knowledge Base Engine
+# Requirements: vM009 Retrieval-First Support Answers & Search Ops
 
-## Active Requirements (M006)
+## Milestone Goal
+Turn the shipped Knowledge Base substrate into visible product value by making retrieval trustworthy, inspectable, and reusable across operator search and grounded draft generation.
 
-### SLA Countdown Engine
-- [ ] **M006-REQ-01**: System schedules an Oban job (`CheckSLA`) when a conversation is created or updated.
-- [ ] **M006-REQ-02**: The `CheckSLA` job executes idempotently, returning NOOP if the conversation is already resolved or replied to.
+## Active Requirements (M009)
 
-### Notifier & Chimeway Integration
-- [ ] **M006-REQ-03**: System defines a `Cairnloop.Notifier` behaviour for omnichannel delivery.
-- [ ] **M006-REQ-04**: System integrates `Chimeway` to deliver notifications when an SLA is breached.
-- [ ] **M006-REQ-05**: Host application can configure Chimeway adapters to route messages to Slack, Discord, or Email.
+### Hybrid Retrieval Corpus
+- [ ] **M009-REQ-01**: System indexes published Knowledge Base revisions into a hybrid retrieval corpus that supports both semantic similarity and keyword search.
+- [ ] **M009-REQ-02**: System indexes resolved conversation summaries separately from Knowledge Base content and marks them as assistive evidence rather than canonical policy.
+- [ ] **M009-REQ-03**: System updates retrieval indexes asynchronously via Oban when Knowledge Base revisions publish and when conversations resolve.
 
-### LiveView Configuration
-- [ ] **M006-REQ-06**: Operators can configure SLA thresholds (e.g., Time to First Response, Time to Resolution) via the LiveView dashboard.
+### Operator Search
+- [ ] **M009-REQ-04**: Operator can open a global `cmd+k` search and query Knowledge Base content plus similar resolved cases from the LiveView dashboard.
+- [ ] **M009-REQ-05**: Search results enforce tenant and visibility filtering before ranking and show clear source cues such as content type, recency, and citation target.
 
-## Active Requirements (M007)
+### Grounded Drafting
+- [ ] **M009-REQ-06**: AI drafting can request grounded retrieval context before proposing a response.
+- [ ] **M009-REQ-07**: Drafts display supporting citations or retrieved evidence and fall back to escalation when retrieval confidence is weak or no trustworthy sources exist.
 
-### Telemetry & Asynchronous Ingestion
-- [ ] **M007-REQ-01**: System emits Telemetry events upon conversation resolution.
-- [ ] **M007-REQ-02**: System triggers an asynchronous Oban worker to ingest resolved conversation data into Scrypath.
+### Retrieval Telemetry & Gap Signals
+- [ ] **M009-REQ-08**: System emits retrieval telemetry for latency, hit/miss, ranking outcomes, and grounding decisions using Scoria- and Parapet-safe contracts.
+- [ ] **M009-REQ-09**: System records failed searches and no-hit retrieval events so future knowledge-gap workflows can prioritize missing content from real evidence.
 
-### Operator Semantic Search Interface (LiveView)
-- [ ] **M007-REQ-03**: LiveView dashboard provides a global `cmd+k` semantic search interface for operators.
-- [ ] **M007-REQ-04**: System retrieves semantic search results from Scrypath based on operator queries.
+## Future Requirements
+- [ ] **M010-FUTURE-01**: Classify support intents durably and cluster recurring unsupported issues into ranked knowledge gaps.
+- [ ] **M011-FUTURE-01**: Expose policy-gated support tools to the drafting loop with operator approval and audit snapshots.
+- [ ] **M012-FUTURE-01**: Trigger transactional support outbound flows for incident recovery and bug-fix follow-up.
 
-### AI Retrieval & Context Grounding
-- [ ] **M007-REQ-05**: System integrates Scrypath as an MCP Resource for the Scoria AI drafting engine to ground responses in historical data.
-
-## Active Requirements (M008)
-
-### Immutable Knowledge Base Foundation
-- [ ] **M008-REQ-01**: System implements an immutable Revision-Based architecture in Ecto, utilizing `Article`, `Revision`, and `Chunk` schemas.
-
-### LiveView Markdown Authoring
-- [ ] **M008-REQ-02**: LiveView dashboard provides a Markdown-native authoring interface with side-by-side preview for operators.
-
-### Semantic Chunking & Embedding Pipeline
-- [ ] **M008-REQ-03**: System triggers an asynchronous Oban worker upon revision publish to semantically chunk the Markdown content based on headers (H2/H3).
-- [ ] **M008-REQ-04**: System utilizes `pgvector` within PostgreSQL to store vector embeddings for each parsed Markdown chunk.
-- [ ] **M008-REQ-05**: AI chunking and embedding processes execute completely transparently in the background, without blocking operator workflows.
-- [ ] **M008-REQ-06**: The Knowledge Base system exposes a retrieval API, serving as a RAG-optimized source-of-truth for Scoria AI triage and self-service.
+## Out of Scope
+- External Scrypath dependency as the default retrieval path.
+- Real-time indexing of every live conversation message.
+- Autonomous customer-visible replies based only on retrieval confidence.
+- Full external MCP exposure of retrieval and search during this milestone.
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| M006-REQ-01 | Phase 1 (M006) | Pending |
-| M006-REQ-02 | Phase 1 (M006) | Pending |
-| M006-REQ-03 | Phase 2 (M006) | Pending |
-| M006-REQ-04 | Phase 2 (M006) | Pending |
-| M006-REQ-05 | Phase 2 (M006) | Pending |
-| M006-REQ-06 | Phase 3 (M006) | Pending |
-| M007-REQ-01 | Phase 1 (M007) | Pending |
-| M007-REQ-02 | Phase 1 (M007) | Pending |
-| M007-REQ-03 | Phase 2 (M007) | Complete |
-| M007-REQ-04 | Phase 2 (M007) | Pending |
-| M007-REQ-05 | Phase 3 (M007) | Pending |
-| M008-REQ-01 | Phase 1 (M008) | Pending |
-| M008-REQ-02 | Phase 2 (M008) | Pending |
-| M008-REQ-03 | Phase 3 (M008) | Pending |
-| M008-REQ-04 | Phase 3 (M008) | Pending |
-| M008-REQ-05 | Phase 3 (M008) | Pending |
-| M008-REQ-06 | Phase 3 (M008) | Pending |
+| M009-REQ-01 | Phase 6 (M009) | Pending |
+| M009-REQ-02 | Phase 6 (M009) | Pending |
+| M009-REQ-03 | Phase 6 (M009) | Pending |
+| M009-REQ-04 | Phase 5 (M009) | Pending |
+| M009-REQ-05 | Phase 5 (M009) | Pending |
+| M009-REQ-06 | Phase 7 (M009) | Pending |
+| M009-REQ-07 | Phase 7 (M009) | Pending |
+| M009-REQ-08 | Phase 8 (M009) | Pending |
+| M009-REQ-09 | Phase 8 (M009) | Pending |
