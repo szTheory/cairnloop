@@ -22,6 +22,15 @@ defmodule Cairnloop.Telemetry do
   * `[:cairnloop, :feedback, :csat, :start]`
   * `[:cairnloop, :feedback, :csat, :stop]` - Metadata includes `:rating`
   * `[:cairnloop, :feedback, :csat, :exception]`
+
+  ## Retrieval Events
+
+  * `[:cairnloop, :retrieval, :search]`
+  * `[:cairnloop, :retrieval, :draft_grounding]`
+
+  Retrieval metadata is bounded to low-cardinality fields such as `:surface`,
+  `:source_mix`, `:result_bucket`, `:grounding_status`, `:diagnostic_class`,
+  `:reason`, `:canonical_hit_count`, `:assistive_hit_count`, and `:ranking_outcome`.
   """
 
   @doc """

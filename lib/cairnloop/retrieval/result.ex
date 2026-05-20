@@ -1,4 +1,8 @@
 defmodule Cairnloop.Retrieval.Result do
+  @moduledoc """
+  Normalized retrieval evidence shared across search, grounding, and telemetry summaries.
+  """
+
   defstruct [
     :id,
     :title,
