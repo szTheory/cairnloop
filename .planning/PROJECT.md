@@ -23,16 +23,22 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 **Closeout posture:** `vM009` is shipped and archived as a `tech_debt` milestone. All milestone
 requirements are verified; the remaining debt is explicit and non-blocking.
 
-## Next Milestone Goals
+## Current Milestone: vM010 KB AI Maintenance
 
-- Turn repeated retrieval misses, weak grounding, and manual support handling into actionable
-  Knowledge Base maintenance work.
-- Keep KB content canonical only after review and publish, while letting AI prepare safe article
-  drafts and revision proposals.
-- Reuse retrieval evidence, gap signals, and operator workflows from `vM009` instead of inventing
-  a new top-level product lane.
-- Preserve Cairnloop-owned Phoenix, Ecto, and Oban infrastructure, with Scoria as an optional
-  evidence or governance lane rather than a hard dependency.
+**Goal:** Turn retrieval misses, weak grounding, and repeated manual handling into a safe
+Knowledge Base maintenance workflow.
+
+**Target features:**
+- Gap detection and clustering from retrieval no-hits, weak grounding, and repeated support
+  handling.
+- AI-assisted draft article creation and suggested revisions for existing KB content.
+- Operator review workflow with evidence, citations, diff/review actions, and publish gated by
+  the existing KB review path.
+- In-thread quick-fix flow so operators can start a KB draft directly from conversation evidence.
+
+**Why now:** `vM009` already emits retrieval telemetry and durable gap signals. The highest-leverage
+next step is to turn those signals into operator-reviewed KB improvements before expanding AI
+agency or external integration surface area.
 
 ## Requirements
 
@@ -48,16 +54,19 @@ requirements are verified; the remaining debt is explicit and non-blocking.
 - ✓ Retrieval-First Support Answers & Search Ops — vM009
 
 ### Active
-- [ ] Define the scoped `M010` requirement set for KB maintenance using the archived `vM009`
-  evidence and the existing `M010` spec.
-- [ ] Centralize search fail-closed scope guards before search expands to more mounted surfaces.
-- [ ] Unblock repo-backed realism lanes so future milestone closure can include live DB-backed proof
-  instead of residual-risk wording.
+- [ ] Deliver `vM010` KB maintenance scope from gap detection through review-gated draft creation
+  and revision suggestions.
+- [ ] Preserve citation-backed review and publish guardrails so AI-prepared KB work never becomes
+  canonical without operator approval.
+- [ ] Keep the milestone inside Cairnloop-owned Phoenix, Ecto, and Oban paths, with Scoria
+  remaining optional.
 
 ### Out of Scope
 - External vector/search infrastructure as the default path.
 - Autonomous customer-visible replies based only on retrieval confidence.
 - Treating raw live conversations as canonical policy truth.
+- Autonomous publishing of substantive KB content.
+- Broad MCP or governed-tool expansion before the KB maintenance loop is operational.
 
 ## Previous Milestone Brief
 
@@ -101,4 +110,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 after shipping vM009*
+*Last updated: 2026-05-21 after starting vM010*

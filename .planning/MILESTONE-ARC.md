@@ -32,12 +32,13 @@ search-surface scope guards.
 
 ## Recommended Next Milestones
 
-### M010 - Intent Classification & Knowledge Gap Clustering
-**Status:** candidate
+### M010 - KB AI Maintenance
+**Status:** active
 **Priority:** high
 **Why after M009:** retrieval telemetry and no-hit evidence should feed a ranked gap loop instead of asking AI to invent product insights from thin signals.
 **Shift-left rule:** keep this immediately after M009 unless enterprise adoption pressure strongly favors governed tools first.
 **Implementation bias:** treat M010 as the start of a KB maintenance lane, not just analytics. The main operator action should be `Gap -> Draft article / Suggest revision -> Review -> Publish -> Reindex`, with Scoria as an optional governance/evidence layer rather than a hard dependency.
+**Activated:** 2026-05-21
 
 ### M011 - AI Tool Governance & MCP Integration
 **Status:** candidate

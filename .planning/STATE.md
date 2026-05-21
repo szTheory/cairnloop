@@ -1,44 +1,63 @@
 # Project State
 
 ## Project Reference
-**Core Value:** Provide an embedded Elixir-native customer support engine with high extensibility, strict AI governance, and zero external infrastructure dependencies.
-**Current Focus:** Define Milestone `M010` and convert `vM009` retrieval evidence into a KB maintenance lane.
+See: `.planning/PROJECT.md` (updated 2026-05-21)
+
+**Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
+**Current focus:** Phase 9 - Gap Candidate Discovery
 
 ## Current Position
-**Phase:** Between milestones
-**Plan:** `vM009` archived; next step is fresh milestone definition
-**Status:** Ready for `$gsd-new-milestone`
 
-## Progress
-[##########] 100% Complete (`vM009` shipped)
+Phase: 9 of 12 (Gap Candidate Discovery)
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-05-21 — Created vM010 roadmap and mapped all milestone requirements to phases
+
+Progress: [----------] 0%
 
 ## Performance Metrics
-- **Test Coverage:** `vM009` closed with all nine requirements verified, but several closure artifacts
-  still carry residual verification risk because live repo-backed realism lanes are blocked in this
-  workspace.
-- **System Constraints:** Maintain idiomatic Elixir. Keep retrieval host-owned by default. Use
-  Oban for async indexing. Rely on `pgvector` plus PostgreSQL full-text search. Avoid external
-  search infrastructure unless the local path proves insufficient.
-- **Completed:** `vM009` Milestone (Retrieval-First Support Answers & Search Ops) shipped on
-  2026-05-21.
+
+**Velocity:**
+- Total plans completed: 14
+- Average duration: -
+- Total execution time: -
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 9-12 | 0 | 0 | - |
+
+**Recent Trend:**
+- Last 5 plans: n/a for vM010
+- Trend: Stable
 
 ## Accumulated Context
-- **Decisions:** 
-  - Using an immutable Revision-Based architecture (`Article`, `Revision`, `Chunk`) inside Ecto to avoid orphaned vectors.
-  - Employing Markdown natively with side-by-side LiveView preview for maximum RAG parsing fidelity.
-  - Offloading semantic chunking (H2/H3) and embedding generation to background Oban workers using `pgvector`.
-  - Prioritize trust and grounding before broader agent autonomy. Retrieval moves left; governed tools and outbound follow after answer quality is inspectable.
-  - Keep the next milestone focused on KB maintenance and review workflows rather than jumping
-    straight to broader tool autonomy.
-- **Todos:** 
-  - Start `$gsd-new-milestone` for `M010` using `.planning/M010-KB-AI-MAINTENANCE-SPEC.md`.
-  - Centralize duplicated search-surface fail-closed guards before retrieval expands to more
-    operator surfaces.
-  - Unblock repo-backed realism lanes so future milestone closure can include stronger live proof.
-- **Blockers:** 
-  - `Cairnloop.Repo` is unavailable in this workspace, which blocks live repo-backed realism lanes
-    used by several closeout verification artifacts.
+
+### Decisions
+
+- vM010 stays inside Cairnloop-owned Phoenix, Ecto, and Oban paths; Scoria remains optional.
+- Sequence the milestone as `Gap -> Suggest -> Review -> Quick fix/ops`, matching the proof and support gates.
+- Preserve the canonical publish boundary: AI can prepare KB work, never publish it directly.
+
+### Pending Todos
+
+- Plan Phase 9 against the gap dashboard, clustering, and evidence inspection requirements.
+- Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear.
+- Unblock repo-backed realism lanes so later milestone verification can include stronger live proof.
+
+### Blockers/Concerns
+
+- `Cairnloop.Repo` remains unavailable in this workspace, so some DB-backed realism proof may stay environment-blocked.
+
+## Deferred Items
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| Verification | Repo-backed realism lanes unavailable in this workspace | Open | vM009 closeout |
 
 ## Session Continuity
-Stopped At: `vM009` milestone archived on 2026-05-21; next action is fresh milestone definition for
-`M010`.
+
+Last session: 2026-05-21 00:00
+Stopped at: Roadmap creation complete; next action is `/gsd-plan-phase 9`
+Resume file: `.planning/continue.md`
