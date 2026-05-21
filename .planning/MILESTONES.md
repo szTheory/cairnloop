@@ -1,5 +1,54 @@
 # Milestones
 
+## vM009 - Retrieval-First Support Answers & Search Ops
+**Shipped:** 2026-05-21
+
+**Key accomplishments:**
+- Built a host-owned hybrid retrieval corpus over published Knowledge Base content and resolved
+  support evidence.
+- Shipped a retrieval-backed `cmd+k` operator search flow with source, trust, recency, and
+  citation cues.
+- Grounded AI drafts in explicit retrieval evidence with visible clarification and escalation
+  states.
+- Added bounded retrieval telemetry and durable gap-event storage so future KB maintenance work can
+  start from real miss signals.
+- Closed the remaining operator-search scope blocker and backfilled milestone verification so all
+  nine requirements are traced as verified.
+
+**Stats:**
+- Phases: 8
+- Plans: 14
+- Timeline: 2026-05-17 -> 2026-05-21
+- Git range: `2adb75d` -> working tree closeout
+- Code delta at close: 30 files changed, 3230 insertions, 181 deletions
+- Known deferred items at close: 2 technical debt items (repo-backed realism lanes blocked in this
+  workspace; duplicated search-surface guard lists)
+
+## vM006 - Omnichannel SLA Escalation (Chimeway)
+**Shipped:** 2026-05-15
+
+**Key accomplishments:**
+- Implemented SLA Countdown Engine via Oban for durably tracking conversation SLA timers.
+- Defined `Cairnloop.Notifier` behaviour for omnichannel notification delivery.
+- Integrated Chimeway to dispatch actionable SLA breach notifications securely and safely without hardcoding external integrations.
+- Exposed configuration for host applications to route SLA breach messages to Slack, PagerDuty, or Email.
+
+**Stats:**
+- Phases: 2
+- Plans: 2
+
+## vM005 - Durable Auditing & SRE Observability
+**Shipped:** 2026-05-13
+
+**Key accomplishments:**
+- Integrated `Cairnloop.Auditor` behavior for immutable audit logging of critical operator actions.
+- Integrated with Parapet to surface Service Level Indicators (SLIs) via Telemetry without cardinality explosions.
+- Scaffolded SLO alerts and diagnostic runbooks via Igniter for enterprise compliance.
+
+**Stats:**
+- Phases: 3
+- Plans: 2
+
 ## vM004 - Customer Voice Activation
 **Shipped:** 2026-05-12
 
