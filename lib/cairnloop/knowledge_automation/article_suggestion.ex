@@ -8,6 +8,17 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
   @suggestion_type_values [:article, :revision]
   @entrypoint_type_values [:gap_candidate, :article_revision, :conversation_quick_fix]
   @tenant_scope_values [:host_user_scoped, :public_only, :system_unscoped]
+  @quick_fix_outcome_values ["ready", "shell_created", "blocked_manual_required"]
+  @quick_fix_outcome_atoms Enum.map(@quick_fix_outcome_values, &String.to_atom/1)
+
+  @quick_fix_reason_values [
+    "missing_canonical_grounding",
+    "canonical_snapshot_unavailable",
+    "citation_anchors_unavailable",
+    "policy_guard_blocked"
+  ]
+
+  @quick_fix_reason_atoms Enum.map(@quick_fix_reason_values, &String.to_atom/1)
 
   schema "cairnloop_article_suggestions" do
     field(:stable_key, :string)
@@ -72,6 +83,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
     |> validate_grounding_metadata()
     |> validate_host_scope()
     |> validate_anchor_rules()
+    |> validate_quick_fix_metadata()
   end
 
   def dismiss_changeset(article_suggestion, dismissed_at) do
@@ -148,4 +160,42 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
     do: add_error(changeset, field, "must be blank for gap-driven article suggestions")
 
   defp reject_anchor(changeset, _field, _value), do: changeset
+
+  defp validate_quick_fix_metadata(changeset) do
+    if get_field(changeset, :entrypoint_type) == :conversation_quick_fix do
+      grounding_metadata = get_field(changeset, :grounding_metadata) || %{}
+      outcome = metadata_value(grounding_metadata, :quick_fix_outcome)
+      reason = metadata_value(grounding_metadata, :quick_fix_reason)
+
+      changeset
+      |> validate_quick_fix_outcome(outcome)
+      |> validate_quick_fix_reason(reason)
+    else
+      changeset
+    end
+  end
+
+  defp validate_quick_fix_outcome(changeset, outcome)
+       when outcome in @quick_fix_outcome_values or outcome in @quick_fix_outcome_atoms,
+    do: changeset
+
+  defp validate_quick_fix_outcome(changeset, _outcome) do
+    add_error(changeset, :grounding_metadata, "must include a bounded quick-fix outcome")
+  end
+
+  defp validate_quick_fix_reason(changeset, nil), do: changeset
+
+  defp validate_quick_fix_reason(changeset, reason)
+       when reason in @quick_fix_reason_values or reason in @quick_fix_reason_atoms,
+       do: changeset
+
+  defp validate_quick_fix_reason(changeset, _reason) do
+    add_error(changeset, :grounding_metadata, "must include a bounded quick-fix reason")
+  end
+
+  defp metadata_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp metadata_value(_, _), do: nil
 end

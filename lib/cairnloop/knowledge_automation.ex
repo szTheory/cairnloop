@@ -24,6 +24,13 @@ defmodule Cairnloop.KnowledgeAutomation do
     revision:
       "# Revision suggestion blocked\n\nCanonical citation-backed grounding was insufficient."
   }
+  @quick_fix_shell_reasons [:missing_canonical_grounding]
+
+  @quick_fix_blocked_reasons [
+    :canonical_snapshot_unavailable,
+    :citation_anchors_unavailable,
+    :policy_guard_blocked
+  ]
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
@@ -121,12 +128,15 @@ defmodule Cairnloop.KnowledgeAutomation do
         {:ok, existing}
 
       true ->
-        attrs = %{
-          article_suggestion_id: suggestion.id,
-          tenant_scope: suggestion.tenant_scope,
-          host_user_id: suggestion.host_user_id,
-          status: initial_review_task_status(suggestion)
-        }
+        attrs =
+          suggestion
+          |> initial_review_task_attrs(actor_id, opts)
+          |> Map.merge(%{
+            article_suggestion_id: suggestion.id,
+            tenant_scope: suggestion.tenant_scope,
+            host_user_id: suggestion.host_user_id,
+            status: initial_review_task_status(suggestion)
+          })
 
         with {:ok, task} <-
                %ReviewTask{}
@@ -676,7 +686,8 @@ defmodule Cairnloop.KnowledgeAutomation do
     evidence_digest = quick_fix_evidence_digest(attrs, canonical_evidence)
     citation_ready? = quick_fix_citation_ready?(attrs, canonical_evidence)
     quick_fix_package = quick_fix_package_for(attrs, evidence_digest, length(canonical_evidence), citation_ready?)
-    valid? = citation_ready? and canonical_evidence != []
+    {quick_fix_outcome, quick_fix_reason} =
+      quick_fix_outcome(attrs, canonical_evidence, citation_ready?)
 
     bundle = %{
       suggestion_type: :article,
@@ -689,17 +700,19 @@ defmodule Cairnloop.KnowledgeAutomation do
       canonical_evidence: canonical_evidence,
       assistive_evidence: [],
       evidence_digest: evidence_digest,
-      grounding_status: if(valid?, do: :strong, else: :weak),
+      grounding_status: quick_fix_grounding_status(quick_fix_outcome),
       stale_signal: nil,
-      valid?: valid?,
-      failure_reason: if(valid?, do: nil, else: :missing_canonical_citations)
+      valid?: quick_fix_outcome == :ready,
+      failure_reason: quick_fix_reason,
+      quick_fix_outcome: quick_fix_outcome,
+      quick_fix_reason: quick_fix_reason
     }
 
     prepared =
       %{
         stable_key: derive_stable_key(bundle),
         suggestion_type: :article,
-        status: if(valid?, do: :pending_generation, else: :failed),
+        status: quick_fix_suggestion_status(quick_fix_outcome),
         tenant_scope:
           anchor_id(attrs, :tenant_scope) || :host_user_scoped,
         host_user_id: anchor_id(attrs, :host_user_id),
@@ -709,8 +722,8 @@ defmodule Cairnloop.KnowledgeAutomation do
         base_revision_id: nil,
         title: anchor_id(attrs, :title) || map_value(map_value(quick_fix_package, :thread_context), :subject),
         change_summary: anchor_id(attrs, :change_summary),
-        operator_summary: operator_summary_for(:article, bundle),
-        proposed_markdown: proposed_markdown_for(:article, bundle),
+        operator_summary: quick_fix_operator_summary(bundle),
+        proposed_markdown: quick_fix_markdown(bundle),
         evidence_snapshot: serialize_evidence_snapshot(canonical_evidence),
         grounding_metadata:
           grounding_metadata_for(bundle)
@@ -951,7 +964,10 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
-  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{status: :failed}, _opts), do: {:ok, :skipped}
+  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{status: status}, _opts)
+       when status in [:failed, :ready],
+       do: {:ok, :skipped}
+
   defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{} = suggestion, opts), do: enqueue_generation_job(suggestion, opts)
 
   defp attach_review_task_to_quick_fix({:ok, %{suggestion: suggestion} = result}, opts) do
@@ -1036,14 +1052,16 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp grounding_metadata_for(bundle) do
     %{
-      status: bundle.grounding_status,
-      query: bundle.query,
-      evidence_digest: bundle.evidence_digest,
-      canonical_evidence_count: length(bundle.canonical_evidence),
-      assistive_evidence_count: length(bundle.assistive_evidence),
-      citation_validation_result: if(bundle.valid?, do: :passed, else: :failed),
-      failure_reason: bundle.failure_reason,
-      stale_signal: stale_signal_metadata(bundle.stale_signal)
+      "status" => bundle.grounding_status,
+      "query" => bundle.query,
+      "evidence_digest" => bundle.evidence_digest,
+      "canonical_evidence_count" => length(bundle.canonical_evidence),
+      "assistive_evidence_count" => length(bundle.assistive_evidence),
+      "citation_validation_result" => if(bundle.valid?, do: "passed", else: "failed"),
+      "failure_reason" => stringify_atom(bundle.failure_reason),
+      "quick_fix_outcome" => stringify_atom(bundle[:quick_fix_outcome]),
+      "quick_fix_reason" => stringify_atom(bundle[:quick_fix_reason]),
+      "stale_signal" => stale_signal_metadata(bundle.stale_signal)
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Enum.into(%{})
@@ -1088,8 +1106,85 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp failure_reason_message(:missing_canonical_citations),
     do: "canonical citation anchors were missing"
 
+  defp failure_reason_message(:missing_canonical_grounding),
+    do: "canonical grounding is incomplete"
+
+  defp failure_reason_message(:canonical_snapshot_unavailable),
+    do: "the canonical evidence snapshot could not be built"
+
+  defp failure_reason_message(:citation_anchors_unavailable),
+    do: "citation anchors were unavailable"
+
+  defp failure_reason_message(:policy_guard_blocked),
+    do: "policy guardrails blocked the automatic suggestion"
+
   defp failure_reason_message(:generation_failed), do: "Scoria generation failed"
   defp failure_reason_message(other), do: to_string(other)
+
+  defp quick_fix_outcome(attrs, canonical_evidence, citation_ready?) do
+    reason =
+      attrs
+      |> anchor_id(:canonical_retrieval)
+      |> map_value(:failure_reason)
+      |> normalize_quick_fix_reason(canonical_evidence, citation_ready?)
+
+    cond do
+      reason in @quick_fix_shell_reasons -> {:shell_created, reason}
+      reason in @quick_fix_blocked_reasons -> {:blocked_manual_required, reason}
+      true -> {:ready, nil}
+    end
+  end
+
+  defp normalize_quick_fix_reason(nil, canonical_evidence, true) when canonical_evidence != [], do: nil
+  defp normalize_quick_fix_reason(nil, _canonical_evidence, false), do: :citation_anchors_unavailable
+  defp normalize_quick_fix_reason(nil, _canonical_evidence, true), do: :missing_canonical_grounding
+
+  defp normalize_quick_fix_reason(reason, _canonical_evidence, _citation_ready?)
+       when is_atom(reason) do
+    if reason in @quick_fix_shell_reasons ++ @quick_fix_blocked_reasons do
+      reason
+    else
+      :policy_guard_blocked
+    end
+  end
+
+  defp normalize_quick_fix_reason(reason, _canonical_evidence, _citation_ready?) when is_binary(reason) do
+    reason
+    |> String.to_existing_atom()
+  rescue
+    ArgumentError -> :policy_guard_blocked
+  end
+
+  defp quick_fix_grounding_status(:ready), do: :strong
+  defp quick_fix_grounding_status(:shell_created), do: :weak
+  defp quick_fix_grounding_status(:blocked_manual_required), do: :weak
+
+  defp quick_fix_suggestion_status(:ready), do: :pending_generation
+  defp quick_fix_suggestion_status(:shell_created), do: :ready
+  defp quick_fix_suggestion_status(:blocked_manual_required), do: :failed
+
+  defp quick_fix_operator_summary(%{quick_fix_outcome: :ready} = bundle),
+    do: operator_summary_for(:article, bundle)
+
+  defp quick_fix_operator_summary(%{quick_fix_outcome: :shell_created, quick_fix_reason: reason}) do
+    "Article draft shell created: #{failure_reason_message(reason)}. Review and complete the manual grounding in the shared lane."
+  end
+
+  defp quick_fix_operator_summary(%{quick_fix_reason: reason}) do
+    "Article suggestion blocked: #{failure_reason_message(reason)}. Use manual authoring from the shared review lane."
+  end
+
+  defp quick_fix_markdown(%{quick_fix_outcome: :ready} = bundle), do: proposed_markdown_for(:article, bundle)
+
+  defp quick_fix_markdown(%{quick_fix_outcome: :shell_created}) do
+    """
+    # Draft shell
+
+    Manual grounding is still required before this quick fix can become a canonical KB update.
+    """
+  end
+
+  defp quick_fix_markdown(_bundle), do: fallback_markdown(:article)
 
   defp quick_fix_query(attrs) do
     anchor_id(attrs, :query) || anchor_id(attrs, :title) ||
@@ -1160,6 +1255,27 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp quick_fix_package_for(grounding_metadata, fallback_package) do
     map_value(grounding_metadata || %{}, :quick_fix_package) || fallback_package
   end
+
+  defp initial_review_task_attrs(%ArticleSuggestion{status: :failed} = suggestion, actor_id, opts) do
+    %{
+      last_decision: :review_needed,
+      last_reason: :needs_manual_edit,
+      last_actor_id: actor_id || suggestion.host_user_id || "system",
+      last_decided_at: now_fn(opts).(),
+      notes: quick_fix_task_note(suggestion)
+    }
+  end
+
+  defp initial_review_task_attrs(_suggestion, _actor_id, _opts), do: %{}
+
+  defp quick_fix_task_note(%ArticleSuggestion{entrypoint_type: :conversation_quick_fix} = suggestion) do
+    case map_value(suggestion.grounding_metadata || %{}, :quick_fix_reason) do
+      nil -> suggestion.operator_summary
+      reason -> "Manual draft required: #{failure_reason_message(normalize_failure_reason(reason))}."
+    end
+  end
+
+  defp quick_fix_task_note(%ArticleSuggestion{} = suggestion), do: suggestion.operator_summary
 
   defp reviewable_for_review_task?(%ArticleSuggestion{
          entrypoint_type: :conversation_quick_fix,
@@ -1259,6 +1375,10 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp normalize_map_key(key) when is_binary(key), do: String.to_atom(key)
   defp normalize_map_key(key), do: key
+
+  defp stringify_atom(nil), do: nil
+  defp stringify_atom(value) when is_atom(value), do: Atom.to_string(value)
+  defp stringify_atom(value), do: value
 
   defp map_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))
