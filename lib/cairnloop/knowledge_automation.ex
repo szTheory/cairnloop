@@ -192,7 +192,7 @@ defmodule Cairnloop.KnowledgeAutomation do
                 task,
                 :review_needed,
                 :review_needed,
-                :needs_manual_edit,
+                :draft_conflict,
                 actor_id,
                 now,
                 %{notes: note, needs_re_review: true}
@@ -202,7 +202,7 @@ defmodule Cairnloop.KnowledgeAutomation do
                 from_status: task.status,
                 to_status: :review_needed,
                 decision: :review_needed,
-                reason: :needs_manual_edit,
+                reason: :draft_conflict,
                 actor_id: actor_id,
                 notes: note,
                 metadata: %{
@@ -1091,7 +1091,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{suggestion_type: :article}, _opts), do: :ok
 
-  defp ensure_publish_freshness(%ReviewTask{} = task, %ArticleSuggestion{} = suggestion, opts) do
+  defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{} = suggestion, opts) do
     latest_active_revision_fn =
       Keyword.get(opts, :latest_active_revision_fn, fn article_id ->
         knowledge_base_module(opts).get_latest_active_revision(article_id)

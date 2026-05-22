@@ -14,6 +14,20 @@ defmodule Cairnloop.KnowledgeBase do
     |> repo().one()
   end
 
+  def get_revision(id) do
+    Revision
+    |> where([r], r.id == ^id)
+    |> limit(1)
+    |> repo().one()
+  end
+
+  def get_article(id) do
+    Article
+    |> where([article], article.id == ^id)
+    |> limit(1)
+    |> repo().one()
+  end
+
   def get_latest_revision(article_id) do
     Revision
     |> where([r], r.article_id == ^article_id)
