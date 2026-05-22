@@ -59,7 +59,7 @@
 ### Review Workflow
 
 - [x] **REVIEW-01**: Operator can review a suggested article or revision with visible evidence, citation anchors, and a proposed content diff or draft body.
-- [ ] **REVIEW-02**: Operator can approve, reject, or edit-before-publish a review task without bypassing the existing KB publish flow.
+- [x] **REVIEW-02**: Operator can approve, reject, or edit-before-publish a review task without bypassing the existing KB publish flow.
 - [x] **REVIEW-03**: System records review-task state transitions, decision metadata, and reindex follow-up work for approved KB updates.
 
 ### Quick Fix & Operations
@@ -97,7 +97,7 @@
 | DRAFT-02 | Phase 10 | Pending |
 | DRAFT-03 | Phase 10 | Pending |
 | REVIEW-01 | Phase 11 | Verified |
-| REVIEW-02 | Phase 11 | Pending |
+| REVIEW-02 | Phase 11 | Complete |
 | REVIEW-03 | Phase 11 | Verified |
 | OPS-01 | Phase 12 | Pending |
 | OPS-02 | Phase 11 | Pending |

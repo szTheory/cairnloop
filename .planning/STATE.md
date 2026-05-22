@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-stopped_at: Completed M010-S03-01-PLAN.md
-last_updated: "2026-05-22T08:15:05.359Z"
-last_activity: 2026-05-22 — Completed M010-S03-01 durable review task storage and query seams
+stopped_at: Completed M010-S03-03-PLAN.md
+last_updated: "2026-05-22T08:38:30Z"
+last_activity: 2026-05-22 — Completed M010-S03-03 review-task inbox and shared review lane wiring
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 1
-  completed_plans: 1
-  percent: 100
+  total_plans: 4
+  completed_plans: 3
+  percent: 75
 ---
 
 # Project State
@@ -26,17 +26,17 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 ## Current Position
 
 Phase: 11 of 12 (Review-Gated KB Updates)
-Plan: 1 completed (`M010-S03-01`)
-Status: First review-task storage plan completed; ready for the next Phase 11 plan
-Last activity: 2026-05-22 — Completed M010-S03-01 durable review task storage and query seams
+Plan: 3 completed (`M010-S03-01` through `M010-S03-03`)
+Status: Review inbox and shared task lane are implemented; ready for the next Phase 11 plan
+Last activity: 2026-05-22 — Completed M010-S03-03 review-task inbox and shared review lane wiring
 
-Progress: [##########] 100%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 18
+- Total plans completed: 20
 - Average duration: -
 - Total execution time: -
 
@@ -45,12 +45,14 @@ Progress: [##########] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 9. Gap Candidate Discovery | 3 | - | - |
-| 11. Review-Gated KB Updates | 1 | 6 min | 6 min |
+| 11. Review-Gated KB Updates | 3 | 6 min | 6 min |
 
 **Recent Trend:**
 
-- Last 5 plans: M010-S01-01, M010-S01-02, M010-S01-03, M010-S03-01
+- Last 5 plans: M010-S01-02, M010-S01-03, M010-S03-01, M010-S03-02, M010-S03-03
 - Trend: Increasing
+
+| Phase 11 P03 | 6 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -60,6 +62,8 @@ Progress: [##########] 100%
 - Sequence the milestone as `Gap -> Suggest -> Review -> Quick fix/ops`, matching the proof and support gates.
 - Preserve the canonical publish boundary: AI can prepare KB work, never publish it directly.
 - Keep review workflow state separate from `ArticleSuggestion`, with one active task per suggestion and append-only task events.
+- [Phase 11]: Kept workflow copy in ReviewTaskPresenter while evidence stays in ArticleSuggestionPresenter — Preserves the distinction between proposal truth and review-task truth
+- [Phase 11]: Redirected gap and article launch points into /knowledge-base/suggestions by review_task id — Maintains one authoritative review lane with recoverable context
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ Progress: [##########] 100%
 
 ## Session Continuity
 
-Last session: 2026-05-22T08:15:05.355Z
-Stopped at: Completed M010-S03-01-PLAN.md
+Last session: 2026-05-22T08:37:18.913Z
+Stopped at: Completed M010-S03-03-PLAN.md
 Resume file: None
