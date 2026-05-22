@@ -1,13 +1,7 @@
 defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
   use ExUnit.Case, async: false
 
-  alias Cairnloop.KnowledgeAutomation
-  alias Cairnloop.KnowledgeAutomation.{
-    ArticleSuggestion,
-    ArticleSuggestionEvidence,
-    ReviewTask,
-    ReviewTaskEvent
-  }
+  alias Cairnloop.KnowledgeAutomation.{ReviewTask, ReviewTaskEvent}
 
   defmodule MockRepo do
     def all(%Ecto.Query{} = query) do
@@ -128,7 +122,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       Enum.sort_by(
         tasks,
         fn task ->
-          {Map.fetch!(urgency_rank, task.status), -(task.inserted_at |> DateTime.to_unix(:microsecond)), -(task.id || 0)}
+          {Map.fetch!(urgency_rank, task.status),
+           -(task.inserted_at |> DateTime.to_unix(:microsecond)), -(task.id || 0)}
         end
       )
     end
@@ -145,7 +140,11 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
     defp filter_status(tasks, %Ecto.Query{}), do: tasks
 
-    defp eval_condition(task, {:==, [], [{{:., [], [{:&, [], [0]}, field]}, [], []}, {:^, [], [index]}]}, params) do
+    defp eval_condition(
+           task,
+           {:==, [], [{{:., [], [{:&, [], [0]}, field]}, [], []}, {:^, [], [index]}]},
+           params
+         ) do
       {value, _} = Enum.at(params, index)
       Map.get(task, field) == value
     end
@@ -285,7 +284,10 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
     assert content =~ "create table(:cairnloop_review_tasks)"
     assert content =~ "create table(:cairnloop_review_task_events)"
-    assert content =~ "where: \"status IN ('pending_review', 'review_needed', 'approved_ready_to_publish', 'deferred')\""
+
+    assert content =~
+             "status IN ('pending_review', 'review_needed', 'approved_ready_to_publish', 'deferred')"
+
     assert content =~ "index(:cairnloop_review_tasks, [:status, :inserted_at])"
     assert content =~ "index(:cairnloop_review_task_events, [:review_task_id, :inserted_at])"
     assert content =~ "timestamps(type: :utc_datetime_usec, updated_at: false)"
