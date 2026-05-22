@@ -164,6 +164,44 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  defmodule ReindexFailedKnowledgeAutomation do
+    def get_conversation_quick_fix(321, _opts) do
+      suggestion =
+        struct(ArticleSuggestion,
+          id: 79,
+          title: "Weekend export quick fix",
+          status: :ready,
+          entrypoint_type: :conversation_quick_fix,
+          entrypoint_id: 321,
+          operator_summary: "Published, but reindex follow-through needs operator attention.",
+          grounding_metadata: %{
+            "quick_fix_outcome" => "ready",
+            "quick_fix_package" => %{
+              "thread_context" => %{"conversation_id" => 321, "subject" => "Weekend export fails"},
+              "canonical_retrieval" => %{"canonical_evidence_count" => 1, "citation_ready" => true},
+              "resolved_case_assists" => %{"case_count" => 1, "summaries" => ["Prior export timeout case"]}
+            }
+          }
+        )
+
+      review_task =
+        struct(ReviewTask,
+          id: 63,
+          article_suggestion_id: 79,
+          status: :published,
+          publish_status: :published,
+          reindex_status: :failed,
+          article_suggestion: suggestion
+        )
+
+      {:ok, %{suggestion: suggestion, review_task: review_task, quick_fix: %{}}}
+    end
+
+    def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
+    def create_or_reuse_conversation_quick_fix(_attrs, _opts), do: {:error, :not_implemented}
+    def create_or_reuse_authoring_article_for_suggestion(_suggestion_id, _opts), do: {:error, :not_implemented}
+  end
+
   defmodule SimpleTool do
     use Cairnloop.Tool
 
@@ -461,6 +499,18 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "4 messages summarized"
       assert html =~ "No citation-ready canonical evidence"
       assert html =~ "1 supporting case"
+    end
+
+    test "renders retry-needed copy when reindex follow-through fails after publish" do
+      Application.put_env(:cairnloop, :knowledge_automation, ReindexFailedKnowledgeAutomation)
+
+      {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+      html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
+
+      assert html =~ "Follow-through needs attention"
+      assert html =~ "Published, but reindex follow-through needs operator attention."
+      assert html =~ "Published, reindex pending"
+      refute html =~ "Reindexed"
     end
 
     test "renders grounded draft sections, evidence semantics, and inline actions" do

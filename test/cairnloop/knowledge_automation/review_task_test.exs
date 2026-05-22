@@ -2,6 +2,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
   use ExUnit.Case, async: false
 
   alias Cairnloop.KnowledgeAutomation
+  alias Cairnloop.KnowledgeAutomation.Telemetry, as: MaintenanceTelemetry
   alias Cairnloop.KnowledgeAutomation.{ReviewTask, ReviewTaskEvent}
   alias Cairnloop.KnowledgeAutomation.{ArticleSuggestion, ArticleSuggestionEvidence}
 
@@ -210,6 +211,21 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
   setup do
     original_repo = Application.get_env(:cairnloop, :repo)
     Application.put_env(:cairnloop, :repo, MockRepo)
+    test_pid = self()
+    handler_id = "review-task-telemetry-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach_many(
+      handler_id,
+      [
+        MaintenanceTelemetry.event_name(:review_decision),
+        MaintenanceTelemetry.event_name(:publish_outcome),
+        MaintenanceTelemetry.event_name(:reindex_outcome)
+      ],
+      fn event, measurements, metadata, _config ->
+        send(test_pid, {:telemetry_event, event, measurements, metadata})
+      end,
+      nil
+    )
 
     on_exit(fn ->
       [
@@ -221,6 +237,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         :last_updated
       ]
       |> Enum.each(&Process.delete/1)
+
+      :telemetry.detach(handler_id)
 
       if original_repo do
         Application.put_env(:cairnloop, :repo, original_repo)
@@ -1255,6 +1273,119 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert event.event_type == :reindex_recorded
     assert event.metadata.reindex_status == :failed
     assert event.metadata.error == :embedding_timeout
+  end
+
+  test "publish_review_task emits bounded publish telemetry on durable status change" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 120,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301,
+        grounding_metadata: %{
+          "canonical_evidence_count" => 2,
+          "assistive_evidence_count" => 1
+        }
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 520,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_revision_id: 401,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{id: 401, article_id: 21, version: 3, state: :draft}
+    published_revision = %Cairnloop.KnowledgeBase.Revision{id: 901, article_id: 21, version: 3, state: :published}
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    assert {:ok, _updated_task} =
+             KnowledgeAutomation.publish_review_task(task.id,
+               host_user_id: "host-1",
+               actor_id: "operator-8",
+               get_revision_fn: fn 401 -> staged_revision end,
+               latest_active_revision_fn: fn 21 ->
+                 %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published}
+               end,
+               publish_revision_fn: fn ^staged_revision -> {:ok, published_revision} end
+             )
+
+    assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :publish_outcome],
+                    measurements, metadata}
+
+    assert measurements.count == 1
+    assert metadata.surface == :review_lane
+    assert metadata.entrypoint_type == :article_revision
+    assert metadata.outcome == :published
+    assert metadata.reason == :ready_to_publish
+    assert metadata.publish_status == :published
+    assert metadata.reindex_status == :queued
+    assert metadata.canonical_evidence_count == 2
+    assert metadata.assistive_evidence_count == 1
+  end
+
+  test "record_review_task_reindex_outcome keeps linked suggestion metadata in telemetry" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 121,
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 321,
+        grounding_metadata: %{
+          "canonical_evidence_count" => 1,
+          "assistive_evidence_count" => 2
+        }
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 521,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        published_revision_id: 903,
+        published_at: ~U[2026-05-22 12:05:00Z],
+        publish_status: :published,
+        reindex_status: :queued,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    Process.put(:review_tasks, [task])
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_events, [])
+
+    assert {:error, _updated_task} =
+             KnowledgeAutomation.record_review_task_reindex_outcome(903, {:error, :embedding_timeout},
+               host_user_id: "host-1"
+             )
+
+    assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :reindex_outcome],
+                    measurements, metadata}
+
+    assert measurements.count == 1
+    assert metadata.surface == :worker
+    assert metadata.entrypoint_type == :conversation_quick_fix
+    assert metadata.outcome == :failed
+    assert metadata.reason == :ready_to_publish
+    assert metadata.publish_status == :published
+    assert metadata.reindex_status == :failed
+    assert metadata.canonical_evidence_count == 1
+    assert metadata.assistive_evidence_count == 2
   end
 
   defp valid_review_task_attrs(overrides \\ %{}) do
