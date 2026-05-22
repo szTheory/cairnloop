@@ -143,6 +143,180 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
+  def approve_review_task(id, opts \\ []) do
+    now = now_fn(opts).()
+    actor_id = Keyword.get(opts, :actor_id) || "system"
+
+    with {:ok, task, suggestion} <- load_review_task_with_suggestion(id, opts) do
+      with {:ok, article_id} <- approval_article_id(suggestion, task, opts),
+           {:ok, article} <- load_article(article_id, opts),
+           :ok <- ensure_no_unrelated_draft(task, article_id, opts),
+           {:ok, staged_revision} <-
+             save_draft(article, %{content: suggestion.proposed_markdown}, opts) do
+        update_task_with_event(
+          task,
+          ReviewTask.decision_changeset(
+            task,
+            :approved_ready_to_publish,
+            :approved,
+            :ready_to_publish,
+            actor_id,
+            now,
+            %{
+              staged_article_id: article.id,
+              staged_revision_id: staged_revision.id,
+              notes: Keyword.get(opts, :note),
+              needs_re_review: false
+            }
+          ),
+          %{
+            event_type: :decision_recorded,
+            from_status: task.status,
+            to_status: :approved_ready_to_publish,
+            decision: :approved,
+            reason: :ready_to_publish,
+            actor_id: actor_id,
+            notes: Keyword.get(opts, :note),
+            metadata: %{staged_article_id: article.id, staged_revision_id: staged_revision.id}
+          }
+        )
+      else
+        {:error, {:draft_conflict, conflict_revision}} ->
+          note =
+            "Approval blocked because draft revision #{conflict_revision.id} is already active for article #{conflict_revision.article_id}."
+
+          {:error, updated_task} =
+            update_task_with_event(
+              task,
+              ReviewTask.decision_changeset(
+                task,
+                :review_needed,
+                :review_needed,
+                :needs_manual_edit,
+                actor_id,
+                now,
+                %{notes: note, needs_re_review: true}
+              ),
+              %{
+                event_type: :decision_recorded,
+                from_status: task.status,
+                to_status: :review_needed,
+                decision: :review_needed,
+                reason: :needs_manual_edit,
+                actor_id: actor_id,
+                notes: note,
+                metadata: %{
+                  conflicting_revision_id: conflict_revision.id,
+                  article_id: conflict_revision.article_id
+                }
+              },
+              :error
+            )
+
+          {:error, {:draft_conflict, updated_task}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  def reject_review_task(id, opts \\ []) do
+    with reason when is_atom(reason) <- Keyword.get(opts, :reason),
+         true <- ReviewTask.valid_reason_for_decision?(:rejected, reason) do
+      record_structured_decision(id, :rejected, :rejected, reason, opts)
+    else
+      _ -> {:error, :invalid_reason}
+    end
+  end
+
+  def defer_review_task(id, opts \\ []) do
+    with reason when is_atom(reason) <- Keyword.get(opts, :reason),
+         true <- ReviewTask.valid_reason_for_decision?(:deferred, reason) do
+      record_structured_decision(id, :deferred, :deferred, reason, opts)
+    else
+      _ -> {:error, :invalid_reason}
+    end
+  end
+
+  def publish_review_task(id, opts \\ []) do
+    now = now_fn(opts).()
+    actor_id = Keyword.get(opts, :actor_id) || "system"
+
+    with {:ok, task, suggestion} <- load_review_task_with_suggestion(id, opts) do
+      with :ok <- ensure_publishable_status(task),
+           {:ok, staged_revision} <- load_staged_revision(task, opts),
+           :ok <- ensure_publish_freshness(task, suggestion, opts),
+           {:ok, published_revision} <- publish_revision(staged_revision, opts) do
+        update_task_with_event(
+          task,
+          ReviewTask.decision_changeset(
+            task,
+            :published,
+            :approved,
+            :ready_to_publish,
+            actor_id,
+            now,
+            %{
+              published_revision_id: published_revision.id,
+              published_at: now,
+              publish_status: :published,
+              reindex_status: :queued,
+              needs_re_review: false
+            }
+          ),
+          %{
+            event_type: :publish_recorded,
+            from_status: task.status,
+            to_status: :published,
+            decision: :approved,
+            reason: :ready_to_publish,
+            actor_id: actor_id,
+            metadata: %{
+              publish_status: :published,
+              staged_revision_id: staged_revision.id,
+              published_revision_id: published_revision.id
+            }
+          }
+        )
+      else
+        {:error, {:stale_base, latest_revision}} ->
+          note =
+            "Publish blocked because the latest active revision is #{latest_revision.id}, not the reviewed base revision."
+
+          {:error, updated_task} =
+            update_task_with_event(
+              task,
+              ReviewTask.decision_changeset(
+                task,
+                :review_needed,
+                :review_needed,
+                :freshness_invalidated,
+                actor_id,
+                now,
+                %{notes: note, publish_status: :not_started, needs_re_review: true}
+              ),
+              %{
+                event_type: :publish_recorded,
+                from_status: task.status,
+                to_status: :review_needed,
+                decision: :review_needed,
+                reason: :freshness_invalidated,
+                actor_id: actor_id,
+                notes: note,
+                metadata: %{latest_active_revision_id: latest_revision.id, publish_status: :not_started}
+              },
+              :error
+            )
+
+          {:error, {:stale_base, updated_task}}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
   def suggest_article(attrs, opts \\ []) do
     attrs = Map.new(attrs)
 
@@ -815,8 +989,156 @@ defmodule Cairnloop.KnowledgeAutomation do
     Keyword.get(opts, :stale_article_signal_module, StaleArticleSignal)
   end
 
+  defp now_fn(opts) do
+    Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
+  end
+
   defp knowledge_base_module(opts) do
     Keyword.get(opts, :knowledge_base_module, KnowledgeBase)
+  end
+
+  defp approval_article_id(%ArticleSuggestion{article_id: article_id}, _task, _opts)
+       when is_integer(article_id),
+       do: {:ok, article_id}
+
+  defp approval_article_id(_suggestion, %ReviewTask{staged_article_id: article_id}, _opts)
+       when is_integer(article_id),
+       do: {:ok, article_id}
+
+  defp approval_article_id(_suggestion, _task, _opts), do: {:error, :missing_article}
+
+  defp load_review_task_with_suggestion(id, opts) do
+    task =
+      id
+      |> get_review_task!(opts)
+      |> repo().preload(:article_suggestion)
+
+    if task.article_suggestion do
+      {:ok, task, task.article_suggestion}
+    else
+      {:error, :missing_suggestion}
+    end
+  end
+
+  defp load_article(article_id, opts) do
+    case Keyword.get(opts, :load_article_fn) do
+      nil ->
+        case knowledge_base_module(opts).get_article(article_id) do
+          nil -> {:error, :missing_article}
+          article -> {:ok, article}
+        end
+
+      load_article_fn ->
+        load_article_fn.(article_id)
+    end
+  end
+
+  defp latest_revision(article_id, opts) do
+    case Keyword.get(opts, :latest_revision_fn) do
+      nil -> knowledge_base_module(opts).get_latest_revision(article_id)
+      latest_revision_fn -> latest_revision_fn.(article_id)
+    end
+  end
+
+  defp load_staged_revision(%ReviewTask{staged_revision_id: nil}, _opts), do: {:error, :missing_staged_revision}
+
+  defp load_staged_revision(%ReviewTask{staged_revision_id: revision_id}, opts) do
+    case Keyword.get(opts, :get_revision_fn) do
+      nil ->
+        case knowledge_base_module(opts).get_revision(revision_id) do
+          nil -> {:error, :missing_staged_revision}
+          revision -> {:ok, revision}
+        end
+
+      get_revision_fn ->
+        case get_revision_fn.(revision_id) do
+          nil -> {:error, :missing_staged_revision}
+          revision -> {:ok, revision}
+        end
+    end
+  end
+
+  defp save_draft(article, attrs, opts) do
+    case Keyword.get(opts, :save_draft_fn) do
+      nil -> knowledge_base_module(opts).save_draft(article, attrs)
+      save_draft_fn -> save_draft_fn.(article, attrs)
+    end
+  end
+
+  defp publish_revision(revision, opts) do
+    case Keyword.get(opts, :publish_revision_fn) do
+      nil -> knowledge_base_module(opts).publish_revision(revision)
+      publish_revision_fn -> publish_revision_fn.(revision)
+    end
+  end
+
+  defp ensure_no_unrelated_draft(%ReviewTask{} = task, article_id, opts) do
+    case latest_revision(article_id, opts) do
+      %{state: :draft, id: draft_id}
+      when not is_nil(task.staged_revision_id) and draft_id == task.staged_revision_id ->
+        :ok
+
+      %{state: :draft, id: draft_id} = revision when is_nil(task.staged_revision_id) or draft_id != task.staged_revision_id ->
+        {:error, {:draft_conflict, revision}}
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp ensure_publishable_status(%ReviewTask{status: :approved_ready_to_publish}), do: :ok
+  defp ensure_publishable_status(_task), do: {:error, :invalid_publish_state}
+
+  defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{suggestion_type: :article}, _opts), do: :ok
+
+  defp ensure_publish_freshness(%ReviewTask{} = task, %ArticleSuggestion{} = suggestion, opts) do
+    latest_active_revision_fn =
+      Keyword.get(opts, :latest_active_revision_fn, fn article_id ->
+        knowledge_base_module(opts).get_latest_active_revision(article_id)
+      end)
+
+    case latest_active_revision_fn.(suggestion.article_id) do
+      nil ->
+        {:error, :missing_latest_active_revision}
+
+      %{id: id} when id == suggestion.base_revision_id ->
+        :ok
+
+      latest_revision ->
+        {:error, {:stale_base, latest_revision}}
+    end
+  end
+
+  defp record_structured_decision(id, status, decision, reason, opts) do
+    now = now_fn(opts).()
+    actor_id = Keyword.get(opts, :actor_id) || "system"
+
+    with {:ok, task, _suggestion} <- load_review_task_with_suggestion(id, opts) do
+      update_task_with_event(
+        task,
+        ReviewTask.decision_changeset(task, status, decision, reason, actor_id, now, %{notes: Keyword.get(opts, :note)}),
+        %{
+          event_type: :decision_recorded,
+          from_status: task.status,
+          to_status: status,
+          decision: decision,
+          reason: reason,
+          actor_id: actor_id,
+          notes: Keyword.get(opts, :note),
+          metadata: %{}
+        }
+      )
+    end
+  end
+
+  defp update_task_with_event(task, changeset, event_attrs, result_type \\ :ok) do
+    with {:ok, updated_task} <- repo().update(changeset),
+         {:ok, _event} <-
+           %ReviewTaskEvent{}
+           |> ReviewTaskEvent.changeset(Map.put(event_attrs, :review_task_id, task.id))
+           |> repo().insert() do
+      {result_type, updated_task}
+    end
   end
 
   defp apply_scope(query, opts) do

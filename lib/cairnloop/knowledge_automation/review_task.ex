@@ -21,7 +21,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
     :policy_rejected,
     :needs_manual_edit,
     :freshness_invalidated,
-    :operator_deferred
+    :operator_deferred,
+    :draft_conflict
   ]
   @publish_status_values [:not_started, :queued, :published, :failed]
   @reindex_status_values [:not_started, :queued, :completed, :failed]
@@ -90,6 +91,29 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
   def decision_values, do: @decision_values
   def reason_values, do: @reason_values
 
+  def decision_changeset(review_task, status, decision, reason, actor_id, decided_at, attrs \\ %{}) do
+    attrs =
+      attrs
+      |> Map.new()
+      |> Map.merge(%{
+        status: status,
+        last_decision: decision,
+        last_reason: reason,
+        last_actor_id: actor_id,
+        last_decided_at: decided_at
+      })
+
+    review_task
+    |> changeset(attrs)
+    |> validate_decision_reason(decision, reason)
+  end
+
+  def valid_reason_for_decision?(:approved, reason), do: reason in [:ready_to_publish]
+  def valid_reason_for_decision?(:rejected, reason), do: reason in [:insufficient_evidence, :policy_rejected]
+  def valid_reason_for_decision?(:deferred, reason), do: reason in [:needs_manual_edit, :operator_deferred]
+  def valid_reason_for_decision?(:review_needed, reason), do: reason in [:needs_manual_edit, :freshness_invalidated, :draft_conflict]
+  def valid_reason_for_decision?(_, _reason), do: false
+
   defp validate_host_scope(changeset) do
     case {get_field(changeset, :tenant_scope), get_field(changeset, :host_user_id)} do
       {:host_user_scoped, value} when value in [nil, ""] ->
@@ -114,6 +138,14 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
       validate_required(changeset, [:published_revision_id, :published_at])
     else
       changeset
+    end
+  end
+
+  defp validate_decision_reason(changeset, decision, reason) do
+    if valid_reason_for_decision?(decision, reason) do
+      changeset
+    else
+      add_error(changeset, :last_reason, "is not allowed for this decision")
     end
   end
 end
