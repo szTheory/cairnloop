@@ -4,7 +4,13 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskEvent do
 
   alias Cairnloop.KnowledgeAutomation.ReviewTask
 
-  @event_type_values [:task_created, :decision_recorded, :publish_recorded, :reindex_recorded]
+  @event_type_values [
+    :task_created,
+    :decision_recorded,
+    :publish_recorded,
+    :reindex_recorded,
+    :material_edit_after_approval
+  ]
 
   schema "cairnloop_review_task_events" do
     field(:event_type, Ecto.Enum, values: @event_type_values)

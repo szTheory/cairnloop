@@ -317,6 +317,64 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
+  def mark_review_task_material_edit(id, opts \\ []) do
+    now = now_fn(opts).()
+    actor_id = Keyword.get(opts, :actor_id) || "system"
+    content = Keyword.get(opts, :content)
+    saved_revision_id = Keyword.get(opts, :saved_revision_id)
+
+    with {:ok, task, suggestion} <- load_review_task_with_suggestion(id, opts),
+         true <- is_binary(content) do
+      baseline_content = material_edit_baseline(task, suggestion, opts)
+
+      cond do
+        task.status != :approved_ready_to_publish ->
+          {:ok, task}
+
+        not material_content_changed?(baseline_content, content) ->
+          {:ok, task}
+
+        true ->
+          note = "Material edits were made after approval and require review again before publish."
+
+          update_task_with_event(
+            task,
+            ReviewTask.decision_changeset(
+              task,
+              :review_needed,
+              :review_needed,
+              :needs_manual_edit,
+              actor_id,
+              now,
+              %{
+                staged_revision_id: saved_revision_id || task.staged_revision_id,
+                publish_status: :not_started,
+                reindex_status: :not_started,
+                needs_re_review: true,
+                notes: note
+              }
+            ),
+            %{
+              event_type: :material_edit_after_approval,
+              from_status: task.status,
+              to_status: :review_needed,
+              decision: :review_needed,
+              reason: :needs_manual_edit,
+              actor_id: actor_id,
+              notes: note,
+              metadata: %{
+                saved_revision_id: saved_revision_id || task.staged_revision_id,
+                previous_staged_revision_id: task.staged_revision_id
+              }
+            }
+          )
+      end
+    else
+      false -> {:error, :missing_content}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   def suggest_article(attrs, opts \\ []) do
     attrs = Map.new(attrs)
 
@@ -1140,6 +1198,25 @@ defmodule Cairnloop.KnowledgeAutomation do
       {result_type, updated_task}
     end
   end
+
+  defp material_edit_baseline(%ReviewTask{} = task, %ArticleSuggestion{} = suggestion, opts) do
+    case load_staged_revision(task, opts) do
+      {:ok, revision} when is_binary(revision.content) -> revision.content
+      _ -> suggestion.proposed_markdown || ""
+    end
+  end
+
+  defp material_content_changed?(left, right) do
+    normalize_markdown_for_compare(left) != normalize_markdown_for_compare(right)
+  end
+
+  defp normalize_markdown_for_compare(content) when is_binary(content) do
+    content
+    |> String.replace("\r\n", "\n")
+    |> String.trim()
+  end
+
+  defp normalize_markdown_for_compare(_), do: ""
 
   defp apply_scope(query, opts) do
     query

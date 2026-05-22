@@ -205,14 +205,22 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
         %Phoenix.LiveView.Socket{}
       )
 
-    edited_socket = %{socket | assigns: Map.put(socket.assigns, :content, "# Suggested copy\n\nPrepared from review.\n\nExtra operator edits.")}
+    edited_socket =
+      %{
+        socket
+        | assigns:
+            socket.assigns
+            |> Map.put(:content, "# Suggested copy\n\nPrepared from review.\n\nExtra operator edits.")
+            |> Map.put(:flash, %{})
+      }
 
     assert {:noreply, saved_socket} =
              Cairnloop.Web.KnowledgeBaseLive.Editor.handle_event("save_draft", %{}, edited_socket)
 
     assert saved_socket.assigns.revision.content =~ "Extra operator edits."
-    assert_received {:material_edit, 27, %{saved_revision_id: 9, content: content}}
-    assert content =~ "Extra operator edits."
+    assert_received {:material_edit, 27, attrs}
+    assert Keyword.get(attrs, :saved_revision_id) == 1
+    assert Keyword.get(attrs, :content) =~ "Extra operator edits."
   end
 
   test "non-review editor sessions keep direct publish available" do
