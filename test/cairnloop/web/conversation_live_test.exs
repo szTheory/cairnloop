@@ -2,6 +2,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   use ExUnit.Case, async: false
   import Phoenix.LiveViewTest
 
+  alias Cairnloop.KnowledgeAutomation.{ArticleSuggestion, ReviewTask}
   alias Cairnloop.Web.ConversationLive
 
   defmodule MockRepo do
@@ -15,9 +16,36 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           %Cairnloop.Automation.Draft{
             id: 202,
             content: "Newly loaded AI draft",
+            customer_reply: "Newly loaded AI draft",
+            operator_summary: "Grounded in a canonical article",
+            proposal_type: :reply,
+            evidence_snapshot: %{
+              evidence: [
+                %{
+                  source_type: :knowledge_base,
+                  trust_level: :canonical,
+                  title: "Billing export policy",
+                  content: "Canonical article on billing exports",
+                  citation_target: %{article_id: 33, revision_id: 10, chunk_index: 0},
+                  metadata: %{destination: %{article_id: 33}},
+                  updated_at: DateTime.utc_now()
+                }
+              ]
+            },
+            grounding_metadata: %{reason: :canonical_results},
             status: :pending
           }
         ]
+      }
+    end
+
+    def get!(Cairnloop.Conversation, 321) do
+      %Cairnloop.Conversation{
+        id: 321,
+        host_user_id: "user_42",
+        subject: "Weekend export fails",
+        messages: [],
+        drafts: []
       }
     end
 
@@ -55,6 +83,73 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   defmodule ErrorContextProvider do
     @behaviour Cairnloop.ContextProvider
     def get_context("user_42", _opts), do: {:error, :not_found}
+  end
+
+  defmodule MockKnowledgeAutomation do
+    def get_conversation_quick_fix(321, _opts) do
+      {:ok,
+       %{
+         suggestion: quick_fix_suggestion(:shell_created),
+         review_task: quick_fix_review_task(:pending_review),
+         quick_fix: %{
+           "thread_context" => %{"conversation_id" => 321, "subject" => "Weekend export fails"},
+           "canonical_retrieval" => %{"canonical_evidence_count" => 0, "citation_ready" => false},
+           "resolved_case_assists" => %{"case_count" => 1, "summaries" => ["Prior export timeout case"]}
+         }
+       }}
+    end
+
+    def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
+
+    defp quick_fix_suggestion(outcome) do
+      metadata =
+        case outcome do
+          :shell_created ->
+            %{
+              "quick_fix_outcome" => "shell_created",
+              "quick_fix_reason" => "missing_canonical_grounding",
+              "quick_fix_package" => %{
+                "thread_context" => %{
+                  "conversation_id" => 321,
+                  "subject" => "Weekend export fails",
+                  "message_excerpt" => "The export stalls every Saturday morning.",
+                  "message_count" => 4
+                },
+                "canonical_retrieval" => %{
+                  "canonical_evidence_count" => 0,
+                  "citation_ready" => false,
+                  "evidence_digest" => "shell-digest"
+                },
+                "resolved_case_assists" => %{
+                  "case_count" => 1,
+                  "summaries" => ["Prior export timeout case"]
+                }
+              }
+            }
+        end
+
+      struct(ArticleSuggestion,
+        id: 77,
+        title: "Weekend export quick fix",
+        status: :ready,
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 321,
+        operator_summary:
+          "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete.",
+        grounding_metadata: metadata
+      )
+    end
+
+    defp quick_fix_review_task(status) do
+      struct(ReviewTask,
+        id: 61,
+        article_suggestion_id: 77,
+        status: status,
+        publish_status: :not_started,
+        reindex_status: :not_started,
+        article_suggestion: quick_fix_suggestion(:shell_created)
+      )
+    end
   end
 
   defmodule SimpleTool do
@@ -124,12 +219,19 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
     original_tools = Application.get_env(:cairnloop, :tools, [])
+    original_knowledge_automation = Application.get_env(:cairnloop, :knowledge_automation)
     Application.put_env(:cairnloop, :tools, [SimpleTool, InputTool])
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :context_provider)
       Application.put_env(:cairnloop, :tools, original_tools)
+
+      if original_knowledge_automation do
+        Application.put_env(:cairnloop, :knowledge_automation, original_knowledge_automation)
+      else
+        Application.delete_env(:cairnloop, :knowledge_automation)
+      end
     end)
 
     :ok
@@ -293,14 +395,100 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   describe "render/1 draft shell and inline actions" do
-    test "renders AI Draft / Audit section with draft content and inline actions" do
+    test "renders the idle quick-fix card between context and draft audit cards" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 321,
+          subject: "Weekend export fails",
+          messages: [],
+          drafts: [
+            %Cairnloop.Automation.Draft{
+              id: 101,
+              content: "Hello from AI",
+              customer_reply: "Hello from AI",
+              proposal_type: :reply,
+              evidence_snapshot: %{evidence: []},
+              status: :pending
+            }
+          ],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        quick_fix_card: %{status: :idle},
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "KB maintenance"
+      assert html =~ "No quick fix started"
+      assert html =~ "Use conversation evidence to open a KB maintenance task"
+      assert html =~ "Thread context"
+      assert html =~ "Canonical retrieval"
+      assert html =~ "Resolved case assists"
+      assert html =~ "Start KB quick fix"
+      assert element_index(html, "Customer Context") < element_index(html, "KB maintenance")
+      assert element_index(html, "KB maintenance") < element_index(html, "AI Draft / Audit")
+    end
+
+    test "renders shell state copy, reason callout, and follow-through status rail" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+      html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
+
+      assert html =~ "KB maintenance"
+      assert html =~ "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete."
+      assert html =~ "Missing canonical grounding"
+      assert html =~ "Draft shell created"
+      assert html =~ "Open review task"
+      assert html =~ "View maintenance lane"
+      assert html =~ "4 messages summarized"
+      assert html =~ "No citation-ready canonical evidence"
+      assert html =~ "1 supporting case"
+    end
+
+    test "renders grounded draft sections, evidence semantics, and inline actions" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
           id: 1,
           subject: "Test",
           messages: [],
           drafts: [
-            %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
+            %Cairnloop.Automation.Draft{
+              id: 101,
+              content: "Hello from AI",
+              customer_reply: "Hello from AI",
+              operator_summary: "Backed by a published Knowledge Base article.",
+              proposal_type: :reply,
+              evidence_snapshot: %{
+                evidence: [
+                  %{
+                    source_type: :knowledge_base,
+                    trust_level: :canonical,
+                    title: "Export policy",
+                    content: "Canonical export instructions",
+                    citation_target: %{article_id: 1, revision_id: 2, chunk_index: 0},
+                    metadata: %{destination: %{article_id: 1}},
+                    updated_at: DateTime.utc_now()
+                  },
+                  %{
+                    source_type: :resolved_case,
+                    trust_level: :assistive,
+                    title: "Similar export case",
+                    content: "Supporting case details",
+                    citation_target: %{conversation_id: 55, chunk_index: 1},
+                    metadata: %{destination: %{conversation_id: 55}},
+                    resolved_at: DateTime.utc_now()
+                  }
+                ]
+              },
+              grounding_metadata: %{reason: :canonical_results},
+              status: :pending
+            }
           ],
           host_user_id: "user_42"
         },
@@ -313,9 +501,17 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       html = render_html(assigns)
       assert html =~ "AI Draft / Audit"
+      assert html =~ "Operator summary"
+      assert html =~ "Grounding note"
+      assert html =~ "Canonical guidance matched"
+      assert html =~ "Customer reply"
+      assert html =~ "Supporting evidence"
       assert html =~ "Hello from AI"
+      assert html =~ "Knowledge Base"
+      assert html =~ "Resolved case"
+      assert html =~ "Canonical guidance"
+      assert html =~ "Supporting evidence"
       assert html =~ "Approve & Send"
-      # Renamed from Edit
       assert html =~ "Apply to Composer"
       assert html =~ "Discard"
     end
@@ -327,7 +523,14 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           subject: "Test",
           messages: [],
           drafts: [
-            %Cairnloop.Automation.Draft{id: 101, content: "Hello from AI", status: :pending}
+            %Cairnloop.Automation.Draft{
+              id: 101,
+              content: "Hello from AI",
+              customer_reply: "Hello from AI",
+              proposal_type: :reply,
+              evidence_snapshot: %{evidence: []},
+              status: :pending
+            }
           ],
           host_user_id: "user_42"
         },
@@ -345,6 +548,53 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       assert html =~ "phx-click=\"confirm_discard_draft\""
       assert html =~ "phx-click=\"cancel_discard_draft\""
+    end
+
+    test "renders clarification and escalation as explicit operator states" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          subject: "Test",
+          messages: [],
+          drafts: [
+            %Cairnloop.Automation.Draft{
+              id: 111,
+              customer_reply: "Could you share the specific error message?",
+              proposal_type: :clarification,
+              operator_summary: "One customer detail is still missing.",
+              grounding_metadata: %{reason: :canonical_insufficient_detail},
+              evidence_snapshot: %{evidence: []},
+              status: :pending
+            },
+            %Cairnloop.Automation.Draft{
+              id: 112,
+              customer_reply: "Please escalate this thread for manual review.",
+              proposal_type: :escalation,
+              operator_summary:
+                "Clarification has already been used once and grounding is still weak.",
+              clarification_attempts: 1,
+              grounding_metadata: %{reason: :clarification_limit_reached},
+              evidence_snapshot: %{evidence: []},
+              status: :pending
+            }
+          ],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "Clarification required"
+      assert html =~ "Escalation recommended"
+      assert html =~ "Canonical detail is still missing"
+      assert html =~ "Clarification limit reached"
+      assert html =~ "Could you share the specific error message?"
+      assert html =~ "Please escalate this thread for manual review."
     end
   end
 
@@ -503,5 +753,11 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
   defp render_html(assigns) do
     render_component(&ConversationLive.render/1, assigns)
+  end
+
+  defp element_index(html, needle) do
+    html
+    |> :binary.match(needle)
+    |> elem(0)
   end
 end
