@@ -1585,6 +1585,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(opts)
     |> where([task], task.published_revision_id == ^revision_id)
     |> repo().all()
+    |> repo().preload(:article_suggestion)
     |> List.first()
   end
 
@@ -1772,8 +1773,10 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   defp suggestion_evidence_count(nil, _key), do: 0
+  defp suggestion_evidence_count(%Ecto.Association.NotLoaded{}, _key), do: 0
   defp suggestion_evidence_count(%ArticleSuggestion{grounding_metadata: metadata}, key), do: metadata_count(metadata, key)
   defp suggestion_entrypoint_type(nil), do: :unspecified
+  defp suggestion_entrypoint_type(%Ecto.Association.NotLoaded{}), do: :unspecified
   defp suggestion_entrypoint_type(%ArticleSuggestion{entrypoint_type: type}), do: type || :unspecified
 
   defp reindex_outcome_for(:completed), do: :completed

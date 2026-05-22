@@ -755,7 +755,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
     %{
       status: status,
-      summary: ArticleSuggestionPresenter.quick_fix_summary(suggestion),
+      summary: quick_fix_summary(suggestion, review_task, status),
       reason: ArticleSuggestionPresenter.quick_fix_reason_label(suggestion),
       layers: ArticleSuggestionPresenter.quick_fix_layers(suggestion),
       primary_action: quick_fix_primary_action(status),
@@ -803,6 +803,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :completed}), do: :reindexed
   defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :running}), do: :reindexing
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :failed}), do: :retry_needed
   defp quick_fix_status(_suggestion, %{status: :published}), do: :published
   defp quick_fix_status(_suggestion, %{status: :approved_ready_to_publish}), do: :approved_ready_to_publish
 
@@ -867,6 +868,38 @@ defmodule Cairnloop.Web.ConversationLive do
       %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
       %{label: ReviewTaskPresenter.thread_status_label(:reindexed), current: true}
     ]
+  end
+
+  defp quick_fix_status_rail(:retry_needed) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:retry_needed), current: true}
+    ]
+  end
+
+  defp quick_fix_summary(_suggestion, review_task, :approved_ready_to_publish) when is_map(review_task) do
+    ReviewTaskPresenter.next_step_copy(review_task)
+  end
+
+  defp quick_fix_summary(_suggestion, review_task, status)
+       when is_map(review_task) and
+              status in [:published, :reindexing, :reindexed] do
+    ReviewTaskPresenter.publish_outcome(review_task)
+  end
+
+  defp quick_fix_summary(%{operator_summary: summary}, review_task, :retry_needed)
+       when is_map(review_task) and is_binary(summary) and summary != "" do
+    summary
+  end
+
+  defp quick_fix_summary(_suggestion, review_task, :retry_needed) when is_map(review_task) do
+    ReviewTaskPresenter.publish_outcome(review_task)
+  end
+
+  defp quick_fix_summary(suggestion, _review_task, _status) do
+    ArticleSuggestionPresenter.quick_fix_summary(suggestion)
   end
 
   defp quick_fix_request_attrs(conversation) do

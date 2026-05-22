@@ -72,6 +72,14 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     "Published revision ##{revision_id}. Reindex completed."
   end
 
+  def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id, reindex_status: :failed}) do
+    "Published revision ##{revision_id}. Reindex failed and needs attention."
+  end
+
+  def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id, reindex_status: :running}) do
+    "Published revision ##{revision_id}. Reindexing in progress."
+  end
+
   def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id}) do
     "Published revision ##{revision_id}. Reindex queued."
   end
