@@ -926,6 +926,161 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
              )
   end
 
+  test "mark_review_task_material_edit returns approved tasks to review_needed and appends history" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 109,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301,
+        proposed_markdown: "# Proposed KB update\n\nUse the export endpoint with a date range."
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 509,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_article_id: 21,
+        staged_revision_id: 401,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    {:ok, updated_task} =
+      KnowledgeAutomation.mark_review_task_material_edit(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-9",
+        content: "# Proposed KB update\n\nUse the export endpoint with a date range.\n\nManual clarifications added.",
+        saved_revision_id: 401,
+        get_revision_fn: fn 401 ->
+          %Cairnloop.KnowledgeBase.Revision{
+            id: 401,
+            article_id: 21,
+            version: 3,
+            state: :draft,
+            content: suggestion.proposed_markdown
+          }
+        end
+      )
+
+    assert updated_task.status == :review_needed
+    assert updated_task.last_decision == :review_needed
+    assert updated_task.last_reason == :needs_manual_edit
+    assert updated_task.needs_re_review
+    assert updated_task.publish_status == :not_started
+    assert updated_task.reindex_status == :not_started
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :material_edit_after_approval
+    assert event.from_status == :approved_ready_to_publish
+    assert event.to_status == :review_needed
+    assert event.reason == :needs_manual_edit
+    assert event.metadata.saved_revision_id == 401
+  end
+
+  test "record_review_task_reindex_outcome marks matching published tasks complete and appends history" do
+    suggestion = suggestion_fixture(%{id: 110})
+
+    task =
+      review_task_fixture(%{
+        id: 510,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        published_revision_id: 901,
+        publish_status: :published,
+        reindex_status: :queued,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    Process.put(:review_tasks, [task])
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_events, [])
+
+    assert {:ok, updated_task} =
+             KnowledgeAutomation.record_review_task_reindex_outcome(901, :ok, host_user_id: "host-1")
+
+    assert updated_task.status == :published
+    assert updated_task.publish_status == :published
+    assert updated_task.reindex_status == :completed
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :reindex_recorded
+    assert event.to_status == :published
+    assert event.metadata.reindex_status == :completed
+    assert event.metadata.published_revision_id == 901
+  end
+
+  test "record_review_task_reindex_outcome marks failures durably without touching unrelated tasks" do
+    suggestion = suggestion_fixture(%{id: 111})
+
+    linked_task =
+      review_task_fixture(%{
+        id: 511,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        published_revision_id: 902,
+        publish_status: :published,
+        reindex_status: :queued,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    unrelated_task =
+      review_task_fixture(%{
+        id: 512,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        published_revision_id: 999,
+        publish_status: :published,
+        reindex_status: :queued,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    Process.put(:review_tasks, [linked_task, unrelated_task])
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_events, [])
+
+    assert {:error, updated_task} =
+             KnowledgeAutomation.record_review_task_reindex_outcome(902, {:error, :embedding_timeout},
+               host_user_id: "host-1"
+             )
+
+    assert updated_task.id == linked_task.id
+    assert updated_task.status == :published
+    assert updated_task.publish_status == :published
+    assert updated_task.reindex_status == :failed
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :reindex_recorded
+    assert event.metadata.reindex_status == :failed
+    assert event.metadata.error == :embedding_timeout
+  end
+
   defp valid_review_task_attrs(overrides \\ %{}) do
     Map.merge(
       %{
