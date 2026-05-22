@@ -466,6 +466,250 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert Process.get(:last_updated) == nil
   end
 
+  test "approve_review_task stages a draft, records structured decision metadata, and moves the task to approved_ready_to_publish" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 101,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 501,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review
+      })
+
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 401,
+      article_id: 21,
+      version: 3,
+      state: :draft,
+      content: suggestion.proposed_markdown
+    }
+
+    now = ~U[2026-05-22 12:00:00Z]
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    {:ok, updated_task} =
+      KnowledgeAutomation.approve_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-7",
+        note: "Ready after review",
+        now_fn: fn -> now end,
+        load_article_fn: fn 21 -> {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}} end,
+        latest_revision_fn: fn 21 -> %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published} end,
+        save_draft_fn: fn article, attrs ->
+          assert article.id == 21
+          assert attrs.content == suggestion.proposed_markdown
+          {:ok, staged_revision}
+        end
+      )
+
+    assert updated_task.status == :approved_ready_to_publish
+    assert updated_task.staged_article_id == 21
+    assert updated_task.staged_revision_id == staged_revision.id
+    assert updated_task.last_decision == :approved
+    assert updated_task.last_reason == :ready_to_publish
+    assert updated_task.last_actor_id == "operator-7"
+    assert DateTime.truncate(updated_task.last_decided_at, :second) == now
+    assert updated_task.notes == "Ready after review"
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :decision_recorded
+    assert event.review_task_id == task.id
+    assert event.from_status == :pending_review
+    assert event.to_status == :approved_ready_to_publish
+    assert event.decision == :approved
+    assert event.reason == :ready_to_publish
+    assert event.notes == "Ready after review"
+    assert event.metadata.staged_revision_id == staged_revision.id
+  end
+
+  test "approve_review_task fails closed when another active draft would be overwritten" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 102,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 502,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review
+      })
+
+    conflicting_draft = %Cairnloop.KnowledgeBase.Revision{
+      id: 999,
+      article_id: 21,
+      version: 3,
+      state: :draft,
+      content: "Somebody else's draft"
+    }
+
+    now = ~U[2026-05-22 12:05:00Z]
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    assert {:error, {:draft_conflict, updated_task}} =
+             KnowledgeAutomation.approve_review_task(task.id,
+               host_user_id: "host-1",
+               actor_id: "operator-7",
+               now_fn: fn -> now end,
+               load_article_fn: fn 21 ->
+                 {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}}
+               end,
+               latest_revision_fn: fn 21 -> conflicting_draft end,
+               save_draft_fn: fn _article, _attrs -> flunk("should not save when unrelated draft exists") end
+             )
+
+    assert updated_task.status == :review_needed
+    assert updated_task.last_decision == :review_needed
+    assert updated_task.last_reason == :needs_manual_edit
+    assert updated_task.last_actor_id == "operator-7"
+    assert DateTime.truncate(updated_task.last_decided_at, :second) == now
+    assert updated_task.notes =~ "draft"
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :decision_recorded
+    assert event.to_status == :review_needed
+    assert event.reason == :needs_manual_edit
+    assert event.metadata.conflicting_revision_id == conflicting_draft.id
+  end
+
+  test "reject_review_task and defer_review_task require bounded reasons and append structured history" do
+    suggestion = suggestion_fixture(%{id: 103})
+
+    task =
+      review_task_fixture(%{
+        id: 503,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review
+      })
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+
+    assert {:error, :invalid_reason} =
+             KnowledgeAutomation.reject_review_task(task.id,
+               host_user_id: "host-1",
+               actor_id: "operator-7",
+               reason: :ready_to_publish
+             )
+
+    now = ~U[2026-05-22 12:10:00Z]
+
+    {:ok, rejected_task} =
+      KnowledgeAutomation.reject_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-7",
+        reason: :policy_rejected,
+        note: "Needs policy rewrite",
+        now_fn: fn -> now end
+      )
+
+    assert rejected_task.status == :rejected
+    assert rejected_task.last_decision == :rejected
+    assert rejected_task.last_reason == :policy_rejected
+    assert rejected_task.notes == "Needs policy rewrite"
+
+    rejection_event = Process.get(:last_inserted)
+    assert rejection_event.event_type == :decision_recorded
+    assert rejection_event.to_status == :rejected
+    assert rejection_event.reason == :policy_rejected
+    assert rejection_event.notes == "Needs policy rewrite"
+
+    defer_now = ~U[2026-05-22 12:11:00Z]
+
+    {:ok, deferred_task} =
+      KnowledgeAutomation.defer_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-8",
+        reason: :operator_deferred,
+        now_fn: fn -> defer_now end
+      )
+
+    assert deferred_task.status == :deferred
+    assert deferred_task.last_decision == :deferred
+    assert deferred_task.last_reason == :operator_deferred
+    assert deferred_task.notes == nil
+  end
+
+  test "repeated approve_review_task updates only the task-owned staged draft" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 104,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301,
+        proposed_markdown: "# Revised export KB\n\nUse the export endpoint with a tenant filter."
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 504,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_article_id: 21,
+        staged_revision_id: 401,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-6",
+        last_decided_at: ~U[2026-05-22 11:00:00Z]
+      })
+
+    owned_draft = %Cairnloop.KnowledgeBase.Revision{
+      id: 401,
+      article_id: 21,
+      version: 3,
+      state: :draft,
+      content: "Old task-owned draft"
+    }
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    {:ok, updated_task} =
+      KnowledgeAutomation.approve_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-7",
+        load_article_fn: fn 21 -> {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}} end,
+        latest_revision_fn: fn 21 -> owned_draft end,
+        save_draft_fn: fn _article, attrs ->
+          assert attrs.content == suggestion.proposed_markdown
+          {:ok, %{owned_draft | content: attrs.content}}
+        end
+      )
+
+    assert updated_task.staged_revision_id == owned_draft.id
+    assert updated_task.status == :approved_ready_to_publish
+  end
+
   defp valid_review_task_attrs(overrides \\ %{}) do
     Map.merge(
       %{
