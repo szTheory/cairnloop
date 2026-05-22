@@ -21,7 +21,7 @@ operator-reviewed KB maintenance workflow that preserves the existing publish bo
 
 - [x] **Phase 9: Gap Candidate Discovery** - Turn retrieval misses and weak-grounding evidence into ranked, inspectable KB gap candidates. (completed 2026-05-21)
 - [ ] **Phase 10: Citation-Backed Draft Suggestions** - Generate draft articles and revision suggestions only from grounded evidence.
-- [ ] **Phase 11: Review-Gated KB Updates** - Route AI-prepared KB work through visible review, decision tracking, and the normal publish/reindex path.
+- [x] **Phase 11: Review-Gated KB Updates** - Route AI-prepared KB work through visible review, decision tracking, and the normal publish/reindex path. (completed 2026-05-22)
 - [ ] **Phase 12: In-Thread Quick Fix & Ops Closure** - Let operators start KB maintenance from live support work while closing telemetry and fail-closed behavior.
 
 ## Phase Details
@@ -60,12 +60,12 @@ Plans:
   2. Operator can approve, reject, or edit-before-publish a review task, and AI suggestions cannot bypass the existing KB review flow.
   3. Approved updates follow the normal revision publish and reindex path so retrieval reflects the new canonical KB content.
   4. Review task state transitions, decision metadata, and reindex follow-up work are durably recorded.
-**Plans**: 3/4 plans complete
+**Plans**: 4/4 plans complete
 Plans:
 - [x] `M010-S03-01-PLAN.md` — Establish the durable review-task storage contract and public query APIs before approval or UI work begins.
 - [x] `M010-S03-02-PLAN.md` — Implement structured review-task decisions plus separate publish and freshness guards.
 - [x] `M010-S03-03-PLAN.md` — Build the task-centric review inbox, action wiring, and shared-lane deep links.
-- [ ] `M010-S03-04-PLAN.md` — Make the editor review-aware and reflect publish or reindex follow-through back onto review tasks.
+- [x] `M010-S03-04-PLAN.md` — Make the editor review-aware and reflect publish or reindex follow-through back onto review tasks.
 **UI hint**: yes
 
 ### Phase 12: In-Thread Quick Fix & Ops Closure
@@ -85,5 +85,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 9. Gap Candidate Discovery | 3/3 | Complete | 2026-05-21 |
 | 10. Citation-Backed Draft Suggestions | 0/TBD | Not started | - |
-| 11. Review-Gated KB Updates | 3/4 | In progress | 2026-05-22 |
+| 11. Review-Gated KB Updates | 4/4 | Complete | 2026-05-22 |
 | 12. In-Thread Quick Fix & Ops Closure | 0/TBD | Not started | - |
