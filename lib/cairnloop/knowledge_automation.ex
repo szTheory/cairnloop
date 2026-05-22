@@ -1,0 +1,957 @@
+defmodule Cairnloop.KnowledgeAutomation do
+  import Ecto.Query
+
+  alias Cairnloop.KnowledgeAutomation.{
+    ArticleSuggestion,
+    ArticleSuggestionEvidence,
+    CandidateBuilder,
+    GapCandidate,
+    ReviewTask,
+    ReviewTaskEvent,
+    StaleArticleSignal,
+    Workers.BackfillGapCandidates,
+    Workers.GenerateArticleSuggestion,
+    Workers.RefreshGapCandidates
+  }
+
+  alias Cairnloop.KnowledgeBase
+  alias Cairnloop.Retrieval
+  alias Cairnloop.Retrieval.{GapEvent, ResolvedCaseEvidence}
+
+  @pending_markdown "<pending article suggestion generation>"
+  @failed_markdown %{
+    article: "# Suggestion blocked\n\nCanonical citation-backed grounding was insufficient.",
+    revision:
+      "# Revision suggestion blocked\n\nCanonical citation-backed grounding was insufficient."
+  }
+
+  defp repo do
+    Application.fetch_env!(:cairnloop, :repo)
+  end
+
+  def list_gap_candidates(opts \\ []) do
+    GapCandidate
+    |> apply_scope(opts)
+    |> maybe_filter_status(opts)
+    |> order_by([candidate],
+      desc: candidate.score,
+      desc: candidate.last_seen_at,
+      desc: candidate.id
+    )
+    |> repo().all()
+  end
+
+  def get_gap_candidate!(id, opts \\ []) do
+    candidate =
+      GapCandidate
+      |> apply_scope(opts)
+      |> where([candidate], candidate.id == ^id)
+      |> preload(:memberships)
+      |> repo().one!()
+      |> enforce_scope!(opts, GapCandidate)
+
+    hydrate_memberships(candidate)
+  end
+
+  def list_article_suggestions(opts \\ []) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> maybe_filter_article_suggestion_status(opts)
+    |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
+    |> repo().all()
+  end
+
+  def get_article_suggestion!(id, opts \\ []) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> where([suggestion], suggestion.id == ^id)
+    |> repo().one!()
+    |> enforce_scope!(opts, ArticleSuggestion)
+  end
+
+  def list_review_tasks(opts \\ []) do
+    ReviewTask
+    |> apply_scope(opts)
+    |> maybe_filter_review_task_status(opts)
+    |> order_by(
+      [task],
+      asc:
+        fragment(
+          """
+          CASE ?
+            WHEN 'pending_review' THEN 0
+            WHEN 'review_needed' THEN 1
+            WHEN 'approved_ready_to_publish' THEN 2
+            WHEN 'deferred' THEN 3
+            WHEN 'rejected' THEN 4
+            WHEN 'published' THEN 5
+            ELSE 6
+          END
+          """,
+          task.status
+        ),
+      desc: task.inserted_at,
+      desc: task.id
+    )
+    |> repo().all()
+  end
+
+  def get_review_task!(id, opts \\ []) do
+    ReviewTask
+    |> apply_scope(opts)
+    |> where([task], task.id == ^id)
+    |> repo().one!()
+    |> enforce_scope!(opts, ReviewTask)
+    |> repo().preload([:article_suggestion, :events])
+  end
+
+  def ensure_review_task_for_suggestion(id, opts \\ []) do
+    actor_id = Keyword.get(opts, :actor_id)
+    suggestion = get_article_suggestion!(id, opts)
+
+    cond do
+      suggestion.status not in [:ready, :failed] ->
+        {:error, :suggestion_not_reviewable}
+
+      existing = find_active_review_task(suggestion, opts) ->
+        {:ok, existing}
+
+      true ->
+        attrs = %{
+          article_suggestion_id: suggestion.id,
+          tenant_scope: suggestion.tenant_scope,
+          host_user_id: suggestion.host_user_id,
+          status: initial_review_task_status(suggestion)
+        }
+
+        with {:ok, task} <-
+               %ReviewTask{}
+               |> ReviewTask.changeset(attrs)
+               |> repo().insert(),
+             {:ok, _event} <-
+               %ReviewTaskEvent{}
+               |> ReviewTaskEvent.changeset(%{
+                 review_task_id: task.id,
+                 event_type: :task_created,
+                 to_status: task.status,
+                 actor_id: actor_id || suggestion.host_user_id || "system",
+                 metadata: %{article_suggestion_id: suggestion.id}
+               })
+               |> repo().insert() do
+          {:ok, task}
+        end
+    end
+  end
+
+  def suggest_article(attrs, opts \\ []) do
+    attrs = Map.new(attrs)
+
+    case prepare_request(:article, attrs, opts) do
+      {:ok, prepared} -> insert_and_enqueue(prepared, opts)
+      {:failed, prepared} -> persist_failed(prepared, opts)
+    end
+  end
+
+  def suggest_revision(attrs, opts \\ []) do
+    attrs = Map.new(attrs)
+
+    latest_revision_fn =
+      Keyword.get(opts, :latest_revision_fn, &KnowledgeBase.get_latest_active_revision/1)
+
+    article_id =
+      Map.get(attrs, :article_id) || Map.get(attrs, "article_id") ||
+        Map.get(attrs, :entrypoint_id) || Map.get(attrs, "entrypoint_id")
+
+    case latest_revision_fn.(article_id) do
+      nil ->
+        {:error, :missing_published_revision}
+
+      revision ->
+        stale_signal =
+          stale_article_signal_module(opts).build_revision_gate(
+            revision.article_id,
+            revision.id,
+            revision_gate_opts(attrs, opts)
+          )
+
+        if stale_signal.ready? do
+          attrs =
+            attrs
+            |> Map.put(:suggestion_type, :revision)
+            |> Map.put(:entrypoint_type, :article_revision)
+            |> Map.put(:entrypoint_id, revision.article_id)
+            |> Map.put(:article_id, revision.article_id)
+            |> Map.put(:base_revision_id, revision.id)
+
+          case prepare_request(:revision, attrs, Keyword.put(opts, :stale_signal, stale_signal)) do
+            {:ok, prepared} -> insert_and_enqueue(prepared, opts)
+            {:failed, prepared} -> persist_failed(prepared, opts)
+          end
+        else
+          {:error, {:stale_gate_blocked, stale_signal}}
+        end
+    end
+  end
+
+  def dismiss_article_suggestion(id, opts \\ []) do
+    now_fn = Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
+
+    id
+    |> get_article_suggestion!(opts)
+    |> ArticleSuggestion.dismiss_changeset(now_fn.())
+    |> repo().update()
+  end
+
+  def regenerate_article_suggestion(id, opts \\ []) do
+    suggestion = get_article_suggestion!(id, opts)
+
+    with {:ok, regenerated} <-
+           suggestion
+           |> ArticleSuggestion.regenerate_changeset()
+           |> repo().update(),
+         {:ok, _job} <- enqueue_generation_job(regenerated, opts) do
+      {:ok, regenerated}
+    end
+  end
+
+  def create_or_reuse_authoring_article_for_suggestion(id, opts \\ []) do
+    suggestion = get_article_suggestion!(id, opts)
+
+    existing_authoring_article_id =
+      suggestion.grounding_metadata
+      |> map_value(:authoring_article_id)
+
+    cond do
+      suggestion.suggestion_type == :revision and suggestion.article_id ->
+        {:ok, suggestion.article_id}
+
+      existing_authoring_article_id ->
+        {:ok, existing_authoring_article_id}
+
+      true ->
+        with {:ok, article} <-
+               knowledge_base_module(opts).create_article(%{
+                 title: suggestion.title || "Suggested Knowledge Base article",
+                 status: :draft
+               }),
+             {:ok, updated} <-
+               suggestion
+               |> ArticleSuggestion.changeset(%{
+                 grounding_metadata:
+                   Map.put(
+                     suggestion.grounding_metadata || %{},
+                     "authoring_article_id",
+                     article.id
+                   )
+               })
+               |> repo().update() do
+          {:ok, map_value(updated.grounding_metadata, :authoring_article_id)}
+        end
+    end
+  end
+
+  def prepare_generation_bundle_from_suggestion(%ArticleSuggestion{} = suggestion) do
+    evidence_snapshot =
+      suggestion.evidence_snapshot
+      |> List.wrap()
+      |> Enum.map(&normalize_existing_evidence/1)
+
+    canonical_evidence = Enum.filter(evidence_snapshot, &canonical_anchor?/1)
+    assistive_evidence = Enum.reject(evidence_snapshot, &canonical_anchor?/1)
+    grounding_status = normalize_grounding_status(suggestion.grounding_metadata)
+
+    failure_reason =
+      cond do
+        grounding_status != :strong -> :weak_grounding
+        canonical_evidence == [] -> :missing_canonical_citations
+        true -> nil
+      end
+
+    %{
+      suggestion_type: suggestion.suggestion_type,
+      entrypoint_type: suggestion.entrypoint_type,
+      entrypoint_id: suggestion.entrypoint_id,
+      article_id: suggestion.article_id,
+      base_revision_id: suggestion.base_revision_id,
+      query: map_value(suggestion.grounding_metadata, :query),
+      evidence_snapshot: evidence_snapshot,
+      canonical_evidence: canonical_evidence,
+      assistive_evidence: assistive_evidence,
+      evidence_digest: suggestion.evidence_digest || evidence_digest_for(evidence_snapshot),
+      grounding_metadata: suggestion.grounding_metadata || %{},
+      stale_signal: map_value(suggestion.grounding_metadata, :stale_signal),
+      valid?: is_nil(failure_reason),
+      failure_reason: failure_reason
+    }
+  end
+
+  def mark_article_suggestion_ready(%ArticleSuggestion{} = suggestion, proposal, opts \\ []) do
+    now_fn = Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
+    prepared = prepare_generation_bundle_from_suggestion(suggestion)
+
+    attrs = %{
+      status: :ready,
+      title: Map.get(proposal, :title),
+      change_summary: Map.get(proposal, :change_summary),
+      operator_summary: Map.fetch!(proposal, :operator_summary),
+      proposed_markdown: Map.fetch!(proposal, :proposed_markdown),
+      generated_at: now_fn.(),
+      grounding_metadata:
+        ready_grounding_metadata(
+          suggestion.grounding_metadata || %{},
+          prepared,
+          Map.get(proposal, :evidence_metadata, %{})
+        )
+    }
+
+    suggestion
+    |> ArticleSuggestion.changeset(attrs)
+    |> repo().update()
+  end
+
+  def mark_article_suggestion_failed(%ArticleSuggestion{} = suggestion, reason, opts \\ []) do
+    now_fn = Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
+    prepared = prepare_generation_bundle_from_suggestion(suggestion)
+    failure_reason = normalize_failure_reason(reason)
+
+    attrs = %{
+      status: :failed,
+      operator_summary: failure_operator_summary(suggestion.suggestion_type, failure_reason),
+      proposed_markdown: fallback_markdown(suggestion.suggestion_type),
+      generated_at: now_fn.(),
+      grounding_metadata:
+        failed_grounding_metadata(suggestion.grounding_metadata || %{}, prepared, failure_reason)
+    }
+
+    suggestion
+    |> ArticleSuggestion.changeset(attrs)
+    |> repo().update()
+  end
+
+  def refresh_gap_candidates(opts \\ []) do
+    CandidateBuilder.refresh(opts)
+  end
+
+  def schedule_gap_candidate_refresh(args \\ %{}, opts \\ []) do
+    enqueue_fn = Keyword.get(opts, :enqueue_fn, &Oban.insert/1)
+
+    enqueue_fn.(
+      RefreshGapCandidates.new_job(Map.new(args), schedule_in: Keyword.get(opts, :schedule_in, 5))
+    )
+  end
+
+  def rebuild_gap_candidates(opts \\ []) do
+    if Keyword.get(opts, :sync, true) do
+      CandidateBuilder.refresh(opts)
+    else
+      enqueue_fn = Keyword.get(opts, :enqueue_fn, &Oban.insert/1)
+      enqueue_fn.(BackfillGapCandidates.new_job(Map.new(Enum.into(opts, %{}))))
+    end
+  end
+
+  defp prepare_request(type, attrs, opts) do
+    bundle = prepare_evidence_bundle(type, attrs, opts)
+    stable_key = derive_stable_key(bundle)
+
+    prepared =
+      attrs
+      |> Map.put(:stable_key, stable_key)
+      |> Map.put(:suggestion_type, type)
+      |> Map.put(:status, if(bundle.valid?, do: :pending_generation, else: :failed))
+      |> Map.put(:entrypoint_type, bundle.entrypoint_type)
+      |> Map.put(:entrypoint_id, bundle.entrypoint_id)
+      |> Map.put(:article_id, bundle.article_id)
+      |> Map.put(:base_revision_id, bundle.base_revision_id)
+      |> Map.put(:title, Map.get(attrs, :title) || Map.get(attrs, "title"))
+      |> Map.put(:change_summary, change_summary_for(type, attrs, bundle))
+      |> Map.put(:operator_summary, operator_summary_for(type, bundle))
+      |> Map.put(:proposed_markdown, proposed_markdown_for(type, bundle))
+      |> Map.put(:evidence_snapshot, serialize_evidence_snapshot(bundle.evidence_snapshot))
+      |> Map.put(:grounding_metadata, grounding_metadata_for(bundle))
+      |> Map.put(:evidence_digest, bundle.evidence_digest)
+
+    if bundle.valid?, do: {:ok, prepared}, else: {:failed, prepared}
+  end
+
+  defp prepare_evidence_bundle(type, attrs, opts) do
+    grounding_bundle = grounding_bundle_for(attrs, opts)
+    evidence_snapshot = build_evidence_snapshot(grounding_bundle)
+    canonical_evidence = Enum.filter(evidence_snapshot, &canonical_anchor?/1)
+    assistive_evidence = Enum.reject(evidence_snapshot, &canonical_anchor?/1)
+    evidence_digest = evidence_digest_for(evidence_snapshot)
+    grounding_status = normalize_grounding_status(grounding_bundle)
+    stale_signal = Keyword.get(opts, :stale_signal)
+
+    failure_reason =
+      cond do
+        grounding_status != :strong -> :weak_grounding
+        canonical_evidence == [] -> :missing_canonical_citations
+        true -> nil
+      end
+
+    %{
+      suggestion_type: type,
+      entrypoint_type: entrypoint_type_for(type),
+      entrypoint_id: entrypoint_id_for(type, attrs),
+      article_id: anchor_id(attrs, :article_id),
+      base_revision_id: anchor_id(attrs, :base_revision_id),
+      query: map_value(grounding_bundle, :query),
+      evidence_snapshot: evidence_snapshot,
+      canonical_evidence: canonical_evidence,
+      assistive_evidence: assistive_evidence,
+      evidence_digest: evidence_digest,
+      grounding_bundle: grounding_bundle,
+      grounding_status: grounding_status,
+      stale_signal: stale_signal,
+      valid?: is_nil(failure_reason),
+      failure_reason: failure_reason
+    }
+  end
+
+  defp grounding_bundle_for(attrs, opts) do
+    case Keyword.get(opts, :grounding_bundle) do
+      nil ->
+        fallback_attrs_grounding_bundle(attrs, opts)
+
+      bundle ->
+        bundle
+    end
+  end
+
+  defp fallback_attrs_grounding_bundle(attrs, opts) do
+    attrs_evidence =
+      Map.get(attrs, :evidence_snapshot) || Map.get(attrs, "evidence_snapshot") ||
+        Map.get(attrs, :evidence) || Map.get(attrs, "evidence") || []
+
+    attrs_grounding_metadata =
+      Map.get(attrs, :grounding_metadata) || Map.get(attrs, "grounding_metadata") || %{}
+
+    if attrs_evidence != [] or map_size(attrs_grounding_metadata) > 0 do
+      evidence =
+        attrs_evidence
+        |> List.wrap()
+        |> Enum.map(&normalize_existing_evidence/1)
+        |> Enum.reject(&is_nil/1)
+
+      grouped = Enum.group_by(evidence, & &1.source_type)
+
+      canonical =
+        Enum.filter(Map.get(grouped, :knowledge_base, []), &(&1.trust_level == :canonical))
+
+      assistive = Map.get(grouped, :resolved_case, [])
+      query = Map.get(attrs, :query) || Map.get(attrs, "query") || "Knowledge Base maintenance"
+
+      %{
+        query: query,
+        canonical_results: canonical,
+        assistive_results: assistive,
+        evidence: evidence,
+        grounding_assessment: %{
+          status: normalize_grounding_status(attrs_grounding_metadata),
+          reason: map_value(attrs_grounding_metadata, :reason)
+        },
+        diagnostic: %{
+          reason: map_value(attrs_grounding_metadata, :reason)
+        },
+        clarification_attempts: map_value(attrs_grounding_metadata, :clarification_attempts) || 0
+      }
+    else
+      retrieval_module = Keyword.get(opts, :retrieval_module, Retrieval)
+      query = Map.get(attrs, :query) || Map.get(attrs, "query") || "Knowledge Base maintenance"
+      host_user_id = Map.get(attrs, :host_user_id) || Map.get(attrs, "host_user_id")
+
+      retrieval_module.ground_for_draft(
+        %{query: query, host_user_id: host_user_id, clarification_attempts: 0},
+        surface: :draft_generation,
+        host_user_id: host_user_id
+      )
+    end
+  end
+
+  defp build_evidence_snapshot(grounding_bundle) do
+    results =
+      grounding_bundle
+      |> Map.get(:canonical_results, [])
+      |> Kernel.++(Map.get(grounding_bundle, :assistive_results, []))
+      |> case do
+        [] -> Map.get(grounding_bundle, :evidence, [])
+        grouped -> grouped
+      end
+
+    results
+    |> Enum.map(&normalize_evidence_snapshot/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp normalize_evidence_snapshot(%ArticleSuggestionEvidence{} = evidence), do: evidence
+
+  defp normalize_evidence_snapshot(%{} = evidence) do
+    attrs = %{
+      source_type: normalize_source_type(map_value(evidence, :source_type)),
+      trust_level: normalize_trust_level(map_value(evidence, :trust_level)),
+      title: map_value(evidence, :title) || "Untitled evidence",
+      excerpt:
+        map_value(evidence, :excerpt) || map_value(evidence, :content_excerpt) ||
+          map_value(evidence, :content) || "",
+      citation_target:
+        normalize_citation_target(
+          map_value(evidence, :citation_target),
+          map_value(evidence, :article_id),
+          map_value(evidence, :revision_id),
+          map_value(evidence, :chunk_index)
+        ),
+      metadata: %{
+        destination:
+          normalize_destination_metadata(
+            map_value(evidence, :metadata),
+            map_value(evidence, :article_id),
+            map_value(evidence, :revision_id)
+          )
+      },
+      match_reasons:
+        evidence
+        |> map_value(:match_reasons)
+        |> List.wrap()
+        |> Enum.map(&to_string/1)
+        |> Enum.take(5)
+    }
+
+    case ArticleSuggestionEvidence.changeset(%ArticleSuggestionEvidence{}, attrs) do
+      %Ecto.Changeset{valid?: true} = changeset -> Ecto.Changeset.apply_changes(changeset)
+      _ -> nil
+    end
+  end
+
+  defp normalize_evidence_snapshot(_), do: nil
+
+  defp normalize_existing_evidence(%ArticleSuggestionEvidence{} = evidence), do: evidence
+
+  defp normalize_existing_evidence(%{} = evidence) do
+    normalize_evidence_snapshot(evidence)
+  end
+
+  defp normalize_existing_evidence(_), do: nil
+
+  defp canonical_anchor?(%ArticleSuggestionEvidence{} = evidence) do
+    evidence.source_type == :knowledge_base and evidence.trust_level == :canonical and
+      citation_anchor_present?(evidence.citation_target)
+  end
+
+  defp citation_anchor_present?(citation_target) do
+    Enum.all?([:article_id, :revision_id, :chunk_index], fn key ->
+      map_value(citation_target || %{}, key) not in [nil, ""]
+    end)
+  end
+
+  defp evidence_digest_for(evidence_snapshot) do
+    evidence_snapshot
+    |> Enum.map(fn evidence ->
+      %{
+        source_type: evidence.source_type,
+        trust_level: evidence.trust_level,
+        title: evidence.title,
+        excerpt: evidence.excerpt,
+        citation_target: evidence.citation_target,
+        match_reasons: evidence.match_reasons
+      }
+    end)
+    |> Jason.encode!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
+  end
+
+  defp serialize_evidence_snapshot(evidence_snapshot) do
+    Enum.map(evidence_snapshot, fn evidence ->
+      %{
+        source_type: evidence.source_type,
+        trust_level: evidence.trust_level,
+        title: evidence.title,
+        excerpt: evidence.excerpt,
+        citation_target: evidence.citation_target,
+        metadata: evidence.metadata,
+        match_reasons: evidence.match_reasons
+      }
+    end)
+  end
+
+  defp derive_stable_key(bundle) do
+    [
+      Atom.to_string(bundle.suggestion_type),
+      Atom.to_string(bundle.entrypoint_type),
+      to_string(bundle.entrypoint_id),
+      bundle.base_revision_id && to_string(bundle.base_revision_id),
+      bundle.evidence_digest
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(":")
+  end
+
+  defp insert_and_enqueue(prepared, opts) do
+    with {:ok, suggestion} <-
+           %ArticleSuggestion{}
+           |> ArticleSuggestion.changeset(prepared)
+           |> repo().insert(),
+         {:ok, _job} <- enqueue_generation_job(suggestion, opts) do
+      {:ok, suggestion}
+    end
+  end
+
+  defp persist_failed(prepared, opts) do
+    now_fn = Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
+
+    prepared
+    |> Map.put(:status, :failed)
+    |> Map.put(:generated_at, now_fn.())
+    |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
+    |> repo().insert()
+  end
+
+  defp enqueue_generation_job(%ArticleSuggestion{} = suggestion, opts) do
+    enqueue_fn = Keyword.get(opts, :enqueue_fn, &Oban.insert/1)
+    enqueue_fn.(GenerateArticleSuggestion.new_job(job_args_for(suggestion)))
+  end
+
+  defp job_args_for(%ArticleSuggestion{} = suggestion) do
+    %{
+      suggestion_id: suggestion.id,
+      entrypoint_type: suggestion.entrypoint_type,
+      entrypoint_id: suggestion.entrypoint_id,
+      base_revision_id: suggestion.base_revision_id,
+      evidence_digest: suggestion.evidence_digest
+    }
+  end
+
+  defp entrypoint_type_for(:article), do: :gap_candidate
+  defp entrypoint_type_for(:revision), do: :article_revision
+
+  defp entrypoint_id_for(:article, attrs) do
+    anchor_id(attrs, :entrypoint_id) || anchor_id(attrs, :gap_candidate_id)
+  end
+
+  defp entrypoint_id_for(:revision, attrs) do
+    anchor_id(attrs, :entrypoint_id) || anchor_id(attrs, :article_id)
+  end
+
+  defp anchor_id(attrs, key) do
+    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  end
+
+  defp change_summary_for(:article, attrs, _bundle) do
+    Map.get(attrs, :change_summary) || Map.get(attrs, "change_summary")
+  end
+
+  defp change_summary_for(:revision, attrs, bundle) do
+    Map.get(attrs, :change_summary) || Map.get(attrs, "change_summary") ||
+      "Revision requested from repeated article-linked failures (#{bundle.stale_signal.signal_count} signals)."
+  end
+
+  defp operator_summary_for(type, bundle) do
+    if bundle.valid? do
+      "#{String.capitalize(Atom.to_string(type))} suggestion queued with #{length(bundle.canonical_evidence)} canonical citation anchors and #{length(bundle.assistive_evidence)} assistive evidence rows."
+    else
+      failure_operator_summary(type, bundle.failure_reason)
+    end
+  end
+
+  defp proposed_markdown_for(type, bundle) do
+    if bundle.valid?, do: @pending_markdown, else: fallback_markdown(type)
+  end
+
+  defp grounding_metadata_for(bundle) do
+    %{
+      status: bundle.grounding_status,
+      query: bundle.query,
+      evidence_digest: bundle.evidence_digest,
+      canonical_evidence_count: length(bundle.canonical_evidence),
+      assistive_evidence_count: length(bundle.assistive_evidence),
+      citation_validation_result: if(bundle.valid?, do: :passed, else: :failed),
+      failure_reason: bundle.failure_reason,
+      stale_signal: stale_signal_metadata(bundle.stale_signal)
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.into(%{})
+  end
+
+  defp ready_grounding_metadata(existing, prepared, evidence_metadata) do
+    existing
+    |> Map.merge(%{
+      "status" => "strong",
+      "generation_status" => "ready",
+      "citation_validation_result" => "passed",
+      "evidence_digest" => prepared.evidence_digest,
+      "canonical_evidence_count" => length(prepared.canonical_evidence),
+      "assistive_evidence_count" => length(prepared.assistive_evidence),
+      "citation_metadata" => Map.get(evidence_metadata, :citations, []),
+      "generation_metadata" => evidence_metadata
+    })
+  end
+
+  defp failed_grounding_metadata(existing, prepared, failure_reason) do
+    existing
+    |> Map.merge(%{
+      "generation_status" => "failed",
+      "citation_validation_result" =>
+        if(failure_reason == :missing_canonical_citations, do: "failed", else: "passed"),
+      "failure_reason" => Atom.to_string(failure_reason),
+      "evidence_digest" => prepared.evidence_digest,
+      "canonical_evidence_count" => length(prepared.canonical_evidence),
+      "assistive_evidence_count" => length(prepared.assistive_evidence)
+    })
+  end
+
+  defp fallback_markdown(type), do: Map.fetch!(@failed_markdown, type)
+
+  defp failure_operator_summary(type, failure_reason) do
+    "#{String.capitalize(Atom.to_string(type))} suggestion blocked: #{failure_reason_message(failure_reason)}"
+  end
+
+  defp failure_reason_message(:weak_grounding),
+    do: "grounding did not meet the canonical threshold"
+
+  defp failure_reason_message(:missing_canonical_citations),
+    do: "canonical citation anchors were missing"
+
+  defp failure_reason_message(:generation_failed), do: "Scoria generation failed"
+  defp failure_reason_message(other), do: to_string(other)
+
+  defp revision_gate_opts(attrs, opts) do
+    [
+      now_fn: Keyword.get(opts, :now_fn, &DateTime.utc_now/0),
+      gap_events: Keyword.get(opts, :gap_events),
+      grounding_bundle: Keyword.get(opts, :grounding_bundle),
+      tenant_scope: Map.get(attrs, :tenant_scope) || Map.get(attrs, "tenant_scope"),
+      host_user_id: Map.get(attrs, :host_user_id) || Map.get(attrs, "host_user_id")
+    ]
+  end
+
+  defp normalize_source_type(value) when value in [:knowledge_base, :resolved_case], do: value
+  defp normalize_source_type("knowledge_base"), do: :knowledge_base
+  defp normalize_source_type("resolved_case"), do: :resolved_case
+  defp normalize_source_type(_), do: :unknown
+
+  defp normalize_trust_level(value) when value in [:canonical, :assistive], do: value
+  defp normalize_trust_level("canonical"), do: :canonical
+  defp normalize_trust_level("assistive"), do: :assistive
+  defp normalize_trust_level(_), do: :unknown
+
+  defp normalize_citation_target(%{} = citation_target, article_id, revision_id, chunk_index) do
+    citation_target
+    |> Enum.into(%{}, fn {key, value} -> {normalize_map_key(key), value} end)
+    |> Map.put_new(:article_id, article_id)
+    |> Map.put_new(:revision_id, revision_id)
+    |> Map.put_new(:chunk_index, chunk_index)
+  end
+
+  defp normalize_citation_target(_, article_id, revision_id, chunk_index) do
+    %{
+      article_id: article_id,
+      revision_id: revision_id,
+      chunk_index: chunk_index
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.into(%{})
+  end
+
+  defp normalize_destination_metadata(%{} = metadata, article_id, revision_id) do
+    destination = map_value(metadata, :destination) || %{}
+
+    destination
+    |> Enum.into(%{}, fn {key, value} -> {normalize_map_key(key), value} end)
+    |> Map.put_new(:article_id, article_id)
+    |> Map.put_new(:revision_id, revision_id)
+  end
+
+  defp normalize_destination_metadata(_, article_id, revision_id) do
+    %{}
+    |> maybe_put_destination(:article_id, article_id)
+    |> maybe_put_destination(:revision_id, revision_id)
+  end
+
+  defp maybe_put_destination(map, _key, nil), do: map
+  defp maybe_put_destination(map, key, value), do: Map.put(map, key, value)
+
+  defp normalize_grounding_status(%{grounding_assessment: %{status: status}}), do: status
+  defp normalize_grounding_status(%{"grounding_assessment" => %{"status" => status}}), do: status
+
+  defp normalize_grounding_status(metadata) when is_map(metadata) do
+    value = map_value(metadata, :status)
+
+    case value do
+      "strong" -> :strong
+      "clarification" -> :clarification
+      "escalation" -> :escalation
+      other when is_atom(other) -> other
+      _ -> :unknown
+    end
+  end
+
+  defp normalize_grounding_status(_), do: :unknown
+
+  defp stale_signal_metadata(nil), do: nil
+
+  defp stale_signal_metadata(signal) do
+    %{
+      ready?: signal.ready?,
+      reason: signal.reason,
+      signal_count: signal.signal_count,
+      fresh_canonical_snapshot?: signal.fresh_canonical_snapshot?
+    }
+  end
+
+  defp normalize_failure_reason({:error, reason}), do: normalize_failure_reason(reason)
+  defp normalize_failure_reason(reason) when is_atom(reason), do: reason
+  defp normalize_failure_reason(_), do: :generation_failed
+
+  defp normalize_map_key(key) when is_binary(key), do: String.to_atom(key)
+  defp normalize_map_key(key), do: key
+
+  defp map_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp map_value(_, _), do: nil
+
+  defp stale_article_signal_module(opts) do
+    Keyword.get(opts, :stale_article_signal_module, StaleArticleSignal)
+  end
+
+  defp knowledge_base_module(opts) do
+    Keyword.get(opts, :knowledge_base_module, KnowledgeBase)
+  end
+
+  defp apply_scope(query, opts) do
+    query
+    |> maybe_where_equal(:tenant_scope, Keyword.get(opts, :tenant_scope))
+    |> maybe_where_equal(:host_user_id, Keyword.get(opts, :host_user_id))
+  end
+
+  defp maybe_filter_status(query, opts) do
+    case Keyword.get(opts, :status, :open) do
+      :all -> query
+      nil -> query
+      status -> where(query, [candidate], candidate.status == ^status)
+    end
+  end
+
+  defp maybe_filter_article_suggestion_status(query, opts) do
+    case Keyword.get(opts, :status, :all) do
+      :all -> query
+      nil -> query
+      status -> where(query, [suggestion], suggestion.status == ^status)
+    end
+  end
+
+  defp maybe_filter_review_task_status(query, opts) do
+    case Keyword.get(opts, :status, :all) do
+      :all -> query
+      nil -> query
+      status -> where(query, [task], task.status == ^status)
+    end
+  end
+
+  defp maybe_where_equal(query, _field, nil), do: query
+
+  defp maybe_where_equal(query, field, value) do
+    where(query, [candidate], field(candidate, ^field) == ^value)
+  end
+
+  defp enforce_scope!(candidate, opts, queryable) do
+    expected_tenant_scope = Keyword.get(opts, :tenant_scope)
+    expected_host_user_id = Keyword.get(opts, :host_user_id)
+
+    tenant_scope_matches? =
+      is_nil(expected_tenant_scope) or candidate.tenant_scope == expected_tenant_scope
+
+    host_user_id_matches? =
+      is_nil(expected_host_user_id) or
+        to_string(candidate.host_user_id) == to_string(expected_host_user_id)
+
+    if tenant_scope_matches? and host_user_id_matches? do
+      candidate
+    else
+      raise Ecto.NoResultsError, queryable: queryable
+    end
+  end
+
+  defp find_active_review_task(%ArticleSuggestion{} = suggestion, opts) do
+    ReviewTask
+    |> apply_scope(opts)
+    |> where([task], task.article_suggestion_id == ^suggestion.id)
+    |> where([task], task.status in ^active_review_task_statuses())
+    |> repo().all()
+    |> List.first()
+  end
+
+  defp active_review_task_statuses do
+    [:pending_review, :review_needed, :approved_ready_to_publish, :deferred]
+  end
+
+  defp initial_review_task_status(%ArticleSuggestion{status: :failed}), do: :review_needed
+  defp initial_review_task_status(%ArticleSuggestion{}), do: :pending_review
+
+  defp hydrate_memberships(%GapCandidate{} = candidate) do
+    retrieval_ids =
+      candidate.memberships
+      |> Enum.filter(&(&1.source_type == :retrieval_gap_event))
+      |> Enum.map(& &1.source_id)
+
+    manual_ids =
+      candidate.memberships
+      |> Enum.filter(&(&1.source_type == :manual_handling_case))
+      |> Enum.map(& &1.source_id)
+
+    retrieval_gap_events =
+      if retrieval_ids == [] do
+        []
+      else
+        GapEvent
+        |> where([event], event.id in ^retrieval_ids)
+        |> order_by([event], desc: event.occurred_at, desc: event.id)
+        |> repo().all()
+        |> Enum.map(&serialize_gap_event/1)
+      end
+
+    manual_handling_evidence =
+      if manual_ids == [] do
+        []
+      else
+        ResolvedCaseEvidence
+        |> where([evidence], evidence.id in ^manual_ids)
+        |> order_by([evidence], desc: evidence.resolved_at, desc: evidence.id)
+        |> repo().all()
+        |> Enum.map(&serialize_manual_handling_evidence/1)
+      end
+
+    %{
+      candidate
+      | retrieval_gap_events: retrieval_gap_events,
+        manual_handling_evidence: manual_handling_evidence
+    }
+  end
+
+  defp serialize_gap_event(event) do
+    %{
+      id: event.id,
+      occurred_at: event.occurred_at,
+      surface: event.surface,
+      reason: event.reason,
+      outcome_class: event.outcome_class,
+      canonical_hit_count: event.canonical_hit_count,
+      assistive_hit_count: event.assistive_hit_count,
+      sanitized_query_excerpt: event.sanitized_query_excerpt
+    }
+  end
+
+  defp serialize_manual_handling_evidence(evidence) do
+    %{
+      id: evidence.id,
+      conversation_id: evidence.conversation_id,
+      subject: evidence.subject,
+      issue_summary: evidence.issue_summary,
+      resolution_note: evidence.resolution_note,
+      actions_taken: evidence.actions_taken,
+      resolved_at: evidence.resolved_at,
+      citation_backreferences: evidence.citation_backreferences
+    }
+  end
+end

@@ -24,7 +24,33 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     end
 
     def one!(%Ecto.Query{} = query) do
-      Process.get(:review_task_detail_lookup).(query)
+      case query.from.source do
+        {"cairnloop_review_tasks", _module} ->
+          case Process.get(:review_task_detail_lookup) do
+            lookup when is_function(lookup, 1) ->
+              lookup.(query)
+
+            _ ->
+              Process.get(:review_tasks, [])
+              |> filter_scope(query)
+              |> List.first()
+          end
+
+        {"cairnloop_article_suggestions", _module} ->
+          Process.get(:article_suggestions, [])
+          |> Enum.find(fn suggestion ->
+            Enum.all?(List.wrap(query.wheres), fn %{expr: expr, params: params} ->
+              eval_condition(suggestion, expr, params)
+            end)
+          end)
+
+        _ ->
+          nil
+      end
+      |> case do
+        nil -> raise Ecto.NoResultsError, queryable: query
+        record -> record
+      end
     end
 
     def insert(%Ecto.Changeset{} = changeset) do
@@ -335,7 +361,10 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert Enum.map(tasks, & &1.id) == [3, 2, 1]
 
     filtered =
-      KnowledgeAutomation.list_review_tasks(host_user_id: "host-1", status: :approved_ready_to_publish)
+      KnowledgeAutomation.list_review_tasks(
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish
+      )
 
     assert Enum.map(filtered, & &1.id) == [2]
   end
@@ -453,7 +482,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     Ecto.Changeset.traverse_errors(changeset, fn {message, _opts} -> message end)
   end
 
-  defp review_task_fixture(overrides \\ %{}) do
+  defp review_task_fixture(overrides) do
     struct!(
       ReviewTask,
       Map.merge(
@@ -479,7 +508,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     )
   end
 
-  defp review_task_event_fixture(overrides \\ %{}) do
+  defp review_task_event_fixture(overrides) do
     struct!(
       ReviewTaskEvent,
       Map.merge(
@@ -501,7 +530,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     )
   end
 
-  defp suggestion_fixture(overrides \\ %{}) do
+  defp suggestion_fixture(overrides) do
     evidence =
       struct!(ArticleSuggestionEvidence, %{
         source_type: :knowledge_base,
