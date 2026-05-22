@@ -33,6 +33,17 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     |> Enum.find_value("All work", fn {filter, label} -> if filter == value, do: label end)
   end
 
+  def thread_status_label(:idle), do: "No quick fix started"
+  def thread_status_label(:preparing), do: "Preparing quick fix"
+  def thread_status_label(:ready), do: "Review task ready"
+  def thread_status_label(:shell_created), do: "Draft shell created"
+  def thread_status_label(:blocked_manual_required), do: "Manual draft required"
+  def thread_status_label(:approved_ready_to_publish), do: "Approved, awaiting publish"
+  def thread_status_label(:published), do: "Published, reindex pending"
+  def thread_status_label(:reindexing), do: "Reindexing"
+  def thread_status_label(:reindexed), do: "Reindexed"
+  def thread_status_label(:retry_needed), do: "Follow-through needs attention"
+
   def next_step_copy(%ReviewTask{status: :pending_review, article_suggestion: suggestion})
       when not is_nil(suggestion) do
     case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do

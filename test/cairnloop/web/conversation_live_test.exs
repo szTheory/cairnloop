@@ -49,6 +49,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
     end
 
+    def all(_query), do: []
+
     def preload(record, _), do: record
   end
 

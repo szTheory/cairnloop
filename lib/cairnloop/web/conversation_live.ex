@@ -2,6 +2,10 @@ defmodule Cairnloop.Web.ConversationLive do
   use Phoenix.LiveView
 
   alias Cairnloop.Chat
+  alias Cairnloop.Automation.Draft
+  alias Cairnloop.KnowledgeAutomation
+  alias Cairnloop.Retrieval.Result
+  alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
 
   def mount(%{"id" => id}, _session, socket) do
     if connected?(socket) do
@@ -62,7 +66,7 @@ defmodule Cairnloop.Web.ConversationLive do
         socket =
           socket
           |> reload_conversation_with_context(socket.assigns.conversation.id)
-          |> assign(form: to_form(%{"content" => draft.content}))
+          |> assign(form: to_form(%{"content" => Draft.reply_content(draft)}))
 
         {:noreply, socket}
 
@@ -131,11 +135,13 @@ defmodule Cairnloop.Web.ConversationLive do
   defp reload_conversation_with_context(socket, conversation_id) do
     conversation = Chat.get_conversation!(conversation_id)
     {context, context_error} = load_host_context(conversation)
+    quick_fix_card = load_quick_fix_card(conversation)
 
     assign(socket,
       conversation: conversation,
       host_context: context,
-      context_error: context_error
+      context_error: context_error,
+      quick_fix_card: quick_fix_card
     )
   end
 
@@ -153,7 +159,23 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
+  defp load_quick_fix_card(conversation) do
+    opts =
+      [tenant_scope: :host_user_scoped, host_user_id: conversation.host_user_id]
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    case knowledge_automation().get_conversation_quick_fix(conversation.id, opts) do
+      {:ok, %{suggestion: suggestion, review_task: review_task}} ->
+        quick_fix_card_state(suggestion, review_task)
+
+      _ ->
+        idle_quick_fix_card(conversation)
+    end
+  end
+
   def render(assigns) do
+    assigns = assign(assigns, :quick_fix_card, normalize_quick_fix_card(assigns))
+
     ~H"""
     <.live_component
       module={Cairnloop.Web.SearchModalComponent}
@@ -188,9 +210,84 @@ defmodule Cairnloop.Web.ConversationLive do
       }
       .rail-card {
         padding: 24px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
+        background: #fbf7ee;
+        border: 1px solid #d8ccb8;
         border-radius: 8px;
+      }
+      .quick-fix-card {
+        background: #fbf7ee;
+        border-color: #c9b89c;
+      }
+      .quick-fix-eyebrow,
+      .quick-fix-layer-label,
+      .quick-fix-status-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+      .quick-fix-eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #7c5430;
+      }
+      .quick-fix-summary {
+        margin: 8px 0 16px;
+        color: #3b2d1f;
+      }
+      .quick-fix-layers,
+      .quick-fix-status-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .quick-fix-layer,
+      .quick-fix-status-chip {
+        padding: 12px;
+        border-radius: 8px;
+        background: #f5efe3;
+        border: 1px solid #ddcfba;
+      }
+      .quick-fix-layer-meta {
+        color: #64513c;
+        margin-left: 8px;
+      }
+      .quick-fix-layer-summary {
+        margin-top: 4px;
+        color: #4c4033;
+      }
+      .quick-fix-reason {
+        margin: 16px 0;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f4e6d4;
+        border: 1px solid #c38f57;
+        color: #5d3b16;
+      }
+      .quick-fix-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin: 16px 0;
+      }
+      .quick-fix-actions button,
+      .quick-fix-actions a {
+        min-height: 44px;
+      }
+      .quick-fix-actions button {
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid #a94f30;
+        background: #a94f30;
+        color: #fffdf8;
+      }
+      .quick-fix-actions a {
+        display: inline-flex;
+        align-items: center;
+        color: #7d432d;
+      }
+      .quick-fix-status-chip.current {
+        border-color: #a94f30;
+        background: #f4e6d4;
       }
       .context-field {
         margin-bottom: 16px;
@@ -234,6 +331,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
         <div class="evidence-rail">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
+          <.quick_fix_card card={@quick_fix_card} />
           
           <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
             <%= for draft <- @conversation.drafts do %>
@@ -286,6 +384,54 @@ defmodule Cairnloop.Web.ConversationLive do
         <% end %>
       <% end %>
     </div>
+    """
+  end
+
+  attr :card, :map, required: true
+
+  def quick_fix_card(assigns) do
+    ~H"""
+    <section class="rail-card quick-fix-card" aria-live="polite">
+      <div class="quick-fix-eyebrow">KB maintenance</div>
+      <h3><%= ReviewTaskPresenter.thread_status_label(@card.status) %></h3>
+      <p class="quick-fix-summary"><%= @card.summary %></p>
+
+      <div class="quick-fix-layers">
+        <%= for layer <- @card.layers do %>
+          <div class="quick-fix-layer">
+            <div>
+              <span class="quick-fix-layer-label"><%= layer.label %></span>
+              <span class="quick-fix-layer-meta"><%= layer.trust %></span>
+            </div>
+            <div class="quick-fix-layer-summary"><%= layer.summary %></div>
+          </div>
+        <% end %>
+      </div>
+
+      <%= if @card.reason do %>
+        <div class="quick-fix-reason">
+          <strong>Reason:</strong> <%= @card.reason %>
+        </div>
+      <% end %>
+
+      <div class="quick-fix-actions">
+        <button type="button" phx-click={@card.primary_action.event}>
+          <%= @card.primary_action.label %>
+        </button>
+
+        <%= if @card.secondary_action do %>
+          <a href={@card.secondary_action.to}><%= @card.secondary_action.label %></a>
+        <% end %>
+      </div>
+
+      <div class="quick-fix-status-rail">
+        <%= for chip <- @card.status_rail do %>
+          <div class={["quick-fix-status-chip", chip.current && "current"]}>
+            <div class="quick-fix-status-label"><%= chip.label %></div>
+          </div>
+        <% end %>
+      </div>
+    </section>
     """
   end
 
@@ -369,12 +515,66 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   def draft_audit_card(assigns) do
+    assigns =
+      assigns
+      |> assign(:draft_reply, Draft.reply_content(assigns.draft))
+      |> assign(:operator_summary, draft_operator_summary(assigns.draft))
+      |> assign(:proposal_state_label, proposal_state_label(assigns.draft))
+      |> assign(:grounding_reason_label, grounding_reason_label(assigns.draft))
+      |> assign(:grounding_reason_copy, grounding_reason_copy(assigns.draft))
+      |> assign(:evidence, draft_evidence(assigns.draft))
+
     ~H"""
     <div class="rail-card draft">
       <h3>AI Draft / Audit</h3>
-      <p><strong>Draft:</strong> <%= @draft.content %></p>
+      <p><strong>Proposal state:</strong> <%= @proposal_state_label %></p>
       <p><em>Status: <%= @draft.status %></em></p>
-      
+
+      <div class="context-field">
+        <strong>Operator summary:</strong>
+        <p><%= @operator_summary %></p>
+      </div>
+
+      <%= if @grounding_reason_label do %>
+        <div class="context-field">
+          <strong>Grounding note:</strong>
+          <p><strong><%= @grounding_reason_label %></strong></p>
+          <p><%= @grounding_reason_copy %></p>
+        </div>
+      <% end %>
+
+      <div class="context-field">
+        <strong>Customer reply:</strong>
+        <p><%= @draft_reply %></p>
+      </div>
+
+      <div class="context-field">
+        <strong>Supporting evidence</strong>
+        <%= if @evidence == [] do %>
+          <p>No supporting evidence captured for this proposal.</p>
+        <% else %>
+          <div>
+            <%= for evidence <- @evidence do %>
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                <p>
+                  <strong><%= SearchResultPresenter.source_label(evidence) %></strong>
+                  ·
+                  <strong><%= SearchResultPresenter.trust_label(evidence) %></strong>
+                </p>
+                <p><strong><%= SearchResultPresenter.title(evidence) %></strong></p>
+                <p><%= SearchResultPresenter.row_snippet(evidence) %></p>
+                <p><em><%= SearchResultPresenter.recency_label(evidence) %></em></p>
+                <%= if path = SearchResultPresenter.open_path(evidence) do %>
+                  <p>
+                    <.link navigate={path}><%= SearchResultPresenter.open_action_label(evidence) %></.link>
+                  </p>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
       <%= if @draft.status in [:pending, :edited] do %>
         <div class="draft-actions">
           <button phx-click="approve_draft" phx-value-draft-id={@draft.id}>Approve & Send</button>
@@ -424,4 +624,191 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   def normalize_context_value(_), do: "Unsupported value"
+
+  defp proposal_state_label(%Draft{proposal_type: :clarification}), do: "Clarification required"
+  defp proposal_state_label(%Draft{proposal_type: :escalation}), do: "Escalation recommended"
+  defp proposal_state_label(_draft), do: "Grounded reply"
+
+  defp draft_operator_summary(%Draft{operator_summary: summary})
+       when is_binary(summary) and summary != "",
+       do: summary
+
+  defp draft_operator_summary(%Draft{proposal_type: :clarification}) do
+    "Grounding is close, but one bounded follow-up is required before a safe reply can be sent."
+  end
+
+  defp draft_operator_summary(%Draft{proposal_type: :escalation}) do
+    "Grounding is insufficient for a routine reply. Review the evidence and escalate instead of guessing."
+  end
+
+  defp draft_operator_summary(_draft) do
+    "Grounded reply prepared for operator review."
+  end
+
+  defp grounding_reason_label(%Draft{} = draft) do
+    case draft_grounding_reason(draft) do
+      nil -> nil
+      reason -> SearchResultPresenter.diagnostic_reason_label(reason)
+    end
+  end
+
+  defp grounding_reason_copy(%Draft{} = draft) do
+    case draft_grounding_reason(draft) do
+      nil -> nil
+      reason -> SearchResultPresenter.diagnostic_reason_copy(reason)
+    end
+  end
+
+  defp draft_grounding_reason(%Draft{grounding_metadata: metadata}) when is_map(metadata) do
+    Map.get(metadata, :reason) || Map.get(metadata, "reason")
+  end
+
+  defp draft_grounding_reason(_draft), do: nil
+
+  defp draft_evidence(%Draft{evidence_snapshot: %{"evidence" => evidence}})
+       when is_list(evidence),
+       do: Enum.map(evidence, &to_result/1)
+
+  defp draft_evidence(%Draft{evidence_snapshot: %{evidence: evidence}}) when is_list(evidence),
+    do: Enum.map(evidence, &to_result/1)
+
+  defp draft_evidence(_draft), do: []
+
+  defp to_result(%Result{} = result), do: result
+
+  defp to_result(%{} = evidence) do
+    evidence
+    |> Enum.into(%{}, fn
+      {key, value} when is_binary(key) -> {String.to_existing_atom(key), value}
+      pair -> pair
+    end)
+    |> then(&struct(Result, &1))
+  rescue
+    ArgumentError -> struct(Result, %{})
+  end
+
+  defp quick_fix_card_state(suggestion, review_task) do
+    status = quick_fix_status(suggestion, review_task)
+
+    %{
+      status: status,
+      summary: ArticleSuggestionPresenter.quick_fix_summary(suggestion),
+      reason: ArticleSuggestionPresenter.quick_fix_reason_label(suggestion),
+      layers: ArticleSuggestionPresenter.quick_fix_layers(suggestion),
+      primary_action: quick_fix_primary_action(status),
+      secondary_action: quick_fix_secondary_action(review_task),
+      status_rail: quick_fix_status_rail(status),
+      suggestion_id: suggestion.id,
+      review_task_id: review_task && review_task.id
+    }
+  end
+
+  defp idle_quick_fix_card(_conversation) do
+    %{
+      status: :idle,
+      summary:
+        "Use conversation evidence to open a KB maintenance task when this thread exposes missing or stale guidance.",
+      reason: nil,
+      layers: [
+        %{label: "Thread context", trust: "Conversation signal", summary: "No bounded thread summary"},
+        %{label: "Canonical retrieval", trust: "Citation-eligible", summary: "No citation-ready canonical evidence"},
+        %{label: "Resolved case assists", trust: "Supporting context", summary: "No supporting resolved cases"}
+      ],
+      primary_action: %{event: "start_quick_fix", label: "Start KB quick fix"},
+      secondary_action: nil,
+      status_rail: quick_fix_status_rail(:idle)
+    }
+  end
+
+  defp normalize_quick_fix_card(%{quick_fix_card: quick_fix_card, conversation: conversation})
+       when is_map(quick_fix_card) do
+    Map.merge(idle_quick_fix_card(conversation), quick_fix_card)
+  end
+
+  defp normalize_quick_fix_card(%{conversation: conversation}), do: idle_quick_fix_card(conversation)
+
+  defp quick_fix_primary_action(:idle), do: %{event: "start_quick_fix", label: "Start KB quick fix"}
+
+  defp quick_fix_primary_action(:blocked_manual_required),
+    do: %{event: "open_manual_draft", label: "Open manual draft"}
+
+  defp quick_fix_primary_action(_status), do: %{event: "open_review_task", label: "Open review task"}
+
+  defp quick_fix_secondary_action(nil), do: nil
+
+  defp quick_fix_secondary_action(review_task) do
+    %{label: "View maintenance lane", to: "/knowledge-base/suggestions?task=#{review_task.id}"}
+  end
+
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :completed}), do: :reindexed
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :running}), do: :reindexing
+  defp quick_fix_status(_suggestion, %{status: :published}), do: :published
+  defp quick_fix_status(_suggestion, %{status: :approved_ready_to_publish}), do: :approved_ready_to_publish
+
+  defp quick_fix_status(suggestion, _review_task) do
+    case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
+      "Draft shell created" -> :shell_created
+      "Manual draft required" -> :blocked_manual_required
+      _ -> :ready
+    end
+  end
+
+  defp quick_fix_status_rail(:idle) do
+    [%{label: ReviewTaskPresenter.thread_status_label(:idle), current: true}]
+  end
+
+  defp quick_fix_status_rail(:shell_created) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:shell_created), current: true},
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false}
+    ]
+  end
+
+  defp quick_fix_status_rail(:blocked_manual_required) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:blocked_manual_required), current: true},
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false}
+    ]
+  end
+
+  defp quick_fix_status_rail(:ready) do
+    [%{label: ReviewTaskPresenter.thread_status_label(:ready), current: true}]
+  end
+
+  defp quick_fix_status_rail(:approved_ready_to_publish) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: true}
+    ]
+  end
+
+  defp quick_fix_status_rail(:published) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:published), current: true}
+    ]
+  end
+
+  defp quick_fix_status_rail(:reindexing) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:reindexing), current: true}
+    ]
+  end
+
+  defp quick_fix_status_rail(:reindexed) do
+    [
+      %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
+      %{label: ReviewTaskPresenter.thread_status_label(:reindexed), current: true}
+    ]
+  end
+
+  defp knowledge_automation do
+    Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+  end
 end

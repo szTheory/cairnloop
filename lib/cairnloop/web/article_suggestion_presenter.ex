@@ -71,6 +71,22 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
     end
   end
 
+  def quick_fix_summary(%ArticleSuggestion{} = suggestion) do
+    case metadata_value(suggestion.grounding_metadata, :quick_fix_outcome) do
+      value when value in ["ready", :ready] ->
+        "This conversation can seed a reviewable KB update."
+
+      value when value in ["shell_created", :shell_created] ->
+        "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete."
+
+      value when value in ["blocked_manual_required", :blocked_manual_required] ->
+        "Automatic suggestion is blocked for this conversation."
+
+      _ ->
+        suggestion.operator_summary || "This conversation can seed a reviewable KB update."
+    end
+  end
+
   def quick_fix_reason_label(%ArticleSuggestion{} = suggestion) do
     case metadata_value(suggestion.grounding_metadata, :quick_fix_reason) ||
            metadata_value(suggestion.grounding_metadata, :failure_reason) do
