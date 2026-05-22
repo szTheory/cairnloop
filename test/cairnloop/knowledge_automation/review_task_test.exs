@@ -583,7 +583,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
     assert updated_task.status == :review_needed
     assert updated_task.last_decision == :review_needed
-    assert updated_task.last_reason == :needs_manual_edit
+    assert updated_task.last_reason == :draft_conflict
     assert updated_task.last_actor_id == "operator-7"
     assert DateTime.truncate(updated_task.last_decided_at, :second) == now
     assert updated_task.notes =~ "draft"
@@ -591,7 +591,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     event = Process.get(:last_inserted)
     assert event.event_type == :decision_recorded
     assert event.to_status == :review_needed
-    assert event.reason == :needs_manual_edit
+    assert event.reason == :draft_conflict
     assert event.metadata.conflicting_revision_id == conflicting_draft.id
   end
 
@@ -708,6 +708,222 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
     assert updated_task.staged_revision_id == owned_draft.id
     assert updated_task.status == :approved_ready_to_publish
+  end
+
+  test "publish_review_task publishes the staged draft for approved tasks and records canonical linkage" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 105,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 505,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_article_id: 21,
+        staged_revision_id: 401,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 401,
+      article_id: 21,
+      version: 3,
+      state: :draft,
+      content: suggestion.proposed_markdown
+    }
+
+    published_revision = %{staged_revision | state: :published}
+    now = ~U[2026-05-22 12:20:00Z]
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    {:ok, published_task} =
+      KnowledgeAutomation.publish_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-9",
+        now_fn: fn -> now end,
+        get_revision_fn: fn 401 -> staged_revision end,
+        latest_active_revision_fn: fn 21 ->
+          %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published}
+        end,
+        publish_revision_fn: fn revision ->
+          assert revision.id == staged_revision.id
+          {:ok, published_revision}
+        end
+      )
+
+    assert published_task.status == :published
+    assert published_task.published_revision_id == published_revision.id
+    assert DateTime.truncate(published_task.published_at, :second) == now
+    assert published_task.publish_status == :published
+    assert published_task.reindex_status == :queued
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :publish_recorded
+    assert event.from_status == :approved_ready_to_publish
+    assert event.to_status == :published
+    assert event.metadata.staged_revision_id == staged_revision.id
+    assert event.metadata.published_revision_id == published_revision.id
+  end
+
+  test "publish_review_task fails stale revision tasks closed and returns them to review_needed" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 106,
+        suggestion_type: :revision,
+        entrypoint_type: :article_revision,
+        entrypoint_id: 21,
+        article_id: 21,
+        base_revision_id: 301
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 506,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_article_id: 21,
+        staged_revision_id: 402,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 402,
+      article_id: 21,
+      version: 3,
+      state: :draft,
+      content: suggestion.proposed_markdown
+    }
+
+    latest_active_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 999,
+      article_id: 21,
+      version: 4,
+      state: :published,
+      content: "Newer published content"
+    }
+
+    now = ~U[2026-05-22 12:25:00Z]
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    assert {:error, {:stale_base, updated_task}} =
+             KnowledgeAutomation.publish_review_task(task.id,
+               host_user_id: "host-1",
+               actor_id: "operator-9",
+               now_fn: fn -> now end,
+               get_revision_fn: fn 402 -> staged_revision end,
+               latest_active_revision_fn: fn 21 -> latest_active_revision end,
+               publish_revision_fn: fn _revision -> flunk("should not publish a stale draft") end
+             )
+
+    assert updated_task.status == :review_needed
+    assert updated_task.last_decision == :review_needed
+    assert updated_task.last_reason == :freshness_invalidated
+    assert updated_task.publish_status == :not_started
+    assert updated_task.notes =~ "latest active revision"
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :publish_recorded
+    assert event.to_status == :review_needed
+    assert event.reason == :freshness_invalidated
+    assert event.metadata.latest_active_revision_id == latest_active_revision.id
+  end
+
+  test "publish_review_task publishes article-creation tasks through the same canonical path" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 107,
+        suggestion_type: :article,
+        entrypoint_type: :gap_candidate,
+        entrypoint_id: 88,
+        article_id: nil,
+        base_revision_id: nil
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 507,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        staged_article_id: 77,
+        staged_revision_id: 403,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 403,
+      article_id: 77,
+      version: 1,
+      state: :draft,
+      content: suggestion.proposed_markdown
+    }
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+    Process.put(:review_task_events, [])
+
+    {:ok, published_task} =
+      KnowledgeAutomation.publish_review_task(task.id,
+        host_user_id: "host-1",
+        actor_id: "operator-9",
+        get_revision_fn: fn 403 -> staged_revision end,
+        publish_revision_fn: fn revision ->
+          assert revision.id == staged_revision.id
+          {:ok, %{staged_revision | state: :published}}
+        end
+      )
+
+    assert published_task.status == :published
+    assert published_task.published_revision_id == staged_revision.id
+  end
+
+  test "publish_review_task rejects tasks that are not approved_ready_to_publish" do
+    suggestion = suggestion_fixture(%{id: 108})
+
+    task =
+      review_task_fixture(%{
+        id: 508,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review
+      })
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+
+    assert {:error, :invalid_publish_state} =
+             KnowledgeAutomation.publish_review_task(task.id,
+               host_user_id: "host-1",
+               actor_id: "operator-9"
+             )
   end
 
   defp valid_review_task_attrs(overrides \\ %{}) do
