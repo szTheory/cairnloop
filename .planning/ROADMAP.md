@@ -22,7 +22,7 @@ operator-reviewed KB maintenance workflow that preserves the existing publish bo
 - [x] **Phase 9: Gap Candidate Discovery** - Turn retrieval misses and weak-grounding evidence into ranked, inspectable KB gap candidates. (completed 2026-05-21)
 - [ ] **Phase 10: Citation-Backed Draft Suggestions** - Generate draft articles and revision suggestions only from grounded evidence.
 - [x] **Phase 11: Review-Gated KB Updates** - Route AI-prepared KB work through visible review, decision tracking, and the normal publish/reindex path. (completed 2026-05-22)
-- [ ] **Phase 12: In-Thread Quick Fix & Ops Closure** - Let operators start KB maintenance from live support work while closing telemetry and fail-closed behavior.
+- [x] **Phase 12: In-Thread Quick Fix & Ops Closure** - Let operators start KB maintenance from live support work while closing telemetry and fail-closed behavior. (completed 2026-05-22)
 
 ## Phase Details
 
@@ -86,4 +86,4 @@ Plans:
 | 9. Gap Candidate Discovery | 3/3 | Complete | 2026-05-21 |
 | 10. Citation-Backed Draft Suggestions | 0/TBD | Not started | - |
 | 11. Review-Gated KB Updates | 4/4 | Complete | 2026-05-22 |
-| 12. In-Thread Quick Fix & Ops Closure | 0/TBD | Not started | - |
+| 12. In-Thread Quick Fix & Ops Closure | 4/4 | Complete    | 2026-05-22 |

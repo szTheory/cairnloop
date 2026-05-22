@@ -64,9 +64,9 @@
 
 ### Quick Fix & Operations
 
-- [ ] **OPS-01**: Operator can start a KB draft directly from conversation evidence inside the existing support workflow.
+- [x] **OPS-01**: Operator can start a KB draft directly from conversation evidence inside the existing support workflow.
 - [x] **OPS-02**: Approved KB updates trigger the normal revision publish and reindex path so retrieval reflects the new canonical content.
-- [ ] **OPS-03**: System emits bounded telemetry for gap creation, draft suggestion outcomes, review decisions, and publish/reindex follow-through.
+- [x] **OPS-03**: System emits bounded telemetry for gap creation, draft suggestion outcomes, review decisions, and publish/reindex follow-through.
 
 ## v2 Requirements
 
@@ -99,9 +99,9 @@
 | REVIEW-01 | Phase 11 | Verified |
 | REVIEW-02 | Phase 11 | Complete |
 | REVIEW-03 | Phase 11 | Verified |
-| OPS-01 | Phase 12 | Pending |
+| OPS-01 | Phase 12 | Complete |
 | OPS-02 | Phase 11 | Verified |
-| OPS-03 | Phase 12 | Pending |
+| OPS-03 | Phase 12 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
