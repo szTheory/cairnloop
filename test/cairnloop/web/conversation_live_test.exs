@@ -88,6 +88,16 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   defmodule MockKnowledgeAutomation do
+    def create_or_reuse_conversation_quick_fix(attrs, _opts) do
+      Process.put(:create_quick_fix_attrs, attrs)
+      Process.get(:create_quick_fix_result)
+    end
+
+    def create_or_reuse_authoring_article_for_suggestion(suggestion_id, _opts) do
+      Process.put(:manual_draft_suggestion_id, suggestion_id)
+      {:ok, 91}
+    end
+
     def get_conversation_quick_fix(321, _opts) do
       {:ok,
        %{
@@ -753,8 +763,140 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  describe "quick-fix launch actions" do
+    test "start_quick_fix creates a review-ready task and redirects into the shared lane" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      Process.put(
+        :create_quick_fix_result,
+        {:ok,
+         %{
+           suggestion:
+             struct(ArticleSuggestion,
+               id: 77,
+               entrypoint_type: :conversation_quick_fix,
+               entrypoint_id: 321,
+               status: :ready,
+               grounding_metadata: %{"quick_fix_outcome" => "ready"}
+             ),
+           review_task: struct(ReviewTask, id: 61, status: :pending_review),
+           reused?: false,
+           quick_fix: %{}
+         }}
+      )
+
+      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert Process.get(:create_quick_fix_attrs).conversation_id == 321
+      assert Process.get(:create_quick_fix_attrs).host_user_id == "user_42"
+      assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=61"}} = socket.redirected
+    end
+
+    test "start_quick_fix reopens the existing review task when work already exists" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      Process.put(
+        :create_quick_fix_result,
+        {:ok,
+         %{
+           suggestion:
+             struct(ArticleSuggestion,
+               id: 77,
+               entrypoint_type: :conversation_quick_fix,
+               entrypoint_id: 321,
+               status: :ready,
+               grounding_metadata: %{"quick_fix_outcome" => "ready"}
+             ),
+           review_task: struct(ReviewTask, id: 61, status: :pending_review),
+           reused?: true,
+           quick_fix: %{}
+         }}
+      )
+
+      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=61"}} = socket.redirected
+    end
+
+    test "start_quick_fix keeps blocked/manual-required outcomes in the thread" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      blocked_suggestion =
+        struct(ArticleSuggestion,
+          id: 78,
+          entrypoint_type: :conversation_quick_fix,
+          entrypoint_id: 321,
+          status: :failed,
+          grounding_metadata: %{
+            "quick_fix_outcome" => "blocked_manual_required",
+            "quick_fix_reason" => "policy_guard_blocked",
+            "quick_fix_package" => %{
+              "thread_context" => %{"message_count" => 4},
+              "canonical_retrieval" => %{"canonical_evidence_count" => 0, "citation_ready" => false},
+              "resolved_case_assists" => %{"case_count" => 1}
+            }
+          }
+        )
+
+      Process.put(
+        :create_quick_fix_result,
+        {:ok,
+         %{
+           suggestion: blocked_suggestion,
+           review_task: struct(ReviewTask, id: 62, status: :review_needed),
+           reused?: false,
+           quick_fix: %{}
+         }}
+      )
+
+      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert socket.assigns.quick_fix_card.status == :blocked_manual_required
+      assert socket.assigns.quick_fix_card.primary_action.label == "Open manual draft"
+      refute Map.has_key?(socket, :redirected)
+    end
+
+    test "open_manual_draft routes blocked quick fixes into the shared authoring path" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      socket =
+        quick_fix_socket(%{
+          quick_fix_card: %{
+            status: :blocked_manual_required,
+            suggestion_id: 78,
+            review_task_id: 62,
+            primary_action: %{event: "open_manual_draft", label: "Open manual draft"},
+            secondary_action: %{label: "View maintenance lane", to: "/knowledge-base/suggestions?task=62"}
+          }
+        })
+
+      assert {:noreply, redirected_socket} =
+               ConversationLive.handle_event("open_manual_draft", %{}, socket)
+
+      assert Process.get(:manual_draft_suggestion_id) == 78
+      assert {:live, :redirect, %{to: path}} = redirected_socket.redirected
+      assert path =~ "/knowledge-base/91/edit?suggestion_id=78"
+      assert path =~ "review_task_id=62"
+      assert path =~ "return_to=%2F321"
+    end
+  end
+
   defp render_html(assigns) do
     render_component(&ConversationLive.render/1, assigns)
+  end
+
+  defp quick_fix_socket(overrides \\ %{}) do
+    base_assigns = %{
+      conversation: %Cairnloop.Conversation{id: 321, host_user_id: "user_42", subject: "Weekend export fails", drafts: [], messages: []},
+      host_context: %{},
+      context_error: nil,
+      quick_fix_card: %{status: :idle},
+      form: Phoenix.Component.to_form(%{"content" => "Draft reply in progress"}),
+      flash: %{},
+      __changed__: %{}
+    }
+
+    %Phoenix.LiveView.Socket{
+      endpoint: Cairnloop.Web.Endpoint,
+      assigns: Map.merge(base_assigns, overrides)
+    }
   end
 
   defp element_index(html, needle) do
