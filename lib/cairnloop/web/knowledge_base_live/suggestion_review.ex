@@ -162,10 +162,36 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           <p><strong>Publish outcome</strong>: <%= ReviewTaskPresenter.publish_outcome(@selected_task) %></p>
           <p><%= suggestion.operator_summary %></p>
 
+          <%= if ArticleSuggestionPresenter.quick_fix?(suggestion) do %>
+            <section id="quick-fix-context">
+              <p><strong>Quick-fix outcome</strong>: <%= ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) %></p>
+              <p><strong>Launch context</strong>: <%= ArticleSuggestionPresenter.quick_fix_launch_context(suggestion) %></p>
+              <%= if excerpt = ArticleSuggestionPresenter.quick_fix_message_excerpt(suggestion) do %>
+                <p><%= excerpt %></p>
+              <% end %>
+
+              <h3>Evidence layers</h3>
+              <ul>
+                <%= for layer <- ArticleSuggestionPresenter.quick_fix_layers(suggestion) do %>
+                  <li>
+                    <strong><%= layer.label %></strong>
+                    ·
+                    <strong><%= layer.trust %></strong>
+                    <div><%= layer.summary %></div>
+                  </li>
+                <% end %>
+              </ul>
+
+              <%= if reason = ArticleSuggestionPresenter.quick_fix_reason_label(suggestion) do %>
+                <p><strong>Quick-fix reason</strong>: <%= reason %></p>
+              <% end %>
+            </section>
+          <% end %>
+
           <div>
             <%= for action <- ReviewTaskPresenter.available_actions(@selected_task) do %>
               <button phx-click={Atom.to_string(action)} phx-value-id={@selected_task.id}>
-                <%= ReviewTaskPresenter.action_label(action) %>
+                <%= ReviewTaskPresenter.action_label(action, @selected_task) %>
               </button>
             <% end %>
           </div>

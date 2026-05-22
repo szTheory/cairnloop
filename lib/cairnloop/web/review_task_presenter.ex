@@ -1,5 +1,6 @@
 defmodule Cairnloop.Web.ReviewTaskPresenter do
   alias Cairnloop.KnowledgeAutomation.{ReviewTask, ReviewTaskEvent}
+  alias Cairnloop.Web.ArticleSuggestionPresenter
 
   @queue_filters [
     {"all", "All work"},
@@ -32,10 +33,27 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     |> Enum.find_value("All work", fn {filter, label} -> if filter == value, do: label end)
   end
 
+  def next_step_copy(%ReviewTask{status: :pending_review, article_suggestion: suggestion})
+      when not is_nil(suggestion) do
+    case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
+      "Draft shell created" -> "Draft shell created. Review the thread context and finish the grounding in this lane."
+      _ -> "Review evidence and decide what happens next."
+    end
+  end
+
   def next_step_copy(%ReviewTask{status: :pending_review}), do: "Review evidence and decide what happens next."
   def next_step_copy(%ReviewTask{status: :approved_ready_to_publish}), do: "Ready to publish when you are."
   def next_step_copy(%ReviewTask{status: :rejected}), do: "Rejected with a durable reason. Regenerate only after the evidence changes."
   def next_step_copy(%ReviewTask{status: :deferred}), do: "Deferred until a manual authoring pass or operator follow-up happens."
+
+  def next_step_copy(%ReviewTask{status: :review_needed, article_suggestion: suggestion})
+      when not is_nil(suggestion) do
+    case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
+      "Manual draft required" -> "Manual draft required. Review the blocking reason, then open manual draft from this lane."
+      _ -> "Review again before this can move forward."
+    end
+  end
+
   def next_step_copy(%ReviewTask{status: :review_needed}), do: "Review again before this can move forward."
   def next_step_copy(%ReviewTask{status: :published}), do: "Published and queued for reindex follow-through."
 
@@ -112,6 +130,15 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def action_label(:defer), do: "Defer"
   def action_label(:publish), do: "Publish"
   def action_label(:open_for_edit), do: "Open for edit"
+
+  def action_label(action, %ReviewTask{article_suggestion: suggestion}) when not is_nil(suggestion) do
+    case {action, ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion)} do
+      {:open_for_edit, "Manual draft required"} -> "Open manual draft"
+      _ -> action_label(action)
+    end
+  end
+
+  def action_label(action, _task), do: action_label(action)
 
   defp metadata_value(map, key) when is_map(map) do
     Map.get(map, key) || Map.get(map, Atom.to_string(key))

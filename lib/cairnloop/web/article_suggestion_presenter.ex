@@ -51,8 +51,93 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
   end
 
   def failure_copy(%ArticleSuggestion{} = suggestion) do
-    metadata_value(suggestion.grounding_metadata, :failure_reason) ||
+    quick_fix_reason_label(suggestion) ||
+      metadata_value(suggestion.grounding_metadata, :failure_reason) ||
       "Grounding stayed below the canonical threshold."
+  end
+
+  def quick_fix?(%ArticleSuggestion{entrypoint_type: :conversation_quick_fix}), do: true
+  def quick_fix?(%ArticleSuggestion{}), do: false
+
+  def quick_fix_outcome_label(%ArticleSuggestion{} = suggestion) do
+    case metadata_value(suggestion.grounding_metadata, :quick_fix_outcome) do
+      "ready" -> "Review task ready"
+      "shell_created" -> "Draft shell created"
+      "blocked_manual_required" -> "Manual draft required"
+      :ready -> "Review task ready"
+      :shell_created -> "Draft shell created"
+      :blocked_manual_required -> "Manual draft required"
+      _ -> nil
+    end
+  end
+
+  def quick_fix_reason_label(%ArticleSuggestion{} = suggestion) do
+    case metadata_value(suggestion.grounding_metadata, :quick_fix_reason) ||
+           metadata_value(suggestion.grounding_metadata, :failure_reason) do
+      "missing_canonical_grounding" -> "Missing canonical grounding"
+      "canonical_snapshot_unavailable" -> "Canonical snapshot unavailable"
+      "citation_anchors_unavailable" -> "Citation anchors unavailable"
+      "policy_guard_blocked" -> "Policy guard blocked automatic suggestion"
+      :missing_canonical_grounding -> "Missing canonical grounding"
+      :canonical_snapshot_unavailable -> "Canonical snapshot unavailable"
+      :citation_anchors_unavailable -> "Citation anchors unavailable"
+      :policy_guard_blocked -> "Policy guard blocked automatic suggestion"
+      _ -> nil
+    end
+  end
+
+  def quick_fix_launch_context(%ArticleSuggestion{} = suggestion) do
+    thread_context = quick_fix_thread_context(suggestion)
+    conversation_id = metadata_value(thread_context, :conversation_id)
+    subject = metadata_value(thread_context, :subject)
+
+    [conversation_id && "Conversation #{conversation_id}", subject]
+    |> Enum.filter(&present?/1)
+    |> Enum.join(" · ")
+  end
+
+  def quick_fix_message_excerpt(%ArticleSuggestion{} = suggestion) do
+    suggestion
+    |> quick_fix_thread_context()
+    |> metadata_value(:message_excerpt)
+  end
+
+  def quick_fix_layers(%ArticleSuggestion{} = suggestion) do
+    quick_fix_package = metadata_value(suggestion.grounding_metadata, :quick_fix_package) || %{}
+    thread_context = metadata_value(quick_fix_package, :thread_context) || %{}
+    canonical_retrieval = metadata_value(quick_fix_package, :canonical_retrieval) || %{}
+    resolved_case_assists = metadata_value(quick_fix_package, :resolved_case_assists) || %{}
+
+    [
+      %{
+        label: "Thread context",
+        trust: "Conversation signal",
+        summary:
+          metadata_value(thread_context, :message_count)
+          |> case do
+            nil -> "No bounded thread summary"
+            count -> "#{count} messages summarized"
+          end
+      },
+      %{
+        label: "Canonical retrieval",
+        trust: "Citation-eligible",
+        summary:
+          canonical_retrieval_summary(
+            metadata_value(canonical_retrieval, :canonical_evidence_count),
+            metadata_value(canonical_retrieval, :citation_ready)
+          )
+      },
+      %{
+        label: "Resolved case assists",
+        trust: "Supporting context",
+        summary:
+          resolved_case_summary(
+            metadata_value(resolved_case_assists, :case_count),
+            metadata_value(resolved_case_assists, :summaries)
+          )
+      }
+    ]
   end
 
   defp summarize_lines(content, prefix) do
@@ -80,4 +165,32 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
   end
 
   defp metadata_value(_, _), do: nil
+
+  defp quick_fix_thread_context(%ArticleSuggestion{} = suggestion) do
+    suggestion.grounding_metadata
+    |> metadata_value(:quick_fix_package)
+    |> metadata_value(:thread_context) || %{}
+  end
+
+  defp canonical_retrieval_summary(count, citation_ready) do
+    count = count || 0
+
+    cond do
+      citation_ready in [true, "true"] -> "#{count} citation-ready evidence rows"
+      count > 0 -> "#{count} evidence rows need citation repair"
+      true -> "No citation-ready canonical evidence"
+    end
+  end
+
+  defp resolved_case_summary(count, summaries) do
+    count = count || length(List.wrap(summaries))
+
+    case count do
+      0 -> "No supporting resolved cases"
+      1 -> "1 supporting case"
+      _ -> "#{count} supporting cases"
+    end
+  end
+
+  defp present?(value), do: value not in [nil, ""]
 end
