@@ -19,7 +19,7 @@ Archived at `.planning/milestones/vM009-ROADMAP.md`.
 **Milestone Goal:** Turn retrieval misses, weak grounding, and repeated manual handling into a safe,
 operator-reviewed KB maintenance workflow that preserves the existing publish boundary.
 
-- [ ] **Phase 9: Gap Candidate Discovery** - Turn retrieval misses and weak-grounding evidence into ranked, inspectable KB gap candidates.
+- [x] **Phase 9: Gap Candidate Discovery** - Turn retrieval misses and weak-grounding evidence into ranked, inspectable KB gap candidates. (completed 2026-05-21)
 - [ ] **Phase 10: Citation-Backed Draft Suggestions** - Generate draft articles and revision suggestions only from grounded evidence.
 - [ ] **Phase 11: Review-Gated KB Updates** - Route AI-prepared KB work through visible review, decision tracking, and the normal publish/reindex path.
 - [ ] **Phase 12: In-Thread Quick Fix & Ops Closure** - Let operators start KB maintenance from live support work while closing telemetry and fail-closed behavior.
@@ -34,7 +34,11 @@ operator-reviewed KB maintenance workflow that preserves the existing publish bo
   1. Operator can open a gap dashboard that lists ranked candidates raised from retrieval no-hits, weak grounding, and repeated manual handling.
   2. Related evidence is clustered into one stable candidate identity with freshness metadata and supporting evidence counts.
   3. Operator can inspect why a candidate exists, including the underlying retrieval events and similar-case evidence.
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] `M010-S01-01-PLAN.md` — Create the durable gap-candidate read model, memberships, and public query facade.
+- [x] `M010-S01-02-PLAN.md` — Build deterministic clustering, manual-handling projection, and refresh or rebuild workers.
+- [x] `M010-S01-03-PLAN.md` — Add the ranked KB gaps dashboard and inspectable evidence detail surface.
 **UI hint**: yes
 
 ### Phase 10: Citation-Backed Draft Suggestions
@@ -56,7 +60,9 @@ operator-reviewed KB maintenance workflow that preserves the existing publish bo
   2. Operator can approve, reject, or edit-before-publish a review task, and AI suggestions cannot bypass the existing KB review flow.
   3. Approved updates follow the normal revision publish and reindex path so retrieval reflects the new canonical KB content.
   4. Review task state transitions, decision metadata, and reindex follow-up work are durably recorded.
-**Plans**: TBD
+**Plans**: 1 completed, more pending
+Plans:
+- [x] `M010-S03-01-PLAN.md` — Establish the durable review-task storage contract and public query APIs before approval or UI work begins.
 **UI hint**: yes
 
 ### Phase 12: In-Thread Quick Fix & Ops Closure
@@ -74,7 +80,7 @@ operator-reviewed KB maintenance workflow that preserves the existing publish bo
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 9. Gap Candidate Discovery | 0/TBD | Not started | - |
+| 9. Gap Candidate Discovery | 3/3 | Complete | 2026-05-21 |
 | 10. Citation-Backed Draft Suggestions | 0/TBD | Not started | - |
-| 11. Review-Gated KB Updates | 0/TBD | Not started | - |
+| 11. Review-Gated KB Updates | 1/TBD | In progress | 2026-05-22 |
 | 12. In-Thread Quick Fix & Ops Closure | 0/TBD | Not started | - |

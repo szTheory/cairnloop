@@ -46,9 +46,9 @@
 
 ### Gap Discovery
 
-- [ ] **GAP-01**: Operator can view ranked KB gap candidates generated from retrieval no-hit, weak-grounding, and repeated manual-handling evidence.
-- [ ] **GAP-02**: System clusters related gap evidence into a single candidate with stable identity, freshness metadata, and supporting evidence counts.
-- [ ] **GAP-03**: Operator can inspect the evidence behind a gap candidate, including retrieval events, similar cases, and why the candidate was raised.
+- [x] **GAP-01**: Operator can view ranked KB gap candidates generated from retrieval no-hit, weak-grounding, and repeated manual-handling evidence.
+- [x] **GAP-02**: System clusters related gap evidence into a single candidate with stable identity, freshness metadata, and supporting evidence counts.
+- [x] **GAP-03**: Operator can inspect the evidence behind a gap candidate, including retrieval events, similar cases, and why the candidate was raised.
 
 ### Draft Suggestions
 
@@ -58,9 +58,9 @@
 
 ### Review Workflow
 
-- [ ] **REVIEW-01**: Operator can review a suggested article or revision with visible evidence, citation anchors, and a proposed content diff or draft body.
+- [x] **REVIEW-01**: Operator can review a suggested article or revision with visible evidence, citation anchors, and a proposed content diff or draft body.
 - [ ] **REVIEW-02**: Operator can approve, reject, or edit-before-publish a review task without bypassing the existing KB publish flow.
-- [ ] **REVIEW-03**: System records review-task state transitions, decision metadata, and reindex follow-up work for approved KB updates.
+- [x] **REVIEW-03**: System records review-task state transitions, decision metadata, and reindex follow-up work for approved KB updates.
 
 ### Quick Fix & Operations
 
@@ -90,15 +90,15 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GAP-01 | Phase 9 | Pending |
-| GAP-02 | Phase 9 | Pending |
-| GAP-03 | Phase 9 | Pending |
+| GAP-01 | Phase 9 | Verified |
+| GAP-02 | Phase 9 | Verified |
+| GAP-03 | Phase 9 | Verified |
 | DRAFT-01 | Phase 10 | Pending |
 | DRAFT-02 | Phase 10 | Pending |
 | DRAFT-03 | Phase 10 | Pending |
-| REVIEW-01 | Phase 11 | Pending |
+| REVIEW-01 | Phase 11 | Verified |
 | REVIEW-02 | Phase 11 | Pending |
-| REVIEW-03 | Phase 11 | Pending |
+| REVIEW-03 | Phase 11 | Verified |
 | OPS-01 | Phase 12 | Pending |
 | OPS-02 | Phase 11 | Pending |
 | OPS-03 | Phase 12 | Pending |
