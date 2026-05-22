@@ -1,41 +1,43 @@
 # Technology Stack
 
-**Project:** Cairnloop (M004: Customer Voice Activation)
-**Researched:** 2024-05
+**Project:** Cairnloop (M006)
+**Researched:** Current Date
 
 ## Recommended Stack
 
 ### Core Framework
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Elixir `telemetry` | ~> 1.0 | Event dispatching for resolution and CSAT events | Idiomatic Elixir approach for decoupled event logging and observability. Doesn't force the host to use a specific pub/sub system. |
-| Phoenix LiveView | ~> 0.20 | Frictionless in-app UI for capturing CES/CSAT | Allows "One-Click" feedback without page reloads, essential for high conversion rates. |
-| Ecto | ~> 3.10 | Persisting sentiment scores | We need to append the final sentiment to the `Conversation` or a related `Sentiment` schema to track over time. |
+| Oban | ~> 2.17 | Job scheduling & Execution | The premier persistent job queue for Elixir. Provides reliable `schedule_in` semantics and built-in retry mechanisms essential for SLA countdowns. |
+| Chimeway | (Internal) | Notification Routing | Provides a durable, template-driven async notification delivery abstraction, keeping third-party API integrations out of Cairnloop. |
+| Mailglass | (Internal) | Email Templates | Works alongside Chimeway to handle the email delivery templating if the host prefers email escalations over Slack/Discord. |
 
 ### Supporting Libraries
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `telemetry_metrics` | ~> 1.0 | Aggregating CSAT/CES scores over time | Used by the host if they want to build dashboards of support sentiment directly in Phoenix/LiveDashboard. |
+| Oban Pro | (Optional) | Workflows & Batching | If the host requires complex cancelation of SLA jobs or partitioned pruning. However, Cairnloop will target Oban OSS for the baseline. |
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Event Bus | `:telemetry` | Phoenix.PubSub | `PubSub` is great for real-time node-to-node messaging, but `:telemetry` is specifically designed for instrumentation, metrics, and hooking into library-level events decoupled from process distribution. |
-| Feedback Delivery | In-App (LiveView) | Email Surveys (Mailglass) | Email surveys suffer from terrible open and response rates and break the context of the user's immediate workflow. In-app is strongly preferred. |
+| Task Scheduling | Oban (`schedule_in`) | `Process.send_after` | In-memory timers are lost on node restart or deploy. Unacceptable for SLAs spanning hours or days. |
+| Task Scheduling | Oban (`schedule_in`) | `:timer` / `GenServer` | Same as above. Not durable across pod restarts. |
+| Delivery | Chimeway | `Req` to Slack Webhook | Hardcoding webhook URLs limits extensibility and assumes every host wants Slack. We must use adapter patterns. |
 
-## Implementation
+## Installation
 
-```elixir
-# Core dispatch in Cairnloop.Conversation
-:telemetry.execute(
-  [:cairnloop, :conversation, :resolved],
-  %{duration_seconds: duration, csat_score: score},
-  %{conversation_id: id, user_id: user_id}
-)
-```
+\`\`\`elixir
+# Assumes Oban is already installed from Core Loop, but we will configure specific queues.
+# config.exs
+config :cairnloop, Oban,
+  queues: [sla_escalations: 10, notifications: 20],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7} # Prune old SLA jobs after 7 days
+  ]
+\`\`\`
 
 ## Sources
 
-- Elixir Telemetry Official Docs: https://hexdocs.pm/telemetry/
-- Modern SaaS CLG Practices: High emphasis on in-app contextual feedback over asynchronous channels.
+- Oban OSS Documentation / GitHub recipes (Verified via Context7)
+- Cairnloop Backlog & Epic Definitions

@@ -1,7 +1,7 @@
 # Feature Landscape
 
-**Domain:** Customer Support in B2B SaaS (Customer-Led Growth)
-**Researched:** 2024-05
+**Domain:** Support Ticketing SLA Management & Notification Routing
+**Researched:** Current Date
 
 ## Table Stakes
 
@@ -9,9 +9,10 @@ Features users expect. Missing = product feels incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Frictionless CSAT Capture | Users won't fill out long forms; they expect a 1-click micro-interaction (e.g. 5 stars, or smiley faces). | Low | Must be embedded directly in the Web Widget (`WidgetLive`). |
-| Resolution Telemetry Pipeline | Host apps need a predictable way to know when a ticket is closed. | Low | Simple `:telemetry` emission upon Ecto state change. |
-| Basic Extensibility Handlers | Developers need documented hooks to wire these signals to their internal APIs. | Low | Provide Elixir snippet templates for App Store/G2 routing. |
+| First Response SLA | Operators need to ensure no user is ignored for > X hours. | Medium | Scheduled on initial ingress. |
+| Resolution Time SLA | SLA for total time to resolve the issue. | Medium | Scheduled upon creation, requires cancelling or NOOP-ing if resolved early. |
+| VIP Routing | High-value customers need different thresholds. | Low | Check user tags/context when setting `schedule_in`. |
+| Internal Delivery | Alerts must go to Slack/Email, not just in-app. | Low | Handled by Chimeway. |
 
 ## Differentiators
 
@@ -19,9 +20,9 @@ Features that set product apart. Not expected, but valued.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| CES (Customer Effort Score) over CSAT | CES is a stronger predictor of B2B SaaS churn than CSAT. Asking "How easy was it to get this solved?" yields more actionable data. | Medium | Requires different phrasing and scale (1-7), plus educating the operator. |
-| Contextual Triggers | Only asking for feedback if the ticket was open for > X hours, or if the user's intent was a "Bug". | Medium | Passes rich context into the `:telemetry` payload so handlers can filter aggressively. |
-| Detractor Interception (Private Recovery) | Instantly routing a negative CSAT/CES score to a high-priority slack channel for an Account Manager, avoiding public 1-star reviews. | High | Requires a robust handler example that integrates with Chimeway or standard Slack webhooks. |
+| Zero-Config Adapters | Host developers just define a Chimeway adapter; Cairnloop handles the rest. | Medium | Vastly superior DX compared to managing API clients. |
+| Dashboard Thresholds | Support managers can tweak SLA times without a developer deploying code. | Low | Simple LiveView forms updating settings in Ecto. |
+| At-Risk Indicators | Visual warnings in `ConversationLive` when an SLA is < 15 mins from breaching. | Medium | Requires comparing current time to the pending Oban job. |
 
 ## Anti-Features
 
@@ -29,26 +30,26 @@ Features to explicitly NOT build.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Internal CRM / Drip Campaign Builder | Cairnloop is an embedded support tool, not HubSpot or Intercom Series. Building marketing campaign logic adds immense bloat. | Provide the `[:cairnloop, :conversation, :resolved]` telemetry event and let the host wire it to their actual CRM (e.g., Customer.io). |
-| Native App Store Modals | Cairnloop cannot know if the host is a mobile app, web app, or desktop app. | Only emit the signal; the host's frontend must trigger the actual OS-level modal. |
+| Zendesk-style Trigger Builder | Turing-complete UI rule engines are massive engineering sinks, prone to infinite loops, and confusing to operators. | Provide fixed, opinionated SLA types (First Response, Next Reply, Resolution) that are strictly defined and easy to toggle. |
+| Direct Slack Integrations | Hardcoding Slack API limits the product to one ecosystem. | Use the `Cairnloop.Notifier` behaviour backed by Chimeway so the host can route to Discord, Teams, or PagerDuty. |
 
 ## Feature Dependencies
 
-```
-Resolution Telemetry Pipeline → Frictionless CSAT Capture (Cannot accurately attribute CSAT without a resolved state)
-Frictionless CSAT Capture → Detractor Interception (Need the score to intercept it)
-```
+\`\`\`text
+Oban Countdown Engine → Chimeway Notifier Behaviour → LiveView Configuration UI
+\`\`\`
 
 ## MVP Recommendation
 
 Prioritize:
-1. Resolution Telemetry Pipeline (`[:cairnloop, :conversation, :resolved]`).
-2. Frictionless CSAT Capture (1-click smiley/frown in widget).
-3. Reference Telemetry Handler (Documentation for the host developer).
+1. First Response SLA Countdown (`schedule_in`).
+2. Idempotent NOOP execution (if ticket already replied to, do nothing).
+3. Delivery via `Cairnloop.Notifier` to a generic host adapter.
 
-Defer: CES scale customization. Keep it simple with Positive/Neutral/Negative CSAT first to ensure adoption.
+Defer: 
+Complex SLA pause logic (e.g., pausing SLAs during weekends/holidays). Keep it strictly wall-clock time for the MVP, and evaluate business hours logic later.
 
 ## Sources
 
-- Customer-Led Growth SaaS Patterns (2024): Transitioning from PLG to NRR focus.
-- Elixir Telemetry conventions.
+- Cairnloop Epic 6 specifications.
+- Zendesk trigger complexity (lessons learned).

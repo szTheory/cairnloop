@@ -19,6 +19,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
   states instead of pretending certainty.
 - Retrieval quality now emits bounded telemetry and durable gap signals that can seed the next
   maintenance milestone.
+- Phase 9 of `vM010` now turns those durable signals into clustered KB gap candidates with a
+  dedicated inspection dashboard.
 
 **Closeout posture:** `vM009` is shipped and archived as a `tech_debt` milestone. All milestone
 requirements are verified; the remaining debt is explicit and non-blocking.
@@ -54,8 +56,8 @@ agency or external integration surface area.
 - ✓ Retrieval-First Support Answers & Search Ops — vM009
 
 ### Active
-- [ ] Deliver `vM010` KB maintenance scope from gap detection through review-gated draft creation
-  and revision suggestions.
+- [ ] Deliver the remaining `vM010` KB maintenance scope from citation-backed suggestions through
+  review-gated draft creation and revision suggestions.
 - [ ] Preserve citation-backed review and publish guardrails so AI-prepared KB work never becomes
   canonical without operator approval.
 - [ ] Keep the milestone inside Cairnloop-owned Phoenix, Ecto, and Oban paths, with Scoria
@@ -110,4 +112,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 after starting vM010*
+*Last updated: 2026-05-21 after completing M010-S01*

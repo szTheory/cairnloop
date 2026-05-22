@@ -1,52 +1,52 @@
-# Research Summary: Customer Voice Activation (Customer-Led Growth)
+# Research Summary: Cairnloop Omnichannel SLA Escalation (M006)
 
-**Domain:** Customer Support in B2B SaaS (Customer-Led Growth)
-**Researched:** 2024-05
+**Domain:** Support Ticketing SLA Management & Notification Routing
+**Researched:** Current Date
 **Overall confidence:** HIGH
 
 ## Executive Summary
 
-In 2024, the B2B SaaS ecosystem has shifted from "growth at any cost" (PLG-only) to efficient, retention-focused "Customer-Led Growth" (CLG). Support centers are uniquely positioned for CLG because resolving a critical issue or bug is the highest leverage point for creating a brand advocate. By intercepting angry users, companies prevent negative public reviews, while instantly solving issues for satisfied users creates an optimal moment to ask for an App Store or G2 review.
+The M006 milestone focuses on building an Omnichannel SLA Escalation system that pushes critical support events (SLA breaches, VIP tickets, long wait times) to the channels where operators actually live (Slack, PagerDuty, Discord, Email). Instead of building a complex, Turing-complete trigger engine like Zendesk, Cairnloop will lean on simple, idiomatic Elixir abstractions: Oban for durable scheduled countdowns and Chimeway for abstracting the outbound delivery mechanics.
 
-Cairnloop's approach to this domain avoids building a heavyweight, generic marketing CRM. Instead, it relies on a highly decoupled architecture utilizing Elixir's native `:telemetry` library. By emitting high-signal events upon conversation resolution, Cairnloop provides the "spark" and context (e.g., duration, sentiment shift). The host application can then attach standard telemetry handlers to trigger external growth actions (like a native iOS App Store review prompt, or a Slack alert to a Customer Success Manager).
+By scheduling a `CheckSLA` Oban job at the moment a ticket is created or updated, we achieve a durable "countdown timer" that can fire notifications if the ticket remains unresolved or unresponded. When triggered, the job relies on a `Cairnloop.Notifier` behaviour, backed by Chimeway, which routes the alert based on host-defined adapters. This guarantees Cairnloop remains decoupled from the specific APIs of third-party chat tools while offering best-in-class developer ergonomics.
 
 ## Key Findings
 
-**Stack:** Idiomatic Elixir utilizing `:telemetry` for event dispatch, ensuring Cairnloop remains decoupled from the host's growth infrastructure.
-**Architecture:** Event-driven pipeline where `[:cairnloop, :conversation, :resolved]` acts as the critical lifecycle hook.
-**Critical pitfall:** Survey fatigue and generic email CSATs. Feedback must be in-app, contextual, and frictionless to maintain high response rates and avoid annoying users.
+**Stack:** Oban (for precise, distributed SLA countdowns) and Chimeway (for durable, adapter-based async notification routing).
+**Architecture:** Event-driven Oban schedules. A `CheckSLA` job evaluates state upon execution and dispatches to a `Notifier` behaviour (Chimeway) if the SLA is breached.
+**Critical pitfall:** Oban table bloat and queue clutter from millions of SLA countdowns. Jobs must be properly partitioned and pruning strategies must be configured.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure for M004:
+Based on research, suggested phase structure for M006:
 
-1. **Phase 1: Foundation (Telemetry & Events)** - Establish the `[:cairnloop, :conversation, :resolved]` pipeline.
-   - Addresses: The core decoupling requirement; allows host apps to immediately start acting on resolutions.
-   - Avoids: Hardcoding third-party review platforms into Cairnloop.
+1. **Phase 1: SLA Countdown Engine (Oban)** - Establish the `CheckSLA` worker and the insertion logic upon ticket creation/update.
+   - Addresses: Scheduling, verifying, and cancelling SLA jobs when tickets are resolved early.
+   - Avoids: Orphaned jobs firing alerts for already-resolved tickets.
 
-2. **Phase 2: Sentiment Capture (CSAT/CES UI)** - Introduce frictionless in-widget CSAT and Customer Effort Score (CES) capture.
-   - Addresses: The need for low-cognitive-load, one-click feedback immediately after a ticket closes.
-   - Avoids: Generic email surveys which suffer from low open rates.
+2. **Phase 2: The Notifier Behaviour & Chimeway Integration** - Define the `Cairnloop.Notifier` behaviour and integrate Chimeway for the delivery layer.
+   - Addresses: Abstracting Slack/Discord/Email delivery away from Cairnloop core.
+   - Avoids: Hardcoding third-party API clients.
 
-3. **Phase 3: Host Extensibility & Reference Implementations** - Build reference handlers and documentation for the host.
-   - Addresses: Developer Experience (DX). The host must understand exactly how to wire up the telemetry signal to a G2/App Store prompt.
+3. **Phase 3: LiveView Configuration & Thresholds** - Build the UI for operators to set SLA durations based on priority (e.g., VIP = 15 mins, Normal = 4 hours).
+   - Addresses: Giving control back to support managers without requiring developer intervention for every threshold tweak.
+   - Avoids: Building a convoluted "Zendesk Trigger" rule engine; we stick to simple, strict SLA types.
 
 **Phase ordering rationale:**
-- The telemetry pipeline must exist before we can attach sentiment to it. Once the pipeline is built, capturing CSAT provides the data payload for the events. Finally, reference implementations prove the architecture works in real-world host apps.
+- The engine (Oban) must exist before we can deliver the notification (Chimeway), which in turn must exist before we provide the UI to configure the thresholds.
 
 **Research flags for phases:**
-- Phase 2: Needs deep research into UI/UX best practices for capturing CES (Customer Effort Score) vs CSAT, as CES is often a better predictor of churn in SaaS.
+- Phase 1: Needs deeper research into Oban job cancellation (e.g., cancelling a scheduled SLA job if a user replies or resolves the ticket before the timer pops).
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | `:telemetry` is the definitive standard for Elixir observability and event decoupling. |
-| Features | HIGH | CLG and in-app sentiment capture are well-established SaaS patterns. |
-| Architecture | HIGH | Event-driven architecture fits perfectly with Phoenix/Elixir paradigms. |
-| Pitfalls | HIGH | Survey fatigue is a documented, pervasive issue in customer success. |
+| Stack | HIGH | Oban is the industry standard in Elixir. Chimeway fits the exact architectural mandate. |
+| Features | HIGH | Clear distinction between our approach and Zendesk's complex triggers. |
+| Architecture | HIGH | Event-driven architecture with Oban schedules is well-documented and robust. |
+| Pitfalls | MEDIUM | Oban partitioning requires some care at extreme scale, but standard pruning is usually sufficient. |
 
 ## Gaps to Address
 
-- UI specifications for the CSAT/CES micro-interactions inside the existing `WidgetLive`.
-- How to handle "Detractor" routing directly to host systems without blocking the main telemetry thread.
+- **Job Cancellation vs Idempotency:** Should we cancel an SLA job in Oban when a ticket is resolved, or let it run and just cleanly NOOP if the ticket state is already resolved? (Recommendation: Idempotent NOOP is usually simpler and less prone to race conditions).

@@ -21,10 +21,10 @@
 - [ ] **Phase 2: Operator Search Experience** - Turn retrieval into a trustworthy keyboard-first operator workflow
 - [ ] **Phase 3: Grounded Drafting & Citations** - Feed grounded retrieval into the AI draft loop with inspectable evidence
 - [ ] **Phase 4: Retrieval Telemetry & Gap Signals** - Measure retrieval quality and preserve no-hit evidence for future gap clustering
-- [ ] **Phase 5: Search Scope Enforcement & Operator Search Closure** - Close the remaining search safety blocker on non-conversation surfaces and backfill Phase 2 verification
-- [ ] **Phase 6: Retrieval Corpus Verification Closure** - Backfill Phase 1 verification and validation evidence so retrieval corpus requirements can close cleanly
-- [ ] **Phase 7: Grounded Drafting Verification Closure** - Backfill Phase 3 verification and manual review evidence for grounded drafting requirements
-- [ ] **Phase 8: Gap Signal Semantics & Telemetry Closure** - Reconcile telemetry/gap-storage semantics and backfill Phase 4 verification evidence
+- [x] **Phase 5: Search Scope Enforcement & Operator Search Closure** - Close the remaining search safety blocker on non-conversation surfaces and backfill Phase 2 verification
+- [x] **Phase 6: Retrieval Corpus Verification Closure** - Backfill Phase 1 verification and validation evidence so retrieval corpus requirements can close cleanly
+- [x] **Phase 7: Grounded Drafting Verification Closure** - Backfill Phase 3 verification and manual review evidence for grounded drafting requirements
+- [x] **Phase 8: Gap Signal Semantics & Telemetry Closure** - Reconcile telemetry/gap-storage semantics and backfill Phase 4 verification evidence
 
 ## Phase Details
 
@@ -36,7 +36,10 @@
   1. Publishing a Knowledge Base revision and resolving a conversation each enqueue durable indexing work through Oban.
   2. Retrieval queries can combine keyword and vector matches through one internal API without leaking tenant or visibility boundaries.
   3. Retrieved conversation evidence is stored and labeled separately from canonical Knowledge Base facts.
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [x] `M009-S05-01-PLAN.md` — Make every search mount explicitly scoped or fail closed, enforce provider-side filtering before ranking, and prove the runtime slice with targeted search tests.
+- [x] `M009-S05-02-PLAN.md` — Backfill Phase 2 verification, update validation state, and move operator-search requirement traceability to verified.
 
 ### Phase 2: Operator Search Experience
 **Goal**: Make grounded retrieval feel fast and trustworthy for operators inside the dashboard.
@@ -46,7 +49,9 @@
   1. Operator can open a global `cmd+k` search and query both Knowledge Base content and similar resolved cases.
   2. Search results expose source type, recency, and citation targets while enforcing visibility and tenant safety.
   3. Search works through Cairnloop retrieval APIs rather than direct remote HTTP calls from UI components.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] `M009-S07-01-PLAN.md` — Create the durable Phase 3 verification artifact, record the freshness and limits of the focused proof lane, capture manual editorial closure checks, and update validation plus requirement traceability for `M009-REQ-06` and `M009-REQ-07`.
 **UI hint**: yes
 
 ### Phase 3: Grounded Drafting & Citations
@@ -57,7 +62,9 @@
   1. Draft generation requests retrieval context before producing a proposal.
   2. Drafts show supporting citations or evidence references in a form the operator can inspect quickly.
   3. Retrieval misses or weak evidence push the workflow toward escalation instead of pretending certainty.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] `M009-S08-01-PLAN.md` — Repair Phase 4 gap-event semantics, persist assistive-only search outcomes with bounded durable semantics, and backfill verification plus validation closure for `M009-REQ-08` and `M009-REQ-09`.
 
 ### Phase 4: Retrieval Telemetry & Gap Signals
 **Goal**: Make retrieval quality inspectable and preserve evidence for the next knowledge-gap milestone.
@@ -90,7 +97,9 @@
   1. `M009-S01` gains a `VERIFICATION.md` that maps each requirement to concrete test and implementation evidence.
   2. `M009-S01` validation state matches the actual completed test surface instead of remaining draft-only.
   3. Requirement traceability reflects that Phase 1 evidence has been revalidated and closed through the gap phase.
-**Plans**: TBD
+**Plans**: 1 plan
+Plans:
+- [x] `M009-S06-01-PLAN.md` — Create the durable Phase 1 verification artifact, capture one realistic proof lane or explicit blocker, repair `M009-S01` validation state, and mark `M009-REQ-01..03` verified in milestone traceability.
 
 ### Phase 7: Grounded Drafting Verification Closure
 **Goal**: Convert implemented grounded-drafting work into auditable closure evidence for the Phase 3 requirements.
@@ -122,7 +131,7 @@
 | 2. Operator Search Experience | 2/2 | Complete | 2026-05-20 |
 | 3. Grounded Drafting & Citations | 2/2 | Complete | 2026-05-20 |
 | 4. Retrieval Telemetry & Gap Signals | 3/3 | Complete | 2026-05-20 |
-| 5. Search Scope Enforcement & Operator Search Closure | 0/0 | Not started | - |
-| 6. Retrieval Corpus Verification Closure | 0/0 | Not started | - |
-| 7. Grounded Drafting Verification Closure | 0/0 | Not started | - |
-| 8. Gap Signal Semantics & Telemetry Closure | 0/0 | Not started | - |
+| 5. Search Scope Enforcement & Operator Search Closure | 2/2 | Complete | 2026-05-20 |
+| 6. Retrieval Corpus Verification Closure | 1/1 | Complete | 2026-05-21 |
+| 7. Grounded Drafting Verification Closure | 1/1 | Complete | 2026-05-21 |
+| 8. Gap Signal Semantics & Telemetry Closure | 1/1 | Complete | 2026-05-21 |

@@ -59,6 +59,8 @@ Clustering is slow and CPU intensive. It must not block Phoenix web requests.
 ### Operator UX: The Gap Dashboard
 *   **Visualizing Volume:** The UI must sort gaps by *volume* and *impact* (e.g., "This missing topic caused 45 human handoffs this week").
 *   **One-Click Draft:** When an operator selects a Knowledge Gap, provide a "Draft Article" button. This takes the top 10 user messages from that cluster, sends them to an LLM, and generates a draft Help Center article designed to answer those specific queries.
+*   **Suggest Revision:** If an existing published article is repeatedly retrieved but still followed by clarification, escalation, or manual rewrite, the operator should see a "Suggest Revision" path instead of a net-new article flow.
+*   **Evidence Discipline:** Drafts should carry explicit support evidence and citations. Resolved cases may inform the proposal, but they should not silently become canonical truth.
 
 ### Developer DX: Simple Integration
 *   **Migration Safety:** Ensure the Cairnloop Ecto migrations explicitly check for and enable the `pgvector` extension before creating tables.
@@ -73,6 +75,7 @@ Clustering is slow and CPU intensive. It must not block Phoenix web requests.
 | **LLM API (Default) vs Local Nx** | Zero compilation overhead; works everywhere. Fast setup. | Ongoing API costs; data leaves the server. |
 | **`pgvector` vs External Vector DB** | Keeps infrastructure simple. Transactional integrity with existing user data. | `pgvector` approximate indexes (HNSW) can be complex to tune at massive scale. |
 | **Background (Oban) Clustering** | Keeps UI fast; resilient to crashes. | Real-time gaps aren't instantly visible; requires Oban setup. |
+| **Operator copilot vs autonomous publishing** | Keeps the KB trustworthy and aligns with HITL support posture. | Adds review friction and requires good diff/evidence UX. |
 
 ## 6. Summary for the Epic
 
@@ -80,4 +83,5 @@ To execute this, the epic should be broken into:
 1.  **Core Interface:** Pluggable AI behaviour and default LLM adapter.
 2.  **Telemetry & Storage:** Tracking failed self-service events and storing embeddings via `pgvector`.
 3.  **The Engine:** Oban workers for async embedding generation and periodic clustering.
-4.  **The UI:** Phoenix LiveView dashboard for operators to view gaps and generate draft articles.
+4.  **The UI:** Phoenix LiveView dashboard for operators to view gaps, generate draft articles, and suggest revisions to stale KB content.
+5.  **The Review Layer:** Draft-vs-published workflow, citation-backed evidence presentation, and optional Scoria governance/eval integration.

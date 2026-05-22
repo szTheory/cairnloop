@@ -14,8 +14,8 @@
 
 ## Phases
 
-- [ ] **Phase 1: Immutable Knowledge Base Foundation (Ecto)** - Establish the core relational models for a revision-based Knowledge Base
-- [ ] **Phase 2: LiveView Markdown Authoring Interface** - Enable operators to securely write and preview Knowledge Base articles in Markdown
+- [x] **Phase 1: Immutable Knowledge Base Foundation (Ecto)** - Establish the core relational models for a revision-based Knowledge Base
+- [x] **Phase 2: LiveView Markdown Authoring Interface** - Enable operators to securely write and preview Knowledge Base articles in Markdown
 - [x] **Phase 3: Semantic Chunking & pgvector Embeddings (Oban)** - Automatically prepare and index Markdown content for optimal AI retrieval via RAG
 
 ## Phase Details
@@ -57,5 +57,5 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Immutable Knowledge Base Foundation (Ecto) | 1/1 | Complete | 2026-05-16 |
-| 2. LiveView Markdown Authoring Interface | 1/1 | Planned | - |
+| 2. LiveView Markdown Authoring Interface | 1/1 | Complete | 2026-05-17 |
 | 3. Semantic Chunking & pgvector Embeddings (Oban) | 1/1 | Complete | 2026-05-17 |

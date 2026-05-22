@@ -78,7 +78,7 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Epic 6: Omnichannel SLA Escalation (Chimeway)
+## Epic 6: Omnichannel SLA Escalation (Chimeway) (Planned)
 **Goal:** Route critical support events (SLA breaches, VIP tickets) to the Host's internal channels (Slack, PagerDuty, Email) without hardcoding integrations.
 
 * **Idiomatic Elixir Approach:** 
@@ -92,17 +92,18 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Epic 7: Semantic Search & AI Retrieval (Scrypath)
-**Goal:** Enable operators to instantly query past conversations, and empower the AI drafting engine to ground its answers using historical resolutions.
+## Epic 7: Grounded Support Retrieval & Answering (Reframed 2026-05-17)
+**Goal:** Turn the Knowledge Base engine into a visible support loop by grounding operator search and AI drafts in trustworthy retrieval.
 
 * **Idiomatic Elixir Approach:** 
-  * Integrate with **Scrypath** for embedding generation, vector indexing, and fast operator querying.
-  * Emit Telemetry events upon ticket resolution to trigger asynchronous Scrypath ingestion.
+  * Build a host-owned retrieval boundary on top of **`pgvector` plus PostgreSQL full-text search** before introducing external search infrastructure.
+  * Index published Knowledge Base revisions as primary truth and resolved conversation summaries as secondary evidence via **Oban**.
+  * Emit retrieval, reranking, and grounding telemetry so **Scoria** and **Parapet** can inspect answer quality end to end.
 * **Pros/Cons & Tradeoffs:** 
-  * *Pros:* Native Postgres full-text search is good, but Scrypath provides the semantic vector search needed for high-quality RAG (Retrieval-Augmented Generation) when Scoria drafts replies.
-  * *Cons:* Adds vector DB overhead or relies on pgvector. Requires a robust syncing strategy to keep the index fresh.
-* **Lessons Learned:** AI drafts are only as good as their context. Grounding the Scoria drafting engine with past, resolved tickets prevents hallucination and ensures tone consistency.
-* **UX/DX:** The LiveView dashboard gets a powerful `cmd+k` search bar for operators, while Scoria transparently uses Scrypath as an MCP Resource to fetch context.
+  * *Pros:* Highest leverage on the M008 substrate, safer than broader agent autonomy, reusable by both operator search and AI drafting.
+  * *Cons:* Retrieval quality becomes the product bottleneck quickly, and weak visibility filtering or stale evidence can destroy trust.
+* **Lessons Learned:** Help Scout, Zendesk, Plain, and Pylon all reinforce the same rule: AI support quality is downstream of grounded knowledge retrieval, not the other way around. Historical conversations help, but KB content must remain the primary factual source.
+* **UX/DX:** Operators get `cmd+k` search, similar-case assist, and cited draft evidence; host apps get one retrieval abstraction instead of a UI-specific remote search dependency.
 
 ---
 
@@ -147,6 +148,8 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
   * *Cons:* Background clustering means gaps aren't instantly real-time.
 * **Lessons Learned:** Zendesk's Intelligent Triage focuses on SNGP for "Uncertainty Estimation." Knowing when to defer to a human is more critical than guessing the right intent.
 * **UX/DX:** The Operator Gap Dashboard sorts by volume and impact. A "One-Click Draft" button takes the top 10 messages from a cluster and uses an LLM to propose a new KB Article.
+* **Recommended operating model:** Ship this as an operator-copilot core that proposes KB draft articles and KB draft revisions from support evidence. Keep human approval mandatory for publication, and reserve autonomy for narrow non-canonical maintenance work only.
+* **Scoria boundary:** Optional integration only. Cairnloop owns the KB lifecycle and review UX; Scoria may add citations, grounding scores, eval persistence, and approval/workflow evidence.
 
 ---
 
@@ -165,7 +168,9 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Next Steps: Structuring M005
-Based on the backlog, **Milestone 5 (M005)** should focus on **Epic 5: Durable Auditing & SRE Observability (Threadline & Parapet)** to ensure enterprise-grade compliance and reliability for the support operations.
-1. **Durable Auditing:** Integrate with Threadline for immutable audit logging.
-2. **SRE Observability:** Integrate with Parapet to consume Cairnloop's SLIs into SLO alerts.
+## Next Steps: Structuring M009
+Based on the current product state on **2026-05-17**, the next milestone should be **M009: Retrieval-First Support Answers & Search Ops**.
+1. **Hybrid Retrieval Corpus:** Build a host-owned retrieval layer over published KB content and resolved support evidence.
+2. **Operator Search:** Use that retrieval layer for a trustworthy `cmd+k` dashboard workflow.
+3. **Grounded Drafts:** Feed cited retrieval evidence into the draft loop before any broader agent autonomy work.
+4. **Retrieval Analytics:** Preserve no-hit evidence and quality signals so M010 can cluster real knowledge gaps instead of inferred ones.

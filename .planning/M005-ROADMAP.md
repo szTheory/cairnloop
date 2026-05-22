@@ -34,7 +34,8 @@
 **Success Criteria** (what must be TRUE):
   1. Adopters can define SLOs using Parapet's DSL based on the SLIs surfaced in Phase 2.
   2. Scaffolded runbook definitions and diagnostic commands (e.g. `mix parapet.doctor`) are available for support operation health.
-**Plans**: TBD
+**Plans**:
+- [ ] M005-S03-01-PLAN.md — Scaffolding SLOs and runbooks via Igniter task
 
 ## Progress
 
@@ -42,4 +43,4 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation (Durable Auditing) | 0/1 | Planned | - |
 | 2. SRE Observability (SLIs) | 0/0 | Not started | - |
-| 3. Alerting & Runbooks | 0/0 | Not started | - |
+| 3. Alerting & Runbooks | 0/1 | Planned | - |
