@@ -21,6 +21,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
   maintenance milestone.
 - Phase 9 of `vM010` now turns those durable signals into clustered KB gap candidates with a
   dedicated inspection dashboard.
+- Phase 12 of `vM010` now lets operators launch bounded KB maintenance directly from conversation
+  evidence, keeps shell/manual fallback inside the shared review lane, and emits coarse telemetry
+  across quick-fix, publish, and reindex follow-through.
 
 **Closeout posture:** `vM009` is shipped and archived as a `tech_debt` milestone. All milestone
 requirements are verified; the remaining debt is explicit and non-blocking.
@@ -62,6 +65,13 @@ agency or external integration surface area.
   canonical without operator approval.
 - [ ] Keep the milestone inside Cairnloop-owned Phoenix, Ecto, and Oban paths, with Scoria
   remaining optional.
+
+## Validated Requirements
+
+- Phase 12 validated `OPS-01`: operators can start KB maintenance directly from conversation
+  evidence inside the existing support workflow.
+- Phase 12 validated `OPS-03`: the maintenance loop emits bounded telemetry for gap creation,
+  suggestion outcomes, review decisions, and publish or reindex follow-through.
 
 ### Out of Scope
 - External vector/search infrastructure as the default path.
@@ -112,4 +122,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 after completing M010-S01*
+*Last updated: 2026-05-22 after completing Phase 12*
