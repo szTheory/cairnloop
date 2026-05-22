@@ -3,38 +3,179 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
 
   alias Cairnloop.KnowledgeAutomation.ArticleSuggestion
   alias Cairnloop.KnowledgeAutomation.ArticleSuggestionEvidence
+  alias Cairnloop.KnowledgeAutomation.GapCandidate
   alias Cairnloop.KnowledgeAutomation.ReviewTask
   alias Cairnloop.KnowledgeAutomation.ReviewTaskEvent
+  alias Cairnloop.KnowledgeBase.Article
   alias Cairnloop.KnowledgeBase.Revision
+  alias Cairnloop.Web.KnowledgeBaseLive.{Gaps, Index}
   alias Cairnloop.Web.KnowledgeBaseLive.SuggestionReview
 
   defmodule MockKnowledgeAutomation do
     def list_article_suggestions(_opts) do
-      Process.get(:mock_suggestions, [])
+      Process.get(:mock_suggestion_ids, [])
+      |> Enum.map(&get_article_suggestion!(&1))
     end
 
     def get_article_suggestion!(id, _opts \\ []) do
-      Process.get(:mock_suggestion_lookup).(id)
+      Process.get(:mock_suggestion_map, %{}) |> Map.fetch!(id)
     end
 
-    def list_review_tasks(_opts) do
-      Process.get(:mock_review_tasks, [])
+    def list_review_tasks(opts) do
+      status = Keyword.get(opts, :status)
+
+      Process.get(:mock_review_task_ids, [])
+      |> Enum.map(&get_review_task!(&1))
+      |> Enum.filter(fn task -> is_nil(status) || task.status == status end)
     end
 
     def get_review_task!(id, _opts \\ []) do
-      Process.get(:mock_review_task_lookup).(id)
+      Process.get(:mock_review_task_map, %{}) |> Map.fetch!(id)
     end
 
     def dismiss_article_suggestion(id, _opts) do
-      {:ok, Process.get(:mock_suggestion_lookup).(id)}
+      {:ok, get_article_suggestion!(id)}
     end
 
     def regenerate_article_suggestion(id, _opts) do
-      {:ok, Process.get(:mock_suggestion_lookup).(id)}
+      {:ok, get_article_suggestion!(id)}
     end
 
     def create_or_reuse_authoring_article_for_suggestion(_id, _opts) do
       {:ok, 91}
+    end
+
+    def ensure_review_task_for_suggestion(suggestion_id, _opts \\ []) do
+      task =
+        Process.get(:mock_review_task_map, %{})
+        |> Map.values()
+        |> Enum.find(fn task -> task.article_suggestion_id == suggestion_id end)
+
+      {:ok, task}
+    end
+
+    def list_gap_candidates(_opts) do
+      [get_gap_candidate!(101)]
+    end
+
+    def get_gap_candidate!(id, _opts \\ []) do
+      Process.get(:mock_gap_candidate_map, %{}) |> Map.fetch!(id)
+    end
+
+    def approve_review_task(id, _opts) do
+      task =
+        get_review_task!(id)
+        |> Map.merge(%{
+          status: :approved_ready_to_publish,
+          last_decision: :approved,
+          last_reason: :ready_to_publish,
+          last_actor_id: "reviewer-1",
+          last_decided_at: ~U[2026-05-22 09:00:00Z],
+          staged_revision_id: 45,
+          notes: "Grounded and ready.",
+          events:
+            get_review_task!(id).events ++
+              [
+                review_task_event(%{
+                  review_task_id: id,
+                  event_type: :decision_recorded,
+                  from_status: :pending_review,
+                  to_status: :approved_ready_to_publish,
+                  decision: :approved,
+                  reason: :ready_to_publish,
+                  actor_id: "reviewer-1",
+                  notes: "Grounded and ready.",
+                  metadata: %{staged_revision_id: 45}
+                })
+              ]
+        })
+
+      put_review_task(task)
+      {:ok, task}
+    end
+
+    def reject_review_task(id, _opts) do
+      task =
+        get_review_task!(id)
+        |> Map.merge(%{
+          status: :rejected,
+          last_decision: :rejected,
+          last_reason: :insufficient_evidence,
+          last_actor_id: "reviewer-2",
+          last_decided_at: ~U[2026-05-22 09:10:00Z],
+          notes: "One citation anchor needs work."
+        })
+
+      put_review_task(task)
+      {:ok, task}
+    end
+
+    def defer_review_task(id, _opts) do
+      task =
+        get_review_task!(id)
+        |> Map.merge(%{
+          status: :deferred,
+          last_decision: :deferred,
+          last_reason: :needs_manual_edit,
+          last_actor_id: "reviewer-3",
+          last_decided_at: ~U[2026-05-22 09:20:00Z],
+          notes: "Send this through the editor."
+        })
+
+      put_review_task(task)
+      {:ok, task}
+    end
+
+    def publish_review_task(id, _opts) do
+      task =
+        get_review_task!(id)
+        |> Map.merge(%{
+          status: :published,
+          published_revision_id: 88,
+          published_at: ~U[2026-05-22 09:30:00Z],
+          publish_status: :published,
+          reindex_status: :queued,
+          events:
+            get_review_task!(id).events ++
+              [
+                review_task_event(%{
+                  review_task_id: id,
+                  event_type: :publish_recorded,
+                  from_status: :approved_ready_to_publish,
+                  to_status: :published,
+                  decision: :approved,
+                  reason: :ready_to_publish,
+                  actor_id: "reviewer-1",
+                  metadata: %{published_revision_id: 88, publish_status: :published, reindex_status: :queued}
+                })
+              ]
+        })
+
+      put_review_task(task)
+      {:ok, task}
+    end
+
+    def suggest_article(_attrs) do
+      {:ok, get_article_suggestion!(10)}
+    end
+
+    def suggest_revision(_attrs) do
+      {:ok, get_article_suggestion!(11)}
+    end
+
+    defp put_review_task(task) do
+      task_map = Process.get(:mock_review_task_map, %{})
+      Process.put(:mock_review_task_map, Map.put(task_map, task.id, task))
+    end
+
+    defp review_task_event(attrs) do
+      struct(ReviewTaskEvent, attrs)
+    end
+  end
+
+  defmodule MockRepo do
+    def all(Article) do
+      [%Article{id: 77, title: "Billing export guide", status: :published}]
     end
   end
 
@@ -49,6 +190,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
   setup do
     Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
     Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
+    Application.put_env(:cairnloop, :repo, MockRepo)
 
     ready_article =
       suggestion_fixture(%{
@@ -214,31 +356,40 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       published_task
     ]
 
-    Process.put(:mock_suggestions, [ready_article, ready_revision, failed_revision])
-    Process.put(:mock_review_tasks, review_tasks)
-
-    Process.put(:mock_suggestion_lookup, fn
-      10 -> ready_article
-      11 -> ready_revision
-      12 -> failed_revision
-    end)
-
-    Process.put(:mock_review_task_lookup, fn
-      21 -> pending_task
-      22 -> approved_task
-      23 -> review_needed_task
-      24 -> rejected_task
-      25 -> deferred_task
-      26 -> published_task
-    end)
+    Process.put(:mock_suggestion_ids, [10, 11, 12])
+    Process.put(:mock_suggestion_map, %{10 => ready_article, 11 => ready_revision, 12 => failed_revision})
+    Process.put(:mock_review_task_ids, Enum.map(review_tasks, & &1.id))
+    Process.put(:mock_review_task_map, Map.new(review_tasks, &{&1.id, &1}))
+    Process.put(:mock_gap_candidate_map, %{
+      101 =>
+        struct(GapCandidate, %{
+          id: 101,
+          stable_key: "gap-101-key",
+          status: :open,
+          candidate_type: :mixed,
+          title: "Billing export guide",
+          seed_excerpt: "Customers cannot find billing exports.",
+          tenant_scope: :host_user_scoped,
+          host_user_id: "user-1",
+          ui_surface: :inbox,
+          first_seen_at: ~U[2026-05-22 07:00:00Z],
+          last_seen_at: ~U[2026-05-22 08:00:00Z],
+          evidence_count: 3,
+          manual_case_count: 1,
+          retrieval_gap_events: [],
+          manual_handling_evidence: []
+        })
+    })
 
     on_exit(fn ->
-      Process.delete(:mock_suggestions)
-      Process.delete(:mock_suggestion_lookup)
-      Process.delete(:mock_review_tasks)
-      Process.delete(:mock_review_task_lookup)
+      Process.delete(:mock_suggestion_ids)
+      Process.delete(:mock_suggestion_map)
+      Process.delete(:mock_review_task_ids)
+      Process.delete(:mock_review_task_map)
+      Process.delete(:mock_gap_candidate_map)
       Application.delete_env(:cairnloop, :knowledge_automation)
       Application.delete_env(:cairnloop, :knowledge_base)
+      Application.delete_env(:cairnloop, :repo)
     end)
 
     :ok
@@ -275,6 +426,54 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert html =~ "Derived diff summary"
     assert html =~ "Structured history"
     assert html =~ "Approved by reviewer-1"
+  end
+
+  test "task actions call review-task commands, reload detail, and keep publish gated to approved work" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
+
+    pending_html = render_html(socket.assigns)
+    refute pending_html =~ ">Publish<"
+
+    {:noreply, approved_socket} = SuggestionReview.handle_event("approve", %{"id" => "21"}, socket)
+    approved_html = render_html(approved_socket.assigns)
+
+    assert approved_socket.assigns.selected_task.status == :approved_ready_to_publish
+    assert approved_html =~ ">Publish<"
+    assert approved_html =~ "Approved by reviewer-1"
+
+    {:noreply, published_socket} =
+      SuggestionReview.handle_event("publish", %{"id" => "21"}, approved_socket)
+
+    published_html = render_html(published_socket.assigns)
+    assert published_socket.assigns.selected_task.status == :published
+    assert published_html =~ "Published revision #88. Reindex queued."
+  end
+
+  test "open_for_edit preserves review task context in the editor handoff" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
+    {:noreply, edit_socket} = SuggestionReview.handle_event("open_for_edit", %{"id" => "22"}, socket)
+
+    assert {:live, :redirect, %{to: path}} = edit_socket.redirected
+    assert path =~ "/knowledge-base/77/edit?suggestion_id=11"
+    assert path =~ "review_task_id=22"
+    assert path =~ "return_to=%2Fknowledge-base%2Fsuggestions%3Ftask%3D22"
+  end
+
+  test "gap and article entrypoints deep-link into the shared review task lane" do
+    {:ok, gaps_socket} = Gaps.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, gaps_socket} = Gaps.handle_params(%{"candidate" => "101"}, "", gaps_socket)
+    {:noreply, gaps_redirected} = Gaps.handle_event("suggest_article", %{"candidate_id" => "101"}, gaps_socket)
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=21"}} =
+             gaps_redirected.redirected
+
+    {:ok, index_socket} = Index.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, index_redirected} = Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=22"}} =
+             index_redirected.redirected
   end
 
   defp review_task_fixture(overrides) do
