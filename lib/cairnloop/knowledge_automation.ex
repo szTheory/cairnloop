@@ -375,6 +375,16 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
+  def record_review_task_reindex_outcome(published_revision_id, result, opts \\ []) do
+    case find_review_task_by_published_revision_id(published_revision_id, opts) do
+      nil ->
+        :ok
+
+      task ->
+        persist_reindex_outcome(task, published_revision_id, result, opts)
+    end
+  end
+
   def suggest_article(attrs, opts \\ []) do
     attrs = Map.new(attrs)
 
@@ -1197,6 +1207,55 @@ defmodule Cairnloop.KnowledgeAutomation do
            |> repo().insert() do
       {result_type, updated_task}
     end
+  end
+
+  defp find_review_task_by_published_revision_id(revision_id, opts) do
+    ReviewTask
+    |> apply_scope(opts)
+    |> where([task], task.published_revision_id == ^revision_id)
+    |> repo().all()
+    |> List.first()
+  end
+
+  defp persist_reindex_outcome(task, published_revision_id, result, opts) do
+    actor_id = Keyword.get(opts, :actor_id, "chunk_revision")
+    {result_type, reindex_status, metadata} = reindex_outcome_payload(published_revision_id, result)
+
+    update_task_with_event(
+      task,
+      ReviewTask.changeset(task, %{
+        status: :published,
+        published_revision_id: task.published_revision_id || published_revision_id,
+        published_at: task.published_at,
+        publish_status: :published,
+        reindex_status: reindex_status
+      }),
+      %{
+        event_type: :reindex_recorded,
+        from_status: task.status,
+        to_status: :published,
+        decision: task.last_decision,
+        reason: task.last_reason,
+        actor_id: actor_id,
+        metadata: metadata
+      },
+      result_type
+    )
+  end
+
+  defp reindex_outcome_payload(published_revision_id, :ok) do
+    {:ok, :completed,
+     %{published_revision_id: published_revision_id, publish_status: :published, reindex_status: :completed}}
+  end
+
+  defp reindex_outcome_payload(published_revision_id, {:error, reason}) do
+    {:error, :failed,
+     %{
+       published_revision_id: published_revision_id,
+       publish_status: :published,
+       reindex_status: :failed,
+       error: reason
+     }}
   end
 
   defp material_edit_baseline(%ReviewTask{} = task, %ArticleSuggestion{} = suggestion, opts) do

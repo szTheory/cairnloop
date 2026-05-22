@@ -1,6 +1,7 @@
 defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
   use Oban.Worker, queue: :default, unique: [period: 60]
 
+  alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeBase.{Revision, Chunk, MarkdownParser}
   alias Cairnloop.Embedder.ExternalApi
   import Ecto.Query
@@ -50,7 +51,13 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
       end
 
     :telemetry.execute([:openinference, :span, :stop], %{}, %{name: "chunk_revision", status: result})
-    
+
+    _ = knowledge_automation().record_review_task_reindex_outcome(revision_id, result)
+
     result
+  end
+
+  defp knowledge_automation do
+    Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
   end
 end
