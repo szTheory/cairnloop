@@ -439,7 +439,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     approved_html = render_html(approved_socket.assigns)
 
     assert approved_socket.assigns.selected_task.status == :approved_ready_to_publish
-    assert approved_html =~ ">Publish<"
+    assert approved_html =~ "Publish"
     assert approved_html =~ "Approved by reviewer-1"
 
     {:noreply, published_socket} =

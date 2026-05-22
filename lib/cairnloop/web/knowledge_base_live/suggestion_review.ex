@@ -32,6 +32,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           |> String.to_integer()
           |> knowledge_automation().get_review_task!(socket.assigns.scope_filters)
 
+        suggestion_id = params["suggestion"] ->
+          {:ok, task} =
+            suggestion_id
+            |> String.to_integer()
+            |> knowledge_automation().ensure_review_task_for_suggestion(socket.assigns.scope_filters)
+
+          knowledge_automation().get_review_task!(task.id, socket.assigns.scope_filters)
+
         true ->
           List.first(review_tasks)
       end
@@ -43,6 +51,70 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
        queue_filter: queue_filter
      )
      |> assign_selected(selected_task)}
+  end
+
+  def handle_event("approve", %{"id" => task_id}, socket) do
+    case knowledge_automation().approve_review_task(String.to_integer(task_id), socket.assigns.scope_filters) do
+      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
+      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to approve this review task right now.")}
+    end
+  end
+
+  def handle_event("reject", %{"id" => task_id}, socket) do
+    opts = Keyword.put(socket.assigns.scope_filters, :reason, :insufficient_evidence)
+
+    case knowledge_automation().reject_review_task(String.to_integer(task_id), opts) do
+      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
+      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to reject this review task right now.")}
+    end
+  end
+
+  def handle_event("defer", %{"id" => task_id}, socket) do
+    opts = Keyword.put(socket.assigns.scope_filters, :reason, :needs_manual_edit)
+
+    case knowledge_automation().defer_review_task(String.to_integer(task_id), opts) do
+      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
+      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to defer this review task right now.")}
+    end
+  end
+
+  def handle_event("publish", %{"id" => task_id}, socket) do
+    case knowledge_automation().publish_review_task(String.to_integer(task_id), socket.assigns.scope_filters) do
+      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
+      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to publish this review task right now.")}
+    end
+  end
+
+  def handle_event("open_for_edit", %{"id" => task_id}, socket) do
+    task_id = String.to_integer(task_id)
+    task = knowledge_automation().get_review_task!(task_id, socket.assigns.scope_filters)
+    suggestion = task.article_suggestion
+
+    target_article_id =
+      if suggestion.suggestion_type == :revision do
+        suggestion.article_id
+      else
+        {:ok, article_id} =
+          knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
+            suggestion.id,
+            socket.assigns.scope_filters
+          )
+
+        article_id
+      end
+
+    return_to =
+      task.id
+      |> task_patch(socket.assigns.queue_filter)
+      |> URI.encode_www_form()
+
+    {:noreply,
+     push_navigate(
+       socket,
+       to:
+         "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
+           "&review_task_id=#{task.id}&return_to=#{return_to}"
+     )}
   end
 
   def render(assigns) do
@@ -92,7 +164,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
 
           <div>
             <%= for action <- ReviewTaskPresenter.available_actions(@selected_task) do %>
-              <span><%= ReviewTaskPresenter.action_label(action) %></span>
+              <button phx-click={Atom.to_string(action)} phx-value-id={@selected_task.id}>
+                <%= ReviewTaskPresenter.action_label(action) %>
+              </button>
             <% end %>
           </div>
 
@@ -178,6 +252,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
     do: title
 
   defp task_title(_task), do: "Untitled suggestion"
+
+  defp reload_selected(socket, task_id) do
+    review_tasks = load_review_tasks(socket.assigns.scope_filters, socket.assigns.queue_filter)
+    selected_task = knowledge_automation().get_review_task!(String.to_integer(task_id), socket.assigns.scope_filters)
+
+    socket
+    |> assign(review_tasks: review_tasks)
+    |> assign_selected(selected_task)
+  end
 
   defp task_patch(task_id, nil), do: "/knowledge-base/suggestions?task=#{task_id}"
   defp task_patch(task_id, queue_filter), do: "/knowledge-base/suggestions?task=#{task_id}&queue=#{queue_filter}"
