@@ -1,7 +1,9 @@
 defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
   use ExUnit.Case, async: false
 
+  alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeAutomation.{ReviewTask, ReviewTaskEvent}
+  alias Cairnloop.KnowledgeAutomation.{ArticleSuggestion, ArticleSuggestionEvidence}
 
   defmodule MockRepo do
     def all(%Ecto.Query{} = query) do
@@ -293,6 +295,148 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert content =~ "timestamps(type: :utc_datetime_usec, updated_at: false)"
   end
 
+  test "list_review_tasks orders by queue urgency and filters by status while preserving scope" do
+    Process.put(:review_tasks, [
+      review_task_fixture(%{
+        id: 1,
+        article_suggestion_id: 10,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        inserted_at: ~U[2026-05-22 08:00:00Z]
+      }),
+      review_task_fixture(%{
+        id: 2,
+        article_suggestion_id: 11,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :approved_ready_to_publish,
+        inserted_at: ~U[2026-05-22 09:00:00Z]
+      }),
+      review_task_fixture(%{
+        id: 3,
+        article_suggestion_id: 12,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review,
+        inserted_at: ~U[2026-05-22 10:00:00Z]
+      }),
+      review_task_fixture(%{
+        id: 4,
+        article_suggestion_id: 13,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "other-host",
+        status: :review_needed,
+        inserted_at: ~U[2026-05-22 11:00:00Z]
+      })
+    ])
+
+    tasks = KnowledgeAutomation.list_review_tasks(host_user_id: "host-1")
+    assert Enum.map(tasks, & &1.id) == [3, 2, 1]
+
+    filtered =
+      KnowledgeAutomation.list_review_tasks(host_user_id: "host-1", status: :approved_ready_to_publish)
+
+    assert Enum.map(filtered, & &1.id) == [2]
+  end
+
+  test "get_review_task! preloads linked suggestion and task history" do
+    suggestion = suggestion_fixture(%{id: 55, status: :ready})
+
+    task =
+      review_task_fixture(%{
+        id: 77,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1"
+      })
+
+    events = [
+      review_task_event_fixture(%{
+        id: 1,
+        review_task_id: task.id,
+        inserted_at: ~U[2026-05-22 08:00:00Z]
+      }),
+      review_task_event_fixture(%{
+        id: 2,
+        review_task_id: task.id,
+        event_type: :decision_recorded,
+        from_status: :pending_review,
+        to_status: :approved_ready_to_publish,
+        decision: :approved,
+        reason: :ready_to_publish,
+        inserted_at: ~U[2026-05-22 09:00:00Z]
+      })
+    ]
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_events, events)
+    Process.put(:review_task_detail_lookup, fn _query -> task end)
+
+    loaded = KnowledgeAutomation.get_review_task!(77, host_user_id: "host-1")
+    assert loaded.article_suggestion.id == suggestion.id
+    assert Enum.map(loaded.events, & &1.id) == [1, 2]
+    assert loaded.article_suggestion.proposed_markdown =~ "Proposed KB update"
+  end
+
+  test "ensure_review_task_for_suggestion creates one active task and appends a task_created event" do
+    suggestion = suggestion_fixture(%{id: 88, status: :ready, host_user_id: "host-1"})
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_tasks, [])
+    Process.put(:review_task_events, [])
+
+    {:ok, task} =
+      KnowledgeAutomation.ensure_review_task_for_suggestion(suggestion.id,
+        host_user_id: "host-1",
+        actor_id: "operator-7"
+      )
+
+    assert task.article_suggestion_id == suggestion.id
+    assert task.status == :pending_review
+
+    event = Process.get(:last_inserted)
+    assert Map.get(event, :__struct__) == ReviewTaskEvent
+    assert event.event_type == :task_created
+  end
+
+  test "ensure_review_task_for_suggestion returns the existing active task without duplicating rows" do
+    suggestion = suggestion_fixture(%{id: 91, status: :failed, host_user_id: "host-1"})
+
+    existing_task =
+      review_task_fixture(%{
+        id: 44,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :review_needed
+      })
+
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_tasks, [existing_task])
+
+    {:ok, task} =
+      KnowledgeAutomation.ensure_review_task_for_suggestion(suggestion.id,
+        host_user_id: "host-1",
+        actor_id: "operator-7"
+      )
+
+    assert task.id == existing_task.id
+    assert Process.get(:last_inserted) == nil
+  end
+
+  test "ensure_review_task_for_suggestion rejects non-reviewable suggestions and does not mutate suggestion workflow state" do
+    dismissed = suggestion_fixture(%{id: 92, status: :dismissed, host_user_id: "host-1"})
+    Process.put(:article_suggestions, [dismissed])
+
+    assert {:error, :suggestion_not_reviewable} =
+             KnowledgeAutomation.ensure_review_task_for_suggestion(dismissed.id,
+               host_user_id: "host-1",
+               actor_id: "operator-7"
+             )
+
+    assert Process.get(:last_updated) == nil
+  end
+
   defp valid_review_task_attrs(overrides \\ %{}) do
     Map.merge(
       %{
@@ -307,5 +451,86 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {message, _opts} -> message end)
+  end
+
+  defp review_task_fixture(overrides \\ %{}) do
+    struct!(
+      ReviewTask,
+      Map.merge(
+        %{
+          id: System.unique_integer([:positive]),
+          article_suggestion_id: 42,
+          tenant_scope: :public_only,
+          host_user_id: nil,
+          status: :pending_review,
+          last_decision: nil,
+          last_reason: nil,
+          last_actor_id: nil,
+          last_decided_at: nil,
+          notes: nil,
+          publish_status: :not_started,
+          reindex_status: :not_started,
+          needs_re_review: false,
+          inserted_at: ~U[2026-05-22 08:00:00Z],
+          updated_at: ~U[2026-05-22 08:00:00Z]
+        },
+        overrides
+      )
+    )
+  end
+
+  defp review_task_event_fixture(overrides \\ %{}) do
+    struct!(
+      ReviewTaskEvent,
+      Map.merge(
+        %{
+          id: System.unique_integer([:positive]),
+          review_task_id: 42,
+          event_type: :task_created,
+          from_status: nil,
+          to_status: :pending_review,
+          decision: nil,
+          reason: nil,
+          actor_id: "operator-7",
+          notes: nil,
+          metadata: %{},
+          inserted_at: ~U[2026-05-22 08:00:00Z]
+        },
+        overrides
+      )
+    )
+  end
+
+  defp suggestion_fixture(overrides \\ %{}) do
+    evidence =
+      struct!(ArticleSuggestionEvidence, %{
+        source_type: :knowledge_base,
+        trust_level: :canonical,
+        title: "Billing export",
+        excerpt: "Use the export endpoint with a date range.",
+        citation_target: %{article_id: 7, revision_id: 11, chunk_index: 2},
+        metadata: %{destination: %{article_id: 7, revision_id: 11}},
+        match_reasons: ["canonical_match"]
+      })
+
+    struct!(
+      ArticleSuggestion,
+      Map.merge(
+        %{
+          id: System.unique_integer([:positive]),
+          stable_key: "suggestion:#{System.unique_integer([:positive])}",
+          suggestion_type: :article,
+          status: :ready,
+          tenant_scope: :host_user_scoped,
+          host_user_id: "host-1",
+          entrypoint_type: :gap_candidate,
+          entrypoint_id: 10,
+          proposed_markdown: "# Proposed KB update\n\nUse the export endpoint with a date range.",
+          grounding_metadata: %{"status" => "strong"},
+          evidence_snapshot: [evidence]
+        },
+        overrides
+      )
+    )
   end
 end
