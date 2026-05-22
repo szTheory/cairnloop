@@ -120,13 +120,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
         socket
 
       review_task ->
-        attrs = %{
+        attrs = [
           host_user_id: Map.get(review_task, :host_user_id),
           content: socket.assigns.content,
-          saved_revision_id: Map.get(review_task, :staged_revision_id) || revision.id
-        }
+          saved_revision_id: revision.id
+        ]
 
-        case knowledge_automation().mark_review_task_material_edit(review_task.id, attrs, []) do
+        case knowledge_automation().mark_review_task_material_edit(review_task.id, attrs) do
           {:ok, updated_task} ->
             assign(socket, review_context: %{socket.assigns.review_context | review_task: updated_task})
 
