@@ -229,6 +229,77 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         grounding_metadata: %{"failure_reason" => "missing_canonical_citations"}
       })
 
+    shell_quick_fix =
+      suggestion_fixture(%{
+        id: 13,
+        suggestion_type: :article,
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 321,
+        status: :ready,
+        title: "Weekend export quick fix",
+        operator_summary: "A draft shell was created because canonical grounding is incomplete.",
+        proposed_markdown: "# Draft shell\n\nManual grounding is still required.",
+        grounding_metadata: %{
+          "status" => "weak",
+          "quick_fix_outcome" => "shell_created",
+          "quick_fix_reason" => "missing_canonical_grounding",
+          "quick_fix_package" => %{
+            "thread_context" => %{
+              "conversation_id" => 321,
+              "subject" => "Weekend export fails",
+              "message_excerpt" => "The export stalls every Saturday morning.",
+              "message_count" => 4
+            },
+            "canonical_retrieval" => %{
+              "canonical_evidence_count" => 0,
+              "citation_ready" => false,
+              "evidence_digest" => "shell-digest"
+            },
+            "resolved_case_assists" => %{
+              "case_count" => 1,
+              "summaries" => ["Prior export timeout resolved by retry guidance."]
+            }
+          }
+        },
+        evidence_snapshot: []
+      })
+
+    blocked_quick_fix =
+      suggestion_fixture(%{
+        id: 14,
+        suggestion_type: :article,
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 654,
+        status: :failed,
+        title: "Refund policy quick fix",
+        operator_summary: "Automatic suggestion is blocked for this conversation.",
+        proposed_markdown: "# Suggestion blocked\n\nCanonical citation-backed grounding was insufficient.",
+        grounding_metadata: %{
+          "status" => "weak",
+          "failure_reason" => "policy_guard_blocked",
+          "quick_fix_outcome" => "blocked_manual_required",
+          "quick_fix_reason" => "policy_guard_blocked",
+          "quick_fix_package" => %{
+            "thread_context" => %{
+              "conversation_id" => 654,
+              "subject" => "Refund policy export request",
+              "message_excerpt" => "The operator wants to encode an unsupported refund promise.",
+              "message_count" => 3
+            },
+            "canonical_retrieval" => %{
+              "canonical_evidence_count" => 0,
+              "citation_ready" => false,
+              "evidence_digest" => "blocked-digest"
+            },
+            "resolved_case_assists" => %{
+              "case_count" => 1,
+              "summaries" => ["Prior thread required manual authoring."]
+            }
+          }
+        },
+        evidence_snapshot: []
+      })
+
     pending_task =
       review_task_fixture(%{
         id: 21,
@@ -347,17 +418,65 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         ]
       })
 
+    shell_task =
+      review_task_fixture(%{
+        id: 27,
+        status: :pending_review,
+        article_suggestion_id: shell_quick_fix.id,
+        article_suggestion: shell_quick_fix,
+        events: [
+          review_task_event_fixture(%{
+            review_task_id: 27,
+            event_type: :task_created,
+            to_status: :pending_review,
+            actor_id: "operator-1",
+            metadata: %{article_suggestion_id: shell_quick_fix.id}
+          })
+        ]
+      })
+
+    blocked_task =
+      review_task_fixture(%{
+        id: 28,
+        status: :review_needed,
+        last_decision: :review_needed,
+        last_reason: :needs_manual_edit,
+        last_actor_id: "system",
+        last_decided_at: ~U[2026-05-22 08:50:00Z],
+        notes: "Manual draft required: policy guardrails blocked the automatic suggestion.",
+        article_suggestion_id: blocked_quick_fix.id,
+        article_suggestion: blocked_quick_fix,
+        events: [
+          review_task_event_fixture(%{
+            review_task_id: 28,
+            event_type: :task_created,
+            to_status: :review_needed,
+            actor_id: "system",
+            metadata: %{article_suggestion_id: blocked_quick_fix.id}
+          })
+        ]
+      })
+
     review_tasks = [
       pending_task,
       approved_task,
       review_needed_task,
       rejected_task,
       deferred_task,
-      published_task
+      published_task,
+      shell_task,
+      blocked_task
     ]
 
-    Process.put(:mock_suggestion_ids, [10, 11, 12])
-    Process.put(:mock_suggestion_map, %{10 => ready_article, 11 => ready_revision, 12 => failed_revision})
+    Process.put(:mock_suggestion_ids, [10, 11, 12, 13, 14])
+
+    Process.put(:mock_suggestion_map, %{
+      10 => ready_article,
+      11 => ready_revision,
+      12 => failed_revision,
+      13 => shell_quick_fix,
+      14 => blocked_quick_fix
+    })
     Process.put(:mock_review_task_ids, Enum.map(review_tasks, & &1.id))
     Process.put(:mock_review_task_map, Map.new(review_tasks, &{&1.id, &1}))
     Process.put(:mock_gap_candidate_map, %{
@@ -426,6 +545,29 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert html =~ "Derived diff summary"
     assert html =~ "Structured history"
     assert html =~ "Approved by reviewer-1"
+  end
+
+  test "quick-fix shell and blocked tasks render launch context, typed layers, and bounded reasons in the shared lane" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+
+    {:noreply, shell_socket} = SuggestionReview.handle_params(%{"task" => "27"}, "", socket)
+    shell_html = render_html(shell_socket.assigns)
+
+    assert shell_html =~ "Draft shell created"
+    assert shell_html =~ "Conversation 321"
+    assert shell_html =~ "Weekend export fails"
+    assert shell_html =~ "Thread context"
+    assert shell_html =~ "Canonical retrieval"
+    assert shell_html =~ "Resolved case assists"
+    assert shell_html =~ "Missing canonical grounding"
+
+    {:noreply, blocked_socket} = SuggestionReview.handle_params(%{"task" => "28"}, "", socket)
+    blocked_html = render_html(blocked_socket.assigns)
+
+    assert blocked_html =~ "Manual draft required"
+    assert blocked_html =~ "Refund policy export request"
+    assert blocked_html =~ "Policy guard blocked automatic suggestion"
+    assert blocked_html =~ "Open manual draft"
   end
 
   test "task actions call review-task commands, reload detail, and keep publish gated to approved work" do
