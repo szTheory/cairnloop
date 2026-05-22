@@ -419,6 +419,78 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert reused_suggestion.id == suggestion.id
   end
 
+  test "conversation quick fix creates a reviewable shell when the maintenance need is real but canonical grounding is incomplete" do
+    Process.put(:article_suggestions, [])
+
+    attrs = %{
+      conversation_id: 654,
+      host_user_id: "user-1",
+      tenant_scope: :host_user_scoped,
+      title: "Missing weekend export article",
+      thread_context: %{
+        conversation_id: 654,
+        subject: "Weekend export fails",
+        message_excerpt: "Customers hit the same export gap every weekend.",
+        message_count: 6
+      },
+      canonical_retrieval: %{
+        evidence: [],
+        citation_ready: false,
+        failure_reason: :missing_canonical_grounding
+      },
+      resolved_case_assists: %{
+        case_count: 2,
+        summaries: ["Two recent threads needed the same workaround."]
+      }
+    }
+
+    assert {:ok, %{suggestion: suggestion, reused?: false}} =
+             KnowledgeAutomation.create_or_reuse_conversation_quick_fix(attrs)
+
+    assert suggestion.entrypoint_type == :conversation_quick_fix
+    assert suggestion.status == :ready
+    assert suggestion.proposed_markdown =~ "Draft shell"
+    assert suggestion.grounding_metadata["quick_fix_outcome"] == "shell_created"
+    assert suggestion.grounding_metadata["quick_fix_reason"] == "missing_canonical_grounding"
+    assert suggestion.grounding_metadata["failure_reason"] == "missing_canonical_grounding"
+  end
+
+  test "conversation quick fix persists blocked manual-required outcomes with bounded reasons" do
+    Process.put(:article_suggestions, [])
+
+    attrs = %{
+      conversation_id: 655,
+      host_user_id: "user-1",
+      tenant_scope: :host_user_scoped,
+      title: "Policy-blocked export fix",
+      thread_context: %{
+        conversation_id: 655,
+        subject: "Refund policy export request",
+        message_excerpt: "The operator wants to encode an unsupported refund promise.",
+        message_count: 3
+      },
+      canonical_retrieval: %{
+        evidence: [],
+        citation_ready: false,
+        failure_reason: :policy_guard_blocked
+      },
+      resolved_case_assists: %{
+        case_count: 1,
+        summaries: ["Prior thread required manual KB authoring."]
+      }
+    }
+
+    assert {:ok, %{suggestion: suggestion, reused?: false}} =
+             KnowledgeAutomation.create_or_reuse_conversation_quick_fix(attrs)
+
+    assert suggestion.entrypoint_type == :conversation_quick_fix
+    assert suggestion.status == :failed
+    assert suggestion.grounding_metadata["quick_fix_outcome"] == "blocked_manual_required"
+    assert suggestion.grounding_metadata["quick_fix_reason"] == "policy_guard_blocked"
+    assert suggestion.grounding_metadata["failure_reason"] == "policy_guard_blocked"
+    assert suggestion.operator_summary =~ "blocked"
+  end
+
   test "dismiss and regenerate seams update suggestion-safe status without review or publish semantics" do
     suggestion =
       suggestion_fixture(%{

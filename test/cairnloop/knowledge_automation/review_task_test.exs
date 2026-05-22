@@ -581,6 +581,51 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert second_launch.review_task.id == first_launch.review_task.id
   end
 
+  test "blocked conversation quick fixes still create a review_needed task in the shared lane" do
+    Process.put(:article_suggestions, [])
+    Process.put(:review_tasks, [])
+    Process.put(:review_task_events, [])
+
+    attrs = %{
+      conversation_id: 654,
+      host_user_id: "host-1",
+      tenant_scope: :host_user_scoped,
+      title: "Blocked export fix",
+      thread_context: %{
+        conversation_id: 654,
+        subject: "Refund policy export request",
+        message_excerpt: "The operator wants to encode an unsupported refund promise.",
+        message_count: 3
+      },
+      canonical_retrieval: %{
+        evidence: [],
+        citation_ready: false,
+        failure_reason: :policy_guard_blocked
+      },
+      resolved_case_assists: %{
+        case_count: 1,
+        summaries: ["Prior thread required manual authoring."]
+      }
+    }
+
+    assert {:ok, launch} =
+             KnowledgeAutomation.create_or_reuse_conversation_quick_fix(attrs,
+               actor_id: "operator-7"
+             )
+
+    assert launch.suggestion.status == :failed
+    assert launch.suggestion.grounding_metadata["quick_fix_outcome"] == "blocked_manual_required"
+    assert launch.review_task.status == :review_needed
+
+    assert {:ok, reused_task} =
+             KnowledgeAutomation.ensure_review_task_for_suggestion(launch.suggestion.id,
+               host_user_id: "host-1",
+               actor_id: "operator-7"
+             )
+
+    assert reused_task.id == launch.review_task.id
+  end
+
   test "ensure_review_task_for_suggestion rejects non-reviewable suggestions and does not mutate suggestion workflow state" do
     dismissed = suggestion_fixture(%{id: 92, status: :dismissed, host_user_id: "host-1"})
     Process.put(:article_suggestions, [dismissed])
