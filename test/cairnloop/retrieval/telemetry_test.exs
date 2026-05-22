@@ -3,6 +3,7 @@ defmodule Cairnloop.Retrieval.TelemetryTest do
 
   alias Cairnloop.Retrieval
   alias Cairnloop.Retrieval.Result
+  alias Cairnloop.KnowledgeAutomation.Telemetry, as: MaintenanceTelemetry
   alias Cairnloop.Retrieval.Telemetry
 
   defmodule KnowledgeBaseProviderMock do
@@ -53,7 +54,15 @@ defmodule Cairnloop.Retrieval.TelemetryTest do
 
     :telemetry.attach_many(
       handler_id,
-      [Telemetry.search_event_name(), Telemetry.draft_grounding_event_name()],
+      [
+        Telemetry.search_event_name(),
+        Telemetry.draft_grounding_event_name(),
+        MaintenanceTelemetry.event_name(:gap_candidate),
+        MaintenanceTelemetry.event_name(:suggestion_outcome),
+        MaintenanceTelemetry.event_name(:review_decision),
+        MaintenanceTelemetry.event_name(:publish_outcome),
+        MaintenanceTelemetry.event_name(:reindex_outcome)
+      ],
       fn event, measurements, metadata, _config ->
         send(test_pid, {:telemetry_event, event, measurements, metadata})
       end,
@@ -146,5 +155,68 @@ defmodule Cairnloop.Retrieval.TelemetryTest do
     assert grounding_meta.diagnostic_class == :retrieval_error
     assert grounding_meta.reason == :provider_timeout
     refute Map.has_key?(grounding_meta, :query)
+  end
+
+  test "maintenance telemetry normalizes low-cardinality metadata without raw thread or citation payloads" do
+    metadata =
+      MaintenanceTelemetry.metadata(:suggestion_outcome, %{
+        surface: :conversation_thread,
+        entrypoint_type: :conversation_quick_fix,
+        outcome: :shell_created,
+        reason: :missing_canonical_grounding,
+        publish_status: :queued,
+        reindex_status: :running,
+        canonical_evidence_count: 7,
+        assistive_evidence_count: 4,
+        thread_context: %{
+          subject: "Weekend export fails",
+          message_excerpt: "Raw thread text should never leak",
+          message_count: 12
+        },
+        query: "billing export raw query",
+        evidence_snapshot: [%{citation_target: %{article_id: 9}}],
+        citation_target: %{article_id: 9, revision_id: 10, chunk_index: 0},
+        notes: "Operator-only notes should not leak"
+      })
+
+    assert metadata.surface == :conversation_thread
+    assert metadata.entrypoint_type == :conversation_quick_fix
+    assert metadata.outcome == :shell_created
+    assert metadata.reason == :missing_canonical_grounding
+    assert metadata.publish_status == :queued
+    assert metadata.reindex_status == :running
+    assert metadata.canonical_evidence_count == 7
+    assert metadata.assistive_evidence_count == 4
+    refute Map.has_key?(metadata, :query)
+    refute Map.has_key?(metadata, :thread_context)
+    refute Map.has_key?(metadata, :evidence_snapshot)
+    refute Map.has_key?(metadata, :citation_target)
+    refute Map.has_key?(metadata, :notes)
+  end
+
+  test "maintenance telemetry emits bounded workflow events with coarse defaults" do
+    MaintenanceTelemetry.emit(:gap_candidate, %{count: 3}, %{
+      surface: :review_lane,
+      entrypoint_type: :gap_candidate,
+      outcome: :created,
+      canonical_evidence_count: 2,
+      assistive_evidence_count: 9,
+      query: "do not emit raw query"
+    })
+
+    assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :gap_candidate],
+                    measurements, metadata}
+
+    assert measurements.count == 3
+    assert is_integer(measurements.duration_ms)
+    assert metadata.surface == :review_lane
+    assert metadata.entrypoint_type == :gap_candidate
+    assert metadata.outcome == :created
+    assert metadata.reason == :unspecified
+    assert metadata.publish_status == :not_applicable
+    assert metadata.reindex_status == :not_applicable
+    assert metadata.canonical_evidence_count == 2
+    assert metadata.assistive_evidence_count == 9
+    refute Map.has_key?(metadata, :query)
   end
 end
