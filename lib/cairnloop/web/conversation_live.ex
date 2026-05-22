@@ -98,6 +98,69 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
+  def handle_event("start_quick_fix", _params, socket) do
+    conversation = socket.assigns.conversation
+    opts = quick_fix_scope_opts(conversation)
+
+    case knowledge_automation().create_or_reuse_conversation_quick_fix(
+           quick_fix_request_attrs(conversation),
+           opts
+         ) do
+      {:ok, %{suggestion: suggestion, review_task: review_task}} ->
+        card = quick_fix_card_state(suggestion, review_task)
+        socket = assign(socket, :quick_fix_card, card)
+
+        case card.status do
+          status when status in [:ready, :shell_created] ->
+            {:noreply, push_navigate(socket, to: review_task_path(review_task.id))}
+
+          _ ->
+            {:noreply, socket}
+        end
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, "Quick fix could not prepare a reviewable suggestion.")}
+    end
+  end
+
+  def handle_event("open_review_task", _params, socket) do
+    case socket.assigns.quick_fix_card[:review_task_id] do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No review task is available for this quick fix yet.")}
+
+      review_task_id ->
+        {:noreply, push_navigate(socket, to: review_task_path(review_task_id))}
+    end
+  end
+
+  def handle_event("open_manual_draft", _params, socket) do
+    case socket.assigns.quick_fix_card[:suggestion_id] do
+      nil ->
+        {:noreply, put_flash(socket, :error, "No manual draft is available for this quick fix yet.")}
+
+      suggestion_id ->
+        case knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
+               suggestion_id,
+               quick_fix_scope_opts(socket.assigns.conversation)
+             ) do
+          {:ok, article_id} ->
+            return_to = URI.encode_www_form("/#{socket.assigns.conversation.id}")
+            review_task_param = manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
+
+            {:noreply,
+             push_navigate(
+               socket,
+               to:
+                 "/knowledge-base/#{article_id}/edit?suggestion_id=#{suggestion_id}" <>
+                   review_task_param <> "&return_to=#{return_to}"
+             )}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, "Manual draft could not be opened right now.")}
+        end
+    end
+  end
+
   def handle_event("execute_tool", %{"tool" => tool_name} = params, socket) do
     tool_module = String.to_existing_atom(tool_name)
     actor_id = socket.assigns.conversation.host_user_id
@@ -727,8 +790,6 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp normalize_quick_fix_card(%{conversation: conversation}), do: idle_quick_fix_card(conversation)
 
-  defp quick_fix_primary_action(:idle), do: %{event: "start_quick_fix", label: "Start KB quick fix"}
-
   defp quick_fix_primary_action(:blocked_manual_required),
     do: %{event: "open_manual_draft", label: "Open manual draft"}
 
@@ -807,6 +868,46 @@ defmodule Cairnloop.Web.ConversationLive do
       %{label: ReviewTaskPresenter.thread_status_label(:reindexed), current: true}
     ]
   end
+
+  defp quick_fix_request_attrs(conversation) do
+    %{
+      conversation_id: conversation.id,
+      host_user_id: conversation.host_user_id,
+      tenant_scope: :host_user_scoped,
+      title: conversation.subject,
+      thread_context: %{
+        conversation_id: conversation.id,
+        subject: conversation.subject,
+        message_count: length(List.wrap(conversation.messages)),
+        message_excerpt: quick_fix_message_excerpt(conversation.messages)
+      }
+    }
+  end
+
+  defp quick_fix_message_excerpt(messages) do
+    messages
+    |> List.wrap()
+    |> Enum.reverse()
+    |> Enum.find_value(fn
+      %{content: content} when is_binary(content) and content != "" ->
+        content
+        |> String.trim()
+        |> String.slice(0, 280)
+
+      _ ->
+        nil
+    end)
+  end
+
+  defp quick_fix_scope_opts(conversation) do
+    [tenant_scope: :host_user_scoped, host_user_id: conversation.host_user_id]
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
+  defp review_task_path(review_task_id), do: "/knowledge-base/suggestions?task=#{review_task_id}"
+
+  defp manual_review_task_param(nil), do: ""
+  defp manual_review_task_param(review_task_id), do: "&review_task_id=#{review_task_id}"
 
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)

@@ -850,7 +850,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
       assert socket.assigns.quick_fix_card.status == :blocked_manual_required
       assert socket.assigns.quick_fix_card.primary_action.label == "Open manual draft"
-      refute Map.has_key?(socket, :redirected)
+      assert socket.redirected == nil
     end
 
     test "open_manual_draft routes blocked quick fixes into the shared authoring path" do
