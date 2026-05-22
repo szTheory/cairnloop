@@ -394,6 +394,33 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
+  def create_or_reuse_conversation_quick_fix(attrs, opts \\ []) do
+    attrs = Map.new(attrs)
+    prepared = prepare_conversation_quick_fix(attrs)
+
+    scope_opts =
+      [
+        tenant_scope: prepared.tenant_scope,
+        host_user_id: prepared.host_user_id
+      ]
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+
+    case find_article_suggestion_by_stable_key(prepared.stable_key, scope_opts) do
+      nil ->
+        prepared
+        |> Map.from_struct()
+        |> insert_quick_fix_suggestion(opts)
+
+      suggestion ->
+        {:ok,
+         %{
+           suggestion: suggestion,
+           reused?: true,
+           quick_fix: quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
+         }}
+    end
+  end
+
   def suggest_revision(attrs, opts \\ []) do
     attrs = Map.new(attrs)
 
@@ -615,6 +642,65 @@ defmodule Cairnloop.KnowledgeAutomation do
     if bundle.valid?, do: {:ok, prepared}, else: {:failed, prepared}
   end
 
+  defp prepare_conversation_quick_fix(attrs) do
+    conversation_id =
+      anchor_id(attrs, :conversation_id) || anchor_id(attrs, :entrypoint_id)
+
+    canonical_evidence =
+      attrs
+      |> quick_fix_canonical_evidence()
+      |> Enum.map(&normalize_existing_evidence/1)
+      |> Enum.reject(&is_nil/1)
+
+    evidence_digest = quick_fix_evidence_digest(attrs, canonical_evidence)
+    citation_ready? = quick_fix_citation_ready?(attrs, canonical_evidence)
+    quick_fix_package = quick_fix_package_for(attrs, evidence_digest, length(canonical_evidence), citation_ready?)
+    valid? = citation_ready? and canonical_evidence != []
+
+    bundle = %{
+      suggestion_type: :article,
+      entrypoint_type: :conversation_quick_fix,
+      entrypoint_id: conversation_id,
+      article_id: nil,
+      base_revision_id: nil,
+      query: quick_fix_query(attrs),
+      evidence_snapshot: canonical_evidence,
+      canonical_evidence: canonical_evidence,
+      assistive_evidence: [],
+      evidence_digest: evidence_digest,
+      grounding_status: if(valid?, do: :strong, else: :weak),
+      stale_signal: nil,
+      valid?: valid?,
+      failure_reason: if(valid?, do: nil, else: :missing_canonical_citations)
+    }
+
+    prepared =
+      %{
+        stable_key: derive_stable_key(bundle),
+        suggestion_type: :article,
+        status: if(valid?, do: :pending_generation, else: :failed),
+        tenant_scope:
+          anchor_id(attrs, :tenant_scope) || :host_user_scoped,
+        host_user_id: anchor_id(attrs, :host_user_id),
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: conversation_id,
+        article_id: nil,
+        base_revision_id: nil,
+        title: anchor_id(attrs, :title) || map_value(map_value(quick_fix_package, :thread_context), :subject),
+        change_summary: anchor_id(attrs, :change_summary),
+        operator_summary: operator_summary_for(:article, bundle),
+        proposed_markdown: proposed_markdown_for(:article, bundle),
+        evidence_snapshot: serialize_evidence_snapshot(canonical_evidence),
+        grounding_metadata:
+          grounding_metadata_for(bundle)
+          |> Map.put("quick_fix_package", quick_fix_package),
+        evidence_digest: evidence_digest
+      }
+
+    struct!(ArticleSuggestion, prepared)
+    |> Map.put(:quick_fix_package, quick_fix_package)
+  end
+
   defp prepare_evidence_bundle(type, attrs, opts) do
     grounding_bundle = grounding_bundle_for(attrs, opts)
     evidence_snapshot = build_evidence_snapshot(grounding_bundle)
@@ -828,6 +914,25 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> Enum.join(":")
   end
 
+  defp insert_quick_fix_suggestion(prepared, opts) do
+    with {:ok, suggestion} <-
+           prepared
+           |> Map.delete(:quick_fix_package)
+           |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
+           |> repo().insert(),
+         {:ok, _job} <- maybe_enqueue_quick_fix_generation(suggestion, opts) do
+      {:ok,
+       %{
+         suggestion: suggestion,
+         reused?: false,
+         quick_fix: quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
+       }}
+    end
+  end
+
+  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{status: :failed}, _opts), do: {:ok, :skipped}
+  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{} = suggestion, opts), do: enqueue_generation_job(suggestion, opts)
+
   defp insert_and_enqueue(prepared, opts) do
     with {:ok, suggestion} <-
            %ArticleSuggestion{}
@@ -955,6 +1060,76 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp failure_reason_message(:generation_failed), do: "Scoria generation failed"
   defp failure_reason_message(other), do: to_string(other)
+
+  defp quick_fix_query(attrs) do
+    anchor_id(attrs, :query) || anchor_id(attrs, :title) ||
+      map_value(anchor_id(attrs, :thread_context) || %{}, :subject) ||
+      "Conversation quick fix"
+  end
+
+  defp quick_fix_canonical_evidence(attrs) do
+    attrs
+    |> anchor_id(:canonical_retrieval)
+    |> map_value(:evidence)
+    |> List.wrap()
+  end
+
+  defp quick_fix_evidence_digest(attrs, canonical_evidence) do
+    attrs
+    |> anchor_id(:canonical_retrieval)
+    |> map_value(:evidence_digest) ||
+      evidence_digest_for(canonical_evidence)
+  end
+
+  defp quick_fix_citation_ready?(attrs, canonical_evidence) do
+    attrs
+    |> anchor_id(:canonical_retrieval)
+    |> map_value(:citation_ready)
+    |> case do
+      nil -> canonical_evidence != []
+      value -> value in [true, "true"]
+    end
+  end
+
+  defp quick_fix_package_for(attrs, evidence_digest, canonical_evidence_count, citation_ready?) do
+    %{
+      "thread_context" => normalize_quick_fix_thread_context(anchor_id(attrs, :thread_context), anchor_id(attrs, :conversation_id)),
+      "canonical_retrieval" => %{
+        "evidence_digest" => evidence_digest,
+        "canonical_evidence_count" => canonical_evidence_count,
+        "citation_ready" => citation_ready?
+      },
+      "resolved_case_assists" => normalize_quick_fix_case_assists(anchor_id(attrs, :resolved_case_assists))
+    }
+  end
+
+  defp normalize_quick_fix_thread_context(thread_context, conversation_id) do
+    thread_context = thread_context || %{}
+
+    %{
+      "conversation_id" => map_value(thread_context, :conversation_id) || conversation_id,
+      "subject" => map_value(thread_context, :subject),
+      "message_excerpt" => map_value(thread_context, :message_excerpt),
+      "message_count" => map_value(thread_context, :message_count)
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.into(%{})
+  end
+
+  defp normalize_quick_fix_case_assists(case_assists) do
+    case_assists = case_assists || %{}
+
+    %{
+      "case_count" => map_value(case_assists, :case_count) || length(List.wrap(map_value(case_assists, :summaries))),
+      "summaries" => List.wrap(map_value(case_assists, :summaries))
+    }
+    |> Enum.reject(fn {key, value} -> key != "summaries" and is_nil(value) end)
+    |> Enum.into(%{})
+  end
+
+  defp quick_fix_package_for(grounding_metadata, fallback_package) do
+    map_value(grounding_metadata || %{}, :quick_fix_package) || fallback_package
+  end
 
   defp revision_gate_opts(attrs, opts) do
     [
@@ -1336,6 +1511,15 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(opts)
     |> where([task], task.article_suggestion_id == ^suggestion.id)
     |> where([task], task.status in ^active_review_task_statuses())
+    |> repo().all()
+    |> List.first()
+  end
+
+  defp find_article_suggestion_by_stable_key(stable_key, opts) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> where([suggestion], suggestion.stable_key == ^stable_key)
+    |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
     |> repo().all()
     |> List.first()
   end
