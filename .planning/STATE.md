@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 12 context gathered
-last_updated: "2026-05-22T09:28:54.215Z"
+stopped_at: Phase 12 UI-SPEC approved
+last_updated: "2026-05-22T12:05:13.699Z"
 last_activity: 2026-05-22 — Completed M010-S03-04 review-aware editor and publish follow-through
 progress:
   total_phases: 4
@@ -84,6 +84,6 @@ Progress: [██████████] 100%
 
 ## Session Continuity
 
-Last session: 2026-05-22T09:28:54.210Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-in-thread-quick-fix-ops-closure/12-CONTEXT.md
+Last session: 2026-05-22T12:05:13.694Z
+Stopped at: Phase 12 UI-SPEC approved
+Resume file: .planning/phases/12-in-thread-quick-fix-ops-closure/12-UI-SPEC.md

@@ -1,10 +1,11 @@
 ---
 phase: 12
 slug: in-thread-quick-fix-ops-closure
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-22
+reviewed_at: 2026-05-22
 ---
 
 # Phase 12 — UI Design Contract
@@ -189,7 +190,7 @@ All status meaning must remain legible in text without depending on color alone.
 | Empty state heading | No quick fix started |
 | Empty state body | Use conversation evidence to open a KB maintenance task when this thread exposes missing or stale guidance. |
 | Error state | Quick fix could not prepare a reviewable suggestion. Open a manual draft and keep the reason visible in the maintenance lane. |
-| Destructive confirmation | none: none |
+| Destructive confirmation | Reject review task: Confirm rejection before the suggestion is removed from the active maintenance path, and persist the rejection reason in task history. |
 
 Additional labels locked for this slice:
 
@@ -216,6 +217,7 @@ Copy rules:
 - Always state the current truth and the next safe action in the same region.
 - Prefer “review task,” “manual draft,” “publish,” and “reindex” over vague words like “process,” “complete,” or “resolved.”
 - Do not describe the quick fix as autonomous or imply it can publish on its own.
+- The shared review-lane `Reject` action must use an explicit confirmation step that names the rejection outcome before the decision is submitted.
 
 ---
 
@@ -268,11 +270,11 @@ Copy rules:
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: FLAG (approved with recommendation addressed by declaring reject confirmation posture)
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-05-22
