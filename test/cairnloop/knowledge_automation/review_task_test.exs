@@ -8,6 +8,16 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
   defmodule MockRepo do
     def all(%Ecto.Query{} = query) do
       case query.from.source do
+        {"cairnloop_article_suggestions", _module} ->
+          Process.get(:article_suggestions, [])
+          |> filter_scope(query)
+          |> Enum.sort_by(
+            fn suggestion ->
+              {suggestion.inserted_at || ~U[1970-01-01 00:00:00Z], suggestion.id || 0}
+            end,
+            :desc
+          )
+
         {"cairnloop_review_tasks", _module} ->
           Process.get(:review_tasks, [])
           |> filter_scope(query)
@@ -62,6 +72,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
           |> Map.put_new(:inserted_at, DateTime.utc_now())
           |> Map.put_new(:updated_at, DateTime.utc_now())
 
+        persist_inserted(struct)
         Process.put(:last_inserted, struct)
         {:ok, struct}
       else
@@ -137,6 +148,20 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
     defp maybe_put_id(struct), do: struct
 
+    defp persist_inserted(%ArticleSuggestion{} = suggestion) do
+      Process.put(:article_suggestions, [suggestion | Process.get(:article_suggestions, [])])
+    end
+
+    defp persist_inserted(%ReviewTask{} = task) do
+      Process.put(:review_tasks, [task | Process.get(:review_tasks, [])])
+    end
+
+    defp persist_inserted(%ReviewTaskEvent{} = event) do
+      Process.put(:review_task_events, [event | Process.get(:review_task_events, [])])
+    end
+
+    defp persist_inserted(_struct), do: :ok
+
     defp sort_review_tasks(tasks) do
       urgency_rank = %{
         pending_review: 0,
@@ -150,8 +175,10 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       Enum.sort_by(
         tasks,
         fn task ->
+          inserted_at = task.inserted_at || ~U[1970-01-01 00:00:00Z]
+
           {Map.fetch!(urgency_rank, task.status),
-           -(task.inserted_at |> DateTime.to_unix(:microsecond)), -(task.id || 0)}
+           -(inserted_at |> DateTime.to_unix(:microsecond)), -(task.id || 0)}
         end
       )
     end
@@ -451,6 +478,107 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
 
     assert task.id == existing_task.id
     assert Process.get(:last_inserted) == nil
+  end
+
+  test "get_conversation_quick_fix returns the latest conversation suggestion plus any active review task" do
+    older =
+      suggestion_fixture(%{
+        id: 201,
+        stable_key: "article:conversation_quick_fix:321:older",
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 321,
+        host_user_id: "host-1",
+        inserted_at: ~U[2026-05-22 10:00:00Z],
+        grounding_metadata: %{"quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}}
+      })
+
+    latest =
+      suggestion_fixture(%{
+        id: 202,
+        stable_key: "article:conversation_quick_fix:321:latest",
+        entrypoint_type: :conversation_quick_fix,
+        entrypoint_id: 321,
+        host_user_id: "host-1",
+        inserted_at: ~U[2026-05-22 11:00:00Z],
+        grounding_metadata: %{"quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}}
+      })
+
+    task =
+      review_task_fixture(%{
+        id: 601,
+        article_suggestion_id: latest.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :pending_review
+      })
+
+    Process.put(:article_suggestions, [older, latest])
+    Process.put(:review_tasks, [task])
+
+    assert {:ok, quick_fix} =
+             KnowledgeAutomation.get_conversation_quick_fix(321,
+               tenant_scope: :host_user_scoped,
+               host_user_id: "host-1"
+             )
+
+    assert quick_fix.suggestion.id == latest.id
+    assert quick_fix.review_task.id == task.id
+    assert quick_fix.quick_fix["thread_context"]["conversation_id"] == 321
+  end
+
+  test "create_or_reuse_conversation_quick_fix reuses the existing active review task for the conversation lane" do
+    Process.put(:article_suggestions, [])
+    Process.put(:review_tasks, [])
+    Process.put(:review_task_events, [])
+
+    attrs = %{
+      conversation_id: 321,
+      host_user_id: "host-1",
+      tenant_scope: :host_user_scoped,
+      title: "Weekend export fix",
+      thread_context: %{
+        conversation_id: 321,
+        subject: "Weekend export fails",
+        message_excerpt: "The export stalls every Saturday morning.",
+        message_count: 4
+      },
+      canonical_retrieval: %{
+        evidence: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            title: "Billing export reference",
+            excerpt: "Use the export endpoint with a date range.",
+            citation_target: %{article_id: 7, revision_id: 11, chunk_index: 2},
+            metadata: %{destination: %{article_id: 7, revision_id: 11}},
+            match_reasons: ["matched export settings"]
+          }
+        ],
+        citation_ready: true
+      },
+      resolved_case_assists: %{
+        case_count: 1,
+        summaries: ["Prior export timeout resolved by retry guidance."]
+      }
+    }
+
+    {:ok, first_launch} =
+      KnowledgeAutomation.create_or_reuse_conversation_quick_fix(attrs,
+        actor_id: "operator-7",
+        enqueue_fn: fn _job -> {:ok, %{id: "job-quick-fix"}} end
+      )
+
+    assert first_launch.suggestion.entrypoint_type == :conversation_quick_fix
+    assert first_launch.review_task.status == :pending_review
+
+    {:ok, second_launch} =
+      KnowledgeAutomation.create_or_reuse_conversation_quick_fix(attrs,
+        actor_id: "operator-7",
+        enqueue_fn: fn _job -> {:ok, %{id: "job-quick-fix"}} end
+      )
+
+    assert second_launch.suggestion.id == first_launch.suggestion.id
+    assert second_launch.review_task.id == first_launch.review_task.id
   end
 
   test "ensure_review_task_for_suggestion rejects non-reviewable suggestions and does not mutate suggestion workflow state" do

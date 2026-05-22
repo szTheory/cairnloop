@@ -109,8 +109,12 @@ defmodule Cairnloop.KnowledgeAutomation do
     actor_id = Keyword.get(opts, :actor_id)
     suggestion = get_article_suggestion!(id, opts)
 
+    ensure_review_task_for_loaded_suggestion(suggestion, actor_id, opts)
+  end
+
+  defp ensure_review_task_for_loaded_suggestion(suggestion, actor_id, opts) do
     cond do
-      suggestion.status not in [:ready, :failed] ->
+      not reviewable_for_review_task?(suggestion) ->
         {:error, :suggestion_not_reviewable}
 
       existing = find_active_review_task(suggestion, opts) ->
@@ -410,6 +414,7 @@ defmodule Cairnloop.KnowledgeAutomation do
         prepared
         |> Map.from_struct()
         |> insert_quick_fix_suggestion(opts)
+        |> attach_review_task_to_quick_fix(opts)
 
       suggestion ->
         {:ok,
@@ -417,6 +422,22 @@ defmodule Cairnloop.KnowledgeAutomation do
            suggestion: suggestion,
            reused?: true,
            quick_fix: quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
+         }}
+        |> attach_review_task_to_quick_fix(opts)
+    end
+  end
+
+  def get_conversation_quick_fix(conversation_id, opts \\ []) do
+    case find_latest_conversation_quick_fix(conversation_id, opts) do
+      nil ->
+        {:error, :not_found}
+
+      suggestion ->
+        {:ok,
+         %{
+           suggestion: suggestion,
+           review_task: find_active_review_task(suggestion, opts),
+           quick_fix: quick_fix_package_for(suggestion.grounding_metadata, %{})
          }}
     end
   end
@@ -933,6 +954,15 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{status: :failed}, _opts), do: {:ok, :skipped}
   defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{} = suggestion, opts), do: enqueue_generation_job(suggestion, opts)
 
+  defp attach_review_task_to_quick_fix({:ok, %{suggestion: suggestion} = result}, opts) do
+    case ensure_review_task_for_loaded_suggestion(suggestion, Keyword.get(opts, :actor_id), opts) do
+      {:ok, review_task} -> {:ok, Map.put(result, :review_task, review_task)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp attach_review_task_to_quick_fix(other, _opts), do: other
+
   defp insert_and_enqueue(prepared, opts) do
     with {:ok, suggestion} <-
            %ArticleSuggestion{}
@@ -1130,6 +1160,14 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp quick_fix_package_for(grounding_metadata, fallback_package) do
     map_value(grounding_metadata || %{}, :quick_fix_package) || fallback_package
   end
+
+  defp reviewable_for_review_task?(%ArticleSuggestion{
+         entrypoint_type: :conversation_quick_fix,
+         status: :pending_generation
+       }),
+       do: true
+
+  defp reviewable_for_review_task?(%ArticleSuggestion{status: status}), do: status in [:ready, :failed]
 
   defp revision_gate_opts(attrs, opts) do
     [
@@ -1524,8 +1562,21 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> List.first()
   end
 
+  defp find_latest_conversation_quick_fix(conversation_id, opts) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> where(
+      [suggestion],
+      suggestion.entrypoint_type == ^:conversation_quick_fix and
+        suggestion.entrypoint_id == ^conversation_id
+    )
+    |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
+    |> repo().all()
+    |> List.first()
+  end
+
   defp active_review_task_statuses do
-    [:pending_review, :review_needed, :approved_ready_to_publish, :deferred]
+    ReviewTask.active_status_values()
   end
 
   defp initial_review_task_status(%ArticleSuggestion{status: :failed}), do: :review_needed

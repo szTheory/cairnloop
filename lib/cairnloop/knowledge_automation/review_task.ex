@@ -90,6 +90,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
   def status_values, do: @status_values
   def decision_values, do: @decision_values
   def reason_values, do: @reason_values
+  def active_status_values, do: [:pending_review, :review_needed, :approved_ready_to_publish, :deferred]
+  def active_status?(status), do: status in active_status_values()
 
   def decision_changeset(review_task, status, decision, reason, actor_id, decided_at, attrs \\ %{}) do
     attrs =
