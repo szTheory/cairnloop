@@ -6,6 +6,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     ArticleSuggestionEvidence,
     CandidateBuilder,
     GapCandidate,
+    Telemetry,
     ReviewTask,
     ReviewTaskEvent,
     StaleArticleSignal,
@@ -427,6 +428,8 @@ defmodule Cairnloop.KnowledgeAutomation do
         |> attach_review_task_to_quick_fix(opts)
 
       suggestion ->
+        emit_suggestion_outcome(:reused, suggestion, :unspecified, :conversation_thread)
+
         {:ok,
          %{
            suggestion: suggestion,
@@ -604,9 +607,16 @@ defmodule Cairnloop.KnowledgeAutomation do
         )
     }
 
-    suggestion
-    |> ArticleSuggestion.changeset(attrs)
-    |> repo().update()
+    case suggestion
+         |> ArticleSuggestion.changeset(attrs)
+         |> repo().update() do
+      {:ok, updated} = result ->
+        emit_suggestion_outcome(:ready, updated)
+        result
+
+      other ->
+        other
+    end
   end
 
   def mark_article_suggestion_failed(%ArticleSuggestion{} = suggestion, reason, opts \\ []) do
@@ -623,9 +633,16 @@ defmodule Cairnloop.KnowledgeAutomation do
         failed_grounding_metadata(suggestion.grounding_metadata || %{}, prepared, failure_reason)
     }
 
-    suggestion
-    |> ArticleSuggestion.changeset(attrs)
-    |> repo().update()
+    case suggestion
+         |> ArticleSuggestion.changeset(attrs)
+         |> repo().update() do
+      {:ok, updated} = result ->
+        emit_suggestion_outcome(:failed, updated, failure_reason)
+        result
+
+      other ->
+        other
+    end
   end
 
   def refresh_gap_candidates(opts \\ []) do
@@ -955,6 +972,13 @@ defmodule Cairnloop.KnowledgeAutomation do
            |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
            |> repo().insert(),
          {:ok, _job} <- maybe_enqueue_quick_fix_generation(suggestion, opts) do
+      emit_suggestion_outcome(
+        quick_fix_telemetry_outcome(suggestion),
+        suggestion,
+        normalize_failure_reason(map_value(suggestion.grounding_metadata, :quick_fix_reason)),
+        :conversation_thread
+      )
+
       {:ok,
        %{
          suggestion: suggestion,
@@ -985,6 +1009,7 @@ defmodule Cairnloop.KnowledgeAutomation do
            |> ArticleSuggestion.changeset(prepared)
            |> repo().insert(),
          {:ok, _job} <- enqueue_generation_job(suggestion, opts) do
+      emit_suggestion_outcome(:queued, suggestion)
       {:ok, suggestion}
     end
   end
@@ -992,11 +1017,23 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp persist_failed(prepared, opts) do
     now_fn = Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
 
-    prepared
-    |> Map.put(:status, :failed)
-    |> Map.put(:generated_at, now_fn.())
-    |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
-    |> repo().insert()
+    case prepared
+         |> Map.put(:status, :failed)
+         |> Map.put(:generated_at, now_fn.())
+         |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
+         |> repo().insert() do
+      {:ok, suggestion} = result ->
+        emit_suggestion_outcome(
+          :failed,
+          suggestion,
+          normalize_failure_reason(map_value(suggestion.grounding_metadata, :failure_reason))
+        )
+
+        result
+
+      other ->
+        other
+    end
   end
 
   defp enqueue_generation_job(%ArticleSuggestion{} = suggestion, opts) do
@@ -1538,6 +1575,7 @@ defmodule Cairnloop.KnowledgeAutomation do
            %ReviewTaskEvent{}
            |> ReviewTaskEvent.changeset(Map.put(event_attrs, :review_task_id, task.id))
            |> repo().insert() do
+      emit_review_task_event(updated_task, task, event_attrs)
       {result_type, updated_task}
     end
   end
@@ -1645,6 +1683,107 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp maybe_where_equal(query, field, value) do
     where(query, [candidate], field(candidate, ^field) == ^value)
   end
+
+  defp emit_suggestion_outcome(outcome, suggestion, reason \\ :unspecified, surface \\ :review_lane) do
+    Telemetry.emit(:suggestion_outcome, %{count: 1}, %{
+      surface: surface,
+      entrypoint_type: suggestion.entrypoint_type,
+      outcome: outcome,
+      reason: normalize_maintenance_reason(reason),
+      canonical_evidence_count: metadata_count(suggestion.grounding_metadata, :canonical_evidence_count),
+      assistive_evidence_count: metadata_count(suggestion.grounding_metadata, :assistive_evidence_count)
+    })
+  end
+
+  defp emit_review_task_event(updated_task, previous_task, event_attrs) do
+    metadata = Map.get(event_attrs, :metadata, %{})
+    suggestion = updated_task.article_suggestion || previous_task.article_suggestion
+
+    base_metadata = %{
+      surface: review_task_surface(Map.get(event_attrs, :event_type)),
+      entrypoint_type: suggestion_entrypoint_type(suggestion),
+      reason: normalize_maintenance_reason(Map.get(event_attrs, :reason)),
+      publish_status: updated_task.publish_status,
+      reindex_status: updated_task.reindex_status,
+      canonical_evidence_count: suggestion_evidence_count(suggestion, :canonical_evidence_count),
+      assistive_evidence_count: suggestion_evidence_count(suggestion, :assistive_evidence_count)
+    }
+
+    case Map.get(event_attrs, :event_type) do
+      :decision_recorded ->
+        Telemetry.emit(:review_decision, %{count: 1}, Map.put(base_metadata, :outcome, Map.get(event_attrs, :decision)))
+
+      :publish_recorded ->
+        outcome =
+          case updated_task.status do
+            :published -> :published
+            _ -> :publish_blocked
+          end
+
+        Telemetry.emit(
+          :publish_outcome,
+          %{count: 1},
+          base_metadata
+          |> Map.put(:outcome, outcome)
+          |> Map.put(:publish_status, metadata_value(metadata, :publish_status) || updated_task.publish_status)
+        )
+
+      :reindex_recorded ->
+        Telemetry.emit(
+          :reindex_outcome,
+          %{count: 1},
+          base_metadata
+          |> Map.put(:outcome, reindex_outcome_for(updated_task.reindex_status))
+          |> Map.put(:publish_status, metadata_value(metadata, :publish_status) || updated_task.publish_status)
+          |> Map.put(:reindex_status, metadata_value(metadata, :reindex_status) || updated_task.reindex_status)
+        )
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp review_task_surface(:reindex_recorded), do: :worker
+  defp review_task_surface(_event_type), do: :review_lane
+
+  defp quick_fix_telemetry_outcome(%ArticleSuggestion{status: :ready}), do: :shell_created
+  defp quick_fix_telemetry_outcome(%ArticleSuggestion{status: :failed}), do: :blocked_manual_required
+  defp quick_fix_telemetry_outcome(_suggestion), do: :queued
+
+  defp normalize_maintenance_reason(reason) when reason in [nil, :ready], do: :unspecified
+  defp normalize_maintenance_reason(:missing_canonical_citations), do: :missing_canonical_citations
+  defp normalize_maintenance_reason(:weak_grounding), do: :weak_grounding
+  defp normalize_maintenance_reason(reason), do: normalize_failure_reason(reason)
+
+  defp metadata_count(metadata, key) do
+    metadata
+    |> map_value(key)
+    |> case do
+      value when is_integer(value) -> value
+      value when is_binary(value) ->
+        case Integer.parse(value) do
+          {int, _} -> int
+          _ -> 0
+        end
+
+      _ ->
+        0
+    end
+  end
+
+  defp suggestion_evidence_count(nil, _key), do: 0
+  defp suggestion_evidence_count(%ArticleSuggestion{grounding_metadata: metadata}, key), do: metadata_count(metadata, key)
+  defp suggestion_entrypoint_type(nil), do: :unspecified
+  defp suggestion_entrypoint_type(%ArticleSuggestion{entrypoint_type: type}), do: type || :unspecified
+
+  defp reindex_outcome_for(:completed), do: :completed
+  defp reindex_outcome_for(_status), do: :failed
+
+  defp metadata_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp metadata_value(_, _), do: nil
 
   defp enforce_scope!(candidate, opts, queryable) do
     expected_tenant_scope = Keyword.get(opts, :tenant_scope)

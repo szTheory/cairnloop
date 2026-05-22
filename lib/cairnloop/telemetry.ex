@@ -31,6 +31,18 @@ defmodule Cairnloop.Telemetry do
   Retrieval metadata is bounded to low-cardinality fields such as `:surface`,
   `:source_mix`, `:result_bucket`, `:grounding_status`, `:diagnostic_class`,
   `:reason`, `:canonical_hit_count`, `:assistive_hit_count`, and `:ranking_outcome`.
+
+  ## Knowledge-Maintenance Events
+
+  * `[:cairnloop, :knowledge_automation, :gap_candidate]`
+  * `[:cairnloop, :knowledge_automation, :suggestion_outcome]`
+  * `[:cairnloop, :knowledge_automation, :review_decision]`
+  * `[:cairnloop, :knowledge_automation, :publish_outcome]`
+  * `[:cairnloop, :knowledge_automation, :reindex_outcome]`
+
+  Knowledge-maintenance metadata is bounded to coarse workflow fields such as
+  `:surface`, `:entrypoint_type`, `:outcome`, `:reason`, `:publish_status`,
+  `:reindex_status`, `:canonical_evidence_count`, and `:assistive_evidence_count`.
   """
 
   @doc """
