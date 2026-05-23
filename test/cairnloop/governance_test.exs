@@ -373,5 +373,48 @@ defmodule Cairnloop.GovernanceTest do
 
       assert proposal1.idempotency_key != proposal2.idempotency_key
     end
+
+    test "repeated blocked submission dedupes via idempotency key (CR-02/WR-06 regression)" do
+      # A scope_invalid submission with identical params should not insert a second row.
+      # Before CR-02/WR-06, propose_blocked/5 had no get_by pre-check and no else clause,
+      # so the second insert would hit the unique index and the error was silently dropped.
+      tool_ref = Atom.to_string(ScopeFailingTool)
+      context = %{tool_params: %{data: "x"}, scopes: [], idempotency_token: "tok_blocked"}
+
+      assert {:blocked, :scope_invalid, _} = Governance.propose(tool_ref, "user_1", context)
+      assert {:blocked, :scope_invalid, _} = Governance.propose(tool_ref, "user_1", context)
+
+      # Only one row should exist — the second call hit the pre-check and returned :ok.
+      proposals = Process.get(:tool_proposals, [])
+      assert length(proposals) == 1
+      assert hd(proposals).status == :scope_invalid
+    end
+
+    test "deep-canonicalized input hashes identically regardless of nested map key order (WR-02)" do
+      # Construct two contexts whose nested tool_params are semantically identical but
+      # may differ in runtime map ordering. Both should produce the same idempotency key.
+      tool_ref = Atom.to_string(ValidTool)
+
+      context1 = %{
+        tool_params: %{order_id: "order_nested"},
+        scopes: [],
+        idempotency_token: "tok_deep",
+        account_id: "acct_deep"
+      }
+
+      context2 = %{
+        tool_params: %{"order_id" => "order_nested"},
+        scopes: [],
+        idempotency_token: "tok_deep",
+        account_id: "acct_deep"
+      }
+
+      # Both contexts produce valid proposals; after the first insert the second should
+      # dedupe (same idempotency key because apply_changes normalizes atom/string keys).
+      assert {:ok, proposal1} = Governance.propose(tool_ref, "user_1", context1)
+      assert {:ok, proposal2} = Governance.propose(tool_ref, "user_1", context2)
+
+      assert proposal1.id == proposal2.id
+    end
   end
 end

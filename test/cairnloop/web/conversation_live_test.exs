@@ -300,6 +300,50 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     def run(tool, _actor_id, _context), do: {:ok, "executed with #{tool.reason}"}
   end
 
+  defmodule ScopeTool do
+    use Cairnloop.Tool, risk_tier: :low_write, title: "Scope Tool"
+
+    embedded_schema do
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(tool, attrs) do
+      import Ecto.Changeset
+      cast(tool, attrs, [])
+    end
+
+    @impl Cairnloop.Tool
+    def scope, do: [:admin_scope]
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor_id, _context), do: {:ok, "scope result"}
+  end
+
+  defmodule PolicyTool do
+    use Cairnloop.Tool, risk_tier: :high_write, title: "Policy Tool"
+
+    embedded_schema do
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(tool, attrs) do
+      import Ecto.Changeset
+      cast(tool, attrs, [])
+    end
+
+    @impl Cairnloop.Tool
+    def scope, do: []
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: {:error, {:policy_violation, :high_risk_denied}}
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor_id, _context), do: {:ok, "policy result"}
+  end
+
   defmodule CustomLiveView do
     use Phoenix.LiveView
     def render(assigns), do: ~H"<div>Custom</div>"
@@ -915,6 +959,61 @@ defmodule Cairnloop.Web.ConversationLiveTest do
                )
 
       assert socket.assigns.flash["error"] =~ "Invalid tool parameters"
+    end
+
+    test "handle_event execute_tool shows scope_invalid flash without crashing (CR-01 regression)" do
+      # ScopeTool requires :admin_scope which is absent from host_context — triggers
+      # :scope_invalid, whose reason is the tuple {:missing_scopes, [...]}. Before CR-01
+      # was fixed, interpolating that tuple with "#{reason}" raised Protocol.UndefinedError.
+      Application.put_env(:cairnloop, :tools, [SimpleTool, InputTool, ScopeTool])
+
+      socket = %Phoenix.LiveView.Socket{
+        endpoint: Cairnloop.Web.Endpoint,
+        assigns: %{
+          conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          host_context: %{},
+          flash: %{},
+          __changed__: %{}
+        }
+      }
+
+      tool_ref = Atom.to_string(ScopeTool)
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => tool_ref, "tool_params" => %{}},
+                 socket
+               )
+
+      assert socket.assigns.flash["error"] =~ "Tool not available in this context"
+    end
+
+    test "handle_event execute_tool shows policy_denied flash without crashing (CR-01 regression)" do
+      # PolicyTool.authorize/2 returns {:error, {:policy_violation, :high_risk_denied}} — a
+      # tuple reason. Before CR-01, interpolating it raised Protocol.UndefinedError.
+      Application.put_env(:cairnloop, :tools, [SimpleTool, InputTool, PolicyTool])
+
+      socket = %Phoenix.LiveView.Socket{
+        endpoint: Cairnloop.Web.Endpoint,
+        assigns: %{
+          conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          host_context: %{},
+          flash: %{},
+          __changed__: %{}
+        }
+      }
+
+      tool_ref = Atom.to_string(PolicyTool)
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => tool_ref, "tool_params" => %{}},
+                 socket
+               )
+
+      assert socket.assigns.flash["error"] =~ "Tool call not permitted"
     end
 
     test "handle_event execute_tool does not contain try/rescue, run/3, execute/3, or String.to_existing_atom" do
