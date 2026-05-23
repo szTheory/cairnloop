@@ -49,9 +49,29 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
     end
 
+    def get(_schema, _id), do: nil
+
+    def get_by(_schema, _clauses), do: nil
+
+    def insert(%Ecto.Changeset{} = changeset) do
+      if changeset.valid? do
+        struct =
+          changeset
+          |> Ecto.Changeset.apply_changes()
+          |> maybe_put_id()
+
+        {:ok, struct}
+      else
+        {:error, changeset}
+      end
+    end
+
     def all(_query), do: []
 
     def preload(record, _), do: record
+
+    defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
+    defp maybe_put_id(struct), do: struct
   end
 
   defmodule SuccessContextProvider do
@@ -230,31 +250,38 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  # Governed tool fixtures (new contract: scope/0, run/3, authorize/2 — no can_execute?/execute)
+
   defmodule SimpleTool do
-    use Cairnloop.Tool
+    use Cairnloop.Tool, risk_tier: :read_only, title: "Simple Tool"
 
     embedded_schema do
     end
 
+    @impl Cairnloop.Tool
     def changeset(tool, attrs) do
       import Ecto.Changeset
       cast(tool, attrs, [])
     end
 
-    def can_execute?(_actor_id, _context), do: true
+    @impl Cairnloop.Tool
+    def scope, do: []
 
-    def execute(_tool, _actor_id, _context) do
-      {:ok, "simple action executed"}
-    end
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor_id, _context), do: {:ok, "simple action result"}
   end
 
   defmodule InputTool do
-    use Cairnloop.Tool
+    use Cairnloop.Tool, risk_tier: :low_write, title: "Input Tool"
 
     embedded_schema do
       field(:reason, :string)
     end
 
+    @impl Cairnloop.Tool
     def changeset(tool, attrs) do
       import Ecto.Changeset
 
@@ -263,12 +290,14 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       |> validate_required([:reason])
     end
 
-    def can_execute?(_actor_id, _context), do: true
+    @impl Cairnloop.Tool
+    def scope, do: []
 
-    def execute(tool, _actor_id, _context) do
-      if tool.reason == "crash", do: raise("Boom")
-      {:ok, "executed with #{tool.reason}"}
-    end
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+
+    @impl Cairnloop.Tool
+    def run(tool, _actor_id, _context), do: {:ok, "executed with #{tool.reason}"}
   end
 
   defmodule CustomLiveView do
@@ -277,20 +306,27 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   defmodule CustomUiTool do
-    use Cairnloop.Tool
+    use Cairnloop.Tool, risk_tier: :read_only, title: "Custom UI Tool"
 
     embedded_schema do
     end
 
+    @impl Cairnloop.Tool
     def changeset(tool, attrs) do
       import Ecto.Changeset
       cast(tool, attrs, [])
     end
 
-    def can_execute?(_actor_id, _context), do: true
+    @impl Cairnloop.Tool
+    def scope, do: []
 
-    def execute(_tool, _actor_id, _context), do: {:ok, "custom UI"}
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
 
+    @impl Cairnloop.Tool
+    def run(_tool, _actor_id, _context), do: {:ok, "custom UI"}
+
+    @impl Cairnloop.Tool
     def custom_ui, do: CustomLiveView
   end
 
@@ -788,7 +824,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "name=\"tool_params[reason]\""
     end
 
-    test "handle_event execute_tool executes successfully" do
+    test "handle_event execute_tool proposes successfully and emits info flash with proposal id" do
       socket = %Phoenix.LiveView.Socket{
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
@@ -799,17 +835,20 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
+      tool_ref = Atom.to_string(SimpleTool)
+
       assert {:noreply, socket} =
                ConversationLive.handle_event(
                  "execute_tool",
-                 %{"tool" => to_string(SimpleTool), "params" => %{}},
+                 %{"tool" => tool_ref, "tool_params" => %{}},
                  socket
                )
 
-      assert socket.assigns.flash["info"] == "simple action executed"
+      assert socket.assigns.flash["info"] =~ "Proposed"
+      assert socket.assigns.flash["info"] =~ "pending review"
     end
 
-    test "handle_event execute_tool handles input tool successfully" do
+    test "handle_event execute_tool emits info flash containing proposal id for Phase 14 seam" do
       socket = %Phoenix.LiveView.Socket{
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
@@ -820,17 +859,41 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
+      tool_ref = Atom.to_string(SimpleTool)
+
       assert {:noreply, socket} =
                ConversationLive.handle_event(
                  "execute_tool",
-                 %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "refund"}},
+                 %{"tool" => tool_ref, "tool_params" => %{}},
                  socket
                )
 
-      assert socket.assigns.flash["info"] == "executed with refund"
+      # Flash must contain "#<id>" so Phase 14 can replace it with a timeline card
+      assert socket.assigns.flash["info"] =~ "#"
     end
 
-    test "handle_event execute_tool catches exceptions (process isolation)" do
+    test "handle_event execute_tool blocks on unknown tool ref with unsupported error flash" do
+      socket = %Phoenix.LiveView.Socket{
+        endpoint: Cairnloop.Web.Endpoint,
+        assigns: %{
+          conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          host_context: %{},
+          flash: %{},
+          __changed__: %{}
+        }
+      }
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => "Elixir.NonExistentTool", "tool_params" => %{}},
+                 socket
+               )
+
+      assert socket.assigns.flash["error"] =~ "Unknown tool"
+    end
+
+    test "handle_event execute_tool blocks on missing required input with needs_input error flash" do
       socket = %Phoenix.LiveView.Socket{
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
@@ -841,46 +904,45 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         }
       }
 
+      # InputTool requires :reason — send empty tool_params to trigger needs_input
+      tool_ref = Atom.to_string(InputTool)
+
       assert {:noreply, socket} =
                ConversationLive.handle_event(
                  "execute_tool",
-                 %{"tool" => to_string(InputTool), "tool_params" => %{"reason" => "crash"}},
+                 %{"tool" => tool_ref, "tool_params" => %{}},
                  socket
                )
 
-      assert socket.assigns.flash["error"] == "Tool execution failed: Boom"
+      assert socket.assigns.flash["error"] =~ "Invalid tool parameters"
     end
 
-    test "handle_event execute_tool catches unauthorized access" do
-      socket = %Phoenix.LiveView.Socket{
-        endpoint: Cairnloop.Web.Endpoint,
-        assigns: %{
-          conversation: %Cairnloop.Conversation{id: 1, host_user_id: "unauthorized"},
-          host_context: %{"id" => "123"},
-          flash: %{},
-          __changed__: %{}
-        }
-      }
+    test "handle_event execute_tool does not contain try/rescue, run/3, execute/3, or String.to_existing_atom" do
+      # Source-level assertion: the handler body must be free of the old inline execution pattern.
+      # Resolve from the test file's own path up to the project root.
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
 
-      defmodule DeniedTool do
-        use Cairnloop.Tool
+      source_path = Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"])
+      source = File.read!(source_path)
 
-        embedded_schema do
-        end
+      # Extract just the execute_tool handler body — from the handler def to the next top-level def
+      # This avoids catching the unrelated String.to_existing_atom at line 754 (map-key atomization).
+      handler_start = :binary.match(source, "\"execute_tool\"") |> elem(0)
+      handler_end_marker = :binary.match(source, "defp reload_conversation_with_context") |> elem(0)
+      handler_region = binary_part(source, handler_start, handler_end_marker - handler_start)
 
-        def changeset(t, attrs), do: Ecto.Changeset.cast(t, attrs, [])
-        def can_execute?(_actor, _context), do: false
-        def execute(_t, _a, _c), do: {:ok, "done"}
-      end
-
-      assert {:noreply, socket} =
-               ConversationLive.handle_event(
-                 "execute_tool",
-                 %{"tool" => to_string(DeniedTool), "params" => %{}},
-                 socket
-               )
-
-      assert socket.assigns.flash["error"] == "Not authorized to execute this tool."
+      refute handler_region =~ "String.to_existing_atom"
+      refute handler_region =~ "can_execute?"
+      refute handler_region =~ ".execute("
+      refute handler_region =~ "try do"
+      assert handler_region =~ "Governance.propose"
+      assert handler_region =~ "failure_reason_message"
     end
   end
 

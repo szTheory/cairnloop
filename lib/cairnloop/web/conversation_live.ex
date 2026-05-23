@@ -170,39 +170,32 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
-  def handle_event("execute_tool", %{"tool" => tool_name} = params, socket) do
-    tool_module = String.to_existing_atom(tool_name)
+  def handle_event("execute_tool", %{"tool" => tool_ref} = params, socket) do
     actor_id = socket.assigns.conversation.host_user_id
     context = socket.assigns.host_context
+    # Merge form params into context so Governance.validate/3 can call changeset/2 (D-27)
+    context = Map.put(context, :tool_params, params["tool_params"] || %{})
 
-    # Authorization
-    if tool_module.can_execute?(actor_id, context) do
-      tool_params = params["tool_params"] || %{}
-      changeset = tool_module.changeset(struct(tool_module), tool_params)
+    case Cairnloop.Governance.propose(tool_ref, actor_id, context) do
+      {:ok, proposal} ->
+        {:noreply, put_flash(socket, :info, "Proposed — pending review. (##{proposal.id})")}
 
-      if changeset.valid? do
-        tool_struct = Ecto.Changeset.apply_changes(changeset)
-
-        try do
-          case tool_module.execute(tool_struct, actor_id, context) do
-            {:ok, result} ->
-              {:noreply, put_flash(socket, :info, result)}
-
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Execution failed: #{inspect(reason)}")}
-          end
-        rescue
-          e ->
-            {:noreply,
-             put_flash(socket, :error, "Tool execution failed: #{Exception.message(e)}")}
-        end
-      else
-        {:noreply, put_flash(socket, :error, "Invalid tool parameters.")}
-      end
-    else
-      {:noreply, put_flash(socket, :error, "Not authorized to execute this tool.")}
+      {:blocked, outcome, reason} ->
+        {:noreply, put_flash(socket, :error, failure_reason_message(outcome, reason))}
     end
   end
+
+  defp failure_reason_message(:unsupported, _reason), do: "Unknown tool — proposal rejected."
+  defp failure_reason_message(:needs_input, _cs), do: "Invalid tool parameters."
+
+  defp failure_reason_message(:scope_invalid, reason),
+    do: "Tool not available in this context: #{reason}."
+
+  defp failure_reason_message(:policy_denied, reason),
+    do: "Tool call not permitted: #{reason}."
+
+  defp failure_reason_message(outcome, reason),
+    do: "Tool proposal blocked (#{outcome}): #{inspect(reason)}."
 
   defp reload_conversation_with_context(socket, conversation_id) do
     conversation = Chat.get_conversation!(conversation_id)
