@@ -71,7 +71,7 @@ Let operators turn either a durable KB gap candidate or a stale published articl
 - `.planning/M010-KB-AI-MAINTENANCE-SPEC.md` — KB maintenance product shape, primary flows, and domain/API direction.
 
 ### Prior phase decisions that constrain Phase 10
-- `.planning/milestones/M010-phases/M010-S02/M010-S02-CONTEXT.md` — Previous Phase 10 context with the core suggestion-lane and review-surface posture that remains valid.
+- `.planning/phases/10-citation-backed-draft-suggestions/10-CONTEXT.md` — Previous Phase 10 context with the core suggestion-lane and review-surface posture that remains valid.
 - `.planning/milestones/M009-phases/M009-S01-CONTEXT.md` — Retrieval facade and canonical-vs-assistive trust semantics.
 - `.planning/milestones/M009-phases/M009-S02-CONTEXT.md` — Evidence-first operator UX and source/trust labeling posture.
 - `.planning/milestones/M009-phases/M009-S03/M009-S03-CONTEXT.md` — Grounded drafting contract, weak-grounding fallback posture, and “show your sources” review expectations.

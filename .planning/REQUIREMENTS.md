@@ -52,9 +52,9 @@
 
 ### Draft Suggestions
 
-- [ ] **DRAFT-01**: Operator can generate a draft article suggestion from a selected gap candidate using citation-backed evidence only.
-- [ ] **DRAFT-02**: Operator can generate a suggested revision for an existing KB article when retrieval evidence shows the published article is stale or incomplete.
-- [ ] **DRAFT-03**: System blocks draft or revision recommendations that lack valid citations or exceed grounding confidence thresholds.
+- [x] **DRAFT-01**: Operator can generate a draft article suggestion from a selected gap candidate using citation-backed evidence only.
+- [x] **DRAFT-02**: Operator can generate a suggested revision for an existing KB article when retrieval evidence shows the published article is stale or incomplete.
+- [x] **DRAFT-03**: System blocks draft or revision recommendations that lack valid citations or exceed grounding confidence thresholds.
 
 ### Review Workflow
 
@@ -93,9 +93,9 @@
 | GAP-01 | Phase 9 | Verified |
 | GAP-02 | Phase 9 | Verified |
 | GAP-03 | Phase 9 | Verified |
-| DRAFT-01 | Phase 10 | Pending |
-| DRAFT-02 | Phase 10 | Pending |
-| DRAFT-03 | Phase 10 | Pending |
+| DRAFT-01 | Phase 10 | Complete |
+| DRAFT-02 | Phase 10 | Complete |
+| DRAFT-03 | Phase 10 | Complete |
 | REVIEW-01 | Phase 11 | Verified |
 | REVIEW-02 | Phase 11 | Complete |
 | REVIEW-03 | Phase 11 | Verified |

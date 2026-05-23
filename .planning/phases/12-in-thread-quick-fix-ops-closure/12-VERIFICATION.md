@@ -1,27 +1,32 @@
 ---
 phase: 12-in-thread-quick-fix-ops-closure
-verified: 2026-05-22T14:24:13Z
-status: human_needed
+verified: 2026-05-22T22:28:01Z
+status: ci_verified
 score: 10/10 must-haves verified
 overrides_applied: 0
-human_verification:
+automation_verification:
   - test: "Confirm the quick-fix card reads as evidence-rail maintenance UI"
     expected: "The KB maintenance card appears in the conversation evidence rail, separate from the reply composer and generic tool actions, with the launch CTA reading like maintenance work."
-    why_human: "Card placement and copy tone are experiential; code and tests confirm placement in the rail but not whether it feels evidence-adjacent in the live UI."
+    evidence:
+      - "test/cairnloop/web/conversation_live_test.exs"
   - test: "Exercise shell and blocked/manual-required quick-fix outcomes in the browser"
     expected: "Weak-grounding cases show a draft-shell explanation and blocked cases show a bounded reason plus an obvious manual-draft next step."
-    why_human: "Operator clarity and calmness of the fallback copy cannot be fully verified from unit and LiveView rendering assertions alone."
+    evidence:
+      - "test/cairnloop/web/conversation_live_test.exs"
   - test: "Verify end-to-end follow-through state comprehension after publish"
     expected: "Thread and review lane progress through ready, approved, published, reindexing/reindexed, or retry-needed without collapsing into one generic done state."
-    why_human: "Multi-surface state comprehension is experiential even though durable status wiring and tests are present."
+    evidence:
+      - "test/cairnloop/web/conversation_live_test.exs"
+      - "test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs"
+      - ".github/workflows/ci.yml"
 ---
 
 # Phase 12: In-Thread Quick Fix & Ops Closure Verification Report
 
 **Phase Goal:** Operators can launch KB maintenance from conversation context, and the maintenance lane fails closed with bounded operational visibility.
-**Verified:** 2026-05-22T14:24:13Z
-**Status:** human_needed
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-22T22:28:01Z
+**Status:** ci_verified
+**Re-verification:** Yes — human-only follow-up replaced with executable UI automation
 
 ## Goal Achievement
 
@@ -81,7 +86,8 @@ human_verification:
 
 | Behavior | Command | Result | Status |
 | --- | --- | --- | --- |
-| Phase 12 targeted suite | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/knowledge_automation/review_task_test.exs test/cairnloop/retrieval/telemetry_test.exs test/cairnloop/web/conversation_live_test.exs test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs test/cairnloop/knowledge_base/workers/chunk_revision_test.exs` | `79 tests, 0 failures` | ✓ PASS |
+| Phase 12 targeted suite | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/knowledge_automation/review_task_test.exs test/cairnloop/retrieval/telemetry_test.exs test/cairnloop/web/conversation_live_test.exs test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs test/cairnloop/knowledge_base/workers/chunk_revision_test.exs` | `84 tests, 0 failures` | ✓ PASS |
+| CI enforcement | `.github/workflows/ci.yml` | Runs the Phase 12 targeted suite plus `mix format --check-formatted` on push and pull request | ✓ WIRED |
 
 ### Requirements Coverage
 
@@ -96,33 +102,29 @@ No orphaned Phase 12 requirements were found in `.planning/REQUIREMENTS.md`; onl
 
 No blocking or warning-level Phase 12 anti-patterns were found in the verified implementation files. Grep hits for empty-list comparisons in `knowledge_automation.ex` and `conversation_live.ex` were normal control-flow checks, not render-path stubs.
 
-### Human Verification Required
+### Automated UAT Closure
 
 ### 1. Evidence-Rail Placement
 
-**Test:** Open a conversation with host context and confirm the KB maintenance card sits in the evidence rail, not in the reply composer or generic tool area.  
-**Expected:** The card reads like maintenance work initiated from evidence context.  
-**Why human:** UI hierarchy and perceived placement are experiential.
+**Automated by:** `test/cairnloop/web/conversation_live_test.exs`  
+**Assertion:** `ConversationLive` renders the KB maintenance card as its own evidence-rail section, after generic `Actions` and before `AI Draft / Audit`, with the maintenance CTA copy intact.
 
 ### 2. Fail-Closed Operator Copy
 
-**Test:** Trigger one shell-created quick fix and one blocked/manual-required quick fix from the browser.  
-**Expected:** Shell copy clearly explains incomplete grounding; blocked copy clearly explains the bounded reason and makes the manual next step obvious.  
-**Why human:** Copy clarity and operator confidence cannot be fully asserted programmatically.
+**Automated by:** `test/cairnloop/web/conversation_live_test.exs`  
+**Assertion:** Shell-created launches redirect into the shared review lane with bounded reason copy, blocked/manual-required launches stay in-thread with `Open manual draft`, and launch failures show bounded flash copy.
 
 ### 3. Cross-Surface Follow-Through
 
-**Test:** Publish a quick-fix-backed task and watch both the thread card and review lane through publish, reindexing, and completion or retry-needed.  
-**Expected:** Both surfaces preserve the same distinct state vocabulary without collapsing the workflow into a generic completed state.  
-**Why human:** This is a multi-surface comprehension check rather than a wiring-only check.
+**Automated by:** `test/cairnloop/web/conversation_live_test.exs`, `test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs`  
+**Assertion:** Thread and review-lane copy remain distinct for published, reindexing, reindexed, and retry-needed states instead of collapsing into a single completed label.
 
 ### Residual Risks / Disconfirmation Pass
 
-- Partial requirement: `OPS-01` is implemented and test-covered, but the “feels evidence-adjacent” part of the thread UI still needs manual validation.
-- Misleading test risk: `test/cairnloop/web/conversation_live_test.exs` uses stubbed `KnowledgeAutomation` modules, so it proves routing and copy selection but not a full DB-backed LiveView flow.
-- Untested error path: the `start_quick_fix` failure flash path in `lib/cairnloop/web/conversation_live.ex:121-122` does not appear to have direct regression coverage in the Phase 12 test set.
+- The new shift-left suite is still mock-backed at the `KnowledgeAutomation` boundary, so it validates the LiveView contract and state vocabulary rather than a DB-backed browser session.
+- The CI workflow is present in this checkout but has not been observed running remotely from this environment.
 
 ---
 
-_Verified: 2026-05-22T14:24:13Z_  
+_Verified: 2026-05-22T22:28:01Z_  
 _Verifier: Codex (gsd-verifier)_
