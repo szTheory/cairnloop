@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 10-04-PLAN.md
-last_updated: "2026-05-23T10:38:39.523Z"
-last_activity: 2026-05-23 -- Phase 10 execution started
+milestone: vM010
+milestone_name: KB AI Maintenance
+status: shipped
+stopped_at: Milestone closeout complete
+last_updated: "2026-05-23T13:00:32Z"
+last_activity: 2026-05-23 -- Milestone vM010 archived and tagged
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 9
-  completed_plans: 8
-  percent: 25
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-21)
+See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 10 — citation-backed-draft-suggestions
+**Current focus:** Milestone closeout complete; next candidate is M011 — AI Tool Governance & MCP Integration
 
 ## Current Position
 
-Phase: 10 (citation-backed-draft-suggestions) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 10
-Last activity: 2026-05-23 -- Phase 10 execution started
+Phase: None
+Plan: None
+Status: vM010 shipped
+Last activity: 2026-05-23 -- Milestone vM010 archived and tagged
 
 Progress: [██████████] 100%
 
@@ -67,22 +67,13 @@ Progress: [██████████] 100%
 - Sequence the milestone as `Gap -> Suggest -> Review -> Quick fix/ops`, matching the proof and support gates.
 - Preserve the canonical publish boundary: AI can prepare KB work, never publish it directly.
 - Keep review workflow state separate from `ArticleSuggestion`, with one active task per suggestion and append-only task events.
-- [Phase 11]: Kept workflow copy in ReviewTaskPresenter while evidence stays in ArticleSuggestionPresenter — Preserves the distinction between proposal truth and review-task truth
-- [Phase 11]: Redirected gap and article launch points into /knowledge-base/suggestions by review_task id — Maintains one authoritative review lane with recoverable context
-- [Phase 11]: Review-origin editor sessions cannot publish directly and chunk follow-through updates published review tasks — Preserves the canonical publish boundary while keeping operator visibility intact
-- [Phase 10]: Task 2 of plan 10-01 was verification-only — The scoped article suggestion facade already existed in HEAD and matched the plan contract, so no synthetic code churn was added.
-- [Phase 10]: Executed Plan 10-02 as verification-only. — The current main worktree already contained the stale gate and unique suggestion worker required by the plan.
-- [Phase 10]: Left unrelated worktree changes untouched. — Used focused ExUnit proof instead of synthetic source edits because the planned implementation was already present in HEAD.
-- [Phase 10]: Kept the shared suggestion route but restored suggestion-first review copy. — Preserves the existing lane in HEAD while keeping Phase 10 inspect-first semantics.
-- [Phase 10]: Limited suggestion review to regenerate, dismiss, and explicit manual edit. — Prevents publish or approval actions from leaking into the Phase 10 surface.
-- [Phase 10]: Executed Plan 10-04 as verification-only. — The current main worktree already contained the manual-edit authoring seam and suggestion-aware editor preload required by the plan.
-- [Phase 10]: Preserved the shared main worktree during 10-04 execution. — Verified the handoff contract with focused ExUnit coverage instead of folding unrelated dirty files into the plan.
+- Milestone closeout accepted explicit technical debt rather than reopening shipped scope, because all 12 v1 requirements and all in-scope flows are satisfied.
 
 ### Pending Todos
 
 - Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear.
 - Unblock repo-backed realism lanes so later milestone verification can include stronger live proof.
-- Plan Phase 12 for in-thread quick-fix initiation and ops closure.
+- Define the first governed-tool approval boundary for M011 before broadening AI agency.
 
 ### Blockers/Concerns
 
@@ -93,9 +84,11 @@ Progress: [██████████] 100%
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
 | Verification | Repo-backed realism lanes unavailable in this workspace | Open | vM009 closeout |
+| Planning | Phase 10 and Phase 12 closure artifacts still span milestone-local and legacy planning layouts | Open | vM010 closeout |
+| Verification | Focused test runs still emit unrelated `Chimeway.Repo` missing-database boot noise in this workspace | Open | vM010 closeout |
 
 ## Session Continuity
 
-Last session: 2026-05-23T09:39:25.369Z
-Stopped at: Completed 10-04-PLAN.md
+Last session: 2026-05-23T13:00:32Z
+Stopped at: Milestone closeout complete
 Resume file: None

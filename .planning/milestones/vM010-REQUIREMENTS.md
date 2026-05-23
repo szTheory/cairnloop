@@ -1,7 +1,8 @@
-# Requirements: Cairnloop vM010 KB AI Maintenance
+# Requirements Archive: Cairnloop vM010 KB AI Maintenance
 
+**Archived:** 2026-05-23
 **Defined:** 2026-05-21
-**Core Value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
+**Milestone Outcome:** ✅ Shipped with explicit non-blocking tech debt
 
 ## Milestone Gates
 
@@ -47,26 +48,38 @@
 ### Gap Discovery
 
 - [x] **GAP-01**: Operator can view ranked KB gap candidates generated from retrieval no-hit, weak-grounding, and repeated manual-handling evidence.
+  Outcome: validated in Phase 9 and shipped.
 - [x] **GAP-02**: System clusters related gap evidence into a single candidate with stable identity, freshness metadata, and supporting evidence counts.
+  Outcome: validated in Phase 9 and shipped.
 - [x] **GAP-03**: Operator can inspect the evidence behind a gap candidate, including retrieval events, similar cases, and why the candidate was raised.
+  Outcome: validated in Phase 9 and shipped.
 
 ### Draft Suggestions
 
 - [x] **DRAFT-01**: Operator can generate a draft article suggestion from a selected gap candidate using citation-backed evidence only.
+  Outcome: validated in Phase 10 and shipped.
 - [x] **DRAFT-02**: Operator can generate a suggested revision for an existing KB article when retrieval evidence shows the published article is stale or incomplete.
+  Outcome: validated in Phase 10 and shipped.
 - [x] **DRAFT-03**: System blocks draft or revision recommendations that lack valid citations or exceed grounding confidence thresholds.
+  Outcome: validated in Phase 10 and shipped.
 
 ### Review Workflow
 
 - [x] **REVIEW-01**: Operator can review a suggested article or revision with visible evidence, citation anchors, and a proposed content diff or draft body.
+  Outcome: validated in Phase 11 and shipped.
 - [x] **REVIEW-02**: Operator can approve, reject, or edit-before-publish a review task without bypassing the existing KB publish flow.
+  Outcome: validated in Phase 11 and shipped.
 - [x] **REVIEW-03**: System records review-task state transitions, decision metadata, and reindex follow-up work for approved KB updates.
+  Outcome: validated in Phase 11 and shipped.
 
 ### Quick Fix & Operations
 
 - [x] **OPS-01**: Operator can start a KB draft directly from conversation evidence inside the existing support workflow.
+  Outcome: validated in Phase 12 and shipped.
 - [x] **OPS-02**: Approved KB updates trigger the normal revision publish and reindex path so retrieval reflects the new canonical content.
+  Outcome: validated in Phase 11 and shipped.
 - [x] **OPS-03**: System emits bounded telemetry for gap creation, draft suggestion outcomes, review decisions, and publish/reindex follow-through.
+  Outcome: validated in Phase 12 and shipped.
 
 ## v2 Requirements
 
@@ -86,28 +99,31 @@
 | Required Scoria integration for core milestone closure | Scoria is optional evidence/governance support, not a hard dependency |
 | Customer-visible autonomous replies from maintenance suggestions | Answer automation should not expand before maintenance proof and review guardrails exist |
 
-## Traceability
+## Final Traceability
 
-| Requirement | Phase | Status |
-|-------------|-------|--------|
-| GAP-01 | Phase 9 | Verified |
-| GAP-02 | Phase 9 | Verified |
-| GAP-03 | Phase 9 | Verified |
-| DRAFT-01 | Phase 10 | Complete |
-| DRAFT-02 | Phase 10 | Complete |
-| DRAFT-03 | Phase 10 | Complete |
-| REVIEW-01 | Phase 11 | Verified |
-| REVIEW-02 | Phase 11 | Complete |
-| REVIEW-03 | Phase 11 | Verified |
-| OPS-01 | Phase 12 | Complete |
-| OPS-02 | Phase 11 | Verified |
-| OPS-03 | Phase 12 | Complete |
+| Requirement | Phase | Final Status | Notes |
+|-------------|-------|--------------|-------|
+| GAP-01 | Phase 9 | Verified | Ranked gap queue shipped |
+| GAP-02 | Phase 9 | Verified | Stable candidate identity and counts shipped |
+| GAP-03 | Phase 9 | Verified | Evidence inspection shipped |
+| DRAFT-01 | Phase 10 | Verified | Gap-driven article suggestion shipped |
+| DRAFT-02 | Phase 10 | Verified | Stale-article revision suggestion shipped |
+| DRAFT-03 | Phase 10 | Verified | Citation and grounding fail-closed behavior shipped |
+| REVIEW-01 | Phase 11 | Verified | Shared review lane evidence and proposal rendering shipped |
+| REVIEW-02 | Phase 11 | Verified | Approve, reject, defer, and publish actions shipped |
+| REVIEW-03 | Phase 11 | Verified | Durable review history and follow-through shipped |
+| OPS-01 | Phase 12 | Verified | Conversation quick-fix launch shipped |
+| OPS-02 | Phase 11 | Verified | Canonical publish and reindex path shipped |
+| OPS-03 | Phase 12 | Verified | Bounded maintenance telemetry shipped |
 
 **Coverage:**
 - v1 requirements: 12 total
-- Mapped to phases: 12
-- Unmapped: 0 ✓
+- Completed and shipped: 12
+- Adjusted: 0
+- Dropped: 0
 
----
-*Requirements defined: 2026-05-21*
-*Last updated: 2026-05-22 after Phase 11 execution*
+## Closeout Notes
+
+- Milestone audit on 2026-05-23 classified `vM010` as archiveable `tech_debt`, not blocked.
+- Remaining debt is non-blocking: split closure artifacts across two planning layouts and known
+  unrelated `Chimeway.Repo` boot noise during focused tests in this workspace.

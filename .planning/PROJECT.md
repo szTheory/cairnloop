@@ -8,42 +8,38 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 ## Current State
 
-**Latest shipped milestone:** `vM009 Retrieval-First Support Answers & Search Ops` on 2026-05-21.
+**Latest shipped milestone:** `vM010 KB AI Maintenance` on 2026-05-23.
 
 **What is now true:**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and
   resolved support evidence.
 - Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and
   citation cues.
-- Draft generation is grounded in retrieval evidence and surfaces clarification or escalation
-  states instead of pretending certainty.
-- Retrieval quality now emits bounded telemetry and durable gap signals that can seed the next
-  maintenance milestone.
-- Phase 9 of `vM010` now turns those durable signals into clustered KB gap candidates with a
-  dedicated inspection dashboard.
-- Phase 12 of `vM010` now lets operators launch bounded KB maintenance directly from conversation
-  evidence, keeps shell/manual fallback inside the shared review lane, and emits coarse telemetry
-  across quick-fix, publish, and reindex follow-through.
+- Durable gap signals now project into a ranked KB maintenance queue with inspectable evidence and
+  stable candidate identity.
+- AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed
+  when evidence or grounding is insufficient.
+- KB review now runs through durable review tasks with explicit approve, reject, defer, publish,
+  and reindex follow-through states.
+- Operators can launch maintenance directly from conversation context without creating a second
+  workflow surface outside the shared review lane.
+- Maintenance telemetry is bounded and emitted from durable workflow seams rather than transient UI state.
 
-**Closeout posture:** `vM009` is shipped and archived as a `tech_debt` milestone. All milestone
-requirements are verified; the remaining debt is explicit and non-blocking.
+**Closeout posture:** `vM010` is shipped and archived as a `tech_debt` milestone. All 12 v1
+requirements are verified; the remaining debt is explicit, traceable, and non-blocking.
 
-## Current Milestone: vM010 KB AI Maintenance
+## Next Milestone Goals
 
-**Goal:** Turn retrieval misses, weak grounding, and repeated manual handling into a safe
-Knowledge Base maintenance workflow.
+**Next candidate:** `M011 AI Tool Governance & MCP Integration`
 
-**Target features:**
-- Gap detection and clustering from retrieval no-hits, weak grounding, and repeated support
-  handling.
-- AI-assisted draft article creation and suggested revisions for existing KB content.
-- Operator review workflow with evidence, citations, diff/review actions, and publish gated by
-  the existing KB review path.
-- In-thread quick-fix flow so operators can start a KB draft directly from conversation evidence.
+**Why next:** Retrieval is now trustworthy and KB maintenance is operator-reviewed. The next
+highest-leverage step is to broaden from grounded answer and maintenance primitives into
+policy-gated actions and governed integrations.
 
-**Why now:** `vM009` already emits retrieval telemetry and durable gap signals. The highest-leverage
-next step is to turn those signals into operator-reviewed KB improvements before expanding AI
-agency or external integration surface area.
+**Initial goals:**
+- Add explicit policy and approval boundaries for higher-agency tool use.
+- Define MCP or governed-tool integration seams without weakening the host-owned trust layer.
+- Reuse the existing retrieval, review, and telemetry primitives instead of creating parallel truth sources.
 
 ## Requirements
 
@@ -57,21 +53,23 @@ agency or external integration surface area.
 - ✓ Semantic Search UI Foundations — vM007
 - ✓ Knowledge Base Engine — vM008
 - ✓ Retrieval-First Support Answers & Search Ops — vM009
+- ✓ KB AI Maintenance — vM010
 
 ### Active
-- [ ] Deliver the remaining `vM010` KB maintenance scope from citation-backed suggestions through
-  review-gated draft creation and revision suggestions.
-- [ ] Preserve citation-backed review and publish guardrails so AI-prepared KB work never becomes
-  canonical without operator approval.
-- [ ] Keep the milestone inside Cairnloop-owned Phoenix, Ecto, and Oban paths, with Scoria
-  remaining optional.
+- [ ] Define the policy and approval model for governed AI tool execution.
+- [ ] Establish MCP or governed-tool seams that preserve host-owned trust and auditability.
+- [ ] Keep new action lanes fail-closed, reviewable, and observable from durable workflow state.
 
 ## Validated Requirements
 
-- Phase 12 validated `OPS-01`: operators can start KB maintenance directly from conversation
-  evidence inside the existing support workflow.
-- Phase 12 validated `OPS-03`: the maintenance loop emits bounded telemetry for gap creation,
-  suggestion outcomes, review decisions, and publish or reindex follow-through.
+- vM010 validated `GAP-01` through `GAP-03`: retrieval and manual-handling evidence now converge
+  into ranked, inspectable KB gap candidates.
+- vM010 validated `DRAFT-01` through `DRAFT-03`: article and revision suggestions are
+  citation-backed and fail closed when grounding is weak.
+- vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and
+  follow-through workflow state.
+- vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and
+  maintenance telemetry remains bounded across publish and reindex follow-through.
 
 ### Out of Scope
 - External vector/search infrastructure as the default path.
@@ -81,6 +79,28 @@ agency or external integration surface area.
 - Broad MCP or governed-tool expansion before the KB maintenance loop is operational.
 
 ## Previous Milestone Brief
+
+<details>
+<summary>Archived vM010 brief</summary>
+
+### vM010 KB AI Maintenance
+
+**Goal:** Turn retrieval misses, weak grounding, and repeated manual handling into a safe
+Knowledge Base maintenance workflow.
+
+**Target features:**
+- Gap detection and clustering from retrieval no-hits, weak grounding, and repeated support
+  handling.
+- AI-assisted draft article creation and suggested revisions for existing KB content.
+- Operator review workflow with evidence, citations, diff/review actions, and publish gated by
+  the existing KB review path.
+- In-thread quick-fix flow so operators can start a KB draft directly from conversation evidence.
+
+**Why now:** `vM009` already emits retrieval telemetry and durable gap signals. The
+highest-leverage next step was to turn those signals into operator-reviewed KB improvements before
+expanding AI agency or external integration surface area.
+
+</details>
 
 <details>
 <summary>Archived vM009 brief</summary>
@@ -122,4 +142,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 after completing Phase 12*
+*Last updated: 2026-05-23 after shipping vM010*

@@ -1,5 +1,32 @@
 # Milestones
 
+## vM010 - KB AI Maintenance
+**Shipped:** 2026-05-23
+
+**Key accomplishments:**
+- Turned retrieval no-hits, weak grounding, and repeated manual handling into a ranked, inspectable
+  KB gap queue.
+- Shipped citation-backed draft article and revision suggestions that fail closed when evidence or
+  grounding is insufficient.
+- Added a durable review-task workflow with explicit approve, reject, defer, and publish
+  boundaries separate from suggestion truth.
+- Unified KB maintenance inside `/knowledge-base/suggestions`, including visible history and
+  publish or reindex follow-through.
+- Let operators launch KB maintenance directly from conversation context while preserving
+  shell/manual fallback inside the shared review lane.
+- Added bounded maintenance telemetry for gap creation, suggestion outcomes, review decisions,
+  publish, and reindex events.
+
+**Stats:**
+- Phases: 4
+- Plans: 15
+- Tasks: 16
+- Timeline: 2026-05-21 -> 2026-05-23
+- Git range: `1c8b2ca` -> `42613c8`
+- Code delta at close: 253 files changed, 37599 insertions, 316 deletions
+- Known deferred items at close: 2 technical debt items (split Phase 10/12 closure artifacts
+  across planning layouts; unrelated `Chimeway.Repo` boot noise during focused tests)
+
 ## vM009 - Retrieval-First Support Answers & Search Ops
 **Shipped:** 2026-05-21
 

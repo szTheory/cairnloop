@@ -3,7 +3,7 @@
 ## Purpose
 This document records the current strategic milestone ordering so future milestone starts do not need to rediscover the same tradeoffs.
 
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-23
 
 ## Decision Principles
 - Move trust and answer quality left before expanding AI agency.
@@ -20,30 +20,27 @@ This document records the current strategic milestone ordering so future milesto
 
 ## Latest Shipped Milestone
 
-### M009 - Retrieval-First Support Answers & Search Ops
+### M010 - KB AI Maintenance
 **Status:** shipped
-**Why now:** M008 shipped the durable Knowledge Base substrate on 2026-05-17. Retrieval is the highest-leverage way to convert that substrate into visible product value.
-**Scope center of gravity:** host-owned hybrid retrieval over KB content first, resolved support evidence second, with grounded drafts, citations, operator search, and retrieval telemetry.
-**Non-goals:** external Scrypath dependency by default, autonomous replies, full MCP exposure, raw live-thread RAG.
-**Shipped:** 2026-05-21
-**Closeout note:** Archived as an audit-complete `tech_debt` milestone. All nine requirements are
-verified; deferred debt remains limited to environment-blocked realism lanes and duplicated
-search-surface scope guards.
+**Why now:** Retrieval telemetry and no-hit evidence from M009 needed to become a safe,
+operator-reviewed Knowledge Base maintenance loop before broader AI agency could expand.
+**Scope center of gravity:** ranked gap candidates, citation-backed article and revision
+suggestions, durable review tasks, in-thread quick fixes, and bounded maintenance telemetry.
+**Non-goals:** autonomous publishing, external search/vector infrastructure by default, required
+Scoria runtime integration, raw live-thread canonical truth.
+**Shipped:** 2026-05-23
+**Closeout note:** Archived as an audit-complete `tech_debt` milestone. All 12 v1 requirements are
+verified; deferred debt remains limited to split planning-layout traceability and unrelated
+workspace boot noise during focused tests.
 
 ## Recommended Next Milestones
-
-### M010 - KB AI Maintenance
-**Status:** active
-**Priority:** high
-**Why after M009:** retrieval telemetry and no-hit evidence should feed a ranked gap loop instead of asking AI to invent product insights from thin signals.
-**Shift-left rule:** keep this immediately after M009 unless enterprise adoption pressure strongly favors governed tools first.
-**Implementation bias:** treat M010 as the start of a KB maintenance lane, not just analytics. The main operator action should be `Gap -> Draft article / Suggest revision -> Review -> Publish -> Reindex`, with Scoria as an optional governance/evidence layer rather than a hard dependency.
-**Activated:** 2026-05-21
 
 ### M011 - AI Tool Governance & MCP Integration
 **Status:** candidate
 **Priority:** high
-**Why after M010:** once retrieval is trustworthy and support intents/gaps are inspectable, broaden from grounded answers into policy-gated actions.
+**Why after M010:** retrieval is now trustworthy and KB maintenance is operator-reviewed, so the
+next leverage point is policy-gated action with explicit approval boundaries and governed
+integration seams.
 **Shift-left exception:** pull ahead of M010 only for materially important enterprise or platform-integration demand.
 
 ### M012 - Support-Triggered Outbound Lifecycle
