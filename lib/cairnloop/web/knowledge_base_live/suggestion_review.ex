@@ -53,42 +53,34 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
      |> assign_selected(selected_task)}
   end
 
-  def handle_event("approve", %{"id" => task_id}, socket) do
-    case knowledge_automation().approve_review_task(String.to_integer(task_id), socket.assigns.scope_filters) do
-      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
-      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to approve this review task right now.")}
+  def handle_event("regenerate", %{"id" => task_id}, socket) do
+    with {:ok, task, suggestion} <- load_task_selection(task_id, socket),
+         {:ok, _suggestion} <-
+           knowledge_automation().regenerate_article_suggestion(
+             suggestion.id,
+             socket.assigns.scope_filters
+           ) do
+      {:noreply, reload_selected(socket, task.id)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Unable to regenerate this suggestion right now.")}
     end
   end
 
-  def handle_event("reject", %{"id" => task_id}, socket) do
-    opts = Keyword.put(socket.assigns.scope_filters, :reason, :insufficient_evidence)
-
-    case knowledge_automation().reject_review_task(String.to_integer(task_id), opts) do
-      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
-      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to reject this review task right now.")}
+  def handle_event("dismiss", %{"id" => task_id}, socket) do
+    with {:ok, task, suggestion} <- load_task_selection(task_id, socket),
+         {:ok, _suggestion} <-
+           knowledge_automation().dismiss_article_suggestion(
+             suggestion.id,
+             socket.assigns.scope_filters
+           ) do
+      {:noreply, reload_selected(socket, task.id)}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Unable to dismiss this suggestion right now.")}
     end
   end
 
-  def handle_event("defer", %{"id" => task_id}, socket) do
-    opts = Keyword.put(socket.assigns.scope_filters, :reason, :needs_manual_edit)
-
-    case knowledge_automation().defer_review_task(String.to_integer(task_id), opts) do
-      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
-      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to defer this review task right now.")}
-    end
-  end
-
-  def handle_event("publish", %{"id" => task_id}, socket) do
-    case knowledge_automation().publish_review_task(String.to_integer(task_id), socket.assigns.scope_filters) do
-      {:ok, _task} -> {:noreply, reload_selected(socket, task_id)}
-      {:error, _reason} -> {:noreply, put_flash(socket, :error, "Unable to publish this review task right now.")}
-    end
-  end
-
-  def handle_event("open_for_edit", %{"id" => task_id}, socket) do
-    task_id = String.to_integer(task_id)
-    task = knowledge_automation().get_review_task!(task_id, socket.assigns.scope_filters)
-    suggestion = task.article_suggestion
+  def handle_event("open_for_manual_edit", %{"id" => task_id}, socket) do
+    {:ok, task, suggestion} = load_task_selection(task_id, socket)
 
     target_article_id =
       if suggestion.suggestion_type == :revision do
@@ -189,9 +181,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           <% end %>
 
           <div>
-            <%= for action <- ReviewTaskPresenter.available_actions(@selected_task) do %>
-              <button phx-click={Atom.to_string(action)} phx-value-id={@selected_task.id}>
-                <%= ReviewTaskPresenter.action_label(action, @selected_task) %>
+            <%= for {event, label} <- review_actions(suggestion) do %>
+              <button phx-click={event} phx-value-id={@selected_task.id}>
+                <%= label %>
               </button>
             <% end %>
           </div>
@@ -279,14 +271,34 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
 
   defp task_title(_task), do: "Untitled suggestion"
 
+  defp review_actions(suggestion) do
+    suggestion
+    |> ArticleSuggestionPresenter.action_labels()
+    |> Enum.flat_map(fn
+      "regenerate" -> [{"regenerate", "Regenerate"}]
+      "dismiss" -> [{"dismiss", "Dismiss"}]
+      "open for manual edit" -> [{"open_for_manual_edit", "Open for manual edit"}]
+      _ -> []
+    end)
+  end
+
+  defp load_task_selection(task_id, socket) do
+    task = knowledge_automation().get_review_task!(String.to_integer(task_id), socket.assigns.scope_filters)
+    {:ok, task, task.article_suggestion}
+  end
+
   defp reload_selected(socket, task_id) do
+    task_id = normalize_id(task_id)
     review_tasks = load_review_tasks(socket.assigns.scope_filters, socket.assigns.queue_filter)
-    selected_task = knowledge_automation().get_review_task!(String.to_integer(task_id), socket.assigns.scope_filters)
+    selected_task = knowledge_automation().get_review_task!(task_id, socket.assigns.scope_filters)
 
     socket
     |> assign(review_tasks: review_tasks)
     |> assign_selected(selected_task)
   end
+
+  defp normalize_id(value) when is_binary(value), do: String.to_integer(value)
+  defp normalize_id(value), do: value
 
   defp task_patch(task_id, nil), do: "/knowledge-base/suggestions?task=#{task_id}"
   defp task_patch(task_id, queue_filter), do: "/knowledge-base/suggestions?task=#{task_id}&queue=#{queue_filter}"

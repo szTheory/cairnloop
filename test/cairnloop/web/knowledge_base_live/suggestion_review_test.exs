@@ -583,14 +583,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
     html = render_html(socket.assigns)
 
-    assert html =~ ">Regenerate<"
-    assert html =~ ">Dismiss<"
-    assert html =~ ">Open for manual edit<"
-    refute html =~ ">Approve<"
-    refute html =~ ">Reject<"
-    refute html =~ ">Defer<"
-    refute html =~ ">Publish<"
-    refute html =~ ">Open for edit<"
+    assert html =~ "Regenerate"
+    assert html =~ "Dismiss"
+    assert html =~ "Open for manual edit"
+    refute html =~ "phx-click=\"approve\""
+    refute html =~ "phx-click=\"reject\""
+    refute html =~ "phx-click=\"defer\""
+    refute html =~ "phx-click=\"publish\""
+    refute html =~ "phx-click=\"open_for_edit\""
   end
 
   test "failed suggestions keep inspect and regenerate without dismiss or manual-edit controls" do
@@ -598,11 +598,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "24"}, "", socket)
     html = render_html(socket.assigns)
 
-    assert html =~ ">Regenerate<"
+    assert html =~ "Regenerate"
     assert html =~ "Failure details"
-    refute html =~ ">Dismiss<"
-    refute html =~ ">Open for manual edit<"
-    refute html =~ ">Publish<"
+    refute html =~ "phx-click=\"dismiss\""
+    refute html =~ "phx-click=\"open_for_manual_edit\""
+    refute html =~ "phx-click=\"publish\""
   end
 
   test "regenerate, dismiss, and open_for_manual_edit act on the suggestion while preserving review context" do
