@@ -415,6 +415,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     scope_opts =
       [
+    {attrs, opts} = hydrate_gap_candidate_request(attrs, opts)
         tenant_scope: prepared.tenant_scope,
         host_user_id: prepared.host_user_id
       ]
@@ -459,7 +460,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     attrs = Map.new(attrs)
 
     latest_revision_fn =
-      Keyword.get(opts, :latest_revision_fn, &KnowledgeBase.get_latest_active_revision/1)
+      Keyword.get(opts, :latest_revision_fn, fn article_id ->
+        kb_module.get_latest_active_revision(article_id)
+      end)
 
     article_id =
       Map.get(attrs, :article_id) || Map.get(attrs, "article_id") ||
@@ -470,11 +473,12 @@ defmodule Cairnloop.KnowledgeAutomation do
         {:error, :missing_published_revision}
 
       revision ->
+    kb_module = knowledge_base_module(opts)
         stale_signal =
           stale_article_signal_module(opts).build_revision_gate(
             revision.article_id,
             revision.id,
-            revision_gate_opts(attrs, opts)
+            revision_gate_opts(attrs, opts, gap_events, grounding_bundle)
           )
 
         if stale_signal.ready? do
@@ -483,10 +487,17 @@ defmodule Cairnloop.KnowledgeAutomation do
             |> Map.put(:suggestion_type, :revision)
             |> Map.put(:entrypoint_type, :article_revision)
             |> Map.put(:entrypoint_id, revision.article_id)
+        {gap_events, grounding_bundle} = build_revision_gate_inputs(revision, attrs, opts)
+
             |> Map.put(:article_id, revision.article_id)
             |> Map.put(:base_revision_id, revision.id)
 
-          case prepare_request(:revision, attrs, Keyword.put(opts, :stale_signal, stale_signal)) do
+          revision_opts =
+            opts
+            |> Keyword.put(:stale_signal, stale_signal)
+            |> Keyword.put(:grounding_bundle, grounding_bundle)
+
+          case prepare_request(:revision, attrs, revision_opts) do
             {:ok, prepared} -> insert_and_enqueue(prepared, opts)
             {:failed, prepared} -> persist_failed(prepared, opts)
           end
@@ -1037,7 +1048,13 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   defp enqueue_generation_job(%ArticleSuggestion{} = suggestion, opts) do
-    enqueue_fn = Keyword.get(opts, :enqueue_fn, &Oban.insert/1)
+    enqueue_fn =
+      Keyword.get(
+        opts,
+        :enqueue_fn,
+        Application.get_env(:cairnloop, :knowledge_automation_enqueue_fn, &Oban.insert/1)
+      )
+
     enqueue_fn.(GenerateArticleSuggestion.new_job(job_args_for(suggestion)))
   end
 
@@ -1320,13 +1337,14 @@ defmodule Cairnloop.KnowledgeAutomation do
        }),
        do: true
 
-  defp reviewable_for_review_task?(%ArticleSuggestion{status: status}), do: status in [:ready, :failed]
+  defp reviewable_for_review_task?(%ArticleSuggestion{status: status}),
+    do: status in [:pending_generation, :ready, :failed]
 
-  defp revision_gate_opts(attrs, opts) do
+  defp revision_gate_opts(attrs, opts, gap_events, grounding_bundle) do
     [
       now_fn: Keyword.get(opts, :now_fn, &DateTime.utc_now/0),
-      gap_events: Keyword.get(opts, :gap_events),
-      grounding_bundle: Keyword.get(opts, :grounding_bundle),
+      gap_events: gap_events,
+      grounding_bundle: grounding_bundle,
       tenant_scope: Map.get(attrs, :tenant_scope) || Map.get(attrs, "tenant_scope"),
       host_user_id: Map.get(attrs, :host_user_id) || Map.get(attrs, "host_user_id")
     ]
@@ -1345,6 +1363,173 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp normalize_citation_target(%{} = citation_target, article_id, revision_id, chunk_index) do
     citation_target
     |> Enum.into(%{}, fn {key, value} -> {normalize_map_key(key), value} end)
+  defp hydrate_gap_candidate_request(attrs, opts) do
+    candidate_id = entrypoint_id_for(:article, attrs)
+
+    cond do
+      is_nil(candidate_id) ->
+        {attrs, opts}
+
+      gap_candidate_grounding_supplied?(attrs) ->
+        {attrs, opts}
+
+      Keyword.has_key?(opts, :grounding_bundle) ->
+        {attrs, opts}
+
+      true ->
+        scope_opts = scope_opts_from_attrs(attrs)
+        candidate = get_gap_candidate!(candidate_id, scope_opts)
+        query = gap_candidate_query(candidate)
+        grounding_bundle = gap_candidate_grounding_bundle(candidate, query, opts)
+
+        hydrated_attrs =
+          attrs
+          |> Map.put_new(:gap_candidate_id, candidate.id)
+          |> Map.put_new(:entrypoint_id, candidate.id)
+          |> Map.put_new(:title, candidate.title)
+
+        {hydrated_attrs, Keyword.put(opts, :grounding_bundle, grounding_bundle)}
+    end
+  end
+
+  defp gap_candidate_grounding_supplied?(attrs) do
+    List.wrap(anchor_id(attrs, :evidence_snapshot)) != [] or
+      List.wrap(anchor_id(attrs, :evidence)) != [] or
+      map_size(anchor_id(attrs, :grounding_metadata) || %{}) > 0 or
+      not is_nil(anchor_id(attrs, :query))
+  end
+
+  defp gap_candidate_grounding_bundle(candidate, query, opts) do
+    host_user_id = candidate.host_user_id
+
+    retrieval_bundle =
+      retrieval_module(opts).ground_for_draft(
+        %{query: query, host_user_id: host_user_id, clarification_attempts: 0},
+        surface: :draft_generation,
+        host_user_id: host_user_id
+      )
+
+    assistive_results =
+      retrieval_bundle
+      |> map_value(:assistive_results)
+      |> List.wrap()
+      |> Kernel.++(Enum.map(candidate.manual_handling_evidence, &manual_handling_result/1))
+
+    retrieval_bundle
+    |> Map.put(:query, query)
+    |> Map.put(:assistive_results, assistive_results)
+    |> Map.put(
+      :diagnostic,
+      %{
+        gap_candidate_id: candidate.id,
+        retrieval_gap_event_count: length(List.wrap(candidate.retrieval_gap_events)),
+        manual_handling_evidence_count: length(List.wrap(candidate.manual_handling_evidence))
+      }
+    )
+  end
+
+  defp manual_handling_result(evidence) do
+    %{
+      source_type: :resolved_case,
+      trust_level: :assistive,
+      title: map_value(evidence, :issue_summary) || map_value(evidence, :subject) || "Resolved case evidence",
+      excerpt: map_value(evidence, :resolution_note) || "",
+      metadata: %{
+        destination: %{
+          conversation_id: map_value(evidence, :conversation_id)
+        }
+      }
+    }
+  end
+
+  defp gap_candidate_query(candidate) do
+    candidate.retrieval_gap_events
+    |> List.wrap()
+    |> Enum.find_value(fn event ->
+      event
+      |> map_value(:sanitized_query_excerpt)
+      |> normalize_candidate_query()
+    end)
+    |> case do
+      nil -> normalize_candidate_query(candidate.title) || normalize_candidate_query(candidate.seed_excerpt) || "Gap candidate #{candidate.id}"
+      query -> query
+    end
+  end
+
+  defp normalize_candidate_query(query) when is_binary(query) do
+    query
+    |> String.trim()
+    |> case do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp normalize_candidate_query(_), do: nil
+
+  defp build_revision_gate_inputs(revision, attrs, opts) do
+    gap_events =
+      Keyword.get_lazy(opts, :gap_events, fn ->
+        article_linked_gap_events(revision.article_id, revision.id, attrs)
+      end)
+
+    grounding_bundle =
+      Keyword.get_lazy(opts, :grounding_bundle, fn ->
+        fresh_revision_grounding_bundle(revision.article_id, revision.id, attrs, opts)
+      end)
+
+    {gap_events, grounding_bundle}
+  end
+
+  defp article_linked_gap_events(article_id, base_revision_id, attrs) do
+    GapEvent
+    |> apply_scope(scope_opts_from_attrs(attrs))
+    |> order_by([event], desc: event.occurred_at, desc: event.id)
+    |> limit(25)
+    |> repo().all()
+    |> Enum.filter(&article_linked_gap_event?(&1, article_id, base_revision_id))
+  end
+
+  defp article_linked_gap_event?(event, article_id, base_revision_id) do
+    event
+    |> map_value(:attempted_evidence_snapshots)
+    |> List.wrap()
+    |> Enum.any?(fn snapshot ->
+      citation_target = map_value(snapshot, :citation_target) || %{}
+
+      map_value(snapshot, :source_type) in [:knowledge_base, "knowledge_base"] and
+        map_value(snapshot, :trust_level) in [:canonical, "canonical"] and
+        map_value(citation_target, :article_id) == article_id and
+        map_value(citation_target, :revision_id) == base_revision_id
+    end)
+  end
+
+  defp fresh_revision_grounding_bundle(article_id, base_revision_id, attrs, opts) do
+    host_user_id = anchor_id(attrs, :host_user_id)
+    query = revision_grounding_query(article_id, attrs, opts)
+
+    retrieval_module(opts).ground_for_draft(
+      %{query: query, host_user_id: host_user_id, clarification_attempts: 0},
+      surface: :draft_generation,
+      host_user_id: host_user_id
+    )
+    |> Map.put(:query, query)
+    |> Map.put(:diagnostic, %{article_id: article_id, base_revision_id: base_revision_id})
+  end
+
+  defp revision_grounding_query(article_id, attrs, opts) do
+    anchor_id(attrs, :title) ||
+      case knowledge_base_module(opts).get_article(article_id) do
+        %{title: title} when is_binary(title) and title != "" -> title
+        _ -> "Article #{article_id}"
+      end
+  end
+
+  defp scope_opts_from_attrs(attrs) do
+    [tenant_scope: anchor_id(attrs, :tenant_scope), host_user_id: anchor_id(attrs, :host_user_id)]
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  end
+
     |> Map.put_new(:article_id, article_id)
     |> Map.put_new(:revision_id, revision_id)
     |> Map.put_new(:chunk_index, chunk_index)
@@ -1432,7 +1617,11 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   defp knowledge_base_module(opts) do
-    Keyword.get(opts, :knowledge_base_module, KnowledgeBase)
+    Keyword.get(opts, :knowledge_base_module, Application.get_env(:cairnloop, :knowledge_base, KnowledgeBase))
+  end
+
+  defp retrieval_module(opts) do
+    Keyword.get(opts, :retrieval_module, Application.get_env(:cairnloop, :retrieval_module, Retrieval))
   end
 
   defp approval_article_id(%ArticleSuggestion{article_id: article_id}, _task, _opts)

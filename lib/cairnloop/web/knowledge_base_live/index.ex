@@ -7,15 +7,25 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     articles = repo().all(Article)
-    {:ok, assign(socket, articles: articles)}
+    {:ok, assign(socket, articles: articles, scope_filters: scope_filters(session))}
   end
 
   def handle_event("suggest_revision", %{"article_id" => article_id}, socket) do
-    case knowledge_automation().suggest_revision(%{article_id: String.to_integer(article_id)}) do
+    attrs = %{
+      article_id: String.to_integer(article_id),
+      tenant_scope: Keyword.get(socket.assigns.scope_filters, :tenant_scope, :system_unscoped),
+      host_user_id: Keyword.get(socket.assigns.scope_filters, :host_user_id)
+    }
+
+    case knowledge_automation().suggest_revision(attrs) do
       {:ok, suggestion} ->
-        with {:ok, task} <- knowledge_automation().ensure_review_task_for_suggestion(suggestion.id) do
+        with {:ok, task} <-
+               knowledge_automation().ensure_review_task_for_suggestion(
+                 suggestion.id,
+                 socket.assigns.scope_filters
+               ) do
           {:noreply, push_navigate(socket, to: "/knowledge-base/suggestions?task=#{task.id}")}
         else
           _ ->
@@ -51,5 +61,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
 
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+  end
+
+  defp scope_filters(session) do
+    host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)
+
+    if host_user_id do
+      [tenant_scope: :host_user_scoped, host_user_id: to_string(host_user_id)]
+    else
+      []
+    end
   end
 end

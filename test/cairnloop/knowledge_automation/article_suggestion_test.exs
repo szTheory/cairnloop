@@ -575,7 +575,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert suggestion.status == :pending_generation
     assert suggestion.grounding_metadata["query"] == "billing export missing from knowledge base"
     assert suggestion.grounding_metadata["canonical_evidence_count"] == 1
-    assert suggestion.grounding_metadata["assistive_evidence_count"] == 1
+    assert suggestion.grounding_metadata["assistive_evidence_count"] == 2
   end
 
   test "suggest_article fails closed when the hydrated gap candidate has no citation-ready canonical evidence" do
@@ -644,6 +644,108 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert suggestion.grounding_metadata["query"] == "Billing export fallback"
     assert suggestion.grounding_metadata["failure_reason"] == "weak_grounding"
     refute Process.get(:last_retrieval_request).query == "Knowledge Base maintenance"
+  end
+
+  test "suggest_revision loads article-linked gap evidence and fresh canonical grounding on the shipped path" do
+    Process.put(:latest_active_revision_fn, fn 77 ->
+      %Revision{id: 44, article_id: 77, state: :published, version: 3}
+    end)
+
+    Process.put(:knowledge_base_article_fn, fn 77 ->
+      %Cairnloop.KnowledgeBase.Article{id: 77, title: "Billing Export", status: :published}
+    end)
+
+    Process.put(:gap_events, [
+      %GapEvent{
+        id: 301,
+        occurred_at: ~U[2026-05-21 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("d", 64),
+        sanitized_query_excerpt: "billing export edge case",
+        canonical_hit_count: 0,
+        assistive_hit_count: 1,
+        clarification_attempts: 1,
+        attempted_evidence_snapshots: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            citation_target: %{article_id: 77, revision_id: 44, chunk_index: 1}
+          }
+        ]
+      },
+      %GapEvent{
+        id: 302,
+        occurred_at: ~U[2026-05-22 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :policy_limit,
+        reason: :clarification_limit_reached,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("e", 64),
+        sanitized_query_excerpt: "billing export limits",
+        canonical_hit_count: 0,
+        assistive_hit_count: 1,
+        clarification_attempts: 1,
+        attempted_evidence_snapshots: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            citation_target: %{article_id: 77, revision_id: 44, chunk_index: 2}
+          }
+        ]
+      }
+    ])
+
+    Process.put(:retrieval_ground_for_draft, fn
+      "Billing Export", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export reference",
+              content: "Canonical chunk",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [valid_evidence_attrs()],
+          grounding_assessment: %{status: :strong}
+        }
+
+      _query, request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+    end)
+
+    assert {:ok, suggestion} =
+             KnowledgeAutomation.suggest_revision(
+               %{
+                 article_id: 77,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "user-1"
+               },
+               knowledge_base_module: MockKnowledgeBase,
+               retrieval_module: MockRetrieval,
+               enqueue_fn: fn _job -> {:ok, %{id: "job-revision-domain"}} end
+             )
+
+    assert Process.get(:last_retrieval_request).query == "Billing Export"
+    assert suggestion.base_revision_id == 44
+    assert suggestion.grounding_metadata["canonical_evidence_count"] == 1
+    assert suggestion.grounding_metadata["stale_signal"][:signal_count] == 2
   end
 
   test "conversation quick fix uses conversation-scoped identity and preserves typed package boundaries" do

@@ -214,6 +214,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       Process.delete(:index_revision_lookup_fn)
       Application.delete_env(:cairnloop, :knowledge_automation)
       Application.delete_env(:cairnloop, :repo)
+      Application.delete_env(:cairnloop, :knowledge_base)
+      Application.delete_env(:cairnloop, :knowledge_automation_enqueue_fn)
       Application.delete_env(:cairnloop, :retrieval_module)
     end)
 
@@ -328,6 +330,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
   test "selected gap candidates queue article suggestion generation with candidate-scoped evidence" do
     Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
     Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-gap-ui"}} end)
 
     Process.put(:mock_gap_candidates, [%GapCandidate{id: 5, title: "Billing Export"}])
 
@@ -439,7 +442,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
   test "knowledge base index queues revision suggestions from domain-loaded stale evidence" do
     Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+    Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
     Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-revision-ui"}} end)
 
     Process.put(:index_articles, [%Article{id: 77, title: "Billing Export", status: :published}])
     Process.put(:index_article_lookup_fn, fn 77 -> %Article{id: 77, title: "Billing Export", status: :published} end)
@@ -519,7 +524,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
     assert suggestion.base_revision_id == 44
     assert suggestion.grounding_metadata["canonical_evidence_count"] == 1
-    assert suggestion.grounding_metadata["stale_signal"]["signal_count"] == 2
+    assert suggestion.grounding_metadata["stale_signal"][:signal_count] == 2
     assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} = socket.redirected
   end
 
