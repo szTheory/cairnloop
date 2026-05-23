@@ -111,13 +111,25 @@ defmodule Cairnloop.Governance do
         tool_ref: tool_ref,
         actor_id: actor_id,
         account_id: account_id,
-        input: input_snapshot |> Map.to_list() |> Enum.sort() |> Map.new(),
+        input: deep_sort_map(input_snapshot),
         dedupe_token: dedupe_token
       }
       |> Jason.encode!()
 
     :crypto.hash(:sha256, canonical) |> Base.encode16(case: :lower)
   end
+
+  # Recursively sort map keys at every level so Jason.encode! produces a
+  # deterministic string regardless of runtime Map iteration order (WR-02).
+  defp deep_sort_map(map) when is_map(map) do
+    map
+    |> Enum.map(fn {k, v} -> {k, deep_sort_map(v)} end)
+    |> Enum.sort_by(fn {k, _} -> to_string(k) end)
+    |> Map.new()
+  end
+
+  defp deep_sort_map(list) when is_list(list), do: Enum.map(list, &deep_sort_map/1)
+  defp deep_sort_map(value), do: value
 
   # ---------------------------------------------------------------------------
   # Public API
@@ -173,9 +185,12 @@ defmodule Cairnloop.Governance do
         blocked
 
       {:blocked, outcome, reason} = blocked ->
-        # Registered tool blocked — persist with status=outcome (D-18 Support-Truth Gate)
-        propose_blocked(tool_ref, actor_id, context, outcome, reason)
-        blocked
+        # Registered tool blocked — persist with status=outcome (D-18 Support-Truth Gate).
+        # Thread the result so insert failures are not silently swallowed (CR-02).
+        case propose_blocked(tool_ref, actor_id, context, outcome, reason) do
+          :ok -> blocked
+          {:error, _cs} = err -> err
+        end
     end
   end
 
@@ -250,24 +265,45 @@ defmodule Cairnloop.Governance do
   defp propose_blocked(tool_ref, actor_id, context, outcome, reason) do
     account_id = Map.get(context, :account_id)
 
-    # Derive a key even for blocked proposals so idempotency works for blocked outcomes
-    input_snapshot = Map.get(context, :tool_params, %{})
+    # Resolve tool module via registry — single source of truth (WR-03).
+    # Gate 0 already confirmed the module exists before propose_blocked/5 is reached,
+    # so {:error, _} is unreachable; raise rather than fabricate an invalid value (WR-04).
+    {:ok, tool_module} = Cairnloop.ToolRegistry.find_tool_module(tool_ref)
+
+    spec = tool_module.__tool_spec__()
+    approval_mode = Policy.resolve(tool_module, actor_id, context)
+    risk_tier = spec.risk_tier
+
+    # Derive input_snapshot identically to propose_valid/4: run the tool changeset
+    # and call apply_changes so atom/string key shape is normalized (WR-01).
+    raw_params = Map.get(context, :tool_params, %{})
+    input_snapshot =
+      tool_module
+      |> struct()
+      |> tool_module.changeset(raw_params)
+      |> Ecto.Changeset.apply_changes()
+      |> Map.from_struct()
+
     idempotency_key = derive_idempotency_key(tool_ref, actor_id, context, input_snapshot)
 
-    # Resolve risk_tier from the tool module for snapshot (gate 0 passed so module exists)
-    tool_module =
-      (Application.get_env(:cairnloop, :tools, []) || [])
-      |> Enum.find(fn mod -> Atom.to_string(mod) == tool_ref end)
+    # Pre-check for existing blocked proposal — mirrors propose_valid/4 defense-in-depth (WR-06).
+    case repo().get_by(ToolProposal, idempotency_key: idempotency_key) do
+      %ToolProposal{} ->
+        Telemetry.emit(:proposal_duplicate, %{count: 1}, %{outcome: :duplicate})
+        :ok
 
-    {risk_tier, approval_mode} =
-      if tool_module do
-        spec = tool_module.__tool_spec__()
-        mode = Policy.resolve(tool_module, actor_id, context)
-        {spec.risk_tier, mode}
-      else
-        {:unknown, :always_block}
-      end
+      nil ->
+        insert_blocked_proposal(
+          tool_ref, account_id, idempotency_key, actor_id, context,
+          outcome, reason, risk_tier, approval_mode, input_snapshot
+        )
+    end
+  end
 
+  defp insert_blocked_proposal(
+         tool_ref, account_id, idempotency_key, actor_id, context,
+         outcome, reason, risk_tier, approval_mode, input_snapshot
+       ) do
     reason_str = inspect(reason)
 
     proposal_attrs = %{
@@ -307,6 +343,15 @@ defmodule Cairnloop.Governance do
       })
 
       :ok
+    else
+      {:error, %Ecto.Changeset{} = cs} ->
+        # Race condition defense-in-depth: handle unique constraint on idempotency_key (CR-02, WR-06).
+        if unique_constraint_error?(cs, :idempotency_key) do
+          Telemetry.emit(:proposal_duplicate, %{count: 1}, %{outcome: :duplicate})
+          :ok
+        else
+          {:error, cs}
+        end
     end
   end
 
