@@ -217,7 +217,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         status: :ready,
         title: "Billing export guide",
         proposed_markdown: "# After\n\nNew copy",
-        grounding_metadata: %{"stale_signal" => %{"signal_count" => 3}}
+        grounding_metadata: %{"status" => "strong", "stale_signal" => %{"signal_count" => 3}}
       })
 
     failed_revision =
@@ -230,7 +230,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         base_revision_id: 44,
         status: :failed,
         title: "Billing export guide",
-        grounding_metadata: %{"failure_reason" => "missing_canonical_citations"}
+        grounding_metadata: %{"status" => "weak", "failure_reason" => "missing_canonical_citations"}
       })
 
     shell_quick_fix =

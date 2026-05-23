@@ -121,12 +121,12 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
     ~H"""
     <div class="suggestion-review">
       <header>
-        <h1>Review inbox</h1>
-        <p>Keep AI proposal truth, operator decision truth, and publish follow-through in one lane.</p>
+        <h1>Suggestion review</h1>
+        <p>Inspect grounded KB proposals before any manual editing or later publish workflow begins.</p>
       </header>
 
       <section>
-        <h2>Queue filters</h2>
+        <h2>Suggestion filters</h2>
         <ul>
           <%= for {filter, label} <- ReviewTaskPresenter.queue_filters() do %>
             <li>
@@ -141,12 +141,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
       <section>
         <ul>
           <%= for task <- @review_tasks do %>
+            <% suggestion = task.article_suggestion %>
             <li id={"review-task-#{task.id}"}>
               <.link patch={task_patch(task.id, @queue_filter)}>
                 <strong><%= task_title(task) %></strong>
               </.link>
-              <div><%= ReviewTaskPresenter.status_label(task) %></div>
-              <div><%= ReviewTaskPresenter.next_step_copy(task) %></div>
+              <div><%= ArticleSuggestionPresenter.status_label(suggestion) %></div>
+              <div><%= ArticleSuggestionPresenter.queue_summary(suggestion) %></div>
             </li>
           <% end %>
         </ul>
@@ -156,10 +157,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
         <% suggestion = @selected_task.article_suggestion %>
         <section id="suggestion-detail">
           <h2><%= task_title(@selected_task) %></h2>
-          <p><strong>AI proposal status</strong>: <%= ArticleSuggestionPresenter.status_label(suggestion) %></p>
-          <p><strong>Task status</strong>: <%= ReviewTaskPresenter.status_label(@selected_task) %></p>
-          <p><strong>Decision summary</strong>: <%= ReviewTaskPresenter.decision_summary(@selected_task) %></p>
-          <p><strong>Publish outcome</strong>: <%= ReviewTaskPresenter.publish_outcome(@selected_task) %></p>
+          <p><strong>Suggestion status</strong>: <%= ArticleSuggestionPresenter.status_label(suggestion) %></p>
+          <p><strong>Grounding status</strong>: <%= ArticleSuggestionPresenter.grounding_status_label(suggestion) %></p>
+          <p><strong>Stale pressure</strong>: <%= ArticleSuggestionPresenter.stale_pressure_label(suggestion) %></p>
           <p><%= suggestion.operator_summary %></p>
 
           <%= if ArticleSuggestionPresenter.quick_fix?(suggestion) do %>
