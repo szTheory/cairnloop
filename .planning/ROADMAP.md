@@ -20,7 +20,7 @@ Archived at `.planning/milestones/vM009-ROADMAP.md`.
 operator-reviewed KB maintenance workflow that preserves the existing publish boundary.
 
 - [x] **Phase 9: Gap Candidate Discovery** - Turn retrieval misses and weak-grounding evidence into ranked, inspectable KB gap candidates. (completed 2026-05-21)
-- [ ] **Phase 10: Citation-Backed Draft Suggestions** - Generate draft articles and revision suggestions only from grounded evidence.
+- [x] **Phase 10: Citation-Backed Draft Suggestions** - Generate draft articles and revision suggestions only from grounded evidence. (completed 2026-05-23)
 - [x] **Phase 11: Review-Gated KB Updates** - Route AI-prepared KB work through visible review, decision tracking, and the normal publish/reindex path. (completed 2026-05-22)
 - [x] **Phase 12: In-Thread Quick Fix & Ops Closure** - Let operators start KB maintenance from live support work while closing telemetry and fail-closed behavior. (completed 2026-05-22)
 
@@ -84,6 +84,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 9. Gap Candidate Discovery | 3/3 | Complete | 2026-05-21 |
-| 10. Citation-Backed Draft Suggestions | 3/4 | In Progress|  |
+| 10. Citation-Backed Draft Suggestions | 4/4 | Complete   | 2026-05-23 |
 | 11. Review-Gated KB Updates | 4/4 | Complete | 2026-05-22 |
 | 12. In-Thread Quick Fix & Ops Closure | 4/4 | Complete    | 2026-05-22 |
