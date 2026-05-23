@@ -189,10 +189,10 @@ defmodule Cairnloop.Web.ConversationLive do
   defp failure_reason_message(:needs_input, _cs), do: "Invalid tool parameters."
 
   defp failure_reason_message(:scope_invalid, reason),
-    do: "Tool not available in this context: #{reason}."
+    do: "Tool not available in this context: #{inspect(reason)}."
 
   defp failure_reason_message(:policy_denied, reason),
-    do: "Tool call not permitted: #{reason}."
+    do: "Tool call not permitted: #{inspect(reason)}."
 
   defp failure_reason_message(outcome, reason),
     do: "Tool proposal blocked (#{outcome}): #{inspect(reason)}."
