@@ -1,7 +1,7 @@
 # Cairnloop Project
 
 ## What This Is
-An embedded, Phoenix-native customer support automation layer that turns support conversations into answers, product signals, knowledge-base improvements, and safe automated actions.
+An embedded, Phoenix-native customer support automation layer that turns support conversations into answers, product signals, knowledge-base improvements, and safe governed actions inside the host app.
 
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
@@ -11,35 +11,23 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 **Latest shipped milestone:** `vM010 KB AI Maintenance` on 2026-05-23.
 
 **What is now true:**
-- Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and
-  resolved support evidence.
-- Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and
-  citation cues.
-- Durable gap signals now project into a ranked KB maintenance queue with inspectable evidence and
-  stable candidate identity.
-- AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed
-  when evidence or grounding is insufficient.
-- KB review now runs through durable review tasks with explicit approve, reject, defer, publish,
-  and reindex follow-through states.
-- Operators can launch maintenance directly from conversation context without creating a second
-  workflow surface outside the shared review lane.
+- Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence.
+- Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues.
+- Durable gap signals now project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity.
+- AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed when evidence or grounding is insufficient.
+- KB review now runs through durable review tasks with explicit approve, reject, defer, publish, and reindex follow-through states.
+- Operators can launch maintenance directly from conversation context without creating a second workflow surface outside the shared review lane.
 - Maintenance telemetry is bounded and emitted from durable workflow seams rather than transient UI state.
 
-**Closeout posture:** `vM010` is shipped and archived as a `tech_debt` milestone. All 12 v1
-requirements are verified; the remaining debt is explicit, traceable, and non-blocking.
+**Current milestone:** `vM011 AI Tool Governance & MCP Integration`
 
-## Next Milestone Goals
+**Why now:** Retrieval is now trustworthy and KB maintenance is operator-reviewed. The next leverage point is to let Cairnloop propose and govern support actions without weakening host-owned trust, approval, or audit boundaries.
 
-**Next candidate:** `M011 AI Tool Governance & MCP Integration`
-
-**Why next:** Retrieval is now trustworthy and KB maintenance is operator-reviewed. The next
-highest-leverage step is to broaden from grounded answer and maintenance primitives into
-policy-gated actions and governed integrations.
-
-**Initial goals:**
-- Add explicit policy and approval boundaries for higher-agency tool use.
-- Define MCP or governed-tool integration seams without weakening the host-owned trust layer.
-- Reuse the existing retrieval, review, and telemetry primitives instead of creating parallel truth sources.
+**Target features:**
+- Introduce a durable governed-action workflow for typed host-owned tools, starting with internal read-only and low-blast-radius support actions.
+- Add policy-gated approval and resume mechanics using Ecto and Oban instead of synchronous LiveView execution.
+- Reuse retrieval, review, telemetry, and audit primitives so tool actions stay grounded, fail closed, and inspectable in-thread.
+- Define MCP as an optional edge adapter over the governed-tool contract, with read-only/user-scoped integration first and broad remote write surfaces deferred.
 
 ## Requirements
 
@@ -56,27 +44,24 @@ policy-gated actions and governed integrations.
 - ✓ KB AI Maintenance — vM010
 
 ### Active
-- [ ] Define the policy and approval model for governed AI tool execution.
-- [ ] Establish MCP or governed-tool seams that preserve host-owned trust and auditability.
-- [ ] Keep new action lanes fail-closed, reviewable, and observable from durable workflow state.
+- [ ] Define the governed-tool contract, policy seam, and durable execution records for host-owned support actions.
+- [ ] Replace synchronous in-LiveView tool execution with fail-closed proposal, approval, and Oban resume flow.
+- [ ] Keep tool actions grounded, reviewable, and visible in the existing operator workflow rather than introducing a parallel truth source.
+- [ ] Expose MCP compatibility only through the governed-tool seam, starting with optional read-only and user-scoped integration.
 
 ## Validated Requirements
 
-- vM010 validated `GAP-01` through `GAP-03`: retrieval and manual-handling evidence now converge
-  into ranked, inspectable KB gap candidates.
-- vM010 validated `DRAFT-01` through `DRAFT-03`: article and revision suggestions are
-  citation-backed and fail closed when grounding is weak.
-- vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and
-  follow-through workflow state.
-- vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and
-  maintenance telemetry remains bounded across publish and reindex follow-through.
+- vM010 validated `GAP-01` through `GAP-03`: retrieval and manual-handling evidence now converge into ranked, inspectable KB gap candidates.
+- vM010 validated `DRAFT-01` through `DRAFT-03`: article and revision suggestions are citation-backed and fail closed when grounding is weak.
+- vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and follow-through workflow state.
+- vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and maintenance telemetry remains bounded across publish and reindex follow-through.
 
 ### Out of Scope
-- External vector/search infrastructure as the default path.
-- Autonomous customer-visible replies based only on retrieval confidence.
-- Treating raw live conversations as canonical policy truth.
-- Autonomous publishing of substantive KB content.
-- Broad MCP or governed-tool expansion before the KB maintenance loop is operational.
+- Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven.
+- High-risk financial or destructive mutations as the first governed-action path.
+- Autonomous customer-visible replies or side effects based only on retrieval confidence.
+- Treating raw tool output as canonical truth over reviewed Knowledge Base and support evidence.
+- Replacing host-owned Phoenix/Ecto/Oban workflow truth with an MCP- or Scoria-owned runtime.
 
 ## Previous Milestone Brief
 
@@ -142,4 +127,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 after shipping vM010*
+*Last updated: 2026-05-23 after starting vM011*

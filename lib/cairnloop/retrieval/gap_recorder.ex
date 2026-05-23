@@ -1,9 +1,11 @@
 defmodule Cairnloop.Retrieval.GapRecorder do
   import Ecto.Query
 
+  alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Retrieval.{GapEvent, GapEventSnapshot}
   alias Cairnloop.Retrieval.Workers.PruneGapEvents
 
+  @assistive_search_dedupe_window_seconds 24 * 60 * 60
   @max_excerpt_length 160
   @max_snapshot_excerpt_length 240
   @max_snapshot_title_length 160
@@ -16,19 +18,26 @@ defmodule Cairnloop.Retrieval.GapRecorder do
   def record(attrs, opts \\ []) do
     normalized_attrs = normalize_attrs(attrs, opts)
 
-    Ecto.Multi.new()
-    |> Ecto.Multi.insert(:gap_event, GapEvent.changeset(%GapEvent{}, normalized_attrs))
-    |> repo().transaction()
-    |> case do
-      {:ok, %{gap_event: gap_event}} ->
-        _ = maybe_schedule_prune(opts)
+    case find_recent_duplicate(normalized_attrs, opts) do
+      %GapEvent{} = gap_event ->
         {:ok, gap_event}
 
-      {:error, :gap_event, changeset, _changes} ->
-        {:error, changeset}
+      nil ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:gap_event, GapEvent.changeset(%GapEvent{}, normalized_attrs))
+        |> repo().transaction()
+        |> case do
+          {:ok, %{gap_event: gap_event}} ->
+            _ = maybe_schedule_prune(opts)
+            _ = maybe_schedule_gap_candidate_refresh(gap_event, opts)
+            {:ok, gap_event}
 
-      other ->
-        other
+          {:error, :gap_event, changeset, _changes} ->
+            {:error, changeset}
+
+          other ->
+            other
+        end
     end
   end
 
@@ -44,6 +53,18 @@ defmodule Cairnloop.Retrieval.GapRecorder do
   defp maybe_schedule_prune(opts) do
     schedule_prune_fn = Keyword.get(opts, :schedule_prune_fn, &schedule_prune_job/0)
     schedule_prune_fn.()
+  rescue
+    _ -> :ok
+  end
+
+  defp maybe_schedule_gap_candidate_refresh(%GapEvent{} = gap_event, opts) do
+    schedule_refresh_fn =
+      Keyword.get(opts, :schedule_gap_candidate_refresh_fn, &KnowledgeAutomation.schedule_gap_candidate_refresh/1)
+
+    schedule_refresh_fn.(%{
+      "source_type" => "retrieval_gap_event",
+      "source_id" => gap_event.id
+    })
   rescue
     _ -> :ok
   end
@@ -64,8 +85,9 @@ defmodule Cairnloop.Retrieval.GapRecorder do
       surface: get_value(attrs, :surface, "surface") || :unspecified,
       outcome_class: get_value(attrs, :outcome_class, "outcome_class"),
       reason: get_value(attrs, :reason, "reason"),
-      host_user_id: attrs |> get_value(:host_user_id, "host_user_id") |> normalize_scope_value(),
-      tenant_scope: attrs |> get_value(:tenant_scope, "tenant_scope") |> normalize_scope_value(),
+      host_user_id: attrs |> get_value(:host_user_id, "host_user_id") |> normalize_string_value(),
+      tenant_scope: normalize_tenant_scope(attrs),
+      ui_surface: normalize_ui_surface(attrs),
       query_fingerprint: query_fingerprint(query),
       sanitized_query_excerpt: sanitized_query_excerpt(query),
       canonical_hit_count:
@@ -83,9 +105,44 @@ defmodule Cairnloop.Retrieval.GapRecorder do
 
   defp normalize_occurred_at(_, now_fn), do: now_fn.() |> DateTime.truncate(:microsecond)
 
-  defp normalize_scope_value(nil), do: nil
-  defp normalize_scope_value(""), do: nil
-  defp normalize_scope_value(value), do: to_string(value)
+  defp normalize_string_value(nil), do: nil
+  defp normalize_string_value(""), do: nil
+  defp normalize_string_value(value), do: to_string(value)
+
+  defp normalize_tenant_scope(attrs) do
+    attrs
+    |> get_value(:tenant_scope, "tenant_scope")
+    |> case do
+      value when value in [:host_user_scoped, "host_user_scoped"] -> :host_user_scoped
+      value when value in [:public_only, "public_only"] -> :public_only
+      value when value in [:system_unscoped, "system_unscoped"] -> :system_unscoped
+      _ -> infer_tenant_scope(attrs)
+    end
+  end
+
+  defp infer_tenant_scope(attrs) do
+    if normalize_string_value(get_value(attrs, :host_user_id, "host_user_id")) do
+      :host_user_scoped
+    else
+      :system_unscoped
+    end
+  end
+
+  defp normalize_ui_surface(attrs) do
+    attrs
+    |> get_value(:ui_surface, "ui_surface")
+    |> case do
+      nil -> attrs |> get_value(:host_surface, "host_surface") |> normalize_ui_surface_value()
+      value -> normalize_ui_surface_value(value)
+    end
+  end
+
+  defp normalize_ui_surface_value(value) when value in [:conversation, "conversation"],
+    do: :conversation
+
+  defp normalize_ui_surface_value(value) when value in [:inbox, "inbox"], do: :inbox
+  defp normalize_ui_surface_value(value) when value in [:settings, "settings"], do: :settings
+  defp normalize_ui_surface_value(_), do: :unspecified
 
   defp normalize_count(value) when is_integer(value) and value >= 0, do: value
 
@@ -211,5 +268,35 @@ defmodule Cairnloop.Retrieval.GapRecorder do
 
   defp get_value(map, atom_key, string_key) do
     Map.get(map, atom_key) || Map.get(map, string_key)
+  end
+
+  defp find_recent_duplicate(attrs, opts) do
+    dedupe_lookup_fn = Keyword.get(opts, :dedupe_lookup_fn, &find_recent_assistive_search_gap/1)
+
+    if assistive_only_search_gap?(attrs) do
+      dedupe_lookup_fn.(attrs)
+    end
+  end
+
+  defp assistive_only_search_gap?(attrs) do
+    attrs.surface == :search_modal and attrs.outcome_class == :weak_grounding and
+      attrs.reason == :assistive_only_results
+  end
+
+  defp find_recent_assistive_search_gap(attrs) do
+    window_start = DateTime.add(attrs.occurred_at, -@assistive_search_dedupe_window_seconds, :second)
+
+    GapEvent
+    |> where([gap_event], gap_event.occurred_at >= ^window_start)
+    |> where([gap_event], gap_event.query_fingerprint == ^attrs.query_fingerprint)
+    |> where([gap_event], gap_event.tenant_scope == ^attrs.tenant_scope)
+    |> where([gap_event], gap_event.host_user_id == ^attrs.host_user_id)
+    |> where([gap_event], gap_event.ui_surface == ^attrs.ui_surface)
+    |> where([gap_event], gap_event.surface == ^attrs.surface)
+    |> where([gap_event], gap_event.outcome_class == ^attrs.outcome_class)
+    |> where([gap_event], gap_event.reason == ^attrs.reason)
+    |> order_by([gap_event], desc: gap_event.occurred_at, desc: gap_event.inserted_at)
+    |> limit(1)
+    |> repo().one()
   end
 end

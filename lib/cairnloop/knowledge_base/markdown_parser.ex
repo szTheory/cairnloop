@@ -6,11 +6,25 @@ defmodule Cairnloop.KnowledgeBase.MarkdownParser do
   @max_chunk_size 4000
 
   def parse(markdown) when is_binary(markdown) do
-    case Earmark.as_ast(markdown) do
+    markdown
+    |> parse_sections()
+    |> Enum.map(& &1.content)
+  end
+
+  def parse_sections(markdown) when is_binary(markdown) do
+    case Earmark.Parser.as_ast(markdown) do
       {:ok, ast, _messages} ->
         ast
         |> extract_sections()
-        |> Enum.flat_map(&split_large_chunks/1)
+        |> Enum.flat_map(&split_large_section/1)
+        |> Enum.with_index()
+        |> Enum.map(fn {section, index} ->
+          %{
+            chunk_index: index,
+            heading: section.heading,
+            content: section.content
+          }
+        end)
 
       _ ->
         []
@@ -43,24 +57,27 @@ defmodule Cairnloop.KnowledgeBase.MarkdownParser do
   defp maybe_add_section(sections, nil, []) do
     sections
   end
+
   defp maybe_add_section(sections, nil, nodes) do
     text = extract_text(Enum.reverse(nodes))
+
     if String.trim(text) == "" do
       sections
     else
-      [String.trim(text) | sections]
+      [%{heading: nil, content: String.trim(text)} | sections]
     end
   end
+
   defp maybe_add_section(sections, header, nodes) do
     text = extract_text(Enum.reverse(nodes))
-    combined = 
+    content =
       if String.trim(text) == "" do
         header
       else
         "#{header}\n#{text}"
       end
-      
-    [String.trim(combined) | sections]
+
+    [%{heading: header, content: String.trim(content)} | sections]
   end
 
   defp extract_text(nodes) when is_list(nodes) do
@@ -75,14 +92,16 @@ defmodule Cairnloop.KnowledgeBase.MarkdownParser do
   end
   defp extract_text(_), do: ""
 
-  defp split_large_chunks(text) do
+  defp split_large_section(%{content: text} = section) do
     if String.length(text) <= @max_chunk_size do
-      [text]
+      [section]
     else
       text
       |> String.codepoints()
       |> Enum.chunk_every(@max_chunk_size)
-      |> Enum.map(&Enum.join/1)
+      |> Enum.map(fn codepoints ->
+        %{section | content: Enum.join(codepoints)}
+      end)
     end
   end
 end

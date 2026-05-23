@@ -4,9 +4,17 @@ defmodule Cairnloop.Web.SettingsLiveTest do
 
   alias Cairnloop.Web.SettingsLive
 
-  test "renders SLA policies and mounts the shared search palette with settings context" do
+  test "mount/3 stores host_user_id from the dashboard session" do
+    {:ok, socket} =
+      SettingsLive.mount(%{}, %{"host_user_id" => "user_42"}, %Phoenix.LiveView.Socket{})
+
+    assert socket.assigns.host_user_id == "user_42"
+  end
+
+  test "renders SLA policies and mounts the shared search palette with explicit scope context" do
     assigns = %{
       flash: %{},
+      host_user_id: "user_42",
       priorities: [:low, :normal, :high, :urgent],
       policies: [
         %{
@@ -22,6 +30,7 @@ defmodule Cairnloop.Web.SettingsLiveTest do
     assert html =~ "SLA Policies"
     assert html =~ "Active Policies"
     assert html =~ "data-host-surface=\"settings\""
+    assert html =~ "data-host-user-id=\"user_42\""
     assert html =~ "data-current-path=\"/settings\""
   end
 

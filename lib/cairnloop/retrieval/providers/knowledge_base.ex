@@ -20,14 +20,11 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
     merge_candidates(Task.await(keyword_task), Task.await(semantic_task))
   end
 
-  def keyword_candidates(query, limit, opts \\ []) do
-    host_user_id = Keyword.get(opts, :host_user_id)
-
+  def keyword_candidates(query, limit, _opts \\ []) do
     Chunk
     |> join(:inner, [chunk], revision in Revision, on: revision.id == chunk.revision_id)
     |> join(:inner, [_chunk, revision], article in Article, on: article.id == revision.article_id)
     |> where([_chunk, revision], revision.state == :published)
-    |> maybe_filter_host_user(host_user_id)
     |> where(
       [chunk, _revision, _article],
       fragment("cairnloop_chunks.search_vector @@ websearch_to_tsquery('english', ?)", ^query)
@@ -76,14 +73,11 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
   def semantic_candidates(embedding_vector, limit, opts \\ [])
   def semantic_candidates(nil, _limit, _opts), do: []
 
-  def semantic_candidates(embedding_vector, limit, opts) do
-    host_user_id = Keyword.get(opts, :host_user_id)
-
+  def semantic_candidates(embedding_vector, limit, _opts) do
     Chunk
     |> join(:inner, [chunk], revision in Revision, on: revision.id == chunk.revision_id)
     |> join(:inner, [_chunk, revision], article in Article, on: article.id == revision.article_id)
     |> where([_chunk, revision], revision.state == :published)
-    |> maybe_filter_host_user(host_user_id)
     |> order_by(
       [chunk, _revision, _article],
       fragment("? <-> ?", chunk.embedding, ^Pgvector.new(embedding_vector))
@@ -146,7 +140,4 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
       end)
     end)
   end
-
-  defp maybe_filter_host_user(query, nil), do: query
-  defp maybe_filter_host_user(query, _host_user_id), do: query
 end

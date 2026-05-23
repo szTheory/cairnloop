@@ -39,9 +39,30 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     def get_article(article_id) do
       Process.get(:knowledge_base_article_fn, fn _article_id -> nil end).(article_id)
     end
+
+    def create_article(attrs) do
+      Process.put(:created_article_attrs, attrs)
+
+      {:ok,
+       %Cairnloop.KnowledgeBase.Article{
+         id: 700 + System.unique_integer([:positive]),
+         title: attrs.title,
+         status: attrs.status
+       }}
+    end
   end
 
   defmodule MockRepo do
+    def all(Cairnloop.KnowledgeBase.Article) do
+      Process.get(:articles, [])
+    end
+
+    def all(module) when is_atom(module) do
+      case module do
+        _ -> []
+      end
+    end
+
     def all(%Ecto.Query{} = query) do
       Process.put(:last_all_query, query)
 
@@ -93,13 +114,6 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         {:ok, suggestion}
       else
         {:error, changeset}
-      end
-    end
-
-    def all(module) when is_atom(module) do
-      case module do
-        Cairnloop.KnowledgeBase.Article -> Process.get(:articles, [])
-        _ -> []
       end
     end
 
@@ -211,7 +225,9 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         :resolved_case_evidence,
         :latest_active_revision_fn,
         :knowledge_base_article_fn,
-        :revision_lookup
+        :revision_lookup,
+        :created_article_attrs,
+        :authoring_target_suggestion
       ]
       |> Enum.each(&Process.delete/1)
 
@@ -412,8 +428,89 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
   end
 
   test "suggest_article and suggest_revision persist pending suggestions and revision generation uses current published anchor" do
+    Process.put(:gap_candidate_lookup, fn _query ->
+      gap_candidate_fixture()
+    end)
+
+    Process.put(:gap_events, [
+      %GapEvent{
+        id: 12,
+        occurred_at: ~U[2026-05-21 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("a", 64),
+        sanitized_query_excerpt: "billing export missing from knowledge base",
+        canonical_hit_count: 0,
+        assistive_hit_count: 2,
+        clarification_attempts: 1
+      }
+    ])
+
+    Process.put(:resolved_case_evidence, [
+      %ResolvedCaseEvidence{
+        id: 81,
+        conversation_id: 123,
+        subject: "Billing export gap",
+        issue_summary: "Customers cannot find the export guidance.",
+        resolution_note: "Agent walked through the export flow manually.",
+        actions_taken: ["shared steps"],
+        outcome: "resolved",
+        resolved_at: ~U[2026-05-21 11:00:00Z]
+      }
+    ])
+
+    Process.put(:retrieval_ground_for_draft, fn
+      "billing export missing from knowledge base", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export reference",
+              content: "Canonical chunk",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [valid_evidence_attrs()],
+          grounding_assessment: %{status: :strong}
+        }
+
+      "Billing export", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export",
+              content: "Canonical chunk",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [valid_evidence_attrs()],
+          grounding_assessment: %{status: :strong}
+        }
+
+      _query, request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+    end)
+
     {:ok, article_suggestion} =
-      KnowledgeAutomation.suggest_article(valid_article_attrs(),
+      KnowledgeAutomation.suggest_article(valid_article_request(),
+        retrieval_module: MockRetrieval,
         enqueue_fn: fn _job -> {:ok, %{id: "job-article"}} end,
         now_fn: fn -> ~U[2026-05-21 12:00:00Z] end
       )
@@ -422,11 +519,13 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert article_suggestion.generated_at == nil
     assert article_suggestion.entrypoint_type == :gap_candidate
 
-    revision_gap_events = [
+    Process.put(:gap_events, [
       %{
         occurred_at: ~U[2026-05-20 10:00:00Z],
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
         clarification_attempts: 1,
         attempted_evidence_snapshots: [
           %{
@@ -440,6 +539,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         occurred_at: ~U[2026-05-21 10:00:00Z],
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
         clarification_attempts: 1,
         attempted_evidence_snapshots: [
           %{
@@ -449,28 +550,46 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
           }
         ]
       }
-    ]
+    ])
 
-    revision_grounding_bundle = %{
-      canonical_results: [
+    Process.put(:knowledge_base_article_fn, fn 77 ->
+      %Cairnloop.KnowledgeBase.Article{id: 77, title: "Billing export", status: :published}
+    end)
+
+    Process.put(:retrieval_ground_for_draft, fn
+      "Billing export", request, _opts ->
         %{
-          source_type: :knowledge_base,
-          trust_level: :canonical,
-          title: "Billing export",
-          content: "Canonical chunk",
-          citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export",
+              content: "Canonical chunk",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [valid_evidence_attrs()],
+          grounding_assessment: %{status: :strong}
         }
-      ],
-      evidence: [valid_evidence_attrs()],
-      grounding_assessment: %{status: :strong}
-    }
+
+      _query, request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+    end)
 
     {:ok, revision_suggestion} =
       KnowledgeAutomation.suggest_revision(
-        valid_revision_attrs(%{base_revision_id: 999}),
+        valid_revision_request(),
         latest_revision_fn: fn 77 -> %Revision{id: 44, article_id: 77, state: :published} end,
-        gap_events: revision_gap_events,
-        grounding_bundle: revision_grounding_bundle,
+        knowledge_base_module: MockKnowledgeBase,
+        retrieval_module: MockRetrieval,
         enqueue_fn: fn _job -> {:ok, %{id: "job-revision"}} end,
         now_fn: fn -> ~U[2026-05-21 13:00:00Z] end
       )
@@ -481,7 +600,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
 
     assert {:error, :missing_published_revision} =
              KnowledgeAutomation.suggest_revision(
-               valid_revision_attrs(),
+               valid_revision_request(),
                latest_revision_fn: fn _article_id -> nil end
              )
   end
@@ -944,6 +1063,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         occurred_at: ~U[2026-05-20 10:00:00Z],
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
         clarification_attempts: 1,
         attempted_evidence_snapshots: [
           %{
@@ -957,6 +1078,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         occurred_at: ~U[2026-05-21 10:00:00Z],
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
         clarification_attempts: 1,
         attempted_evidence_snapshots: [
           %{
@@ -968,40 +1091,53 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       }
     ]
 
-    age_only_grounding_bundle = %{
-      canonical_results: [],
-      evidence: [],
-      grounding_assessment: %{status: :strong}
-    }
+    Process.put(:gap_events, [])
+    Process.put(:knowledge_base_article_fn, fn 77 ->
+      %Cairnloop.KnowledgeBase.Article{id: 77, title: "Billing export", status: :published}
+    end)
+    Process.put(:retrieval_ground_for_draft, fn _query, request, _opts ->
+      %{
+        query: request.query,
+        canonical_results: [],
+        assistive_results: [],
+        evidence: [],
+        grounding_assessment: %{status: :strong}
+      }
+    end)
 
     assert {:error, {:stale_gate_blocked, %StaleArticleSignal{reason: :insufficient_signals}}} =
              KnowledgeAutomation.suggest_revision(
-               valid_revision_attrs(),
+               valid_revision_request(),
                latest_revision_fn: fn 77 -> %Revision{id: 44, article_id: 77, state: :published} end,
-               gap_events: [],
-               grounding_bundle: age_only_grounding_bundle
+               knowledge_base_module: MockKnowledgeBase,
+               retrieval_module: MockRetrieval
              )
 
-    grounding_bundle = %{
-      canonical_results: [
-        %{
-          source_type: :knowledge_base,
-          trust_level: :canonical,
-          title: "Billing export",
-          content: "Canonical chunk",
-          citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
-        }
-      ],
-      evidence: [valid_evidence_attrs()],
-      grounding_assessment: %{status: :strong}
-    }
+    Process.put(:gap_events, gap_events)
+    Process.put(:retrieval_ground_for_draft, fn _query, request, _opts ->
+      %{
+        query: request.query,
+        canonical_results: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            title: "Billing export",
+            content: "Canonical chunk",
+            citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+          }
+        ],
+        assistive_results: [],
+        evidence: [valid_evidence_attrs()],
+        grounding_assessment: %{status: :strong}
+      }
+    end)
 
     {:ok, suggestion} =
       KnowledgeAutomation.suggest_revision(
-        valid_revision_attrs(),
+        valid_revision_request(),
         latest_revision_fn: fn 77 -> %Revision{id: 44, article_id: 77, state: :published} end,
-        gap_events: gap_events,
-        grounding_bundle: grounding_bundle,
+        knowledge_base_module: MockKnowledgeBase,
+        retrieval_module: MockRetrieval,
         enqueue_fn: fn _job -> {:ok, %{id: "job-stale"}} end
       )
 
@@ -1051,16 +1187,57 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         Process.get(:authoring_target_suggestion, suggestion)
     end)
 
-    {:ok, article_id} = KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(41)
+    Process.put(:knowledge_base_article_fn, fn _id -> nil end)
+
+    {:ok, article_id} =
+      KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(
+        41,
+        knowledge_base_module: MockKnowledgeBase
+      )
     assert is_integer(article_id)
 
     updated = Process.get(:last_updated_suggestion)
     Process.put(:authoring_target_suggestion, updated)
+    Process.put(:knowledge_base_article_fn, fn ^article_id ->
+      %Cairnloop.KnowledgeBase.Article{id: article_id, status: :draft}
+    end)
 
     assert {:ok, ^article_id} =
-             KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(41)
+             KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(
+               41,
+               knowledge_base_module: MockKnowledgeBase
+             )
 
     assert updated.grounding_metadata["authoring_article_id"] == article_id
+  end
+
+  test "create_or_reuse_authoring_article_for_suggestion replaces published authoring targets" do
+    suggestion =
+      suggestion_fixture(%{
+        id: 42,
+        suggestion_type: :article,
+        article_id: nil,
+        grounding_metadata: %{"authoring_article_id" => 91, "status" => "strong"}
+      })
+
+    Process.put(:article_suggestion_detail_lookup, fn _query ->
+      Process.get(:authoring_target_suggestion, suggestion)
+    end)
+
+    Process.put(:authoring_target_suggestion, suggestion)
+    Process.put(:knowledge_base_article_fn, fn 91 ->
+      %Cairnloop.KnowledgeBase.Article{id: 91, status: :published}
+    end)
+
+    {:ok, replacement_id} =
+      KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(
+        42,
+        knowledge_base_module: MockKnowledgeBase
+      )
+
+    assert replacement_id != 91
+    assert Process.get(:created_article_attrs).status == :draft
+    assert Process.get(:last_updated_suggestion).grounding_metadata["authoring_article_id"] == replacement_id
   end
 
   defp valid_article_attrs(overrides \\ %{}) do
@@ -1106,6 +1283,23 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       },
       overrides
     )
+  end
+
+  defp valid_article_request do
+    %{
+      gap_candidate_id: 101,
+      entrypoint_id: 101,
+      tenant_scope: :host_user_scoped,
+      host_user_id: "user-1"
+    }
+  end
+
+  defp valid_revision_request do
+    %{
+      article_id: 77,
+      tenant_scope: :host_user_scoped,
+      host_user_id: "user-1"
+    }
   end
 
   defp valid_evidence_attrs do

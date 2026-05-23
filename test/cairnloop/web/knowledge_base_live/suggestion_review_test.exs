@@ -183,6 +183,29 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     def all(Article) do
       [%Article{id: 77, title: "Billing export guide", status: :published}]
     end
+
+    def get!(Article, id) do
+      case to_string(id) do
+        "77" -> %Article{id: 77, title: "Billing export guide", status: :published}
+        _ -> raise Ecto.NoResultsError, queryable: Article
+      end
+    end
+
+    def one(%Ecto.Query{} = query) do
+      case query.from.source do
+        {"cairnloop_knowledge_base_revisions", Revision} ->
+          %Revision{
+            id: 45,
+            article_id: 77,
+            version: 4,
+            state: :draft,
+            content: "# Before\n\nDraft copy"
+          }
+
+        _ ->
+          nil
+      end
+    end
   end
 
   defmodule MockKnowledgeBase do
@@ -232,7 +255,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         base_revision_id: 44,
         status: :failed,
         title: "Billing export guide",
-        grounding_metadata: %{"status" => "weak", "failure_reason" => "missing_canonical_citations"}
+        grounding_metadata: %{
+          "status" => "weak",
+          "failure_reason" => "missing_canonical_citations"
+        }
       })
 
     shell_quick_fix =
@@ -540,11 +566,16 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert html =~ "Generation blocked"
   end
 
-  test "task detail keeps evidence, citation anchors, grounding, and proposal content together" do
+  test "task detail keeps review-task state, evidence, citation anchors, grounding, and proposal content together" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
     html = render_html(socket.assigns)
 
+    assert html =~ "Review task status"
+    assert html =~ "Approved-ready-to-publish"
+    assert html =~ "Next step"
+    assert html =~ "Ready to publish when you are."
+    assert html =~ "Decision summary"
     assert html =~ "Suggestion status"
     assert html =~ "Ready for review"
     assert html =~ "Grounding status"
@@ -554,7 +585,6 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert html =~ "Canonical guidance"
     assert html =~ "Revision 44"
     assert html =~ "Chunk 2"
-    assert html =~ "/knowledge-base/77/edit"
     assert html =~ "Derived diff summary"
     refute html =~ "Publish outcome"
   end
@@ -578,48 +608,78 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
              index_redirected.redirected
   end
 
-  test "ready suggestions expose only regenerate, dismiss, and open for manual edit" do
+  test "pending review tasks expose approve reject defer and open for edit" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
     html = render_html(socket.assigns)
 
-    assert html =~ "Regenerate"
-    assert html =~ "Dismiss"
-    assert html =~ "Open for manual edit"
-    refute html =~ "phx-click=\"approve\""
-    refute html =~ "phx-click=\"reject\""
-    refute html =~ "phx-click=\"defer\""
-    refute html =~ "phx-click=\"publish\""
-    refute html =~ "phx-click=\"open_for_edit\""
-  end
-
-  test "failed suggestions keep inspect and regenerate without dismiss or manual-edit controls" do
-    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "24"}, "", socket)
-    html = render_html(socket.assigns)
-
-    assert html =~ "Regenerate"
-    assert html =~ "Failure details"
-    refute html =~ "phx-click=\"dismiss\""
-    refute html =~ "phx-click=\"open_for_manual_edit\""
+    assert html =~ "Approve"
+    assert html =~ "Reject"
+    assert html =~ "Defer"
+    assert html =~ "Open for edit"
+    refute html =~ "Regenerate"
+    refute html =~ "Dismiss"
     refute html =~ "phx-click=\"publish\""
   end
 
-  test "regenerate, dismiss, and open_for_manual_edit act on the suggestion while preserving review context" do
+  test "approved tasks expose publish and open-for-edit actions" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
+    html = render_html(socket.assigns)
 
-    assert {:noreply, regenerated_socket} =
-             SuggestionReview.handle_event("regenerate", %{"id" => "22"}, socket)
+    assert html =~ "Publish"
+    assert html =~ "Open for edit"
+    assert html =~ "Reject"
+    assert html =~ "Defer"
+  end
 
-    assert Process.get(:regenerated_suggestion_id) == 11
-    assert regenerated_socket.assigns.selected_task.id == 22
+  test "blocked quick fixes keep the manual-draft handoff inside the shared review lane" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "28"}, "", socket)
+    html = render_html(socket.assigns)
 
-    assert {:noreply, dismissed_socket} =
-             SuggestionReview.handle_event("dismiss", %{"id" => "22"}, socket)
+    assert html =~ "Manual draft required"
+    assert html =~ "Open manual draft"
+    assert html =~ "policy guard"
+    refute html =~ "phx-click=\"publish\""
+  end
 
-    assert Process.get(:dismissed_suggestion_id) == 11
-    assert dismissed_socket.assigns.selected_task.id == 22
+  test "approve reject defer and publish act on the review task while preserving context" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, pending_socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
+
+    assert {:noreply, approved_socket} =
+             SuggestionReview.handle_event("approve", %{"id" => "21"}, pending_socket)
+
+    assert approved_socket.assigns.selected_task.id == 21
+    assert approved_socket.assigns.selected_task.status == :approved_ready_to_publish
+    assert approved_socket.assigns.selected_task.last_reason == :ready_to_publish
+
+    assert {:noreply, rejected_socket} =
+             SuggestionReview.handle_event("reject", %{"id" => "21"}, pending_socket)
+
+    assert rejected_socket.assigns.selected_task.id == 21
+    assert rejected_socket.assigns.selected_task.status == :rejected
+    assert rejected_socket.assigns.selected_task.last_reason == :insufficient_evidence
+
+    assert {:noreply, deferred_socket} =
+             SuggestionReview.handle_event("defer", %{"id" => "21"}, pending_socket)
+
+    assert deferred_socket.assigns.selected_task.id == 21
+    assert deferred_socket.assigns.selected_task.status == :deferred
+    assert deferred_socket.assigns.selected_task.last_reason == :needs_manual_edit
+
+    assert {:noreply, published_socket} =
+             SuggestionReview.handle_event("publish", %{"id" => "22"}, socket)
+
+    assert published_socket.assigns.selected_task.id == 22
+    assert published_socket.assigns.selected_task.status == :published
+    assert published_socket.assigns.selected_task.published_revision_id == 88
+  end
+
+  test "open_for_manual_edit preserves review context for approved and blocked tasks" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
 
     assert {:noreply, edit_socket} =
              SuggestionReview.handle_event("open_for_manual_edit", %{"id" => "22"}, socket)
@@ -628,6 +688,76 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert path =~ "/knowledge-base/77/edit?suggestion_id=11"
     assert path =~ "review_task_id=22"
     assert path =~ "return_to=%2Fknowledge-base%2Fsuggestions%3Ftask%3D22"
+    assert path =~ "handoff="
+
+    {:ok, blocked_socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+
+    {:noreply, blocked_socket} =
+      SuggestionReview.handle_params(%{"task" => "28"}, "", blocked_socket)
+
+    assert {:noreply, blocked_edit_socket} =
+             SuggestionReview.handle_event(
+               "open_for_manual_edit",
+               %{"id" => "28"},
+               blocked_socket
+             )
+
+    assert {:live, :redirect, %{to: blocked_path}} = blocked_edit_socket.redirected
+    assert blocked_path =~ "/knowledge-base/91/edit?suggestion_id=14"
+    assert blocked_path =~ "review_task_id=28"
+  end
+
+  test "manual-edit handoff stays deterministic end to end from review lane to editor preload" do
+    {:ok, review_socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+
+    {:noreply, review_socket} =
+      SuggestionReview.handle_params(%{"task" => "22"}, "", review_socket)
+
+    {:noreply, redirected_socket} =
+      SuggestionReview.handle_event("open_for_manual_edit", %{"id" => "22"}, review_socket)
+
+    assert {:live, :redirect, %{to: path}} = redirected_socket.redirected
+
+    %URI{path: path_only, query: query} = URI.parse(path)
+    assert path_only == "/knowledge-base/77/edit"
+    params = URI.decode_query(query)
+
+    {:ok, editor_socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        Map.put(params, "id", "77"),
+        %{"host_user_id" => "user-1"},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    editor_html =
+      editor_socket.assigns
+      |> Cairnloop.Web.KnowledgeBaseLive.Editor.render()
+      |> Phoenix.HTML.Safe.to_iodata()
+      |> IO.iodata_to_binary()
+
+    assert editor_socket.assigns.content == "# After\n\nNew copy"
+    assert editor_html =~ "Return to review task"
+    assert editor_html =~ "Prepared from article-linked evidence."
+    refute editor_html =~ ">Publish<"
+  end
+
+  test "review surface renders persisted evidence metadata with string keys" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
+    html = render_html(socket.assigns)
+
+    assert html =~ "Canonical guidance"
+    assert html =~ "Revision 44"
+    assert html =~ "Chunk 2"
+  end
+
+  test "published tasks show durable publish outcome copy" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "26"}, "", socket)
+    html = render_html(socket.assigns)
+
+    assert html =~ "Publish outcome"
+    assert html =~ "Published revision #88. Reindex queued."
   end
 
   defp review_task_fixture(overrides) do
@@ -672,8 +802,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
           trust_level: :canonical,
           title: "Billing export reference",
           excerpt: "Use the export endpoint with a date range.",
-          citation_target: %{article_id: 77, revision_id: 44, chunk_index: 2},
-          metadata: %{destination: %{article_id: 77, revision_id: 44}},
+          citation_target: %{"article_id" => 77, "revision_id" => 44, "chunk_index" => 2},
+          metadata: %{"destination" => %{"article_id" => 77, "revision_id" => 44}},
           match_reasons: ["matched export settings"]
         })
       ],

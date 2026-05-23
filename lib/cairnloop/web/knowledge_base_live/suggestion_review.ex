@@ -2,6 +2,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   use Phoenix.LiveView
 
   alias Cairnloop.KnowledgeAutomation
+  alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter}
 
   def mount(_params, session, socket) do
@@ -36,7 +37,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           {:ok, task} =
             suggestion_id
             |> String.to_integer()
-            |> knowledge_automation().ensure_review_task_for_suggestion(socket.assigns.scope_filters)
+            |> knowledge_automation().ensure_review_task_for_suggestion(
+              socket.assigns.scope_filters
+            )
 
           knowledge_automation().get_review_task!(task.id, socket.assigns.scope_filters)
 
@@ -62,7 +65,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
            ) do
       {:noreply, reload_selected(socket, task.id)}
     else
-      _ -> {:noreply, put_flash(socket, :error, "Unable to regenerate this suggestion right now.")}
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to regenerate this suggestion right now.")}
     end
   end
 
@@ -76,6 +80,58 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
       {:noreply, reload_selected(socket, task.id)}
     else
       _ -> {:noreply, put_flash(socket, :error, "Unable to dismiss this suggestion right now.")}
+    end
+  end
+
+  def handle_event("approve", %{"id" => task_id}, socket) do
+    case knowledge_automation().approve_review_task(
+           normalize_id(task_id),
+           socket.assigns.scope_filters
+         ) do
+      {:ok, task} ->
+        {:noreply, reload_selected(socket, task.id)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to approve this review task right now.")}
+    end
+  end
+
+  def handle_event("reject", %{"id" => task_id}, socket) do
+    case knowledge_automation().reject_review_task(
+           normalize_id(task_id),
+           Keyword.put(socket.assigns.scope_filters, :reason, :insufficient_evidence)
+         ) do
+      {:ok, task} ->
+        {:noreply, reload_selected(socket, task.id)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to reject this review task right now.")}
+    end
+  end
+
+  def handle_event("defer", %{"id" => task_id}, socket) do
+    case knowledge_automation().defer_review_task(
+           normalize_id(task_id),
+           Keyword.put(socket.assigns.scope_filters, :reason, :needs_manual_edit)
+         ) do
+      {:ok, task} ->
+        {:noreply, reload_selected(socket, task.id)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to defer this review task right now.")}
+    end
+  end
+
+  def handle_event("publish", %{"id" => task_id}, socket) do
+    case knowledge_automation().publish_review_task(
+           normalize_id(task_id),
+           socket.assigns.scope_filters
+         ) do
+      {:ok, task} ->
+        {:noreply, reload_selected(socket, task.id)}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Unable to publish this review task right now.")}
     end
   end
 
@@ -100,12 +156,20 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
       |> task_patch(socket.assigns.queue_filter)
       |> URI.encode_www_form()
 
+    handoff_token =
+      EditorHandoff.sign(
+        suggestion.id,
+        target_article_id,
+        task.id,
+        URI.decode_www_form(return_to)
+      )
+
     {:noreply,
      push_navigate(
        socket,
        to:
          "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
-           "&review_task_id=#{task.id}&return_to=#{return_to}"
+           "&review_task_id=#{task.id}&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
      )}
   end
 
@@ -149,6 +213,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
         <% suggestion = @selected_task.article_suggestion %>
         <section id="suggestion-detail">
           <h2><%= task_title(@selected_task) %></h2>
+          <p><strong>Review task status</strong>: <%= ReviewTaskPresenter.status_label(@selected_task) %></p>
+          <p><strong>Next step</strong>: <%= ReviewTaskPresenter.next_step_copy(@selected_task) %></p>
+          <p><strong>Decision summary</strong>: <%= ReviewTaskPresenter.decision_summary(@selected_task) %></p>
           <p><strong>Suggestion status</strong>: <%= ArticleSuggestionPresenter.status_label(suggestion) %></p>
           <p><strong>Grounding status</strong>: <%= ArticleSuggestionPresenter.grounding_status_label(suggestion) %></p>
           <p><strong>Stale pressure</strong>: <%= ArticleSuggestionPresenter.stale_pressure_label(suggestion) %></p>
@@ -181,7 +248,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           <% end %>
 
           <div>
-            <%= for {event, label} <- review_actions(suggestion) do %>
+            <%= for {event, label} <- review_actions(@selected_task) do %>
               <button phx-click={event} phx-value-id={@selected_task.id}>
                 <%= label %>
               </button>
@@ -227,6 +294,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
               <li><%= ReviewTaskPresenter.history_line(event) %></li>
             <% end %>
           </ul>
+
+          <%= if @selected_task.status == :published do %>
+            <h3>Publish outcome</h3>
+            <p><%= ReviewTaskPresenter.publish_outcome(@selected_task) %></p>
+          <% end %>
         </section>
       <% end %>
     </div>
@@ -241,7 +313,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   end
 
   defp queue_filter_opts(scope_filters, nil), do: scope_filters
-  defp queue_filter_opts(scope_filters, queue_filter), do: Keyword.put(scope_filters, :status, queue_filter)
+
+  defp queue_filter_opts(scope_filters, queue_filter),
+    do: Keyword.put(scope_filters, :status, queue_filter)
 
   defp assign_selected(socket, nil) do
     assign(socket, selected_task: nil, selected_diff: nil)
@@ -271,19 +345,25 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
 
   defp task_title(_task), do: "Untitled suggestion"
 
-  defp review_actions(suggestion) do
-    suggestion
-    |> ArticleSuggestionPresenter.action_labels()
-    |> Enum.flat_map(fn
-      "regenerate" -> [{"regenerate", "Regenerate"}]
-      "dismiss" -> [{"dismiss", "Dismiss"}]
-      "open for manual edit" -> [{"open_for_manual_edit", "Open for manual edit"}]
-      _ -> []
+  defp review_actions(task) do
+    task
+    |> ReviewTaskPresenter.available_actions()
+    |> Enum.map(fn
+      :open_for_edit ->
+        {"open_for_manual_edit", ReviewTaskPresenter.action_label(:open_for_edit, task)}
+
+      action ->
+        {Atom.to_string(action), ReviewTaskPresenter.action_label(action, task)}
     end)
   end
 
   defp load_task_selection(task_id, socket) do
-    task = knowledge_automation().get_review_task!(String.to_integer(task_id), socket.assigns.scope_filters)
+    task =
+      knowledge_automation().get_review_task!(
+        String.to_integer(task_id),
+        socket.assigns.scope_filters
+      )
+
     {:ok, task, task.article_suggestion}
   end
 
@@ -301,7 +381,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   defp normalize_id(value), do: value
 
   defp task_patch(task_id, nil), do: "/knowledge-base/suggestions?task=#{task_id}"
-  defp task_patch(task_id, queue_filter), do: "/knowledge-base/suggestions?task=#{task_id}&queue=#{queue_filter}"
+
+  defp task_patch(task_id, queue_filter),
+    do: "/knowledge-base/suggestions?task=#{task_id}&queue=#{queue_filter}"
 
   defp queue_patch(filter, nil), do: queue_patch(filter, 0)
 

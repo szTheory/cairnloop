@@ -5,8 +5,8 @@ defmodule Cairnloop.Web.SearchModalComponentTest do
   alias Cairnloop.Web.SearchModalComponent
 
   defmodule MockRetrieval do
-    def search("policy", []) do
-      send(self(), {:retrieval_search, "policy"})
+    def search("policy", opts) do
+      send(self(), {:retrieval_search, "policy", opts})
 
       [
         %Result{
@@ -52,14 +52,46 @@ defmodule Cairnloop.Web.SearchModalComponentTest do
       ]
     end
 
-    def search("boom", []) do
-      send(self(), {:retrieval_search, "boom"})
+    def search("boom", opts) do
+      send(self(), {:retrieval_search, "boom", opts})
       {:error, :unavailable}
     end
 
-    def search(query, []) do
-      send(self(), {:retrieval_search, query})
+    def search("assistive", opts) do
+      send(self(), {:retrieval_search, "assistive", opts})
+
+      [
+        %Result{
+          id: 303,
+          title: "Resolved billing export workaround",
+          content: "A prior operator used escalation after manual review.",
+          source_type: :resolved_case,
+          trust_level: :assistive,
+          conversation_id: 88,
+          chunk_index: 0,
+          resolved_at: DateTime.utc_now(),
+          issue_summary: "Billing export still failed after retry.",
+          resolution_note: "Escalated after confirming no KB article covered the case.",
+          actions_taken: ["Reviewed account", "Escalated to support"],
+          outcome: "Escalation completed.",
+          citation_target: %{conversation_id: 88, chunk_index: 0},
+          metadata: %{
+            destination: %{type: :resolved_case, conversation_id: 88, chunk_index: 0}
+          }
+        }
+      ]
+    end
+
+    def search(query, opts) do
+      send(self(), {:retrieval_search, query, opts})
       []
+    end
+  end
+
+  defmodule MockGapRecorder do
+    def record(attrs) do
+      send(self(), {:gap_recorded, attrs})
+      {:ok, attrs}
     end
   end
 
@@ -106,7 +138,7 @@ defmodule Cairnloop.Web.SearchModalComponentTest do
 
   test "active-row movement updates preview locally without a fresh search request" do
     socket = searched_socket()
-    assert_received {:retrieval_search, "policy"}
+    assert_received {:retrieval_search, "policy", _opts}
 
     {:noreply, socket} =
       SearchModalComponent.handle_event(
@@ -199,29 +231,110 @@ defmodule Cairnloop.Web.SearchModalComponentTest do
 
     assert html =~ "Search is unavailable right now"
     assert html =~ "Preview results here"
+    assert_received {:gap_recorded, %{outcome_class: :retrieval_error, reason: :unexpected_error}}
   end
 
-  defp fresh_socket do
+  test "search passes scope metadata into retrieval and records no-hit gaps synchronously" do
+    socket = opened_socket()
+
+    {:noreply, socket} =
+      SearchModalComponent.handle_event("search", %{"query" => "missing"}, socket)
+
+    assert_received {:retrieval_search, "missing",
+                     [
+                       surface: :search_modal,
+                       host_surface: "conversation",
+                       host_user_id: "user_42"
+                     ]}
+
+    assert_received {:gap_recorded,
+                     %{
+                       query: "missing",
+                       surface: :search_modal,
+                       outcome_class: :empty_recall,
+                       reason: :no_canonical_results,
+                       host_user_id: "user_42",
+                       tenant_scope: :host_user_scoped,
+                       ui_surface: "conversation"
+                     }}
+
+    html = rendered_html(socket)
+
+    assert html =~ "No verified guidance matched this search yet"
+    assert html =~ "No Knowledge Base matches yet"
+  end
+
+  test "non-conversation surfaces fail closed when host scope is missing" do
+    socket = opened_socket(host_surface: "inbox", host_user_id: nil)
+
+    {:noreply, socket} =
+      SearchModalComponent.handle_event("search", %{"query" => "policy"}, socket)
+
+    refute_received {:retrieval_search, _query, _opts}
+    refute_received {:gap_recorded, _attrs}
+
+    html = rendered_html(socket)
+
+    assert socket.assigns.search_state == :scoped_unavailable
+    assert html =~ "Scoped search is unavailable on this surface"
+  end
+
+  test "assistive-only search persists one weak-grounding gap with separated scope semantics" do
+    socket = opened_socket()
+
+    {:noreply, socket} =
+      SearchModalComponent.handle_event("search", %{"query" => "assistive"}, socket)
+
+    assert_received {:gap_recorded,
+                     %{
+                       query: "assistive",
+                       surface: :search_modal,
+                       outcome_class: :weak_grounding,
+                       reason: :assistive_only_results,
+                       host_user_id: "user_42",
+                       tenant_scope: :host_user_scoped,
+                       ui_surface: "conversation"
+                     }}
+
+    html = rendered_html(socket)
+
+    assert html =~ "Resolved billing export workaround"
+    refute html =~ "No verified guidance matched this search yet"
+  end
+
+  test "mixed search results stay durable-gap silent because canonical evidence is present" do
+    socket = opened_socket()
+
+    {:noreply, _socket} =
+      SearchModalComponent.handle_event("search", %{"query" => "policy"}, socket)
+
+    refute_received {:gap_recorded, %{reason: :assistive_only_results}}
+    refute_received {:gap_recorded, %{reason: :mixed_results}}
+    refute_received {:gap_recorded, %{reason: :canonical_results}}
+  end
+
+  defp fresh_socket(overrides \\ []) do
     {:ok, socket} = SearchModalComponent.mount(%Phoenix.LiveView.Socket{})
 
     {:ok, socket} =
       SearchModalComponent.update(
-        %{
+        Enum.into(overrides, %{
           id: "search-modal",
           retrieval_module: MockRetrieval,
+          gap_recorder: MockGapRecorder,
           host_surface: "conversation",
           host_user_id: "user_42",
           current_path: "/99",
           preserve_reply_form: true
-        },
+        }),
         socket
       )
 
     %{socket | assigns: Map.put(socket.assigns, :myself, "search-modal")}
   end
 
-  defp opened_socket do
-    socket = fresh_socket()
+  defp opened_socket(overrides \\ []) do
+    socket = fresh_socket(overrides)
 
     {:noreply, socket} =
       SearchModalComponent.handle_event(
@@ -235,7 +348,10 @@ defmodule Cairnloop.Web.SearchModalComponentTest do
 
   defp searched_socket do
     socket = opened_socket()
-    {:noreply, socket} = SearchModalComponent.handle_event("search", %{"query" => "policy"}, socket)
+
+    {:noreply, socket} =
+      SearchModalComponent.handle_event("search", %{"query" => "policy"}, socket)
+
     socket
   end
 

@@ -146,6 +146,13 @@ defmodule Cairnloop.Chat do
           "metadata" => Enum.into(metadata, %{})
         })
       )
+      |> Ecto.Multi.insert(
+        :resolved_case_index_job,
+        Cairnloop.Retrieval.Workers.IndexResolvedConversation.new(%{
+          "conversation_id" => conversation.id,
+          "metadata" => Enum.into(metadata, %{})
+        })
+      )
       |> auditor.audit(:resolve_conversation, actor, %{conversation_id: conversation.id})
       |> Ecto.Multi.merge(fn _changes ->
         active_sla = repo().one(from s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
@@ -159,7 +166,8 @@ defmodule Cairnloop.Chat do
       |> case do
         {:ok, results} ->
           measurements = %{duration_seconds: duration_seconds, count: 1}
-          :telemetry.execute([:cairnloop, :conversation, :resolved], measurements, meta)
+          event_meta = Map.put(meta, :conversation, results.conversation)
+          Cairnloop.Telemetry.execute([:conversation, :resolved], measurements, event_meta)
 
           {{:ok, results}, meta}
 

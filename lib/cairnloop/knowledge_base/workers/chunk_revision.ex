@@ -13,6 +13,7 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"revision_id" => revision_id}}) do
     :telemetry.execute([:openinference, :span, :start], %{}, %{name: "chunk_revision"})
+    _ = knowledge_automation().record_review_task_reindex_started(revision_id)
 
     result =
       case repo().get(Revision, revision_id) do
@@ -20,18 +21,21 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
           {:error, :revision_not_found}
 
         %Revision{content: content} ->
-          chunks = MarkdownParser.parse(content || "")
+          chunk_sections = MarkdownParser.parse_sections(content || "")
+          chunk_texts = Enum.map(chunk_sections, & &1.content)
 
-          case ExternalApi.generate_embeddings(chunks) do
+          case ExternalApi.generate_embeddings(chunk_texts) do
             {:ok, embeddings} ->
               now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
               chunk_records =
-                Enum.zip(chunks, embeddings)
-                |> Enum.map(fn {text, vector} ->
+                Enum.zip(chunk_sections, embeddings)
+                |> Enum.map(fn {section, vector} ->
                   %{
                     revision_id: revision_id,
-                    content: text,
+                    chunk_index: section.chunk_index,
+                    heading: section.heading,
+                    content: section.content,
                     embedding: Pgvector.new(vector),
                     inserted_at: now,
                     updated_at: now

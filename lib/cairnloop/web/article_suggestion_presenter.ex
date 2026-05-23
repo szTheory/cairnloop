@@ -177,6 +177,8 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
   end
 
   defp to_result(evidence) do
+    destination = metadata_value(evidence.metadata, :destination)
+
     %Result{
       source_type: evidence.source_type,
       trust_level: evidence.trust_level,
@@ -184,7 +186,7 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
       content: evidence.excerpt,
       article_id: metadata_value(evidence.citation_target, :article_id),
       revision_id: metadata_value(evidence.citation_target, :revision_id),
-      metadata: metadata_value(evidence.metadata, :destination) && %{destination: evidence.metadata.destination}
+      metadata: if(is_map(destination), do: %{destination: destination}, else: %{})
     }
   end
 

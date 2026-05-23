@@ -93,6 +93,57 @@ defmodule Cairnloop.Web.SearchResultPresenter do
     preview_copy(result)
   end
 
+  def diagnostic_reason_label(:assistive_only_results), do: "Only supporting evidence matched"
+  def diagnostic_reason_label(:canonical_insufficient_detail), do: "Canonical detail is still missing"
+  def diagnostic_reason_label(:clarification_limit_reached), do: "Clarification limit reached"
+  def diagnostic_reason_label(:no_canonical_results), do: "No verified guidance matched"
+  def diagnostic_reason_label(:provider_timeout), do: "Search timed out"
+  def diagnostic_reason_label(:index_unavailable), do: "Search index unavailable"
+  def diagnostic_reason_label(:unexpected_error), do: "Search is temporarily unavailable"
+  def diagnostic_reason_label(:canonical_results), do: "Canonical guidance matched"
+  def diagnostic_reason_label(:mixed_results), do: "Canonical and supporting evidence matched"
+  def diagnostic_reason_label(_reason), do: "Grounding needs review"
+
+  def diagnostic_reason_copy(:assistive_only_results) do
+    "Only resolved-case evidence matched, so treat this as supporting context rather than verified guidance."
+  end
+
+  def diagnostic_reason_copy(:canonical_insufficient_detail) do
+    "Knowledge Base guidance is close, but one customer detail is still missing before a safe reply can be grounded."
+  end
+
+  def diagnostic_reason_copy(:clarification_limit_reached) do
+    "A clarification was already used once and the reply still lacks enough verified detail to stay safely grounded."
+  end
+
+  def diagnostic_reason_copy(:no_canonical_results) do
+    "No canonical Knowledge Base guidance matched this request, so the system could not ground a reliable answer."
+  end
+
+  def diagnostic_reason_copy(:provider_timeout) do
+    "Retrieval did not complete in time. Keep working in the conversation, then try again."
+  end
+
+  def diagnostic_reason_copy(:index_unavailable) do
+    "Retrieval could not reach the search index. Keep working in the conversation, then try again."
+  end
+
+  def diagnostic_reason_copy(:unexpected_error) do
+    "Retrieval hit a temporary failure. Keep working in the conversation, then try again."
+  end
+
+  def diagnostic_reason_copy(:canonical_results) do
+    "Canonical Knowledge Base guidance matched this request."
+  end
+
+  def diagnostic_reason_copy(:mixed_results) do
+    "Canonical Knowledge Base guidance matched, with supporting resolved-case context alongside it."
+  end
+
+  def diagnostic_reason_copy(_reason) do
+    "Review the evidence before treating this as a routine grounded reply."
+  end
+
   defp destination(%Result{} = result) do
     metadata(result, :destination) ||
       %{

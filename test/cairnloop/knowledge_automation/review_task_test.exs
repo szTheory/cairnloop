@@ -1218,6 +1218,49 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert event.metadata.published_revision_id == 901
   end
 
+  test "record_review_task_reindex_started persists the running follow-through state" do
+    suggestion = suggestion_fixture(%{id: 210})
+
+    task =
+      review_task_fixture(%{
+        id: 610,
+        article_suggestion_id: suggestion.id,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-1",
+        status: :published,
+        published_revision_id: 911,
+        published_at: ~U[2026-05-22 12:05:00Z],
+        publish_status: :published,
+        reindex_status: :queued,
+        last_decision: :approved,
+        last_reason: :ready_to_publish,
+        last_actor_id: "operator-7",
+        last_decided_at: ~U[2026-05-22 12:00:00Z]
+      })
+
+    Process.put(:review_tasks, [task])
+    Process.put(:article_suggestions, [suggestion])
+    Process.put(:review_task_events, [])
+
+    assert {:ok, updated_task} =
+             KnowledgeAutomation.record_review_task_reindex_started(911, host_user_id: "host-1")
+
+    assert updated_task.status == :published
+    assert updated_task.publish_status == :published
+    assert updated_task.reindex_status == :running
+
+    event = Process.get(:last_inserted)
+    assert event.event_type == :reindex_recorded
+    assert event.metadata.reindex_status == :running
+
+    assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :reindex_outcome],
+                    measurements, metadata}
+
+    assert measurements.count == 1
+    assert metadata.outcome == :running
+    assert metadata.reindex_status == :running
+  end
+
   test "record_review_task_reindex_outcome marks failures durably without touching unrelated tasks" do
     suggestion = suggestion_fixture(%{id: 111})
 

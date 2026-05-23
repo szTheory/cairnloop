@@ -3,13 +3,18 @@ defmodule Cairnloop.Web.InboxLive do
 
   alias Cairnloop.Chat
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     if connected?(socket) do
       # In a real app we would subscribe to a pubsub here
     end
 
     conversations = Chat.list_conversations()
-    {:ok, assign(socket, conversations: conversations)}
+
+    {:ok,
+     assign(socket,
+       conversations: conversations,
+       host_user_id: Map.get(session, "host_user_id")
+     )}
   end
 
   def render(assigns) do
@@ -31,6 +36,7 @@ defmodule Cairnloop.Web.InboxLive do
       module={Cairnloop.Web.SearchModalComponent}
       id="search-modal"
       host_surface="inbox"
+      host_user_id={@host_user_id}
       current_path="/"
     />
     """

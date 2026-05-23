@@ -10,11 +10,12 @@ This document records the current strategic milestone ordering so future milesto
 - Prefer host-owned Phoenix/Ecto/Oban paths over new external infrastructure unless the local path proves insufficient.
 - Build the support-to-knowledge loop before broader outbound or cross-system automation.
 - Avoid omnichannel sprawl, generic CRM surface area, and protocol-first work that does not improve the operator workflow.
+- Treat MCP as an interoperability seam, not the internal workflow truth model.
 
 ## Research Summary
-- **Plain** validates API-first support infrastructure, embedded knowledge, and AI-assisted operator workflows.
-- **Pylon** validates knowledge-gap discovery, similar-case workflows, and product-signal extraction from support.
-- **Help Scout** and **Zendesk** reinforce that AI support quality depends on grounded knowledge retrieval and explicit fallback paths.
+- **Plain** validates API-first support infrastructure, embedded knowledge, and pragmatic MCP onboarding, but also reinforces user-scoped auth and workflow-first actions.
+- **Pylon** validates runbook-shaped, human-guided actions over generic tool spam, plus durable investigation and knowledge-gap loops.
+- **Help Scout** and **Zendesk** reinforce that AI support quality depends on grounded knowledge retrieval, explicit fallback paths, visible action logs, and operator-facing review surfaces.
 - **Chatwoot**, **Zammad**, and **FreeScout** validate open-source support demand, but also warn against becoming a broad helpdesk clone.
 - **Papercups** validates Phoenix as a strong support fit while also showing the limits of the "open-source Intercom clone" path.
 
@@ -33,21 +34,33 @@ Scoria runtime integration, raw live-thread canonical truth.
 verified; deferred debt remains limited to split planning-layout traceability and unrelated
 workspace boot noise during focused tests.
 
-## Recommended Next Milestones
+## Active Milestone
 
 ### M011 - AI Tool Governance & MCP Integration
-**Status:** candidate
+**Status:** active
 **Priority:** high
+**Activated:** 2026-05-23
 **Why after M010:** retrieval is now trustworthy and KB maintenance is operator-reviewed, so the
-next leverage point is policy-gated action with explicit approval boundaries and governed
-integration seams.
-**Shift-left exception:** pull ahead of M010 only for materially important enterprise or platform-integration demand.
+next leverage point is governed support action with explicit approval boundaries and host-owned
+workflow truth.
+**Scope center of gravity:** typed governed tools, policy evaluation, durable approvals, Oban
+pause/resume execution, in-thread operator review, and optional read-only MCP seams over the same
+contract.
+**Scope guard:** build the internal governed-action framework first; broad remote MCP surfaces,
+high-risk write tools, and protocol-led expansion stay deferred until the core path is proven.
+**Non-goals:** broad third-party MCP server marketplace support, high-risk financial mutations as
+the first shipped action lane, AI-superuser identities, confidence-score-based mutation approval,
+and replacing KB/review truth with tool output.
+
+## Recommended Next Milestones
 
 ### M012 - Support-Triggered Outbound Lifecycle
 **Status:** candidate
 **Priority:** medium
-**Why later:** transactional outbound is valuable, but it benefits from better retrieval, intent, and governance primitives before it becomes a core adoption story.
-**Scope guard:** keep it transactional and support-triggered; never let it turn into a generic marketing automation layer.
+**Why later:** transactional outbound is valuable, but it benefits from better retrieval, governed
+actions, and policy/audit primitives before it becomes a core adoption story.
+**Scope guard:** keep it transactional and support-triggered; never let it turn into a generic
+marketing automation layer.
 
 ## Deferred Bets
 - Broad external MCP server surface for third-party clients.

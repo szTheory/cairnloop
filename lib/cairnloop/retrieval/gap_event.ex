@@ -5,6 +5,8 @@ defmodule Cairnloop.Retrieval.GapEvent do
   alias Cairnloop.Retrieval.GapEventSnapshot
 
   @surface_values [:draft_generation, :search_modal, :api, :unspecified]
+  @tenant_scope_values [:host_user_scoped, :public_only, :system_unscoped]
+  @ui_surface_values [:conversation, :inbox, :settings, :unspecified]
   @outcome_values [:empty_recall, :retrieval_error, :weak_grounding, :policy_limit]
   @reason_values [
     :canonical_results,
@@ -26,7 +28,8 @@ defmodule Cairnloop.Retrieval.GapEvent do
     field(:outcome_class, Ecto.Enum, values: @outcome_values)
     field(:reason, Ecto.Enum, values: @reason_values)
     field(:host_user_id, :string)
-    field(:tenant_scope, :string)
+    field(:tenant_scope, Ecto.Enum, values: @tenant_scope_values)
+    field(:ui_surface, Ecto.Enum, values: @ui_surface_values, default: :unspecified)
     field(:query_fingerprint, :string)
     field(:sanitized_query_excerpt, :string)
     field(:canonical_hit_count, :integer, default: 0)
@@ -47,6 +50,7 @@ defmodule Cairnloop.Retrieval.GapEvent do
       :reason,
       :host_user_id,
       :tenant_scope,
+      :ui_surface,
       :query_fingerprint,
       :sanitized_query_excerpt,
       :canonical_hit_count,
@@ -59,6 +63,8 @@ defmodule Cairnloop.Retrieval.GapEvent do
       :surface,
       :outcome_class,
       :reason,
+      :tenant_scope,
+      :ui_surface,
       :query_fingerprint,
       :sanitized_query_excerpt
     ])

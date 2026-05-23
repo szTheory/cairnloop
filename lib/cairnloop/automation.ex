@@ -1,4 +1,6 @@
 defmodule Cairnloop.Automation do
+  import Ecto.Query
+
   alias Cairnloop.{Automation.Draft, Message}
 
   defp repo do
@@ -32,17 +34,31 @@ defmodule Cairnloop.Automation do
     end
   end
 
+  def latest_draft_for_conversation(conversation_id) do
+    Draft
+    |> where([draft], draft.conversation_id == ^conversation_id)
+    |> order_by([draft], desc: draft.inserted_at, desc: draft.id)
+    |> limit(1)
+    |> repo().one()
+  end
+
   def approve_draft(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
     actor = Keyword.get(opts, :actor)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+
+    auditor =
+      Keyword.get(
+        opts,
+        :auditor,
+        Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
+      )
 
     Ecto.Multi.new()
     |> Ecto.Multi.insert(
       :message,
       Message.changeset(%Message{}, %{
         conversation_id: draft.conversation_id,
-        content: draft.content,
+        content: Draft.reply_content(draft),
         role: :agent
       })
     )
@@ -67,7 +83,13 @@ defmodule Cairnloop.Automation do
   def discard_draft(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
     actor = Keyword.get(opts, :actor)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+
+    auditor =
+      Keyword.get(
+        opts,
+        :auditor,
+        Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
+      )
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :discarded}))
@@ -91,7 +113,13 @@ defmodule Cairnloop.Automation do
   def mark_draft_edited(draft_id, opts \\ []) do
     draft = repo().get!(Draft, draft_id)
     actor = Keyword.get(opts, :actor)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+
+    auditor =
+      Keyword.get(
+        opts,
+        :auditor,
+        Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
+      )
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :edited}))

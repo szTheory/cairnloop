@@ -528,6 +528,170 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} = socket.redirected
   end
 
+  test "entrypoint redirects preserve enough state for deterministic review-lane smoke coverage" do
+    Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+    Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
+    Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-e2e"}} end)
+
+    Process.put(:mock_gap_candidates, [%GapCandidate{id: 5, title: "Billing Export"}])
+    Process.put(:live_gap_candidate_lookup, fn _query ->
+      %GapCandidate{
+        id: 5,
+        stable_key: "gap:tenant:user-1:5",
+        status: :open,
+        candidate_type: :mixed,
+        title: "Billing Export",
+        seed_excerpt: "Billing export missing from KB",
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        first_seen_at: ~U[2026-05-20 09:00:00Z],
+        last_seen_at: ~U[2026-05-21 09:00:00Z],
+        evidence_count: 2,
+        manual_case_count: 1,
+        weak_grounding_count: 1,
+        no_hit_count: 0,
+        score: 4.2,
+        score_components: %{"weak_grounding" => 1.3},
+        memberships: [
+          %GapCandidateMembership{source_type: :retrieval_gap_event, source_id: 10},
+          %GapCandidateMembership{source_type: :manual_handling_case, source_id: 99}
+        ]
+      }
+    end)
+
+    Process.put(:live_gap_events, [
+      %GapEvent{
+        id: 10,
+        occurred_at: ~U[2026-05-21 08:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("c", 64),
+        sanitized_query_excerpt: "billing export missing from knowledge base",
+        canonical_hit_count: 0,
+        assistive_hit_count: 2,
+        clarification_attempts: 1
+      },
+      %GapEvent{
+        id: 301,
+        occurred_at: ~U[2026-05-21 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("d", 64),
+        sanitized_query_excerpt: "billing export edge case",
+        canonical_hit_count: 0,
+        assistive_hit_count: 1,
+        clarification_attempts: 1,
+        attempted_evidence_snapshots: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            citation_target: %{article_id: 77, revision_id: 44, chunk_index: 1}
+          }
+        ]
+      },
+      %GapEvent{
+        id: 302,
+        occurred_at: ~U[2026-05-22 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :policy_limit,
+        reason: :clarification_limit_reached,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("e", 64),
+        sanitized_query_excerpt: "billing export limits",
+        canonical_hit_count: 0,
+        assistive_hit_count: 1,
+        clarification_attempts: 1,
+        attempted_evidence_snapshots: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            citation_target: %{article_id: 77, revision_id: 44, chunk_index: 2}
+          }
+        ]
+      }
+    ])
+
+    Process.put(:live_resolved_case_evidence, [
+      %ResolvedCaseEvidence{
+        id: 99,
+        conversation_id: 123,
+        subject: "Billing export issue",
+        issue_summary: "Customers cannot find the export article.",
+        resolution_note: "Agent walked through the export manually.",
+        actions_taken: ["shared export steps"],
+        outcome: "resolved",
+        resolved_at: ~U[2026-05-21 07:30:00Z]
+      }
+    ])
+
+    Process.put(:index_articles, [%Article{id: 77, title: "Billing Export", status: :published}])
+    Process.put(:index_article_lookup_fn, fn 77 -> %Article{id: 77, title: "Billing Export", status: :published} end)
+    Process.put(:index_latest_active_revision_fn, fn 77 -> %Revision{id: 44, article_id: 77, state: :published, version: 3} end)
+
+    Process.put(:live_retrieval_ground_for_draft, fn
+      "billing export missing from knowledge base", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export reference",
+              content: "Open Settings and choose Export.",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :strong}
+        }
+
+      "Billing Export", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export reference",
+              content: "Canonical chunk",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :strong}
+        }
+    end)
+
+    {:ok, gaps_socket} = Gaps.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+    {:noreply, gaps_socket} = Gaps.handle_params(%{"candidate" => "5"}, "", gaps_socket)
+    {:noreply, gaps_socket} = Gaps.handle_event("suggest_article", %{"candidate_id" => "5"}, gaps_socket)
+
+    {:ok, index_socket} = Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+    {:noreply, index_socket} = Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
+
+    article_suggestion = Process.get(:live_article_suggestions) |> Enum.find(&(&1.entrypoint_type == :gap_candidate))
+    revision_suggestion = Process.get(:live_article_suggestions) |> Enum.find(&(&1.entrypoint_type == :article_revision))
+
+    assert article_suggestion.grounding_metadata["query"] == "billing export missing from knowledge base"
+    assert revision_suggestion.grounding_metadata["stale_signal"][:signal_count] == 2
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} = gaps_socket.redirected
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} = index_socket.redirected
+  end
+
   defp render_html(assigns) do
     assigns
     |> Gaps.render()

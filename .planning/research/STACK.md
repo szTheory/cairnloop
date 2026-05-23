@@ -1,43 +1,39 @@
-# Technology Stack
+# M011 Stack Research: AI Tool Governance & MCP Integration
 
-**Project:** Cairnloop (M006)
-**Researched:** Current Date
+**Date:** 2026-05-23
+**Milestone:** vM011 AI Tool Governance & MCP Integration
 
-## Recommended Stack
+## Recommended Stack Shape
 
-### Core Framework
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Oban | ~> 2.17 | Job scheduling & Execution | The premier persistent job queue for Elixir. Provides reliable `schedule_in` semantics and built-in retry mechanisms essential for SLA countdowns. |
-| Chimeway | (Internal) | Notification Routing | Provides a durable, template-driven async notification delivery abstraction, keeping third-party API integrations out of Cairnloop. |
-| Mailglass | (Internal) | Email Templates | Works alongside Chimeway to handle the email delivery templating if the host prefers email escalations over Slack/Discord. |
+| Area | Recommendation | Why |
+|------|----------------|-----|
+| Workflow truth | `Ecto` schemas + `Ecto.Multi` | Durable approvals, replayable state transitions, and explicit fail-closed mutations fit Cairnloop's host-owned model. |
+| Async orchestration | `Oban` workers and unique jobs | Human approval pause/resume and retryable execution belong in durable jobs, not in LiveView or transient processes. |
+| Operator control plane | `Phoenix LiveView` + `Phoenix.PubSub` | Existing operator workflow already lives in-thread; UI updates should subscribe to durable state rather than own it. |
+| Tool contract | Native Elixir behaviour plus embedded-schema changesets | Typed inputs, explicit validations, and host-owned extensibility fit the existing `Cairnloop.Tool` shape. |
+| Policy seam | Host-owned behaviour module | Permission and risk posture must remain app-specific and actor-scoped, not hidden in a generic runtime. |
+| Telemetry | Existing bounded telemetry helpers plus new governed-action events | Keeps metric labels low-cardinality while durable evidence stores high-detail action truth. |
+| AI evidence lane | Optional `Scoria` integration | Good for OpenInference traces, evals, and tool evidence, but should not become required runtime truth. |
+| Remote interoperability | Optional MCP adapter | Useful at the edge, but not as Cairnloop's core action model. Start read-only and user-scoped. |
 
-### Supporting Libraries
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| Oban Pro | (Optional) | Workflows & Batching | If the host requires complex cancelation of SLA jobs or partitioned pruning. However, Cairnloop will target Oban OSS for the baseline. |
+## Keep
 
-## Alternatives Considered
+- `Ecto.Multi` for proposal, approval, deny, expire, and resume transitions.
+- `Oban` for proposal execution, approval wakeup, timeout expiry, and replay.
+- `Phoenix.PubSub` for waking operator surfaces after durable state changes.
+- Embedded-schema input validation for tool arguments.
+- Host-owned behaviours for policy, audit, and optional adapters.
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Task Scheduling | Oban (`schedule_in`) | `Process.send_after` | In-memory timers are lost on node restart or deploy. Unacceptable for SLAs spanning hours or days. |
-| Task Scheduling | Oban (`schedule_in`) | `:timer` / `GenServer` | Same as above. Not durable across pod restarts. |
-| Delivery | Chimeway | `Req` to Slack Webhook | Hardcoding webhook URLs limits extensibility and assumes every host wants Slack. We must use adapter patterns. |
+## Add
 
-## Installation
+- Durable records such as `automation_runs`, `tool_calls`, `tool_approvals`, and append-only action events.
+- A governed-tool metadata contract covering risk tier, idempotency, preview rendering, redaction, and fallback semantics.
+- A bounded telemetry helper for governed actions, modeled after retrieval and KB maintenance telemetry.
+- Optional `cairnloop_scoria` and `cairnloop_mcp` companion seams rather than required runtime dependencies.
 
-\`\`\`elixir
-# Assumes Oban is already installed from Core Loop, but we will configure specific queues.
-# config.exs
-config :cairnloop, Oban,
-  queues: [sla_escalations: 10, notifications: 20],
-  plugins: [
-    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7} # Prune old SLA jobs after 7 days
-  ]
-\`\`\`
+## Avoid
 
-## Sources
-
-- Oban OSS Documentation / GitHub recipes (Verified via Context7)
-- Cairnloop Backlog & Epic Definitions
+- Blocking approval inside LiveView or a long-running worker.
+- Treating MCP transport/session state as workflow truth.
+- Broad new infrastructure such as Temporal or external workflow engines.
+- Generic macro-heavy tool DSLs that hide important host decisions.

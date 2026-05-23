@@ -169,7 +169,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
 
       changeset
       |> validate_quick_fix_outcome(outcome)
-      |> validate_quick_fix_reason(reason)
+      |> validate_quick_fix_reason(outcome, reason)
     else
       changeset
     end
@@ -183,13 +183,19 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
     add_error(changeset, :grounding_metadata, "must include a bounded quick-fix outcome")
   end
 
-  defp validate_quick_fix_reason(changeset, nil), do: changeset
+  defp validate_quick_fix_reason(changeset, outcome, nil)
+       when outcome in ["shell_created", "blocked_manual_required"] or
+              outcome in [:shell_created, :blocked_manual_required] do
+    add_error(changeset, :grounding_metadata, "must include a bounded quick-fix reason")
+  end
 
-  defp validate_quick_fix_reason(changeset, reason)
+  defp validate_quick_fix_reason(changeset, _outcome, nil), do: changeset
+
+  defp validate_quick_fix_reason(changeset, _outcome, reason)
        when reason in @quick_fix_reason_values or reason in @quick_fix_reason_atoms,
        do: changeset
 
-  defp validate_quick_fix_reason(changeset, _reason) do
+  defp validate_quick_fix_reason(changeset, _outcome, _reason) do
     add_error(changeset, :grounding_metadata, "must include a bounded quick-fix reason")
   end
 

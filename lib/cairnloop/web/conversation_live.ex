@@ -5,6 +5,7 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Automation.Draft
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Retrieval.Result
+  alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
 
   def mount(%{"id" => id}, _session, socket) do
@@ -144,15 +145,23 @@ defmodule Cairnloop.Web.ConversationLive do
                quick_fix_scope_opts(socket.assigns.conversation)
              ) do
           {:ok, article_id} ->
-            return_to = URI.encode_www_form("/#{socket.assigns.conversation.id}")
+            return_path = "/#{socket.assigns.conversation.id}"
+            return_to = URI.encode_www_form(return_path)
             review_task_param = manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
+            handoff_token =
+              EditorHandoff.sign(
+                suggestion_id,
+                article_id,
+                socket.assigns.quick_fix_card[:review_task_id],
+                return_path
+              )
 
             {:noreply,
              push_navigate(
                socket,
                to:
                  "/knowledge-base/#{article_id}/edit?suggestion_id=#{suggestion_id}" <>
-                   review_task_param <> "&return_to=#{return_to}"
+                   review_task_param <> "&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
              )}
 
           {:error, _reason} ->

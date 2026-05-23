@@ -3,26 +3,47 @@ defmodule Cairnloop.Automation.ScoriaEngineTest do
 
   alias Cairnloop.Automation.ScoriaEngine
 
-  setup do
-    Application.put_env(:cairnloop, :scrypath_req_opts, [plug: {Req.Test, Cairnloop.ScrypathAPI}])
-    :ok
-  end
-
   describe "ScoriaEngine" do
-    test "generate_draft/1 returns a simulated draft map" do
-      conversation_id = "conv_987"
+    test "generate_draft/2 returns a structured grounded reply proposal" do
+      grounding_bundle = %{
+        query: "billing export",
+        canonical_results: [
+          %{
+            content: "Exports are available under Billing > Reports.",
+            source_type: :knowledge_base
+          }
+        ],
+        assistive_results: [],
+        evidence: [%{source_type: :knowledge_base, trust_level: :canonical}],
+        clarification_attempts: 0,
+        grounding_assessment: %{status: :strong, reason: :canonical_grounding}
+      }
 
-      Req.Test.stub(Cairnloop.ScrypathAPI, fn conn ->
-        Req.Test.json(conn, %{"results" => ["relevant context"]})
-      end)
+      assert {:ok, proposal} = ScoriaEngine.generate_draft("conv_987", grounding_bundle)
 
-      assert {:ok, proposal} = ScoriaEngine.generate_draft(conversation_id)
+      assert proposal.conversation_id == "conv_987"
+      assert proposal.proposal_type == :reply
+      assert is_binary(proposal.operator_summary)
+      assert is_binary(proposal.customer_reply)
+      assert proposal.customer_reply =~ "Knowledge Base guidance"
+      assert proposal.grounding_metadata.grounding_status == :strong
+    end
 
-      assert proposal.conversation_id == conversation_id
-      assert Map.has_key?(proposal, :content)
-      assert is_binary(proposal.content)
-      assert proposal.context_used == %{"results" => ["relevant context"]}
-      assert proposal.content =~ "grounded"
+    test "generate_draft/2 returns escalation copy for weak grounding" do
+      grounding_bundle = %{
+        query: "mystery failure",
+        canonical_results: [],
+        assistive_results: [%{source_type: :resolved_case}],
+        evidence: [%{source_type: :resolved_case, trust_level: :assistive}],
+        clarification_attempts: 1,
+        grounding_assessment: %{status: :escalation, reason: :clarification_limit_reached}
+      }
+
+      assert {:ok, proposal} = ScoriaEngine.generate_draft("conv_123", grounding_bundle)
+
+      assert proposal.proposal_type == :escalation
+      assert proposal.customer_reply =~ "escalate"
+      assert proposal.clarification_attempts == 1
     end
   end
 end

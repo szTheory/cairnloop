@@ -7,6 +7,11 @@ defmodule Cairnloop.AutomationTest do
         %Cairnloop.Automation.Draft{
           id: 1,
           content: "draft content",
+          customer_reply: "draft content",
+          proposal_type: :reply,
+          evidence_snapshot: %{},
+          grounding_metadata: %{},
+          clarification_attempts: 0,
           status: :pending,
           conversation_id: 100
         }
@@ -28,7 +33,7 @@ defmodule Cairnloop.AutomationTest do
 
           {name, {:update, changeset, _}} ->
             {name, Ecto.Changeset.apply_changes(changeset)}
-            
+
           {name, {:run, run_fn}} ->
             {:ok, result} = run_fn.(__MODULE__, %{})
             {name, result}
@@ -67,15 +72,24 @@ defmodule Cairnloop.AutomationTest do
   end
 
   describe "create_draft/2" do
-    test "inserts a Draft, emits telemetry, and returns {:ok, draft}" do
+    test "persists a structured draft, emits telemetry, and returns {:ok, draft}" do
       assert {:ok, draft} =
                Cairnloop.Automation.create_draft(100, %{
-                 content: "mocked AI draft",
+                 proposal_type: :clarification,
+                 operator_summary: "Need one more billing detail",
+                 customer_reply: "Can you share the export error message?",
+                 evidence_snapshot: %{evidence: [%{source_type: :knowledge_base}]},
+                 grounding_metadata: %{grounding_status: :clarification},
+                 clarification_attempts: 1,
                  status: :pending
                })
 
       assert draft.conversation_id == 100
-      assert draft.content == "mocked AI draft"
+      assert draft.content == "Can you share the export error message?"
+      assert draft.customer_reply == "Can you share the export error message?"
+      assert draft.operator_summary == "Need one more billing detail"
+      assert draft.proposal_type == :clarification
+      assert draft.clarification_attempts == 1
 
       assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :created], %{count: 1},
                       %{draft_id: _}}
@@ -129,18 +143,29 @@ defmodule Cairnloop.AutomationTest do
     end
 
     test "approve_draft/2 injects auditor" do
-      assert {:ok, result} = Cairnloop.Automation.approve_draft(1, actor: "test_actor", auditor: TestAuditor)
-      assert %{action: :approve_draft, actor: "test_actor", metadata: %{draft_id: 1}} = result.audit
+      assert {:ok, result} =
+               Cairnloop.Automation.approve_draft(1, actor: "test_actor", auditor: TestAuditor)
+
+      assert %{action: :approve_draft, actor: "test_actor", metadata: %{draft_id: 1}} =
+               result.audit
     end
 
     test "discard_draft/2 injects auditor" do
-      assert {:ok, result} = Cairnloop.Automation.discard_draft(1, actor: %{id: 42}, auditor: TestAuditor)
+      assert {:ok, result} =
+               Cairnloop.Automation.discard_draft(1, actor: %{id: 42}, auditor: TestAuditor)
+
       assert %{action: :discard_draft, actor: %{id: 42}, metadata: %{draft_id: 1}} = result.audit
     end
 
     test "mark_draft_edited/2 injects auditor" do
-      assert {:ok, result} = Cairnloop.Automation.mark_draft_edited(1, actor: "test_actor", auditor: TestAuditor)
-      assert %{action: :mark_draft_edited, actor: "test_actor", metadata: %{draft_id: 1}} = result.audit
+      assert {:ok, result} =
+               Cairnloop.Automation.mark_draft_edited(1,
+                 actor: "test_actor",
+                 auditor: TestAuditor
+               )
+
+      assert %{action: :mark_draft_edited, actor: "test_actor", metadata: %{draft_id: 1}} =
+               result.audit
     end
   end
 end

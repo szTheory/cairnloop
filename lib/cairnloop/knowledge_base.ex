@@ -62,6 +62,12 @@ defmodule Cairnloop.KnowledgeBase do
     end
   end
 
+  def create_article(attrs) do
+    %Article{}
+    |> Article.changeset(attrs)
+    |> repo().insert()
+  end
+
   def publish_revision(revision) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:revision, Revision.changeset(revision, %{state: :published}))

@@ -400,8 +400,22 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
+  def record_review_task_reindex_started(published_revision_id, opts \\ []) do
+    case find_review_task_by_published_revision_id(published_revision_id, opts) do
+      nil ->
+        :ok
+
+      %ReviewTask{status: :published, reindex_status: :queued} = task ->
+        persist_reindex_started(task, published_revision_id, opts)
+
+      %ReviewTask{} = task ->
+        {:ok, task}
+    end
+  end
+
   def suggest_article(attrs, opts \\ []) do
     attrs = Map.new(attrs)
+    {attrs, opts} = hydrate_gap_candidate_request(attrs, opts)
 
     case prepare_request(:article, attrs, opts) do
       {:ok, prepared} -> insert_and_enqueue(prepared, opts)
@@ -415,7 +429,6 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     scope_opts =
       [
-    {attrs, opts} = hydrate_gap_candidate_request(attrs, opts)
         tenant_scope: prepared.tenant_scope,
         host_user_id: prepared.host_user_id
       ]
@@ -458,6 +471,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   def suggest_revision(attrs, opts \\ []) do
     attrs = Map.new(attrs)
+    kb_module = knowledge_base_module(opts)
 
     latest_revision_fn =
       Keyword.get(opts, :latest_revision_fn, fn article_id ->
@@ -473,12 +487,15 @@ defmodule Cairnloop.KnowledgeAutomation do
         {:error, :missing_published_revision}
 
       revision ->
-    kb_module = knowledge_base_module(opts)
+        {gap_events, grounding_bundle} = build_revision_gate_inputs(revision, attrs, opts)
+
         stale_signal =
           stale_article_signal_module(opts).build_revision_gate(
             revision.article_id,
             revision.id,
-            revision_gate_opts(attrs, opts, gap_events, grounding_bundle)
+            gap_events: gap_events,
+            grounding_bundle: grounding_bundle,
+            now_fn: Keyword.get(opts, :now_fn, &DateTime.utc_now/0)
           )
 
         if stale_signal.ready? do
@@ -487,8 +504,6 @@ defmodule Cairnloop.KnowledgeAutomation do
             |> Map.put(:suggestion_type, :revision)
             |> Map.put(:entrypoint_type, :article_revision)
             |> Map.put(:entrypoint_id, revision.article_id)
-        {gap_events, grounding_bundle} = build_revision_gate_inputs(revision, attrs, opts)
-
             |> Map.put(:article_id, revision.article_id)
             |> Map.put(:base_revision_id, revision.id)
 
@@ -530,6 +545,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   def create_or_reuse_authoring_article_for_suggestion(id, opts \\ []) do
     suggestion = get_article_suggestion!(id, opts)
+    kb_module = knowledge_base_module(opts)
 
     existing_authoring_article_id =
       suggestion.grounding_metadata
@@ -539,12 +555,12 @@ defmodule Cairnloop.KnowledgeAutomation do
       suggestion.suggestion_type == :revision and suggestion.article_id ->
         {:ok, suggestion.article_id}
 
-      existing_authoring_article_id ->
+      reusable_authoring_article?(kb_module.get_article(existing_authoring_article_id)) ->
         {:ok, existing_authoring_article_id}
 
       true ->
         with {:ok, article} <-
-               knowledge_base_module(opts).create_article(%{
+               kb_module.create_article(%{
                  title: suggestion.title || "Suggested Knowledge Base article",
                  status: :draft
                }),
@@ -1340,40 +1356,11 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp reviewable_for_review_task?(%ArticleSuggestion{status: status}),
     do: status in [:pending_generation, :ready, :failed]
 
-  defp revision_gate_opts(attrs, opts, gap_events, grounding_bundle) do
-    [
-      now_fn: Keyword.get(opts, :now_fn, &DateTime.utc_now/0),
-      gap_events: gap_events,
-      grounding_bundle: grounding_bundle,
-      tenant_scope: Map.get(attrs, :tenant_scope) || Map.get(attrs, "tenant_scope"),
-      host_user_id: Map.get(attrs, :host_user_id) || Map.get(attrs, "host_user_id")
-    ]
-  end
-
-  defp normalize_source_type(value) when value in [:knowledge_base, :resolved_case], do: value
-  defp normalize_source_type("knowledge_base"), do: :knowledge_base
-  defp normalize_source_type("resolved_case"), do: :resolved_case
-  defp normalize_source_type(_), do: :unknown
-
-  defp normalize_trust_level(value) when value in [:canonical, :assistive], do: value
-  defp normalize_trust_level("canonical"), do: :canonical
-  defp normalize_trust_level("assistive"), do: :assistive
-  defp normalize_trust_level(_), do: :unknown
-
-  defp normalize_citation_target(%{} = citation_target, article_id, revision_id, chunk_index) do
-    citation_target
-    |> Enum.into(%{}, fn {key, value} -> {normalize_map_key(key), value} end)
   defp hydrate_gap_candidate_request(attrs, opts) do
     candidate_id = entrypoint_id_for(:article, attrs)
 
     cond do
       is_nil(candidate_id) ->
-        {attrs, opts}
-
-      gap_candidate_grounding_supplied?(attrs) ->
-        {attrs, opts}
-
-      Keyword.has_key?(opts, :grounding_bundle) ->
         {attrs, opts}
 
       true ->
@@ -1384,19 +1371,20 @@ defmodule Cairnloop.KnowledgeAutomation do
 
         hydrated_attrs =
           attrs
-          |> Map.put_new(:gap_candidate_id, candidate.id)
-          |> Map.put_new(:entrypoint_id, candidate.id)
-          |> Map.put_new(:title, candidate.title)
+          |> Map.put(:gap_candidate_id, candidate.id)
+          |> Map.put(:entrypoint_id, candidate.id)
+          |> Map.put(:title, Map.get(attrs, :title) || Map.get(attrs, "title") || candidate.title)
+          |> Map.delete(:evidence_snapshot)
+          |> Map.delete("evidence_snapshot")
+          |> Map.delete(:evidence)
+          |> Map.delete("evidence")
+          |> Map.delete(:grounding_metadata)
+          |> Map.delete("grounding_metadata")
+          |> Map.delete(:query)
+          |> Map.delete("query")
 
         {hydrated_attrs, Keyword.put(opts, :grounding_bundle, grounding_bundle)}
     end
-  end
-
-  defp gap_candidate_grounding_supplied?(attrs) do
-    List.wrap(anchor_id(attrs, :evidence_snapshot)) != [] or
-      List.wrap(anchor_id(attrs, :evidence)) != [] or
-      map_size(anchor_id(attrs, :grounding_metadata) || %{}) > 0 or
-      not is_nil(anchor_id(attrs, :query))
   end
 
   defp gap_candidate_grounding_bundle(candidate, query, opts) do
@@ -1468,15 +1456,8 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp normalize_candidate_query(_), do: nil
 
   defp build_revision_gate_inputs(revision, attrs, opts) do
-    gap_events =
-      Keyword.get_lazy(opts, :gap_events, fn ->
-        article_linked_gap_events(revision.article_id, revision.id, attrs)
-      end)
-
-    grounding_bundle =
-      Keyword.get_lazy(opts, :grounding_bundle, fn ->
-        fresh_revision_grounding_bundle(revision.article_id, revision.id, attrs, opts)
-      end)
+    gap_events = article_linked_gap_events(revision.article_id, revision.id, attrs)
+    grounding_bundle = fresh_revision_grounding_bundle(revision.article_id, revision.id, attrs, opts)
 
     {gap_events, grounding_bundle}
   end
@@ -1530,6 +1511,25 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
+  defp reusable_authoring_article?(nil), do: false
+
+  defp reusable_authoring_article?(article) do
+    map_value(article, :status) not in [:published, "published"]
+  end
+
+  defp normalize_source_type(value) when value in [:knowledge_base, :resolved_case], do: value
+  defp normalize_source_type("knowledge_base"), do: :knowledge_base
+  defp normalize_source_type("resolved_case"), do: :resolved_case
+  defp normalize_source_type(_), do: :unknown
+
+  defp normalize_trust_level(value) when value in [:canonical, :assistive], do: value
+  defp normalize_trust_level("canonical"), do: :canonical
+  defp normalize_trust_level("assistive"), do: :assistive
+  defp normalize_trust_level(_), do: :unknown
+
+  defp normalize_citation_target(%{} = citation_target, article_id, revision_id, chunk_index) do
+    citation_target
+    |> Enum.into(%{}, fn {key, value} -> {normalize_map_key(key), value} end)
     |> Map.put_new(:article_id, article_id)
     |> Map.put_new(:revision_id, revision_id)
     |> Map.put_new(:chunk_index, chunk_index)
@@ -1595,7 +1595,17 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp normalize_failure_reason(reason) when is_atom(reason), do: reason
   defp normalize_failure_reason(_), do: :generation_failed
 
-  defp normalize_map_key(key) when is_binary(key), do: String.to_atom(key)
+  defp normalize_map_key(key) when is_binary(key) do
+    case key do
+      "article_id" -> :article_id
+      "revision_id" -> :revision_id
+      "chunk_index" -> :chunk_index
+      "conversation_id" -> :conversation_id
+      "destination" -> :destination
+      _ -> key
+    end
+  end
+
   defp normalize_map_key(key), do: key
 
   defp stringify_atom(nil), do: nil
@@ -1804,6 +1814,34 @@ defmodule Cairnloop.KnowledgeAutomation do
     )
   end
 
+  defp persist_reindex_started(task, published_revision_id, opts) do
+    actor_id = Keyword.get(opts, :actor_id, "chunk_revision")
+
+    update_task_with_event(
+      task,
+      ReviewTask.changeset(task, %{
+        status: :published,
+        published_revision_id: task.published_revision_id || published_revision_id,
+        published_at: task.published_at,
+        publish_status: :published,
+        reindex_status: :running
+      }),
+      %{
+        event_type: :reindex_recorded,
+        from_status: task.status,
+        to_status: :published,
+        decision: task.last_decision,
+        reason: task.last_reason,
+        actor_id: actor_id,
+        metadata: %{
+          published_revision_id: published_revision_id,
+          publish_status: :published,
+          reindex_status: :running
+        }
+      }
+    )
+  end
+
   defp reindex_outcome_payload(published_revision_id, :ok) do
     {:ok, :completed,
      %{published_revision_id: published_revision_id, publish_status: :published, reindex_status: :completed}}
@@ -1969,6 +2007,7 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp suggestion_entrypoint_type(%ArticleSuggestion{entrypoint_type: type}), do: type || :unspecified
 
   defp reindex_outcome_for(:completed), do: :completed
+  defp reindex_outcome_for(:running), do: :running
   defp reindex_outcome_for(_status), do: :failed
 
   defp metadata_value(map, key) when is_map(map) do
@@ -2029,7 +2068,6 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp active_review_task_statuses do
     ReviewTask.active_status_values()
   end
-
   defp initial_review_task_status(%ArticleSuggestion{status: :failed}), do: :review_needed
   defp initial_review_task_status(%ArticleSuggestion{}), do: :pending_review
 

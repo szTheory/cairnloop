@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  phase-12-shift-left:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.0"
+          otp-version: "27.2"
+
+      - name: Restore Mix cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Run Phase 12 shift-left suite
+        run: >
+          mix test
+          test/cairnloop/knowledge_automation/article_suggestion_test.exs
+          test/cairnloop/knowledge_automation/review_task_test.exs
+          test/cairnloop/retrieval/telemetry_test.exs
+          test/cairnloop/web/conversation_live_test.exs
+          test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
+          test/cairnloop/knowledge_base/workers/chunk_revision_test.exs

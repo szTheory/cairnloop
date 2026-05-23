@@ -1,6 +1,8 @@
 defmodule Cairnloop.Web.SearchModalComponent do
   use Phoenix.LiveComponent
 
+  alias Cairnloop.Retrieval.GapRecorder
+  alias Cairnloop.Retrieval.Telemetry
   alias Cairnloop.Web.SearchResultPresenter
   alias Phoenix.LiveView.JS
 
@@ -18,6 +20,10 @@ defmodule Cairnloop.Web.SearchModalComponent do
       |> assign(
         :retrieval_module,
         Map.get(assigns, :retrieval_module, socket.assigns.retrieval_module)
+      )
+      |> assign(
+        :gap_recorder,
+        Map.get(assigns, :gap_recorder, socket.assigns.gap_recorder)
       )
       |> ensure_preview_state()
 
@@ -71,6 +77,18 @@ defmodule Cairnloop.Web.SearchModalComponent do
                 <%= if @error do %>
                   <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(181, 76, 54, 0.08); color: var(--cl-danger, #B54C36);">
                     Search is unavailable right now. Keep working in the current conversation, then try the search again.
+                  </div>
+                <% end %>
+
+                <%= if @search_state == :scoped_unavailable do %>
+                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(168, 130, 46, 0.12); color: #2f241d;">
+                    Scoped search is unavailable on this surface until the dashboard session provides `host_user_id`.
+                  </div>
+                <% end %>
+
+                <%= if @search_state == :no_hit do %>
+                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(63, 111, 128, 0.08); color: #2f241d;">
+                    No verified guidance matched this search yet. Try different wording, or continue in the conversation with manual review.
                   </div>
                 <% end %>
 
@@ -273,18 +291,35 @@ defmodule Cairnloop.Web.SearchModalComponent do
   def handle_event("search", %{"query" => query}, socket) do
     socket = assign(socket, query: query, loading: true, error: nil)
 
-    case run_search(socket.assigns.retrieval_module, query) do
-      {:ok, results} ->
-        {:noreply,
-         socket
-         |> assign(loading: false)
-         |> assign_results(results)}
+    if scope_unavailable?(socket.assigns) do
+      {:noreply,
+       socket
+       |> clear_results()
+       |> assign(loading: false, error: nil, search_state: :scoped_unavailable)}
+    else
+      case run_search(socket.assigns.retrieval_module, query, search_opts(socket)) do
+        {:ok, results} ->
+          _ = maybe_record_search_gap_for_results(socket, results)
 
-      {:error, _reason} ->
-        {:noreply,
-         socket
-         |> assign(loading: false, error: true)
-         |> clear_results()}
+          {:noreply,
+           socket
+           |> assign(loading: false)
+           |> assign_results(results)}
+
+        {:error, :scope_unavailable} ->
+          {:noreply,
+           socket
+           |> clear_results()
+           |> assign(loading: false, error: nil, search_state: :scoped_unavailable)}
+
+        {:error, reason} ->
+          _ = maybe_record_search_error(socket, reason)
+
+          {:noreply,
+           socket
+           |> clear_results()
+           |> assign(loading: false, error: true, search_state: :error)}
+      end
     end
   end
 
@@ -298,7 +333,9 @@ defmodule Cairnloop.Web.SearchModalComponent do
       active_dom_id: nil,
       sections: build_sections([]),
       preview: nil,
+      search_state: :idle,
       retrieval_module: Cairnloop.Retrieval,
+      gap_recorder: GapRecorder,
       host_surface: nil,
       host_user_id: nil,
       current_path: nil,
@@ -329,7 +366,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
 
   defp clear_results(socket) do
     socket
-    |> assign(sections: build_sections([]), active_dom_id: nil, preview: nil)
+    |> assign(sections: build_sections([]), active_dom_id: nil, preview: nil, search_state: :idle)
   end
 
   defp assign_results(socket, results) do
@@ -342,7 +379,11 @@ defmodule Cairnloop.Web.SearchModalComponent do
       end
 
     socket
-    |> assign(sections: build_sections(results), active_dom_id: active_dom_id)
+    |> assign(
+      sections: build_sections(results),
+      active_dom_id: active_dom_id,
+      search_state: search_state_for(results)
+    )
     |> ensure_preview_state()
   end
 
@@ -402,6 +443,11 @@ defmodule Cairnloop.Web.SearchModalComponent do
     "Type at least 2 characters to search the Knowledge Base first, then similar resolved cases for supporting evidence."
   end
 
+  defp empty_section_copy(:knowledge_base, query)
+       when is_binary(query) and query != "" do
+    "No Knowledge Base matches yet. Try a broader phrase, or review similar resolved cases as supporting evidence only."
+  end
+
   defp empty_section_copy(:knowledge_base, _query),
     do: "No knowledge base matches for this query."
 
@@ -422,17 +468,104 @@ defmodule Cairnloop.Web.SearchModalComponent do
     }
   end
 
-  defp run_search(Cairnloop.Retrieval, query), do: {:ok, Cairnloop.Retrieval.search(query, [])}
+  defp run_search(Cairnloop.Retrieval, query, opts) do
+    case Cairnloop.Retrieval.search(query, opts) do
+      {:error, reason} -> {:error, reason}
+      results -> {:ok, results}
+    end
+  end
 
-  defp run_search(retrieval_module, query) do
+  defp run_search(retrieval_module, query, opts) do
     try do
-      case retrieval_module.search(query, []) do
+      case retrieval_module.search(query, opts) do
         results when is_list(results) -> {:ok, results}
         {:error, reason} -> {:error, reason}
         _ -> {:ok, []}
       end
     rescue
       error -> {:error, error}
+    end
+  end
+
+  defp search_state_for([]), do: :no_hit
+  defp search_state_for(_results), do: :results
+
+  defp search_opts(socket) do
+    [
+      surface: :search_modal,
+      host_surface: socket.assigns.host_surface,
+      host_user_id: socket.assigns.host_user_id
+    ]
+  end
+
+  defp scope_unavailable?(assigns) do
+    requires_scope?(assigns.host_surface) and blank?(assigns.host_user_id)
+  end
+
+  defp requires_scope?(host_surface), do: host_surface in ["conversation", "inbox", "settings"]
+
+  defp blank?(value), do: value in [nil, ""]
+
+  defp maybe_record_search_gap(socket, outcome_class, reason, opts) do
+    gap_recorder = socket.assigns.gap_recorder
+
+    attrs = %{
+      query: socket.assigns.query,
+      surface: :search_modal,
+      outcome_class: outcome_class,
+      reason: reason,
+      host_user_id: socket.assigns.host_user_id,
+      tenant_scope: :host_user_scoped,
+      ui_surface: socket.assigns.host_surface,
+      attempted_evidence: Keyword.get(opts, :attempted_evidence, [])
+    }
+
+    case gap_recorder.record(attrs) do
+      {:ok, _gap_event} -> :ok
+      {:error, _reason} -> :error
+      _ -> :ok
+    end
+  end
+
+  defp maybe_record_search_gap_for_results(socket, results) do
+    case search_gap_reason(results) do
+      {:empty_recall, :no_canonical_results} ->
+      maybe_record_search_gap(socket, :empty_recall, :no_canonical_results,
+        attempted_evidence: []
+      )
+
+      {:weak_grounding, :assistive_only_results} ->
+        maybe_record_search_gap(socket, :weak_grounding, :assistive_only_results,
+          attempted_evidence: results
+        )
+
+      :skip ->
+        :ok
+    end
+  end
+
+  defp maybe_record_search_error(socket, reason) do
+    maybe_record_search_gap(
+      socket,
+      :retrieval_error,
+      Telemetry.classify_exception(reason),
+      attempted_evidence: []
+    )
+  end
+
+  defp search_gap_reason(results) do
+    canonical_hit_count = Enum.count(results, &(&1.trust_level == :canonical))
+    assistive_hit_count = Enum.count(results, &(&1.trust_level == :assistive))
+
+    cond do
+      canonical_hit_count == 0 and assistive_hit_count > 0 ->
+        {:weak_grounding, :assistive_only_results}
+
+      results == [] ->
+        {:empty_recall, :no_canonical_results}
+
+      true ->
+        :skip
     end
   end
 

@@ -38,6 +38,11 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
   end
 
   defmodule MockKnowledgeAutomation do
+    def record_review_task_reindex_started(revision_id, _opts \\ []) do
+      send(self(), {:reindex_started_recorded, revision_id})
+      :ok
+    end
+
     def record_review_task_reindex_outcome(revision_id, result, _opts \\ []) do
       send(self(), {:reindex_outcome_recorded, revision_id, result})
       :ok
@@ -67,6 +72,7 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
     job = %Oban.Job{args: %{"revision_id" => 42}}
     assert :ok = ChunkRevision.perform(job)
 
+    assert_received {:reindex_started_recorded, 42}
     assert_received {:transaction_results, results}
     assert_received {:inserted_chunk_records, records}
     assert {count, _} = results[:insert_chunks]
@@ -79,6 +85,7 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
   test "returns error if revision is not found" do
     job = %Oban.Job{args: %{"revision_id" => -1}}
     assert {:error, :revision_not_found} = ChunkRevision.perform(job)
+    assert_received {:reindex_started_recorded, -1}
     assert_received {:reindex_outcome_recorded, -1, {:error, :revision_not_found}}
   end
 end

@@ -9,6 +9,7 @@ defmodule Cairnloop.ChatTest do
         %Cairnloop.Conversation{
           id: id,
           status: :open,
+          subject: "Billing issue",
           host_user_id: 10,
           inserted_at: DateTime.utc_now() |> DateTime.add(-100, :second)
         }
@@ -56,6 +57,16 @@ defmodule Cairnloop.ChatTest do
     def one(%Ecto.Query{}) do
       Process.get(:mock_sla)
     end
+
+    def preload(%Cairnloop.Conversation{} = conversation, :messages) do
+      messages =
+        Process.get(:mock_messages, [
+          %Cairnloop.Message{id: 1, role: :user, content: "The billing export failed."},
+          %Cairnloop.Message{id: 2, role: :agent, content: "We regenerated the export and confirmed it works now."}
+        ])
+
+      %{conversation | messages: messages}
+    end
   end
 
   setup do
@@ -97,7 +108,7 @@ defmodule Cairnloop.ChatTest do
     end
 
     test "inserts message but no draft job when role is :agent, fulfills active SLA and creates resolution SLA" do
-      Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
+    Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
 
       assert {:ok, results} = Chat.reply_to_conversation(1, "hello again", :agent)
       assert %{content: "hello again", role: :agent, conversation_id: 1} = results.message
@@ -176,6 +187,7 @@ defmodule Cairnloop.ChatTest do
       assert domain_metadata.actor == actor
       assert domain_metadata.metadata[:custom_meta] == "foo"
       assert domain_metadata.conversation_id == 1
+      assert %Cairnloop.Conversation{id: 1, status: :resolved} = domain_metadata.conversation
 
       :telemetry.detach("test-resolve-handler")
       :telemetry.detach("test-resolved-domain-handler")
@@ -187,6 +199,15 @@ defmodule Cairnloop.ChatTest do
 
       assert job = results.notify_job
       assert job.worker == "Cairnloop.Workers.NotifyResolvedWorker"
+      assert job.args == %{"conversation_id" => 1, "metadata" => %{custom_meta: "foo"}}
+    end
+
+    test "enqueues the resolved-case retrieval indexing job" do
+      actor = %{type: "user", id: 2}
+      assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: actor, custom_meta: "foo")
+
+      assert job = results.resolved_case_index_job
+      assert job.worker == "Cairnloop.Retrieval.Workers.IndexResolvedConversation"
       assert job.args == %{"conversation_id" => 1, "metadata" => %{custom_meta: "foo"}}
     end
   end

@@ -12,17 +12,23 @@ defmodule Cairnloop.Retrieval do
   def search(query, opts \\ []) do
     started_at = System.monotonic_time()
 
-    try do
-      knowledge_base_results = search_knowledge_base(query, opts)
-      resolved_case_results = search_resolved_cases(query, opts)
-      results = ranker(opts).merge(knowledge_base_results, resolved_case_results, opts)
+    case validate_scope(opts) do
+      :ok ->
+        try do
+          knowledge_base_results = search_knowledge_base(query, opts)
+          resolved_case_results = search_resolved_cases(query, opts)
+          results = ranker(opts).merge(knowledge_base_results, resolved_case_results, opts)
 
-      emit_search_telemetry(results, opts, started_at)
-      results
-    rescue
-      error ->
-        emit_search_error_telemetry(error, opts, started_at)
-        reraise error, __STACKTRACE__
+          emit_search_telemetry(results, opts, started_at)
+          results
+        rescue
+          error ->
+            emit_search_error_telemetry(error, opts, started_at)
+            reraise error, __STACKTRACE__
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -238,6 +244,18 @@ defmodule Cairnloop.Retrieval do
   defp extract_query(%{"conversation_id" => id}), do: "Conversation #{id}"
   defp extract_query(query) when is_binary(query), do: query
   defp extract_query(_), do: "Conversation"
+
+  defp validate_scope(opts) do
+    case {Keyword.get(opts, :surface), Keyword.get(opts, :host_surface),
+          Keyword.get(opts, :host_user_id)} do
+      {:search_modal, host_surface, host_user_id}
+      when host_surface in ["conversation", "inbox", "settings"] and host_user_id in [nil, ""] ->
+        {:error, :scope_unavailable}
+
+      _ ->
+        :ok
+    end
+  end
 
   defp assess_grounding(diagnostic) do
     {status, clarification_allowed?, can_generate_reply?} =

@@ -10,11 +10,16 @@ defmodule Cairnloop.Retrieval.Providers.ResolvedCases do
   def search(query, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
     embedding_vector = Keyword.get_lazy(opts, :embedding_vector, fn -> nil end)
+    host_user_id = Keyword.get(opts, :host_user_id)
 
-    keyword_task = Task.async(fn -> keyword_candidates(query, limit, opts) end)
-    semantic_task = Task.async(fn -> semantic_candidates(embedding_vector, limit, opts) end)
+    if host_user_id in [nil, ""] do
+      []
+    else
+      keyword_task = Task.async(fn -> keyword_candidates(query, limit, opts) end)
+      semantic_task = Task.async(fn -> semantic_candidates(embedding_vector, limit, opts) end)
 
-    merge_candidates(Task.await(keyword_task), Task.await(semantic_task))
+      merge_candidates(Task.await(keyword_task), Task.await(semantic_task))
+    end
   end
 
   def keyword_candidates(query, limit, opts \\ []) do

@@ -29,8 +29,10 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       results =
         Enum.reduce(operations, %{}, fn
-          {name, {:insert, changeset, _}}, acc ->
-            Map.put(acc, name, Ecto.Changeset.apply_changes(changeset))
+        {name, {:insert, changeset, _}}, acc ->
+            inserted = Ecto.Changeset.apply_changes(changeset)
+            send(self(), {:multi_insert, name, inserted})
+            Map.put(acc, name, inserted)
 
           {name, {:update, changeset, _}}, acc when is_map(changeset) ->
             Map.put(acc, name, Ecto.Changeset.apply_changes(changeset))
@@ -94,6 +96,15 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       assert {:ok, published_revision} = KnowledgeBase.publish_revision(revision)
       assert published_revision.state == :published
+    end
+
+    test "enqueues the chunk indexing job transactionally" do
+      revision = %Revision{id: 1, article_id: 42, version: 1, state: :draft, content: "content"}
+
+      assert {:ok, _published_revision} = KnowledgeBase.publish_revision(revision)
+      assert_received {:multi_insert, :chunk_job, chunk_job}
+      assert chunk_job.worker == "Cairnloop.KnowledgeBase.Workers.ChunkRevision"
+      assert chunk_job.args == %{revision_id: 1}
     end
   end
 end

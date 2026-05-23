@@ -22,3 +22,9 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 cairnloop-*.tar
 
+# macOS Finder metadata.
+.DS_Store
+
+# GSD scratch files (transient planning I/O).
+.gsd_*
+

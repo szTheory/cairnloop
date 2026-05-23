@@ -8,6 +8,8 @@ An embedded, Phoenix-native customer support automation layer for Elixir applica
 
 Cairnloop turns support conversations into answers, product signals, knowledge-base improvements, and safe automated actions—directly inside your existing monolith. Deflect what can be deflected, draft what cannot, and escalate risks cleanly.
 
+Want the practical library-user view? Read [Cairnloop, From a Phoenix SaaS Builder's Perspective](docs/cairnloop-jtbd-and-user-flows.md).
+
 ## ⚡️ Why Cairnloop?
 
 * **SaaS in a Box:** Don't build a brittle syncing layer to external CRMs. Embed the support widget directly into your LiveView app.
@@ -73,14 +75,16 @@ Use the span lifecycle events (`:start`, `:stop`, `:exception`) to capture execu
 **B. Domain Events (Business Logic & Extensibility)**
 
 Use past-tense domain events to hook into successful business actions. This is the recommended approach for reacting to support lifecycle changes, such as triggering an in-app "App Store Rating" prompt when an issue is successfully resolved.
-
 ```elixir
 :telemetry.attach(
   "cairnloop-domain-hooks",
   [:cairnloop, :conversation, :resolved],
   fn _event, measurements, metadata, _config ->
     require Logger
-    Logger.info("Conversation #{metadata.conversation_id} resolved by #{metadata.actor.id} in #{measurements.duration_seconds}s")
+
+    # metadata.conversation contains the fully updated Ecto struct
+    conversation = metadata.conversation
+    Logger.info("Conversation #{conversation.id} resolved by #{metadata.actor.id} in #{measurements.duration_seconds}s at #{conversation.resolved_at}")
 
     # Example: Broadcast to LiveView to show a CSAT modal or App Store prompt
     # Phoenix.PubSub.broadcast(MyApp.PubSub, "user_sessions:#{metadata.host_user_id}", :support_issue_resolved)
@@ -90,9 +94,17 @@ Use past-tense domain events to hook into successful business actions. This is t
 ```
 ### 2. Business Logic (Notifier Behaviour)
 
-For critical side-effects like syncing with a CRM or sending an email, use the `Cairnloop.Notifier` behaviour. This ensures data consistency and allows you to enqueue background jobs reliably.
+For critical side-effects like syncing with a CRM or sending an email, use the `Cairnloop.Notifier` behaviour. These are executed asynchronously via Oban, ensuring data consistency and reliable retries.
 
-Define your notifier module in your host application:
+The easiest way to get started is to use the included generator:
+
+```bash
+mix cairnloop.gen.notifier
+```
+
+This will automatically scaffold a Notifier module in your host application and inject the required configuration. 
+
+Alternatively, you can implement it manually:
 
 ```elixir
 defmodule MyApp.CairnloopNotifier do
@@ -100,19 +112,21 @@ defmodule MyApp.CairnloopNotifier do
 
   @impl true
   def on_conversation_resolved(conversation, metadata) do
-    actor = metadata[:resolved_by]
+    actor = metadata[:actor]
     
     # Safely trigger a background job
-    %{conversation_id: conversation.id, resolved_by_id: actor.id}
+    %{conversation_id: conversation.id, resolved_by_id: actor && actor.id}
     |> MyApp.Workers.SyncCRMSyncJob.new()
     |> Oban.insert()
     
     :ok
   end
   
-  # Implement other required callbacks...
   @impl true
-  def on_message_received(_conversation, _message), do: :ok
+  def on_sla_breach(conversation, sla, _metadata) do
+    # Handle SLA breach notifications
+    :ok
+  end
 end
 ```
 

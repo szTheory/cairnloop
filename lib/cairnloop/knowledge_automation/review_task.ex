@@ -25,7 +25,7 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
     :draft_conflict
   ]
   @publish_status_values [:not_started, :queued, :published, :failed]
-  @reindex_status_values [:not_started, :queued, :completed, :failed]
+  @reindex_status_values [:not_started, :queued, :running, :completed, :failed]
   @decision_required_statuses [
     :review_needed,
     :approved_ready_to_publish,

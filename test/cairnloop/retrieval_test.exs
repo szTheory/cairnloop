@@ -74,6 +74,13 @@ defmodule Cairnloop.RetrievalTest do
       do: raise(RuntimeError, "provider timeout while retrieving results")
   end
 
+  defmodule RankerMock do
+    def merge(_knowledge_base_results, _resolved_case_results, _opts) do
+      send(self(), :ranker_merge_called)
+      []
+    end
+  end
+
   test "search/2 normalizes result labeling and prefers knowledge-base truth" do
     results =
       Retrieval.search("billing export",
@@ -215,5 +222,21 @@ defmodule Cairnloop.RetrievalTest do
     assert grounding.grounding_assessment.reason == :provider_timeout
     assert grounding.grounding_assessment.diagnostic_class == :retrieval_error
     assert grounding.diagnostic.reason == :provider_timeout
+  end
+
+  test "search/2 rejects unscoped dashboard search before provider ranking" do
+    assert {:error, :scope_unavailable} =
+             Retrieval.search("billing export",
+               surface: :search_modal,
+               host_surface: "inbox",
+               host_user_id: nil,
+               providers: %{
+                 knowledge_base: KnowledgeBaseProviderMock,
+                 resolved_cases: ResolvedCasesProviderMock
+               },
+               ranker: RankerMock
+             )
+
+    refute_received :ranker_merge_called
   end
 end

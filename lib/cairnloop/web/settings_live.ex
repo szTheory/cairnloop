@@ -1,11 +1,13 @@
 defmodule Cairnloop.Web.SettingsLive do
   use Phoenix.LiveView
 
-  def mount(_params, _session, socket) do
-    provider = Application.get_env(:cairnloop, :sla_policy_provider, Cairnloop.DefaultSLAPolicyProvider)
-    
-    socket = 
+  def mount(_params, session, socket) do
+    provider =
+      Application.get_env(:cairnloop, :sla_policy_provider, Cairnloop.DefaultSLAPolicyProvider)
+
+    socket =
       socket
+      |> assign(:host_user_id, Map.get(session, "host_user_id"))
       |> assign(:provider, provider)
       |> assign(:priorities, [:low, :normal, :high, :urgent])
       |> load_policies()
@@ -15,8 +17,12 @@ defmodule Cairnloop.Web.SettingsLive do
 
   def handle_event("save_policy", %{"policy" => params}, socket) do
     priority_str = params["priority"]
-    priority = if priority_str in ["low", "normal", "high", "urgent"], do: String.to_atom(priority_str), else: nil
-    
+
+    priority =
+      if priority_str in ["low", "normal", "high", "urgent"],
+        do: String.to_atom(priority_str),
+        else: nil
+
     if priority do
       attrs = %{
         target_first_response_minutes: String.to_integer(params["target_first_response_minutes"]),
@@ -25,7 +31,9 @@ defmodule Cairnloop.Web.SettingsLive do
 
       case socket.assigns.provider.set_policy(priority, attrs) do
         {:ok, _policy} ->
-          {:noreply, socket |> put_flash(:info, "SLA policy updated successfully.") |> load_policies()}
+          {:noreply,
+           socket |> put_flash(:info, "SLA policy updated successfully.") |> load_policies()}
+
         {:error, reason} ->
           {:noreply, put_flash(socket, :error, "Failed to update SLA policy: #{inspect(reason)}")}
       end
@@ -41,6 +49,7 @@ defmodule Cairnloop.Web.SettingsLive do
     case socket.assigns.provider.get_active_policies() do
       {:ok, policies} ->
         assign(socket, :policies, policies)
+
       {:error, _reason} ->
         assign(socket, :policies, [])
     end
@@ -52,6 +61,7 @@ defmodule Cairnloop.Web.SettingsLive do
       module={Cairnloop.Web.SearchModalComponent}
       id="search-modal"
       host_surface="settings"
+      host_user_id={@host_user_id}
       current_path="/settings"
     />
     <div class="cairnloop-settings">

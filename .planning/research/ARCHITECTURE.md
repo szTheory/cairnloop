@@ -1,78 +1,56 @@
-# Architecture Patterns
+# M011 Architecture Research: AI Tool Governance & MCP Integration
 
-**Domain:** Support Ticketing SLA Management & Notification Routing
-**Researched:** Current Date
+**Date:** 2026-05-23
+**Milestone:** vM011 AI Tool Governance & MCP Integration
 
 ## Recommended Architecture
 
-\`\`\`mermaid
-graph TD
-    A[Ticket Created/Updated] -->|Oban.insert(schedule_in)| B(Oban: CheckSLA Worker)
-    B -->|Time Reached| C{Is Ticket Resolved?}
-    C -->|Yes| D[NOOP / Job Completed]
-    C -->|No| E[Trigger Cairnloop.Notifier]
-    E --> F[Chimeway Routing]
-    F --> G[Host Adapter: Slack/Discord/Email]
-\`\`\`
+### Core Workflow
 
-### Component Boundaries
+`AutomationRun -> ToolCall Proposal -> Policy Decision -> ToolApproval -> Resume Job -> Tool Execution -> Action Event Timeline`
 
-| Component | Responsibility | Communicates With |
-|-----------|---------------|-------------------|
-| `CheckSLA` Worker | Executes after SLA duration, checks ticket state. | Ecto (`Conversation`), `Cairnloop.Notifier` |
-| `Cairnloop.Notifier` | Defines the behaviour for dispatching escalations. | `CheckSLA`, Chimeway |
-| Chimeway | Abstract delivery and retry of the outbound notification. | `Cairnloop.Notifier`, Host App |
-| Host Adapter | The actual API payload delivery (e.g., Slack Webhook). | Chimeway, Third-party APIs |
+### Domain Boundaries
 
-## Patterns to Follow
+| Boundary | Responsibility |
+|----------|----------------|
+| `Cairnloop.Automation` | Orchestrate AI- and operator-driven action runs |
+| `Cairnloop.Tools` | Registry, metadata contract, and structured execution outcomes |
+| `Cairnloop.Policy` | Host-owned risk and approval decisions |
+| `Cairnloop.Approvals` | Durable approval lifecycle and event history |
+| `Cairnloop.Telemetry` | Stable bounded event emission |
+| `Cairnloop.MCP` | Optional edge adapter for exposing or consuming governed tools |
 
-### Pattern 1: Idempotent SLA Evaluation
-**What:** Instead of trying to cancel Oban jobs when a ticket is resolved (which requires finding the job by args and deleting it), let the job run and evaluate the state.
-**When:** Always, for scheduled state checks.
-**Example:**
-\`\`\`elixir
-def perform(%Oban.Job{args: %{"conversation_id" => id, "expected_state" => "unresolved"}}) do
-  conversation = Repo.get(Conversation, id)
-  
-  if conversation.status == :resolved do
-    :ok # NOOP: The user was helped before the SLA breached
-  else
-    Notifier.dispatch_escalation(conversation)
-    :ok
-  end
-end
-\`\`\`
+## Existing Seams To Reuse
 
-### Pattern 2: Behaviour-Driven Extensibility
-**What:** Define the contract, not the implementation.
-**When:** Integrating external delivery systems.
-**Example:**
-\`\`\`elixir
-defmodule Cairnloop.Notifier do
-  @callback dispatch_escalation(Conversation.t(), map()) :: :ok | {:error, term()}
-end
-\`\`\`
+- `ReviewTask` proves the repo prefers durable review workflow truth.
+- `Retrieval` already separates canonical and assistive evidence and fail-closes weak grounding.
+- `ConversationLive` already has the operator-side rail where governed actions should appear.
+- `AutomationPolicy` and `Auditor` already establish host-owned decision and audit seams.
 
-## Anti-Patterns to Avoid
+## Alternatives Considered
 
-### Anti-Pattern 1: In-Memory Timers
-**What:** Using `Process.send_after` or GenServer timeouts for SLAs.
-**Why bad:** The countdown is lost instantly if the pod crashes or a new deployment occurs. 
-**Instead:** Always persist scheduled checks using Oban `scheduled_at` or `schedule_in`.
+### Synchronous LiveView execution
+- **Pros:** smallest initial patch
+- **Cons:** no durable approval, timeout risk, no resume story, weak auditability
+- **Verdict:** reject
 
-### Anti-Pattern 2: Hard Job Cancellation
-**What:** Querying the `oban_jobs` table to delete pending SLAs when a ticket is resolved.
-**Why bad:** It creates race conditions and tight coupling to Oban's internal schema structure.
-**Instead:** Make the job worker verify the ticket state upon execution (Idempotent NOOP).
+### MCP-first internal model
+- **Pros:** protocol purity and easier future interoperability story
+- **Cons:** transport concerns leak into core workflow, weak fit for Ecto/Oban truth, auth ergonomics vary by client
+- **Verdict:** defer to edge adapter
 
-## Scalability Considerations
+### Scoria-owned governance runtime
+- **Pros:** faster if centralizing AI governance becomes the primary goal
+- **Cons:** too much inversion of Cairnloop's host-owned support workflow
+- **Verdict:** optional companion only
 
-| Concern | At 100 users | At 10K users | At 1M users |
-|---------|--------------|--------------|-------------|
-| Oban Table Bloat | Negligible | Moderate | Partitioning is required. Configure Oban's Pruner plugin aggressively to drop resolved jobs. |
-| Notification Spikes | Synchronous delivery is fine | Oban manages concurrency | Push Chimeway delivery to its own dedicated queue with concurrency limits to avoid rate-limiting from Slack/PagerDuty. |
+## Package Classification
 
-## Sources
-
-- Oban Reliability Guidelines (At-most-once / At-least-once).
-- Elixir standard practices for durable messaging.
+| Surface | Classification | Notes |
+|---------|----------------|-------|
+| Governed-tool behaviour, policy seam, records, and workers | core | Primary milestone value |
+| In-thread operator timeline and approval UX | core | Required for low-surprise operator flow |
+| Bounded telemetry and audit integration | core | Required for durable proof and SLOs |
+| Optional Scoria evidence lane | companion | Useful but not required for milestone closure |
+| Optional read-only MCP adapter | companion | Edge interoperability only |
+| Broad remote MCP write surface | defer | Too much blast radius for first pass |

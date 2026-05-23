@@ -106,7 +106,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
          quick_fix: %{
            "thread_context" => %{"conversation_id" => 321, "subject" => "Weekend export fails"},
            "canonical_retrieval" => %{"canonical_evidence_count" => 0, "citation_ready" => false},
-           "resolved_case_assists" => %{"case_count" => 1, "summaries" => ["Prior export timeout case"]}
+           "resolved_case_assists" => %{
+             "case_count" => 1,
+             "summaries" => ["Prior export timeout case"]
+           }
          }
        }}
     end
@@ -178,8 +181,14 @@ defmodule Cairnloop.Web.ConversationLiveTest do
             "quick_fix_outcome" => "ready",
             "quick_fix_package" => %{
               "thread_context" => %{"conversation_id" => 321, "subject" => "Weekend export fails"},
-              "canonical_retrieval" => %{"canonical_evidence_count" => 1, "citation_ready" => true},
-              "resolved_case_assists" => %{"case_count" => 1, "summaries" => ["Prior export timeout case"]}
+              "canonical_retrieval" => %{
+                "canonical_evidence_count" => 1,
+                "citation_ready" => true
+              },
+              "resolved_case_assists" => %{
+                "case_count" => 1,
+                "summaries" => ["Prior export timeout case"]
+              }
             }
           }
         )
@@ -199,7 +208,26 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
     def create_or_reuse_conversation_quick_fix(_attrs, _opts), do: {:error, :not_implemented}
-    def create_or_reuse_authoring_article_for_suggestion(_suggestion_id, _opts), do: {:error, :not_implemented}
+
+    def create_or_reuse_authoring_article_for_suggestion(_suggestion_id, _opts),
+      do: {:error, :not_implemented}
+  end
+
+  defmodule ProcessBackedQuickFixKnowledgeAutomation do
+    def get_conversation_quick_fix(321, _opts),
+      do: Process.get(:conversation_quick_fix_result, {:error, :not_found})
+
+    def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
+
+    def create_or_reuse_conversation_quick_fix(attrs, _opts) do
+      Process.put(:create_quick_fix_attrs, attrs)
+      Process.get(:create_quick_fix_result)
+    end
+
+    def create_or_reuse_authoring_article_for_suggestion(suggestion_id, _opts) do
+      Process.put(:manual_draft_suggestion_id, suggestion_id)
+      {:ok, 91}
+    end
   end
 
   defmodule SimpleTool do
@@ -484,6 +512,19 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert element_index(html, "KB maintenance") < element_index(html, "AI Draft / Audit")
     end
 
+    test "renders the quick-fix card as a distinct evidence-rail section outside generic actions" do
+      Application.put_env(:cairnloop, :context_provider, SuccessContextProvider)
+
+      {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
+      html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
+
+      assert html =~ "Actions"
+      assert html =~ "KB maintenance"
+      assert html =~ "Start KB quick fix"
+      assert element_index(html, "Actions") < element_index(html, "KB maintenance")
+      assert element_index(html, "KB maintenance") < element_index(html, "AI Draft / Audit")
+    end
+
     test "renders shell state copy, reason callout, and follow-through status rail" do
       Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
 
@@ -491,7 +532,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
 
       assert html =~ "KB maintenance"
-      assert html =~ "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete."
+
+      assert html =~
+               "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete."
+
       assert html =~ "Missing canonical grounding"
       assert html =~ "Draft shell created"
       assert html =~ "Open review task"
@@ -511,6 +555,33 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Published, but reindex follow-through needs operator attention."
       assert html =~ "Published, reindex pending"
       refute html =~ "Reindexed"
+    end
+
+    test "renders distinct follow-through states instead of collapsing publish completion into one generic state" do
+      Application.put_env(
+        :cairnloop,
+        :knowledge_automation,
+        ProcessBackedQuickFixKnowledgeAutomation
+      )
+
+      for {reindex_status, heading, summary} <- [
+            {:queued, "Published, reindex pending", "Published revision #88. Reindex queued."},
+            {:running, "Reindexing", "Published revision #88. Reindexing in progress."},
+            {:completed, "Reindexed", "Published revision #88. Reindex completed."},
+            {:failed, "Follow-through needs attention",
+             "Published, but reindex follow-through needs operator attention."}
+          ] do
+        Process.put(
+          :conversation_quick_fix_result,
+          follow_through_quick_fix_result(reindex_status)
+        )
+
+        {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+        html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
+
+        assert html =~ heading
+        assert html =~ summary
+      end
     end
 
     test "renders grounded draft sections, evidence semantics, and inline actions" do
@@ -835,7 +906,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
          }}
       )
 
-      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+
       assert Process.get(:create_quick_fix_attrs).conversation_id == 321
       assert Process.get(:create_quick_fix_attrs).host_user_id == "user_42"
       assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=61"}} = socket.redirected
@@ -862,7 +935,36 @@ defmodule Cairnloop.Web.ConversationLiveTest do
          }}
       )
 
-      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+
+      assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=61"}} = socket.redirected
+    end
+
+    test "start_quick_fix redirects shell-created quick fixes into the shared review lane with bounded copy" do
+      Application.put_env(
+        :cairnloop,
+        :knowledge_automation,
+        ProcessBackedQuickFixKnowledgeAutomation
+      )
+
+      Process.put(
+        :create_quick_fix_result,
+        {:ok,
+         %{
+           suggestion: quick_fix_suggestion_fixture(:shell_created),
+           review_task: struct(ReviewTask, id: 61, status: :pending_review),
+           reused?: false,
+           quick_fix: %{}
+         }}
+      )
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+
+      assert socket.assigns.quick_fix_card.status == :shell_created
+      assert socket.assigns.quick_fix_card.reason == "Missing canonical grounding"
+      assert socket.assigns.quick_fix_card.primary_action.label == "Open review task"
       assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=61"}} = socket.redirected
     end
 
@@ -880,7 +982,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
             "quick_fix_reason" => "policy_guard_blocked",
             "quick_fix_package" => %{
               "thread_context" => %{"message_count" => 4},
-              "canonical_retrieval" => %{"canonical_evidence_count" => 0, "citation_ready" => false},
+              "canonical_retrieval" => %{
+                "canonical_evidence_count" => 0,
+                "citation_ready" => false
+              },
               "resolved_case_assists" => %{"case_count" => 1}
             }
           }
@@ -897,10 +1002,28 @@ defmodule Cairnloop.Web.ConversationLiveTest do
          }}
       )
 
-      assert {:noreply, socket} = ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+
       assert socket.assigns.quick_fix_card.status == :blocked_manual_required
       assert socket.assigns.quick_fix_card.primary_action.label == "Open manual draft"
       assert socket.redirected == nil
+    end
+
+    test "start_quick_fix surfaces a bounded flash when preparation fails" do
+      Application.put_env(
+        :cairnloop,
+        :knowledge_automation,
+        ProcessBackedQuickFixKnowledgeAutomation
+      )
+
+      Process.put(:create_quick_fix_result, {:error, :missing_grounding})
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, quick_fix_socket())
+
+      assert socket.assigns.flash["error"] ==
+               "Quick fix could not prepare a reviewable suggestion."
     end
 
     test "open_manual_draft routes blocked quick fixes into the shared authoring path" do
@@ -913,7 +1036,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
             suggestion_id: 78,
             review_task_id: 62,
             primary_action: %{event: "open_manual_draft", label: "Open manual draft"},
-            secondary_action: %{label: "View maintenance lane", to: "/knowledge-base/suggestions?task=62"}
+            secondary_action: %{
+              label: "View maintenance lane",
+              to: "/knowledge-base/suggestions?task=62"
+            }
           }
         })
 
@@ -934,7 +1060,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
   defp quick_fix_socket(overrides \\ %{}) do
     base_assigns = %{
-      conversation: %Cairnloop.Conversation{id: 321, host_user_id: "user_42", subject: "Weekend export fails", drafts: [], messages: []},
+      conversation: %Cairnloop.Conversation{
+        id: 321,
+        host_user_id: "user_42",
+        subject: "Weekend export fails",
+        drafts: [],
+        messages: []
+      },
       host_context: %{},
       context_error: nil,
       quick_fix_card: %{status: :idle},
@@ -947,6 +1079,89 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       endpoint: Cairnloop.Web.Endpoint,
       assigns: Map.merge(base_assigns, overrides)
     }
+  end
+
+  defp quick_fix_suggestion_fixture(:shell_created) do
+    struct(ArticleSuggestion,
+      id: 77,
+      title: "Weekend export quick fix",
+      status: :ready,
+      entrypoint_type: :conversation_quick_fix,
+      entrypoint_id: 321,
+      operator_summary:
+        "A draft shell was created because the maintenance need is real, but canonical grounding is incomplete.",
+      grounding_metadata: %{
+        "quick_fix_outcome" => "shell_created",
+        "quick_fix_reason" => "missing_canonical_grounding",
+        "quick_fix_package" => %{
+          "thread_context" => %{
+            "conversation_id" => 321,
+            "subject" => "Weekend export fails",
+            "message_excerpt" => "The export stalls every Saturday morning.",
+            "message_count" => 4
+          },
+          "canonical_retrieval" => %{
+            "canonical_evidence_count" => 0,
+            "citation_ready" => false,
+            "evidence_digest" => "shell-digest"
+          },
+          "resolved_case_assists" => %{
+            "case_count" => 1,
+            "summaries" => ["Prior export timeout case"]
+          }
+        }
+      }
+    )
+  end
+
+  defp quick_fix_suggestion_fixture(:ready) do
+    struct(ArticleSuggestion,
+      id: 79,
+      title: "Weekend export quick fix",
+      status: :ready,
+      entrypoint_type: :conversation_quick_fix,
+      entrypoint_id: 321,
+      operator_summary: "Backed by a published Knowledge Base article.",
+      grounding_metadata: %{
+        "quick_fix_outcome" => "ready",
+        "quick_fix_package" => %{
+          "thread_context" => %{"conversation_id" => 321, "subject" => "Weekend export fails"},
+          "canonical_retrieval" => %{"canonical_evidence_count" => 1, "citation_ready" => true},
+          "resolved_case_assists" => %{
+            "case_count" => 1,
+            "summaries" => ["Prior export timeout case"]
+          }
+        }
+      }
+    )
+  end
+
+  defp follow_through_quick_fix_result(reindex_status) do
+    suggestion =
+      quick_fix_suggestion_fixture(:ready)
+      |> Map.put(
+        :operator_summary,
+        if(reindex_status == :failed,
+          do: "Published, but reindex follow-through needs operator attention.",
+          else: "Backed by a published Knowledge Base article."
+        )
+      )
+
+    {:ok,
+     %{
+       suggestion: suggestion,
+       review_task:
+         struct(ReviewTask,
+           id: 63,
+           article_suggestion_id: suggestion.id,
+           status: :published,
+           publish_status: :published,
+           published_revision_id: 88,
+           reindex_status: reindex_status,
+           article_suggestion: suggestion
+         ),
+       quick_fix: %{}
+     }}
   end
 
   defp element_index(html, needle) do

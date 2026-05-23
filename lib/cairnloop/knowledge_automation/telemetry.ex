@@ -24,6 +24,7 @@ defmodule Cairnloop.KnowledgeAutomation.Telemetry do
     :deferred,
     :review_needed,
     :published,
+    :running,
     :publish_blocked,
     :completed
   ]

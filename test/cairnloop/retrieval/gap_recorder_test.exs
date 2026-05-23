@@ -4,6 +4,8 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
   alias Cairnloop.Retrieval.{GapEvent, GapRecorder}
 
   defmodule MockRepo do
+    def one(_query), do: nil
+
     def transaction(multi) do
       results =
         Enum.reduce(Ecto.Multi.to_list(multi), %{}, fn
@@ -53,6 +55,7 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
                  outcome_class: :empty_recall,
                  reason: :no_canonical_results,
                  host_user_id: 42,
+                 ui_surface: :conversation,
                  canonical_hit_count: 0,
                  assistive_hit_count: 1,
                  clarification_attempts: 1,
@@ -92,6 +95,8 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
              "Customer [redacted-email] cannot export invoice [redacted-number] from billing"
 
     assert gap_event.host_user_id == "42"
+    assert gap_event.tenant_scope == :host_user_scoped
+    assert gap_event.ui_surface == :conversation
     assert gap_event.canonical_hit_count == 0
     assert gap_event.assistive_hit_count == 1
     assert length(gap_event.attempted_evidence_snapshots) == 1
@@ -115,6 +120,63 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
              )
 
     assert gap_event.reason == :provider_timeout
+    assert gap_event.tenant_scope == :system_unscoped
+    assert gap_event.ui_surface == :unspecified
+    assert length(GapRecorder.list_recent(limit: 5)) == 1
+  end
+
+  test "dedupes assistive-only search gaps within the 24-hour window by scope context" do
+    now = DateTime.from_naive!(~N[2026-05-21 12:00:00], "Etc/UTC")
+
+    assert {:ok, %GapEvent{} = first_gap_event} =
+             GapRecorder.record(
+               %{
+                 query: "billing export",
+                 surface: :search_modal,
+                 outcome_class: :weak_grounding,
+                 reason: :assistive_only_results,
+                 host_user_id: "user_42",
+                 tenant_scope: :host_user_scoped,
+                 ui_surface: :conversation
+               },
+               now_fn: fn -> now end,
+               schedule_prune_fn: fn -> :ok end
+             )
+
+    dedupe_lookup_fn = fn attrs ->
+      Process.get(:gap_events, [])
+      |> Enum.find(fn gap_event ->
+        gap_event.query_fingerprint == attrs.query_fingerprint and
+          gap_event.tenant_scope == attrs.tenant_scope and
+          gap_event.host_user_id == attrs.host_user_id and
+          gap_event.ui_surface == attrs.ui_surface and
+          gap_event.surface == attrs.surface and
+          gap_event.outcome_class == attrs.outcome_class and
+          gap_event.reason == attrs.reason and
+          DateTime.compare(
+            gap_event.occurred_at,
+            DateTime.add(attrs.occurred_at, -(24 * 60 * 60), :second)
+          ) != :lt
+      end)
+    end
+
+    assert {:ok, %GapEvent{} = second_gap_event} =
+             GapRecorder.record(
+               %{
+                 query: "billing export",
+                 surface: :search_modal,
+                 outcome_class: :weak_grounding,
+                 reason: :assistive_only_results,
+                 host_user_id: "user_42",
+                 tenant_scope: :host_user_scoped,
+                 ui_surface: :conversation
+               },
+               now_fn: fn -> DateTime.add(now, 60, :second) end,
+               schedule_prune_fn: fn -> :ok end,
+               dedupe_lookup_fn: dedupe_lookup_fn
+             )
+
+    assert second_gap_event.id == first_gap_event.id
     assert length(GapRecorder.list_recent(limit: 5)) == 1
   end
 end

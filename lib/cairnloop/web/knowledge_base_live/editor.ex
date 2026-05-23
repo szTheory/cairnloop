@@ -3,6 +3,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   alias Cairnloop.KnowledgeBase
   alias Cairnloop.KnowledgeBase.Article
   alias Cairnloop.KnowledgeAutomation
+  alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
@@ -10,10 +11,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
   def mount(params, session, socket) do
     id = (is_map(params) && params["id"]) || session["id"]
+    scope_filters = scope_filters(session)
     article = repo().get!(Article, id)
     latest_revision = KnowledgeBase.get_latest_revision(id)
-    content = preload_content(params, latest_revision)
-    review_context = load_review_context(params)
+    suggestion = load_suggestion(params, scope_filters, article.id)
+    :ok = ensure_editor_target_matches!(article, suggestion)
+    review_context = load_review_context(params, scope_filters, article, suggestion)
+    content = preload_content(suggestion, latest_revision)
 
     socket = socket
              |> assign(article: article)
@@ -78,24 +82,33 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   defp parse_markdown(nil), do: ""
   defp parse_markdown(content), do: Earmark.as_html!(content)
 
-  defp preload_content(%{"suggestion_id" => suggestion_id}, _latest_revision) do
-    suggestion =
-      suggestion_id
-      |> normalize_id()
-      |> knowledge_automation().get_article_suggestion!()
-
-    suggestion.proposed_markdown
-  end
+  defp preload_content(%{proposed_markdown: proposed_markdown}, _latest_revision), do: proposed_markdown
 
   defp preload_content(_params, latest_revision) do
     if latest_revision, do: latest_revision.content, else: ""
   end
 
-  defp load_review_context(%{"review_task_id" => review_task_id} = params) do
+  defp load_suggestion(%{"suggestion_id" => suggestion_id} = params, scope_filters, article_id) do
+    :ok = EditorHandoff.verify!(params, article_id)
+
+    suggestion_id
+    |> normalize_id()
+    |> knowledge_automation().get_article_suggestion!(scope_filters)
+  end
+
+  defp load_suggestion(_params, _scope_filters, _article_id), do: nil
+
+  defp load_review_context(%{"review_task_id" => review_task_id} = params, scope_filters, article, suggestion) do
     task =
       review_task_id
       |> normalize_id()
-      |> knowledge_automation().get_review_task!()
+      |> knowledge_automation().get_review_task!(scope_filters)
+
+    if suggestion do
+      :ok = EditorHandoff.ensure_review_task_match!(task, suggestion)
+    end
+
+    :ok = ensure_review_task_target_matches!(task, article)
 
     %{
       review_task: task,
@@ -105,7 +118,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
     }
   end
 
-  defp load_review_context(_params) do
+  defp load_review_context(_params, _scope_filters, _article, _suggestion) do
     %{
       review_task: nil,
       return_to: nil,
@@ -153,6 +166,50 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   end
 
   defp normalize_id(value), do: value
+
+  defp scope_filters(session) do
+    host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)
+
+    if host_user_id do
+      [tenant_scope: :host_user_scoped, host_user_id: to_string(host_user_id)]
+    else
+      []
+    end
+  end
+
+  defp ensure_editor_target_matches!(_article, nil), do: :ok
+
+  defp ensure_editor_target_matches!(article, suggestion) do
+    allowed_article_id =
+      suggestion.article_id ||
+        metadata_value(suggestion.grounding_metadata || %{}, :authoring_article_id)
+
+    if is_nil(allowed_article_id) || allowed_article_id == article.id do
+      :ok
+    else
+      raise Ecto.NoResultsError, queryable: Article
+    end
+  end
+
+  defp ensure_review_task_target_matches!(%{article_suggestion: suggestion}, article) do
+    allowed_article_id =
+      suggestion.article_id ||
+        metadata_value(suggestion.grounding_metadata || %{}, :authoring_article_id)
+
+    if is_nil(allowed_article_id) || allowed_article_id == article.id do
+      :ok
+    else
+      raise Ecto.NoResultsError, queryable: Article
+    end
+  end
+
+  defp ensure_review_task_target_matches!(_task, _article), do: :ok
+
+  defp metadata_value(map, key) when is_map(map) do
+    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+  end
+
+  defp metadata_value(_, _), do: nil
 
   def render(assigns) do
     ~H"""
