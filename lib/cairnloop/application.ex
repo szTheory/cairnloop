@@ -9,6 +9,10 @@ defmodule Cairnloop.Application do
   def start(_type, _args) do
     attach_telemetry()
 
+    # Fail fast at boot if any declared tool is misconfigured (D-07).
+    # A non-conforming tool raises ArgumentError here rather than at first user interaction.
+    Cairnloop.ToolRegistry.validate_configured_tools!()
+
     children = [
       # Starts a worker by calling: Cairnloop.Worker.start_link(arg)
       # {Cairnloop.Worker, arg}

@@ -48,15 +48,11 @@ defmodule Cairnloop.Governance do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
-  # Gate 0: resolve tool_ref to a module via Atom.to_string comparison.
-  # NEVER String.to_existing_atom/1 — D-19, T-13-05.
+  # Gate 0: resolve tool_ref to a module by delegating to ToolRegistry (D-19, T-13-05).
+  # Single source of truth for resolution — no duplicate Atom.to_string logic here.
+  # NEVER String.to_existing_atom/1.
   defp resolve_tool(tool_ref) when is_binary(tool_ref) do
-    configured_tools = Application.get_env(:cairnloop, :tools, []) || []
-
-    case Enum.find(configured_tools, fn mod -> Atom.to_string(mod) == tool_ref end) do
-      nil -> {:error, :unknown_tool}
-      mod -> {:ok, mod}
-    end
+    Cairnloop.ToolRegistry.find_tool_module(tool_ref)
   end
 
   # Gate 1: validate typed input through the tool's changeset/2 callback (D-04).
