@@ -37,6 +37,7 @@ Plans:
 - [ ] M011-S01-03: Replace direct `execute_tool` entrypoints with proposal-first, fail-closed action creation and scope validation.
 
 **Details:**
+
 - Establish one native governed-tool contract that remains host-owned and Elixir-first.
 - Persist proposal truth in Ecto records and append-only events instead of LiveView state.
 - Fail closed on missing input, invalid scope, unsupported tools, or denied policy before any execution path starts.
@@ -55,6 +56,7 @@ Plans:
 - [ ] M011-S02-03: Replace synchronous tool buttons with governed-action timeline cards and proposal-driven affordances in `ConversationLive`.
 
 **Details:**
+
 - Keep the operator experience inside the current in-thread workflow rather than inventing a second tool console.
 - Render human-readable approval cards instead of raw JSON payloads.
 - Make pending, blocked, denied, and completed states durable and visible.
@@ -74,6 +76,7 @@ Plans:
 - [ ] M011-S03-04: Reflect approval, expiry, and resume outcomes back into the conversation timeline and operator workflow.
 
 **Details:**
+
 - Approval is durable workflow truth, not a blocked process or LiveView-only prompt.
 - Resume always happens through a new Oban job after re-validation.
 - Actor attribution, reason capture, and expiry semantics remain explicit and reconstructable.
@@ -92,6 +95,7 @@ Plans:
 - [ ] M011-S04-03: Add failure, retry, and idempotency protections so the first write path remains low-surprise under replay or worker retries.
 
 **Details:**
+
 - Delay write execution until the contract, timeline, and approval machinery are already proven.
 - Keep telemetry low-cardinality and push detailed action truth into durable records.
 - Treat this phase as the proof lane for safe side effects, not as the start of broad tool sprawl.
@@ -109,6 +113,7 @@ Plans:
 - [ ] M011-S05-02: Expose a read-only MCP seam over the governed-tool contract without widening auth or bypassing host-owned workflow truth.
 
 **Details:**
+
 - Keep MCP at the edge and read-only first.
 - Preserve the same policy, actor scope, and durable records regardless of whether the seam is used internally or through an optional adapter.
 

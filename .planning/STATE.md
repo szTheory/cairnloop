@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
 status: executing
-stopped_at: Phase 13 context gathered
-last_updated: "2026-05-23T20:33:02.102Z"
-last_activity: 2026-05-23 -- Phase 13 planning complete
+stopped_at: Completed 13-01-PLAN.md — governed-tool contract (Spec + behaviour + tests)
+last_updated: "2026-05-23T20:50:25.496Z"
+last_activity: 2026-05-23
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** vM011 planning complete; ready for phased execution of governed-tool foundations
+**Current focus:** Phase 13 — governed-tool-contract-proposal-records
 
 ## Current Position
 
-Phase: Not started
-Plan: —
+Phase: 13 (governed-tool-contract-proposal-records) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-05-23 -- Phase 13 planning complete
+Last activity: 2026-05-23
 
 Progress: [----------] 0%
 
@@ -58,6 +58,7 @@ Progress: [----------] 0%
 | Phase 10 P02 | 2min | 2 tasks | 1 files |
 | Phase 10 P03 | 6min | 2 tasks | 3 files |
 | Phase 10 P04 | 2min | 2 tasks | 1 files |
+| Phase 13-governed-tool-contract-proposal-records P01 | 4 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,10 @@ Progress: [----------] 0%
 - Preserve the canonical publish boundary: AI can prepare KB work, never publish it directly.
 - Governed action truth should live in durable records and events, not telemetry or LiveView process state.
 - MCP is an adapter seam over governed tools, not the primary internal execution model.
+- [Phase ?]: Cairnloop.Tool evolved in place (D-01..D-06): can_execute?/2 removed, execute/3->run/3, scope/0+authorize/2+preview/1 added
+- [Phase ?]: Cairnloop.Tool.Spec plain defstruct @enforce_keys [:risk_tier, :approval_mode] — pure data, MCP-01 Phase 17 projection point (D-03)
+- [Phase ?]: derive_approval_mode/1 fail-closed: unknown/nil tier -> :always_block; CompileError before quote do for invalid enums (D-11, D-02)
+- [Phase ?]: authorize/2 deny-by-default {:error, :no_policy_defined}; ToolRegistry uses Atom.to_string, not String.to_existing_atom (D-16, D-19)
 
 ### Pending Todos
 
@@ -91,6 +96,6 @@ Progress: [----------] 0%
 
 ## Session Continuity
 
-Last session: 2026-05-23T18:53:07.830Z
-Stopped at: Phase 13 context gathered
-Resume file: .planning/phases/13-governed-tool-contract-proposal-records/13-CONTEXT.md
+Last session: 2026-05-23T20:50:25.490Z
+Stopped at: Completed 13-01-PLAN.md — governed-tool contract (Spec + behaviour + tests)
+Resume file: None
