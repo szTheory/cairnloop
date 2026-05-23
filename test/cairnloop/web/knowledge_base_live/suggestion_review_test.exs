@@ -34,10 +34,12 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     end
 
     def dismiss_article_suggestion(id, _opts) do
+      Process.put(:dismissed_suggestion_id, id)
       {:ok, get_article_suggestion!(id)}
     end
 
     def regenerate_article_suggestion(id, _opts) do
+      Process.put(:regenerated_suggestion_id, id)
       {:ok, get_article_suggestion!(id)}
     end
 
@@ -517,6 +519,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       Process.delete(:mock_review_task_ids)
       Process.delete(:mock_review_task_map)
       Process.delete(:mock_gap_candidate_map)
+      Process.delete(:dismissed_suggestion_id)
+      Process.delete(:regenerated_suggestion_id)
       Application.delete_env(:cairnloop, :knowledge_automation)
       Application.delete_env(:cairnloop, :knowledge_base)
       Application.delete_env(:cairnloop, :repo)
@@ -572,6 +576,58 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
 
     assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=22"}} =
              index_redirected.redirected
+  end
+
+  test "ready suggestions expose only regenerate, dismiss, and open for manual edit" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
+    html = render_html(socket.assigns)
+
+    assert html =~ ">Regenerate<"
+    assert html =~ ">Dismiss<"
+    assert html =~ ">Open for manual edit<"
+    refute html =~ ">Approve<"
+    refute html =~ ">Reject<"
+    refute html =~ ">Defer<"
+    refute html =~ ">Publish<"
+    refute html =~ ">Open for edit<"
+  end
+
+  test "failed suggestions keep inspect and regenerate without dismiss or manual-edit controls" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "24"}, "", socket)
+    html = render_html(socket.assigns)
+
+    assert html =~ ">Regenerate<"
+    assert html =~ "Failure details"
+    refute html =~ ">Dismiss<"
+    refute html =~ ">Open for manual edit<"
+    refute html =~ ">Publish<"
+  end
+
+  test "regenerate, dismiss, and open_for_manual_edit act on the suggestion while preserving review context" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
+
+    assert {:noreply, regenerated_socket} =
+             SuggestionReview.handle_event("regenerate", %{"id" => "22"}, socket)
+
+    assert Process.get(:regenerated_suggestion_id) == 11
+    assert regenerated_socket.assigns.selected_task.id == 22
+
+    assert {:noreply, dismissed_socket} =
+             SuggestionReview.handle_event("dismiss", %{"id" => "22"}, socket)
+
+    assert Process.get(:dismissed_suggestion_id) == 11
+    assert dismissed_socket.assigns.selected_task.id == 22
+
+    assert {:noreply, edit_socket} =
+             SuggestionReview.handle_event("open_for_manual_edit", %{"id" => "22"}, socket)
+
+    assert {:live, :redirect, %{to: path}} = edit_socket.redirected
+    assert path =~ "/knowledge-base/77/edit?suggestion_id=11"
+    assert path =~ "review_task_id=22"
+    assert path =~ "return_to=%2Fknowledge-base%2Fsuggestions%3Ftask%3D22"
   end
 
   defp review_task_fixture(overrides) do
