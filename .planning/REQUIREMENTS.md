@@ -51,7 +51,7 @@
 ### Governed Tool Contract
 
 - [x] **TOOL-01**: Host developer can define a governed support tool with typed input validation, declared risk tier, approval mode, idempotency metadata, and structured result states.
-- [ ] **TOOL-02**: System can propose a governed tool call from scoped conversation and account context without executing it inline.
+- [x] **TOOL-02**: System can propose a governed tool call from scoped conversation and account context without executing it inline.
 - [x] **TOOL-03**: Governed tool proposal fails closed with explicit `needs_input`, `scope_invalid`, `policy_denied`, or `unsupported` outcomes instead of guessing or widening scope.
 - [x] **TOOL-04**: Governed tool execution stores durable proposal and execution records plus append-only action events separate from transient UI state.
 
@@ -99,7 +99,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TOOL-01 | Phase 13 | Complete |
-| TOOL-02 | Phase 13 | Pending |
+| TOOL-02 | Phase 13 | Complete |
 | TOOL-03 | Phase 13 | Complete |
 | TOOL-04 | Phase 13 | Complete |
 | FLOW-01 | Phase 14 | Pending |
