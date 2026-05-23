@@ -171,7 +171,7 @@ defmodule Cairnloop.Governance do
       {:ok, validated} ->
         propose_valid(tool_ref, actor_id, context, validated)
 
-      {:blocked, :unsupported, reason} = blocked ->
+      {:blocked, :unsupported, _reason} = blocked ->
         # Pre-persistence reject — NO row, telemetry only (D-18, Pitfall 7)
         Telemetry.emit(:proposal_blocked, %{count: 1}, %{outcome: :unsupported})
         blocked
