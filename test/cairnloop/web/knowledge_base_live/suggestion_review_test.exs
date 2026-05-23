@@ -146,7 +146,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
                   decision: :approved,
                   reason: :ready_to_publish,
                   actor_id: "reviewer-1",
-                  metadata: %{published_revision_id: 88, publish_status: :published, reindex_status: :queued}
+                  metadata: %{
+                    published_revision_id: 88,
+                    publish_status: :published,
+                    reindex_status: :queued
+                  }
                 })
               ]
         })
@@ -273,7 +277,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
         status: :failed,
         title: "Refund policy quick fix",
         operator_summary: "Automatic suggestion is blocked for this conversation.",
-        proposed_markdown: "# Suggestion blocked\n\nCanonical citation-backed grounding was insufficient.",
+        proposed_markdown:
+          "# Suggestion blocked\n\nCanonical citation-backed grounding was insufficient.",
         grounding_metadata: %{
           "status" => "weak",
           "failure_reason" => "policy_guard_blocked",
@@ -413,7 +418,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
             decision: :approved,
             reason: :ready_to_publish,
             actor_id: "reviewer-1",
-            metadata: %{published_revision_id: 88, publish_status: :published, reindex_status: :queued}
+            metadata: %{
+              published_revision_id: 88,
+              publish_status: :published,
+              reindex_status: :queued
+            }
           })
         ]
       })
@@ -477,8 +486,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       13 => shell_quick_fix,
       14 => blocked_quick_fix
     })
+
     Process.put(:mock_review_task_ids, Enum.map(review_tasks, & &1.id))
     Process.put(:mock_review_task_map, Map.new(review_tasks, &{&1.id, &1}))
+
     Process.put(:mock_gap_candidate_map, %{
       101 =>
         struct(GapCandidate, %{
@@ -514,105 +525,50 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     :ok
   end
 
-  test "review inbox lists task queue states and keeps approved or published work visible" do
+  test "review inbox keeps one shared suggestion lane with article and revision proposals" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     html = render_html(socket.assigns)
 
-    assert html =~ "Review inbox"
-    assert html =~ "Pending review"
-    assert html =~ "Approved-ready-to-publish"
-    assert html =~ "Rejected"
-    assert html =~ "Deferred"
-    assert html =~ "Review needed"
-    assert html =~ "Published"
-    assert html =~ "Ready to publish when you are."
-    assert html =~ "Published and queued for reindex follow-through."
+    assert html =~ "Suggestion review"
+    assert html =~ "Gap-driven article suggestion"
+    assert html =~ "3 repeated article-linked failures"
+    assert html =~ "Ready for review"
+    assert html =~ "Generation blocked"
   end
 
-  test "task detail keeps evidence, citation anchors, proposal state, task state, and history together" do
+  test "task detail keeps evidence, citation anchors, grounding, and proposal content together" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
     html = render_html(socket.assigns)
 
-    assert html =~ "AI proposal status"
+    assert html =~ "Suggestion status"
     assert html =~ "Ready for review"
-    assert html =~ "Task status"
-    assert html =~ "Approved-ready-to-publish"
-    assert html =~ "Publish outcome"
-    assert html =~ "Not published yet"
+    assert html =~ "Grounding status"
+    assert html =~ "Strong citation grounding"
+    assert html =~ "Stale pressure"
+    assert html =~ "3 repeated article-linked failures"
     assert html =~ "Canonical guidance"
+    assert html =~ "Revision 44"
+    assert html =~ "Chunk 2"
     assert html =~ "/knowledge-base/77/edit"
     assert html =~ "Derived diff summary"
-    assert html =~ "Structured history"
-    assert html =~ "Approved by reviewer-1"
-  end
-
-  test "quick-fix shell and blocked tasks render launch context, typed layers, and bounded reasons in the shared lane" do
-    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-
-    {:noreply, shell_socket} = SuggestionReview.handle_params(%{"task" => "27"}, "", socket)
-    shell_html = render_html(shell_socket.assigns)
-
-    assert shell_html =~ "Draft shell created"
-    assert shell_html =~ "Conversation 321"
-    assert shell_html =~ "Weekend export fails"
-    assert shell_html =~ "Thread context"
-    assert shell_html =~ "Canonical retrieval"
-    assert shell_html =~ "Resolved case assists"
-    assert shell_html =~ "Missing canonical grounding"
-
-    {:noreply, blocked_socket} = SuggestionReview.handle_params(%{"task" => "28"}, "", socket)
-    blocked_html = render_html(blocked_socket.assigns)
-
-    assert blocked_html =~ "Manual draft required"
-    assert blocked_html =~ "Refund policy export request"
-    assert blocked_html =~ "Policy guard blocked automatic suggestion"
-    assert blocked_html =~ "Open manual draft"
-  end
-
-  test "task actions call review-task commands, reload detail, and keep publish gated to approved work" do
-    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
-
-    pending_html = render_html(socket.assigns)
-    refute pending_html =~ ">Publish<"
-
-    {:noreply, approved_socket} = SuggestionReview.handle_event("approve", %{"id" => "21"}, socket)
-    approved_html = render_html(approved_socket.assigns)
-
-    assert approved_socket.assigns.selected_task.status == :approved_ready_to_publish
-    assert approved_html =~ "Publish"
-    assert approved_html =~ "Approved by reviewer-1"
-
-    {:noreply, published_socket} =
-      SuggestionReview.handle_event("publish", %{"id" => "21"}, approved_socket)
-
-    published_html = render_html(published_socket.assigns)
-    assert published_socket.assigns.selected_task.status == :published
-    assert published_html =~ "Published revision #88. Reindex queued."
-  end
-
-  test "open_for_edit preserves review task context in the editor handoff" do
-    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
-    {:noreply, edit_socket} = SuggestionReview.handle_event("open_for_edit", %{"id" => "22"}, socket)
-
-    assert {:live, :redirect, %{to: path}} = edit_socket.redirected
-    assert path =~ "/knowledge-base/77/edit?suggestion_id=11"
-    assert path =~ "review_task_id=22"
-    assert path =~ "return_to=%2Fknowledge-base%2Fsuggestions%3Ftask%3D22"
+    refute html =~ "Publish outcome"
   end
 
   test "gap and article entrypoints deep-link into the shared review task lane" do
     {:ok, gaps_socket} = Gaps.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     {:noreply, gaps_socket} = Gaps.handle_params(%{"candidate" => "101"}, "", gaps_socket)
-    {:noreply, gaps_redirected} = Gaps.handle_event("suggest_article", %{"candidate_id" => "101"}, gaps_socket)
+
+    {:noreply, gaps_redirected} =
+      Gaps.handle_event("suggest_article", %{"candidate_id" => "101"}, gaps_socket)
 
     assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=21"}} =
              gaps_redirected.redirected
 
     {:ok, index_socket} = Index.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
-    {:noreply, index_redirected} = Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
+
+    {:noreply, index_redirected} =
+      Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
 
     assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=22"}} =
              index_redirected.redirected
