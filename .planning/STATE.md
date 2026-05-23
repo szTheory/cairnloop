@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: vM010
-milestone_name: KB AI Maintenance
-status: shipped
-stopped_at: Milestone closeout complete
-last_updated: "2026-05-23T13:00:32Z"
-last_activity: 2026-05-23 -- Milestone vM010 archived and tagged
+milestone: vM011
+milestone_name: AI Tool Governance & MCP Integration
+status: vM011 planned
+stopped_at: Phase 13 context gathered
+last_updated: "2026-05-23T18:53:07.837Z"
+last_activity: 2026-05-23 -- Defined vM011 requirements and roadmap around governed internal actions before broad MCP
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Milestone closeout complete; next candidate is M011 — AI Tool Governance & MCP Integration
+**Current focus:** vM011 planning complete; ready for phased execution of governed-tool foundations
 
 ## Current Position
 
-Phase: None
-Plan: None
-Status: vM010 shipped
-Last activity: 2026-05-23 -- Milestone vM010 archived and tagged
+Phase: Not started
+Plan: —
+Status: vM011 planned
+Last activity: 2026-05-23 -- Defined vM011 requirements and roadmap around governed internal actions before broad MCP
 
-Progress: [██████████] 100%
+Progress: [----------] 0%
 
 ## Performance Metrics
 
@@ -64,20 +64,21 @@ Progress: [██████████] 100%
 ### Decisions
 
 - vM010 stays inside Cairnloop-owned Phoenix, Ecto, and Oban paths; Scoria remains optional.
-- Sequence the milestone as `Gap -> Suggest -> Review -> Quick fix/ops`, matching the proof and support gates.
+- Sequence the milestone as `Governed contract -> timeline -> approvals -> narrow write path -> optional MCP seam`.
 - Preserve the canonical publish boundary: AI can prepare KB work, never publish it directly.
-- Keep review workflow state separate from `ArticleSuggestion`, with one active task per suggestion and append-only task events.
-- Milestone closeout accepted explicit technical debt rather than reopening shipped scope, because all 12 v1 requirements and all in-scope flows are satisfied.
+- Governed action truth should live in durable records and events, not telemetry or LiveView process state.
+- MCP is an adapter seam over governed tools, not the primary internal execution model.
 
 ### Pending Todos
 
 - Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear.
 - Unblock repo-backed realism lanes so later milestone verification can include stronger live proof.
-- Define the first governed-tool approval boundary for M011 before broadening AI agency.
+- Replace the synchronous `execute_tool` LiveView path with a durable approval-aware action workflow.
 
 ### Blockers/Concerns
 
 - `Cairnloop.Repo` remains unavailable in this workspace, so some DB-backed realism proof may stay environment-blocked.
+- The current tool path has no durable approval, resume, or structured policy model; M011 is the first production-shape tool runtime milestone.
 
 ## Deferred Items
 
@@ -86,9 +87,10 @@ Progress: [██████████] 100%
 | Verification | Repo-backed realism lanes unavailable in this workspace | Open | vM009 closeout |
 | Planning | Phase 10 and Phase 12 closure artifacts still span milestone-local and legacy planning layouts | Open | vM010 closeout |
 | Verification | Focused test runs still emit unrelated `Chimeway.Repo` missing-database boot noise in this workspace | Open | vM010 closeout |
+| Scope | Broad remote MCP server surface and high-risk write tools | Deferred | vM011 planning |
 
 ## Session Continuity
 
-Last session: 2026-05-23T13:00:32Z
-Stopped at: Milestone closeout complete
-Resume file: None
+Last session: 2026-05-23T18:53:07.830Z
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-governed-tool-contract-proposal-records/13-CONTEXT.md
