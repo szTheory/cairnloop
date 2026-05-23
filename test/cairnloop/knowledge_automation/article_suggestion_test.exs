@@ -2,26 +2,67 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
   use ExUnit.Case, async: false
 
   alias Cairnloop.KnowledgeAutomation
-  alias Cairnloop.KnowledgeAutomation.{ArticleSuggestion, ArticleSuggestionEvidence, StaleArticleSignal}
+  alias Cairnloop.KnowledgeAutomation.{
+    ArticleSuggestion,
+    ArticleSuggestionEvidence,
+    GapCandidate,
+    GapCandidateMembership,
+    StaleArticleSignal
+  }
   alias Cairnloop.KnowledgeBase.Revision
+  alias Cairnloop.Retrieval.{GapEvent, ResolvedCaseEvidence}
+
+  defmodule MockRetrieval do
+    def ground_for_draft(request, opts) do
+      Process.put(:last_retrieval_request, request)
+      Process.put(:last_retrieval_opts, opts)
+
+      query = Map.get(request, :query) || Map.get(request, "query")
+
+      Process.get(:retrieval_ground_for_draft, fn _query, _request, _opts ->
+        %{
+          query: query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+      end).(query, request, opts)
+    end
+  end
+
+  defmodule MockKnowledgeBase do
+    def get_latest_active_revision(article_id) do
+      Process.get(:latest_active_revision_fn, fn _article_id -> nil end).(article_id)
+    end
+
+    def get_article(article_id) do
+      Process.get(:knowledge_base_article_fn, fn _article_id -> nil end).(article_id)
+    end
+  end
 
   defmodule MockRepo do
     def all(%Ecto.Query{} = query) do
       Process.put(:last_all_query, query)
 
-      Process.get(:article_suggestions, [])
-      |> filter_scope(query)
-      |> Enum.sort_by(
-        fn suggestion ->
-          {suggestion.inserted_at || ~U[1970-01-01 00:00:00Z], suggestion.id || 0}
-        end,
-        :desc
-      )
+      query
+      |> query_source()
+      |> all_for_source(query)
     end
 
     def one!(%Ecto.Query{} = query) do
       Process.put(:last_one_query, query)
-      Process.get(:article_suggestion_detail_lookup).(query)
+      query
+      |> query_source()
+      |> one_for_source(query, true)
+    end
+
+    def one(%Ecto.Query{} = query) do
+      Process.put(:last_one_query, query)
+
+      query
+      |> query_source()
+      |> one_for_source(query, false)
     end
 
     def insert(%Ecto.Changeset{} = changeset) do
@@ -55,8 +96,69 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       end
     end
 
+    def all(module) when is_atom(module) do
+      case module do
+        Cairnloop.KnowledgeBase.Article -> Process.get(:articles, [])
+        _ -> []
+      end
+    end
+
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
     defp maybe_put_id(struct), do: struct
+
+    defp query_source(%Ecto.Query{from: %{source: {_table, module}}}), do: module
+    defp query_source(_), do: nil
+
+    defp all_for_source(ArticleSuggestion, query) do
+      Process.get(:article_suggestions, [])
+      |> filter_scope(query)
+      |> Enum.sort_by(
+        fn suggestion ->
+          {suggestion.inserted_at || ~U[1970-01-01 00:00:00Z], suggestion.id || 0}
+        end,
+        :desc
+      )
+    end
+
+    defp all_for_source(GapEvent, query) do
+      Process.get(:gap_events, [])
+      |> filter_scope(query)
+      |> Enum.sort_by(fn event -> {Map.get(event, :occurred_at), Map.get(event, :id, 0)} end, :desc)
+    end
+
+    defp all_for_source(ResolvedCaseEvidence, query) do
+      Process.get(:resolved_case_evidence, [])
+      |> filter_scope(query)
+      |> Enum.sort_by(fn evidence -> {Map.get(evidence, :resolved_at), Map.get(evidence, :id, 0)} end, :desc)
+    end
+
+    defp all_for_source(_module, _query), do: []
+
+    defp one_for_source(ArticleSuggestion, query, true) do
+      Process.get(:article_suggestion_detail_lookup).(query)
+    end
+
+    defp one_for_source(ArticleSuggestion, query, false) do
+      Process.get(:article_suggestion_detail_lookup, fn _query -> nil end).(query)
+    end
+
+    defp one_for_source(GapCandidate, query, true) do
+      Process.get(:gap_candidate_lookup).(query)
+    end
+
+    defp one_for_source(GapCandidate, query, false) do
+      Process.get(:gap_candidate_lookup, fn _query -> nil end).(query)
+    end
+
+    defp one_for_source(Revision, query, false) do
+      Process.get(:revision_lookup, fn _query -> nil end).(query)
+    end
+
+    defp one_for_source(_module, _query, true) do
+      raise Ecto.NoResultsError, queryable: "mock query"
+    end
+
+    defp one_for_source(_module, _query, false), do: nil
 
     defp filter_scope(suggestions, query) do
       conditions = List.wrap(query.wheres)
@@ -77,6 +179,15 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       Map.get(record, field) == value
     end
 
+    defp eval_condition(
+           record,
+           {:in, [], [{{:., [], [{:&, [], [0]}, field]}, [], []}, {:^, [], [index]}]},
+           params
+         ) do
+      {values, _} = Enum.at(params, index)
+      Map.get(record, field) in values
+    end
+
     defp eval_condition(_record, _expr, _params), do: true
   end
 
@@ -91,7 +202,16 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         :last_all_query,
         :last_one_query,
         :last_inserted_suggestion,
-        :last_updated_suggestion
+        :last_updated_suggestion,
+        :last_retrieval_request,
+        :last_retrieval_opts,
+        :retrieval_ground_for_draft,
+        :gap_candidate_lookup,
+        :gap_events,
+        :resolved_case_evidence,
+        :latest_active_revision_fn,
+        :knowledge_base_article_fn,
+        :revision_lookup
       ]
       |> Enum.each(&Process.delete/1)
 
@@ -366,6 +486,166 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
              )
   end
 
+  test "suggest_article uses hydrated gap-candidate evidence instead of generic retrieval fallback" do
+    Process.put(:gap_candidate_lookup, fn _query ->
+      gap_candidate_fixture()
+    end)
+
+    Process.put(:gap_events, [
+      %GapEvent{
+        id: 12,
+        occurred_at: ~U[2026-05-21 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("a", 64),
+        sanitized_query_excerpt: "billing export missing from knowledge base",
+        canonical_hit_count: 0,
+        assistive_hit_count: 2,
+        clarification_attempts: 1
+      }
+    ])
+
+    Process.put(:resolved_case_evidence, [
+      %ResolvedCaseEvidence{
+        id: 81,
+        conversation_id: 123,
+        subject: "Billing export gap",
+        issue_summary: "Customers cannot find the export guidance.",
+        resolution_note: "Agent walked through the export flow manually.",
+        actions_taken: ["shared steps"],
+        outcome: "resolved",
+        resolved_at: ~U[2026-05-21 11:00:00Z]
+      }
+    ])
+
+    Process.put(:retrieval_ground_for_draft, fn
+      "billing export missing from knowledge base", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: "Billing export reference",
+              content: "Open Settings and choose Export.",
+              citation_target: %{article_id: 77, revision_id: 44, chunk_index: 3}
+            }
+          ],
+          assistive_results: [
+            %{
+              source_type: :resolved_case,
+              trust_level: :assistive,
+              title: "Billing export gap",
+              content: "Agent walked through the export flow manually."
+            }
+          ],
+          evidence: [valid_evidence_attrs()],
+          grounding_assessment: %{status: :strong}
+        }
+
+      _query, request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+    end)
+
+    assert {:ok, suggestion} =
+             KnowledgeAutomation.suggest_article(
+               %{
+                 gap_candidate_id: 101,
+                 entrypoint_id: 101,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "user-1"
+               },
+               retrieval_module: MockRetrieval,
+               enqueue_fn: fn _job -> {:ok, %{id: "job-gap-hydrated"}} end
+             )
+
+    assert Process.get(:last_retrieval_request).query ==
+             "billing export missing from knowledge base"
+
+    assert suggestion.status == :pending_generation
+    assert suggestion.grounding_metadata["query"] == "billing export missing from knowledge base"
+    assert suggestion.grounding_metadata["canonical_evidence_count"] == 1
+    assert suggestion.grounding_metadata["assistive_evidence_count"] == 1
+  end
+
+  test "suggest_article fails closed when the hydrated gap candidate has no citation-ready canonical evidence" do
+    Process.put(:gap_candidate_lookup, fn _query ->
+      gap_candidate_fixture(%{
+        id: 202,
+        title: "Billing export fallback",
+        memberships: [
+          %GapCandidateMembership{source_type: :retrieval_gap_event, source_id: 91}
+        ]
+      })
+    end)
+
+    Process.put(:gap_events, [
+      %GapEvent{
+        id: 91,
+        occurred_at: ~U[2026-05-21 10:00:00Z],
+        surface: :draft_generation,
+        outcome_class: :weak_grounding,
+        reason: :canonical_insufficient_detail,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "user-1",
+        ui_surface: :conversation,
+        query_fingerprint: String.duplicate("b", 64),
+        sanitized_query_excerpt: "",
+        canonical_hit_count: 0,
+        assistive_hit_count: 1,
+        clarification_attempts: 1
+      }
+    ])
+
+    Process.put(:resolved_case_evidence, [])
+
+    Process.put(:retrieval_ground_for_draft, fn
+      "Billing export fallback", request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+
+      _query, request, _opts ->
+        %{
+          query: request.query,
+          canonical_results: [],
+          assistive_results: [],
+          evidence: [],
+          grounding_assessment: %{status: :weak}
+        }
+    end)
+
+    assert {:ok, suggestion} =
+             KnowledgeAutomation.suggest_article(
+               %{
+                 gap_candidate_id: 202,
+                 entrypoint_id: 202,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "user-1"
+               },
+               retrieval_module: MockRetrieval
+             )
+
+    assert suggestion.status == :failed
+    assert suggestion.grounding_metadata["query"] == "Billing export fallback"
+    assert suggestion.grounding_metadata["failure_reason"] == "weak_grounding"
+    refute Process.get(:last_retrieval_request).query == "Knowledge Base maintenance"
+  end
+
   test "conversation quick fix uses conversation-scoped identity and preserves typed package boundaries" do
     Process.put(:article_suggestions, [])
 
@@ -489,6 +769,36 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert suggestion.grounding_metadata["quick_fix_reason"] == "policy_guard_blocked"
     assert suggestion.grounding_metadata["failure_reason"] == "policy_guard_blocked"
     assert suggestion.operator_summary =~ "blocked"
+  end
+
+  test "conversation quick fix shell and blocked outcomes require a bounded quick-fix reason" do
+    shell_missing_reason =
+      %ArticleSuggestion{}
+      |> ArticleSuggestion.changeset(
+        valid_article_attrs(%{
+          entrypoint_type: :conversation_quick_fix,
+          entrypoint_id: 321,
+          grounding_metadata: %{"quick_fix_outcome" => "shell_created"}
+        })
+      )
+
+    blocked_missing_reason =
+      %ArticleSuggestion{}
+      |> ArticleSuggestion.changeset(
+        valid_article_attrs(%{
+          entrypoint_type: :conversation_quick_fix,
+          entrypoint_id: 321,
+          status: :failed,
+          grounding_metadata: %{"quick_fix_outcome" => "blocked_manual_required"}
+        })
+      )
+
+    refute shell_missing_reason.valid?
+    refute blocked_missing_reason.valid?
+    assert "must include a bounded quick-fix reason" in errors_on(shell_missing_reason).grounding_metadata
+
+    assert "must include a bounded quick-fix reason" in
+             errors_on(blocked_missing_reason).grounding_metadata
   end
 
   test "dismiss and regenerate seams update suggestion-safe status without review or publish semantics" do
@@ -720,6 +1030,34 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       })
 
     struct(ArticleSuggestion, Map.merge(base, overrides))
+  end
+
+  defp gap_candidate_fixture(overrides \\ %{}) do
+    base = %GapCandidate{
+      id: 101,
+      stable_key: "gap:tenant:user-1:101",
+      status: :open,
+      candidate_type: :mixed,
+      title: "Billing export guide",
+      seed_excerpt: "Billing export missing from knowledge base",
+      tenant_scope: :host_user_scoped,
+      host_user_id: "user-1",
+      ui_surface: :conversation,
+      first_seen_at: ~U[2026-05-20 09:00:00Z],
+      last_seen_at: ~U[2026-05-21 10:00:00Z],
+      evidence_count: 2,
+      manual_case_count: 1,
+      weak_grounding_count: 1,
+      no_hit_count: 0,
+      score: 4.5,
+      score_components: %{"weak_grounding" => 1.4},
+      memberships: [
+        %GapCandidateMembership{source_type: :retrieval_gap_event, source_id: 12},
+        %GapCandidateMembership{source_type: :manual_handling_case, source_id: 81}
+      ]
+    }
+
+    struct(base, overrides)
   end
 
   defp errors_on(changeset) do
