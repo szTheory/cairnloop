@@ -1,16 +1,20 @@
 ---
 phase: 10
 slug: citation-backed-draft-suggestions
-status: ready_for_execution
+status: validated
 nyquist_compliant: true
 wave_0_complete: true
 created: 2026-05-23
+validated: 2026-05-24
 ---
 
 # Phase 10 — Validation Strategy
 
-> Planning-state validation artifact for Phase 10. This phase is ready for execution, but it has
-> not been verified yet.
+> Validated post-execution on 2026-05-24. Every planned task now maps to an automated proof that
+> runs green: the full quick-run suite passes (`52 tests, 0 failures`), and phase verification
+> passed (10/10 observable truths). No validation gaps remain. The DB-connection boot log noise
+> (`missing the :database key in options for Chimeway.Repo`) is the known workspace baseline, not a
+> regression.
 
 ## Execution Readiness
 
@@ -21,7 +25,7 @@ created: 2026-05-23
 | **Wave structure** | `01 -> 02 -> 03 -> 04 -> 05` |
 | **Quick run command** | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/knowledge_automation/workers/generate_article_suggestion_test.exs test/cairnloop/web/knowledge_base_live/gaps_test.exs test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs test/cairnloop/web/knowledge_base_live_test.exs` |
 | **Full suite command** | `mix test` |
-| **Estimated runtime** | `~20-50 seconds once the new focused tests exist` |
+| **Estimated runtime** | `~0.4 seconds for the focused suite (52 tests, measured 2026-05-24)` |
 
 ## Source Coverage Audit
 
@@ -90,16 +94,16 @@ created: 2026-05-23
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|--------|
-| 10-01-01 | 01 | 1 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-01, T-10-02 | Shared suggestion artifact preserves full markdown, bounded evidence rows, and canonical revision anchors without leaking publish/review-task state | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | planned |
-| 10-01-02 | 01 | 1 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-03 | Public suggestion facade enforces scope and published revision anchors before queueing work | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | planned |
-| 10-02-01 | 02 | 2 | DRAFT-02, DRAFT-03 | T-10-05, T-10-06 | Stale-revision gate requires repeated article-linked failures plus canonical anchors and fails closed when grounding is insufficient | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | planned |
-| 10-02-02 | 02 | 2 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-04, T-10-06 | Shared worker queues uniquely by entrypoint identity plus evidence digest and persists ready or failed suggestion outcomes durably | unit | `mix test test/cairnloop/knowledge_automation/workers/generate_article_suggestion_test.exs test/cairnloop/knowledge_automation/article_suggestion_test.exs` | planned |
-| 10-03-01 | 03 | 3 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-07, T-10-08 | Dedicated review surface renders both suggestion types with evidence, trust labels, grounding state, and proposal content from one lane | liveview | `mix test test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs` | planned |
-| 10-03-02 | 03 | 3 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-07, T-10-08 | Review actions stay limited to regenerate, dismiss, and explicit manual-edit affordances, with revision diffs derived rather than stored | liveview | `mix test test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs` | planned |
-| 10-04-01 | 04 | 4 | DRAFT-01, DRAFT-02 | T-10-09, T-10-10 | New-article suggestions acquire a non-published authoring target before editor navigation, while revision suggestions reuse existing article ids | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | planned |
-| 10-04-02 | 04 | 4 | DRAFT-01, DRAFT-02 | T-10-09, T-10-11 | Editor handoff preloads reviewed suggestion markdown by `suggestion_id` without saving or publishing as a side effect | liveview | `mix test test/cairnloop/web/knowledge_base_live_test.exs` | planned |
-| 10-05-01 | 05 | 5 | DRAFT-01, DRAFT-03 | T-10-12 | Gap-driven article suggestions derive grounding from the selected candidate's durable evidence and fail closed instead of using a generic retrieval fallback | unit + liveview | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/web/knowledge_base_live/gaps_test.exs` | planned |
-| 10-05-02 | 05 | 5 | DRAFT-02, DRAFT-03 | T-10-13, T-10-14 | Revision suggestions load article-linked stale evidence and a fresh canonical snapshot inside the domain, then redirect into the suggestion review lane with auditable metadata | unit + liveview | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/web/knowledge_base_live/gaps_test.exs` | planned |
+| 10-01-01 | 01 | 1 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-01, T-10-02 | Shared suggestion artifact preserves full markdown, bounded evidence rows, and canonical revision anchors without leaking publish/review-task state | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | COVERED ✓ |
+| 10-01-02 | 01 | 1 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-03 | Public suggestion facade enforces scope and published revision anchors before queueing work | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | COVERED ✓ |
+| 10-02-01 | 02 | 2 | DRAFT-02, DRAFT-03 | T-10-05, T-10-06 | Stale-revision gate requires repeated article-linked failures plus canonical anchors and fails closed when grounding is insufficient | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | COVERED ✓ |
+| 10-02-02 | 02 | 2 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-04, T-10-06 | Shared worker queues uniquely by entrypoint identity plus evidence digest and persists ready or failed suggestion outcomes durably | unit | `mix test test/cairnloop/knowledge_automation/workers/generate_article_suggestion_test.exs test/cairnloop/knowledge_automation/article_suggestion_test.exs` | COVERED ✓ |
+| 10-03-01 | 03 | 3 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-07, T-10-08 | Dedicated review surface renders both suggestion types with evidence, trust labels, grounding state, and proposal content from one lane | liveview | `mix test test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs` | COVERED ✓ |
+| 10-03-02 | 03 | 3 | DRAFT-01, DRAFT-02, DRAFT-03 | T-10-07, T-10-08 | Review actions stay limited to regenerate, dismiss, and explicit manual-edit affordances, with revision diffs derived rather than stored | liveview | `mix test test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs` | COVERED ✓ |
+| 10-04-01 | 04 | 4 | DRAFT-01, DRAFT-02 | T-10-09, T-10-10 | New-article suggestions acquire a non-published authoring target before editor navigation, while revision suggestions reuse existing article ids | unit | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs` | COVERED ✓ |
+| 10-04-02 | 04 | 4 | DRAFT-01, DRAFT-02 | T-10-09, T-10-11 | Editor handoff preloads reviewed suggestion markdown by `suggestion_id` without saving or publishing as a side effect | liveview | `mix test test/cairnloop/web/knowledge_base_live_test.exs` | COVERED ✓ |
+| 10-05-01 | 05 | 5 | DRAFT-01, DRAFT-03 | T-10-12 | Gap-driven article suggestions derive grounding from the selected candidate's durable evidence and fail closed instead of using a generic retrieval fallback | unit + liveview | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/web/knowledge_base_live/gaps_test.exs` | COVERED ✓ |
+| 10-05-02 | 05 | 5 | DRAFT-02, DRAFT-03 | T-10-13, T-10-14 | Revision suggestions load article-linked stale evidence and a fresh canonical snapshot inside the domain, then redirect into the suggestion review lane with auditable metadata | unit + liveview | `mix test test/cairnloop/knowledge_automation/article_suggestion_test.exs test/cairnloop/web/knowledge_base_live/gaps_test.exs` | COVERED ✓ |
 
 ## Wave 0 Requirements
 
@@ -111,10 +115,15 @@ created: 2026-05-23
 
 ## Manual-Only Checks To Reserve For Verification
 
-| Behavior | Requirement | Why Manual | Verification Instructions |
-|----------|-------------|------------|---------------------------|
-| Confirm suggestion review copy keeps “canonical guidance” distinct from “supporting evidence” and does not read like publish approval | DRAFT-01, DRAFT-03 | Trust-language quality is partly editorial | Review the suggestion review surface after Plan 03 with one ready suggestion and one failed suggestion |
-| Confirm manual-edit handoff feels deliberate and does not make the editor the default suggestion destination | DRAFT-01, DRAFT-02 | The workflow boundary is experiential as well as technical | Generate both suggestion types, inspect first, then click `open for manual edit` and verify revision suggestions go directly to `/knowledge-base/:id/edit?suggestion_id=...`, new-article suggestions first create or reuse a non-published authoring article target, and the editor preloads `proposed_markdown` before any save or publish action |
+> The mechanical aspects originally reserved here are now covered by deterministic tests at the gap
+> entrypoint, stale-article entrypoint, suggestion review lane, and review-origin editor handoff (see
+> VERIFICATION.md truths 9–10), so live-browser verification is no longer required for routing,
+> preload, or publish suppression. Only the genuinely editorial residue below stays manual.
+
+| Behavior | Requirement | Why Manual | Verification Instructions | Status |
+|----------|-------------|------------|---------------------------|--------|
+| Suggestion review copy keeps “canonical guidance” distinct from “supporting evidence” and never reads like publish approval | DRAFT-01, DRAFT-03 | Trust-language register is an editorial judgment, not a mechanical assertion | Read the suggestion review surface with one ready and one failed suggestion; confirm the brand-voice register (calm, reason-forward, never raw terms) | Manual (editorial) |
+| Manual-edit handoff *feels* deliberate — the editor is not the default suggestion destination | DRAFT-01, DRAFT-02 | The experiential framing is subjective; the routing/preload mechanics below are now automated | Mechanics covered by `knowledge_base_live_test.exs` and `suggestion_review_test.exs` (routing to `/knowledge-base/:id/edit?suggestion_id=...`, authoring-target reuse/creation, `proposed_markdown` preload, publish suppression). Manual residue: judge whether the flow reads as inspect-first | Mechanics COVERED ✓ · framing Manual |
 
 ## Validation Sign-Off
 
@@ -122,6 +131,21 @@ created: 2026-05-23
 - [x] Requirement coverage is explicit across all five plans
 - [x] Phase 11 and Phase 12 work is excluded from the plan set
 - [x] The stale-revision threshold is deterministic and testable
-- [x] Phase status is `ready_for_execution`, not verified
+- [x] Phase is executed and verified (10/10), and the focused suite runs green (`52 tests, 0 failures`)
 
-Execution should produce the later verification artifact after these commands have actually run.
+The verification artifact (`10-VERIFICATION.md`) confirms these commands have actually run.
+
+## Validation Audit 2026-05-24
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 0 |
+| Resolved | 0 |
+| Escalated | 0 |
+
+Audit method: cross-referenced all 10 tasks in the Per-Task Verification Map against the named test
+files (all 5 exist), then ran the full quick-run suite — `52 tests, 0 failures` (0.4s). Every task is
+COVERED by an automated proof that targets its behavior and runs green; auditor spawn was unnecessary
+(no MISSING/PARTIAL gaps). Manual-only residue narrowed to two editorial/experiential judgments after
+their mechanical aspects became deterministic tests. One pre-existing test-file warning fixed in the
+same pass (unused default args on `valid_revision_attrs/1`).
