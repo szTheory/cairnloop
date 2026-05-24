@@ -1345,7 +1345,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
   # Inline fixtures for ToolProposal structs (no shared factory — existing repo idiom)
 
-  defp tool_proposal_fixture(overrides \\ %{}) do
+  defp tool_proposal_fixture(overrides) do
     base = %Cairnloop.Governance.ToolProposal{
       id: System.unique_integer([:positive]),
       tool_ref: "Cairnloop.Tools.LookupOrder",
