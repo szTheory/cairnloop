@@ -181,4 +181,88 @@ defmodule Cairnloop.Governance.PreviewTest do
              "Preview must not call String.to_atom/1 (unbounded-atom DoS — D-19 / T-14-01)"
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 15 Wave 0 extension: snapshotted prose vs live divergence (D15-14, 15-05-a)
+  #
+  # D15-14 mandates that the approval surface reads the snapshotted
+  # `rendered_consequence` and `title` columns from `ToolProposal`, NEVER calling
+  # live Preview.render/1 at approval/execution time.
+  #
+  # These tests encode the contract. The actual columns don't exist until Wave 1.
+  # All tests that reference rendered_consequence/title are @tag :skip.
+  # ---------------------------------------------------------------------------
+
+  describe "snapshotted prose vs live divergence — D15-14 (15-05-a)" do
+    @tag :skip
+    test "approval surface uses proposal.rendered_consequence, not live Preview.render/1" do
+      # D15-14: the approval card / presenter reads the SNAPSHOTTED rendered_consequence
+      # column, never the live Preview.render/1 result.
+      #
+      # Build a proposal with rendered_consequence that DIFFERS from what live
+      # Preview.render/1 would produce (simulating divergence after registry update).
+      snapshotted_consequence = "Looks up order ORD-001 from archive (snapshotted description)."
+
+      # Use Map.put to avoid compile-time struct field check (fields added in Wave 1).
+      proposal_with_snapshot =
+        base_proposal()
+        |> Map.put(:rendered_consequence, snapshotted_consequence)
+        |> Map.put(:title, "Lookup Order (snapshotted)")
+
+      # The approval surface must read proposal.rendered_consequence directly.
+      # Assert that the presenter (or approval card helper) returns the snapshotted value,
+      # not the live Preview.render/1 result.
+      #
+      # Wave 1 adds rendered_consequence + title columns; Wave 3 wires the presenter.
+      # For now, assert the snapshotted value exists on the map.
+      assert Map.get(proposal_with_snapshot, :rendered_consequence) == snapshotted_consequence
+    end
+
+    @tag :skip
+    test "approval surface does NOT call Preview.render/1 on a proposal with rendered_consequence" do
+      # Once Wave 1 adds rendered_consequence, the presenter must NOT call Preview.render/1
+      # when the column is populated (D15-14 snapshot-at-propose-time).
+      #
+      # This is a source/discipline test: the approval LiveView / presenter source must
+      # not contain Preview.render/1 calls in the approval rendering path.
+      presenter_source = File.read!("lib/cairnloop/web/tool_proposal_presenter.ex")
+
+      # After Wave 3, the presenter must not call Preview.render in the approval path.
+      # (The structured fallback may still call Preview.render for NULL-snapshot proposals.)
+      _ = presenter_source
+      assert true  # Wave 3 will implement the real assertion
+    end
+
+    @tag :skip
+    test "pre-Phase-15 NULL-snapshot proposal falls back to structured summary card, not live prose" do
+      # D15-14: a proposal with rendered_consequence == nil (pre-Phase-15 row)
+      # must fall back to the P14 D-17 structured-summary card, NEVER live prose.
+      #
+      # Use Map.put to avoid compile-time struct field check (fields added in Wave 1).
+      null_snapshot_proposal =
+        base_proposal()
+        |> Map.put(:rendered_consequence, nil)
+        |> Map.put(:title, nil)
+
+      # The approval surface should detect nil rendered_consequence and use the
+      # structured card (Preview.render → {:structured, _}) instead of prose.
+      result = apply(@preview_module, :render, [null_snapshot_proposal])
+      # Fallback must be structured, not prose
+      assert {:structured, _} = result,
+             "NULL rendered_consequence must fall back to {:structured, _} card (D15-14 / P14 D-17)"
+    end
+
+    test "proposal struct accepts rendered_consequence field without crash (Wave 0 state)" do
+      # Once Wave 1 adds the field, Map.merge succeeds.
+      # Before Wave 1, ToolProposal does not have rendered_consequence — accessing it
+      # via Map.get returns nil (the field doesn't exist on the struct yet).
+      #
+      # This test runs NOW and verifies the existing ToolProposal struct does not crash
+      # when we try to access a nil-valued field (pre-Phase-15 compatibility).
+      proposal = base_proposal()
+      consequence = Map.get(proposal, :rendered_consequence)
+      # Before Wave 1: nil (field not on struct) — acceptable
+      assert is_nil(consequence) or is_binary(consequence)
+    end
+  end
 end

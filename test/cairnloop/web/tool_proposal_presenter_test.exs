@@ -415,13 +415,189 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_meaning/1" do
-    
+
     test "returns a non-empty string explaining the status for operators" do
       for status <- [:proposed, :needs_input, :scope_invalid, :policy_denied] do
         meaning = apply(@presenter, :status_meaning, [status])
         assert is_binary(meaning), "Expected string for #{status}, got: #{inspect(meaning)}"
         assert String.length(meaning) > 0
       end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 15 Wave 0 extensions: approval surface (D15-16, 15-04-a/b)
+  #
+  # These describe blocks encode the contracts for the approval display surface.
+  # All tests are @tag :skip until Wave 3 adds the new clauses to the presenter.
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # describe: status_group/1 — approval states, zero relabeling (D15-16, 15-04-a)
+  # ---------------------------------------------------------------------------
+
+  describe "status_group/1 — approval states (D15-16, 15-04-a)" do
+    @tag :skip
+    test "returns :awaiting for :pending_approval" do
+      # :pending_approval on the ToolProposal → Awaiting group (D15-16)
+      assert apply(@presenter, :status_group, [:pending_approval]) == :awaiting
+    end
+
+    @tag :skip
+    test "returns :active for :execution_pending" do
+      # :execution_pending (approved, awaiting Phase-16 execute) → Active group
+      assert apply(@presenter, :status_group, [:execution_pending]) == :active
+    end
+
+    @tag :skip
+    test "returns :done for :rejected" do
+      assert apply(@presenter, :status_group, [:rejected]) == :done
+    end
+
+    @tag :skip
+    test "returns :done for :deferred" do
+      assert apply(@presenter, :status_group, [:deferred]) == :done
+    end
+
+    @tag :skip
+    test "returns :done for :expired" do
+      assert apply(@presenter, :status_group, [:expired]) == :done
+    end
+
+    @tag :skip
+    test "returns :done for :invalidated" do
+      assert apply(@presenter, :status_group, [:invalidated]) == :done
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # describe: approval_outlook/1 (or approval_outlook_for_approval/1) (D15-16, 15-04-b)
+  #
+  # The Phase 14 honesty seam (approval_outlook/1) becomes real "Pending approval" copy
+  # when an active :pending approval exists. No future-tense "Will require".
+  # ---------------------------------------------------------------------------
+
+  describe "approval_outlook for active :pending approval (D15-16, 15-04-b)" do
+    @tag :skip
+    test "returns real 'Pending approval' copy (not future-tense) for :pending approval status" do
+      # D15-16: when an active :pending approval exists, the outlook must be present-tense.
+      # approval_outlook_for_approval/1 takes an approval struct or status.
+      # Use a map to avoid compile-time struct check (ToolApproval added in Wave 1).
+      approval = %{status: :pending}
+      outlook =
+        if function_exported?(@presenter, :approval_outlook_for_approval, 1) do
+          apply(@presenter, :approval_outlook_for_approval, [approval])
+        else
+          apply(@presenter, :approval_outlook, [:pending])
+        end
+
+      assert is_binary(outlook)
+      assert String.contains?(outlook, "Pending") or String.contains?(outlook, "approval"),
+             "approval_outlook must reference 'Pending' or 'approval' for :pending status"
+      # Must NOT be future-tense "Will require" (the pre-Phase-15 placeholder)
+      refute String.contains?(outlook, "Will require"),
+             "approval_outlook must not use future-tense 'Will require' when approval is active (D15-16)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # describe: history_line/1 — approval events (D15-16, 15-04-b)
+  #
+  # All new approval event_types produce humanized, non-"Workflow updated" lines.
+  # - Show actor_id and reason where applicable.
+  # - No raw Elixir terms (no "#Ecto", no colon-prefixed atoms, no "%{" in output).
+  # ---------------------------------------------------------------------------
+
+  describe "history_line/1 — approval events (D15-16, 15-04-b)" do
+    @tag :skip
+    test ":approved event shows actor_id and non-empty line" do
+      e = event(%{event_type: :approved, actor_id: "ops_1"})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.length(line) > 0
+      assert String.contains?(line, "ops_1"),
+             "history_line for :approved must show actor_id"
+      refute line == "Workflow updated",
+             "history_line for :approved must not fall back to catch-all (D-24)"
+    end
+
+    @tag :skip
+    test ":approved event line contains no raw Elixir terms" do
+      e = event(%{event_type: :approved, actor_id: "ops_1"})
+      line = apply(@presenter, :history_line, [e])
+      refute line =~ "#Ecto", "history_line must not expose raw Ecto terms"
+      refute line =~ ~r/^:/, "history_line must not expose colon-prefixed atoms"
+      refute line =~ "%{", "history_line must not expose raw map syntax"
+    end
+
+    @tag :skip
+    test ":rejected event shows actor_id and reason" do
+      e = event(%{event_type: :rejected, actor_id: "ops_1", reason: "Too risky"})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.contains?(line, "Too risky"),
+             "history_line for :rejected must include the reason"
+      refute line == "Workflow updated"
+    end
+
+    @tag :skip
+    test ":deferred event shows reason" do
+      e = event(%{event_type: :deferred, actor_id: "ops_1", reason: "Review later"})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.contains?(line, "Review later"),
+             "history_line for :deferred must include the reason"
+    end
+
+    @tag :skip
+    test ":expired event returns calm copy (not 'Workflow updated')" do
+      e = event(%{event_type: :expired})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      refute line == "Workflow updated",
+             "history_line for :expired must not fall back to the catch-all"
+    end
+
+    @tag :skip
+    test ":invalidated event shows reason when provided" do
+      e = event(%{event_type: :invalidated, reason: "Policy scope changed."})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      # Should mention reason or invalidation context
+      assert String.length(line) > 0
+    end
+
+    @tag :skip
+    test ":revalidation_passed event returns calm forward-looking copy" do
+      e = event(%{event_type: :revalidation_passed})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      refute line == "Workflow updated"
+    end
+
+    @tag :skip
+    test ":revalidation_failed event shows reason when provided" do
+      e = event(%{event_type: :revalidation_failed, reason: "Policy changed."})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.length(line) > 0
+    end
+
+    @tag :skip
+    test ":resume_scheduled event returns non-empty copy" do
+      e = event(%{event_type: :resume_scheduled})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.length(line) > 0
+    end
+
+    @tag :skip
+    test ":approval_requested event shows actor_id" do
+      e = event(%{event_type: :approval_requested, actor_id: "user_1"})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.contains?(line, "user_1") or String.contains?(line, "approval"),
+             "history_line for :approval_requested must mention actor_id or approval context"
     end
   end
 end
