@@ -22,6 +22,7 @@ findings:
   info: 4
   total: 13
 status: issues_found
+critical_resolved: 2
 ---
 
 # Phase 15: Code Review Report
@@ -29,7 +30,26 @@ status: issues_found
 **Reviewed:** 2026-05-24
 **Depth:** standard
 **Files Reviewed:** 12
-**Status:** issues_found
+**Status:** issues_found (both blockers resolved during execute-phase)
+
+> **Orchestrator resolution (2026-05-24):** Both blockers were verified against the
+> live code and fixed before phase verification.
+> - **CR-01 — RESOLVED** in commit `5489017`: added the fail-closed `approval_mode`
+>   guard to `request_approval/2` (`{:error, :not_requires_approval}` for
+>   `:auto`/`:always_block`) + a test asserting no lane is opened and no expiry
+>   worker is enqueued.
+> - **CR-02 — RESOLVED** in commit `f30175d`: corrected `status_group/1` from the
+>   phantom `:pending_approval` to the real `:pending` (→ `:awaiting`) and added the
+>   missing `:approved` (→ `:active`), matching the documented D15-16 mapping
+>   (15-04-a). Note: impact was latent, not live — `status_group/1` is only ever
+>   called with `proposal.status` (enum `[:proposed, :needs_input, :scope_invalid,
+>   :policy_denied]`), so no approval status reached it in production; the clauses
+>   were dead/misleading rather than mislabeling live cards. Approval state reaches
+>   operators via the `approval_outlook_for_approval` overlay + footer + history,
+>   not via re-grouping.
+>
+> The 7 warnings and 4 info findings below remain open for triage
+> (`/gsd:code-review 15 --fix`).
 
 ## Summary
 
