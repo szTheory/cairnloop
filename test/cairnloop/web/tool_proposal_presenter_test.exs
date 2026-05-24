@@ -437,34 +437,28 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_group/1 — approval states (D15-16, 15-04-a)" do
-    @tag :skip
     test "returns :awaiting for :pending_approval" do
       # :pending_approval on the ToolProposal → Awaiting group (D15-16)
       assert apply(@presenter, :status_group, [:pending_approval]) == :awaiting
     end
 
-    @tag :skip
     test "returns :active for :execution_pending" do
       # :execution_pending (approved, awaiting Phase-16 execute) → Active group
       assert apply(@presenter, :status_group, [:execution_pending]) == :active
     end
 
-    @tag :skip
     test "returns :done for :rejected" do
       assert apply(@presenter, :status_group, [:rejected]) == :done
     end
 
-    @tag :skip
     test "returns :done for :deferred" do
       assert apply(@presenter, :status_group, [:deferred]) == :done
     end
 
-    @tag :skip
     test "returns :done for :expired" do
       assert apply(@presenter, :status_group, [:expired]) == :done
     end
 
-    @tag :skip
     test "returns :done for :invalidated" do
       assert apply(@presenter, :status_group, [:invalidated]) == :done
     end
@@ -478,7 +472,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "approval_outlook for active :pending approval (D15-16, 15-04-b)" do
-    @tag :skip
     test "returns real 'Pending approval' copy (not future-tense) for :pending approval status" do
       # D15-16: when an active :pending approval exists, the outlook must be present-tense.
       # approval_outlook_for_approval/1 takes an approval struct or status.
@@ -509,7 +502,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "history_line/1 — approval events (D15-16, 15-04-b)" do
-    @tag :skip
     test ":approved event shows actor_id and non-empty line" do
       e = event(%{event_type: :approved, actor_id: "ops_1"})
       line = apply(@presenter, :history_line, [e])
@@ -521,7 +513,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "history_line for :approved must not fall back to catch-all (D-24)"
     end
 
-    @tag :skip
     test ":approved event line contains no raw Elixir terms" do
       e = event(%{event_type: :approved, actor_id: "ops_1"})
       line = apply(@presenter, :history_line, [e])
@@ -530,7 +521,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       refute line =~ "%{", "history_line must not expose raw map syntax"
     end
 
-    @tag :skip
     test ":rejected event shows actor_id and reason" do
       e = event(%{event_type: :rejected, actor_id: "ops_1", reason: "Too risky"})
       line = apply(@presenter, :history_line, [e])
@@ -540,7 +530,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       refute line == "Workflow updated"
     end
 
-    @tag :skip
     test ":deferred event shows reason" do
       e = event(%{event_type: :deferred, actor_id: "ops_1", reason: "Review later"})
       line = apply(@presenter, :history_line, [e])
@@ -549,7 +538,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "history_line for :deferred must include the reason"
     end
 
-    @tag :skip
     test ":expired event returns calm copy (not 'Workflow updated')" do
       e = event(%{event_type: :expired})
       line = apply(@presenter, :history_line, [e])
@@ -558,7 +546,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "history_line for :expired must not fall back to the catch-all"
     end
 
-    @tag :skip
     test ":invalidated event shows reason when provided" do
       e = event(%{event_type: :invalidated, reason: "Policy scope changed."})
       line = apply(@presenter, :history_line, [e])
@@ -567,7 +554,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(line) > 0
     end
 
-    @tag :skip
     test ":revalidation_passed event returns calm forward-looking copy" do
       e = event(%{event_type: :revalidation_passed})
       line = apply(@presenter, :history_line, [e])
@@ -575,7 +561,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       refute line == "Workflow updated"
     end
 
-    @tag :skip
     test ":revalidation_failed event shows reason when provided" do
       e = event(%{event_type: :revalidation_failed, reason: "Policy changed."})
       line = apply(@presenter, :history_line, [e])
@@ -583,7 +568,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(line) > 0
     end
 
-    @tag :skip
     test ":resume_scheduled event returns non-empty copy" do
       e = event(%{event_type: :resume_scheduled})
       line = apply(@presenter, :history_line, [e])
@@ -591,7 +575,6 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(line) > 0
     end
 
-    @tag :skip
     test ":approval_requested event shows actor_id" do
       e = event(%{event_type: :approval_requested, actor_id: "user_1"})
       line = apply(@presenter, :history_line, [e])

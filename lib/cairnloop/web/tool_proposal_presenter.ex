@@ -56,6 +56,13 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   def status_group(:needs_input), do: :awaiting
   def status_group(:scope_invalid), do: :blocked
   def status_group(:policy_denied), do: :blocked
+  # Approval status atoms — D15-16 zero relabeling (above catch-all)
+  def status_group(:pending_approval), do: :awaiting
+  def status_group(:execution_pending), do: :active
+  def status_group(:rejected), do: :done
+  def status_group(:deferred), do: :done
+  def status_group(:expired), do: :done
+  def status_group(:invalidated), do: :done
   def status_group(_), do: :blocked
 
   @doc "Human label for the status group."
@@ -112,6 +119,38 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   def approval_outlook(:requires_approval), do: "Will require approval before it can run."
   def approval_outlook(:always_block), do: "This action cannot be approved or run."
   def approval_outlook(_), do: nil
+
+  @doc """
+  Present-tense operator copy for an active approval record (D15-16 real copy).
+
+  Takes a `%ToolApproval{}` struct or a map with a `:status` key (and optionally `:reason`).
+  Returns a calm, present-tense string for operators — or `nil` for unknown states.
+
+  Replaces the future-tense `approval_outlook/1` honesty seam when an active approval exists.
+  Never re-reads live config (brand §5.3/§5.6 reason-forward, no raw terms).
+  """
+  def approval_outlook_for_approval(%{status: :pending}),
+    do: "Pending approval — an operator must approve, reject, or defer this action."
+
+  def approval_outlook_for_approval(%{status: :approved}),
+    do: "Approved — resuming with current policy check."
+
+  def approval_outlook_for_approval(%{status: :execution_pending}),
+    do: "Approved — ready to execute."
+
+  def approval_outlook_for_approval(%{status: :rejected, reason: reason}),
+    do: "Rejected: #{reason || "No reason provided."}"
+
+  def approval_outlook_for_approval(%{status: :deferred, reason: reason}),
+    do: "Deferred: #{reason || "No reason provided."}"
+
+  def approval_outlook_for_approval(%{status: :expired}),
+    do: "Approval request expired."
+
+  def approval_outlook_for_approval(%{status: :invalidated}),
+    do: "Approval invalidated — policy or scope changed since approval."
+
+  def approval_outlook_for_approval(_), do: nil
 
   # ---------------------------------------------------------------------------
   # Reason label — D-14 no inspect, no raw Elixir terms
@@ -263,6 +302,43 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   def history_line(%ToolActionEvent{event_type: :proposal_blocked, to_status: status, actor_id: actor_id}) do
     status_copy = status_label(status)
     "Blocked (#{status_copy}) for #{actor_id}"
+  end
+
+  # Approval event type clauses — D15-16, D-24 (ABOVE the catch-all)
+  def history_line(%ToolActionEvent{event_type: :approval_requested, actor_id: actor_id}) do
+    "Approval requested by #{actor_id}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :approved, actor_id: actor_id}) do
+    "Approved by #{actor_id}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :rejected, actor_id: actor_id, reason: reason}) do
+    "Rejected by #{actor_id}: #{reason || "No reason provided."}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :deferred, actor_id: actor_id, reason: reason}) do
+    "Deferred by #{actor_id}: #{reason || "No reason provided."}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :expired}) do
+    "Approval request expired."
+  end
+
+  def history_line(%ToolActionEvent{event_type: :invalidated, reason: reason}) do
+    "Approval invalidated: #{reason || "Policy or scope changed."}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :revalidation_passed}) do
+    "Re-validation passed — execution pending."
+  end
+
+  def history_line(%ToolActionEvent{event_type: :revalidation_failed, reason: reason}) do
+    "Re-validation failed: #{reason || "Policy or scope changed."}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :resume_scheduled}) do
+    "Resume scheduled."
   end
 
   # D-24 catch-all: unknown event types must not crash; future event types get a neutral label
