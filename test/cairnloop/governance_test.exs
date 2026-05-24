@@ -141,6 +141,19 @@ defmodule Cairnloop.GovernanceTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Helpers for Oban job assertions.
+  # Worker.new/1 returns an Ecto.Changeset<Oban.Job> — access changes directly.
+  # ---------------------------------------------------------------------------
+
+  defp get_job_args(%Ecto.Changeset{changes: %{args: args}}), do: args
+  defp get_job_args(%Oban.Job{args: args}), do: args
+  defp get_job_args(job), do: Map.get(job, :args, %{})
+
+  defp get_job_worker(%Ecto.Changeset{changes: %{worker: w}}), do: w
+  defp get_job_worker(%Oban.Job{worker: w}), do: w
+  defp get_job_worker(job), do: Map.get(job, :worker)
+
+  # ---------------------------------------------------------------------------
   # Test tool modules
   # ---------------------------------------------------------------------------
 
@@ -748,53 +761,57 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "approve/3 — persists + enqueues + never calls run/3 (APRV-01, 15-02-a)" do
-    @tag :skip
+    setup do
+      # Seed id=1 as :pending, id=2 as :approved (already resolved)
+      pending = %Cairnloop.Governance.ToolApproval{
+        id: 1, tool_proposal_id: 42, status: :pending, expires_at: nil
+      }
+      resolved = %Cairnloop.Governance.ToolApproval{
+        id: 2, tool_proposal_id: 43, status: :approved, expires_at: nil
+      }
+      Process.put(:tool_approvals, [pending, resolved])
+      :ok
+    end
+
     test "approve/3 enqueues a resume job carrying %{\"approval_id\" => approval_id}" do
       # Wave 3 implements approve/3.
       # The test injects an enqueue_fn that captures the job for assertion.
-      captured_jobs = []
-
       enqueue_fn = fn job ->
         send(self(), {:enqueued_job, job})
         {:ok, job}
       end
 
-      # Assume an approval with id 1 and status :pending is seeded in MockRepo
-      _result = apply(Governance, :approve, [1, "ops_user_1", [enqueue_fn: enqueue_fn]])
+      assert {:ok, _} = Governance.approve(1, "ops_user_1", enqueue_fn: enqueue_fn)
 
       assert_receive {:enqueued_job, job}
-      # The job must carry the approval_id
-      assert job.args["approval_id"] != nil or
-               (is_map(job) and Map.get(job, :args, %{})["approval_id"] != nil)
-
-      _ = captured_jobs
+      # Worker.new/1 returns an Ecto.Changeset for the Oban.Job — access via changes.args
+      args = get_job_args(job)
+      assert args["approval_id"] != nil
     end
 
-    @tag :skip
     test "approve/3 uses Cairnloop.Workers.ApprovalResumeWorker as the job worker" do
       enqueue_fn = fn job ->
         send(self(), {:enqueued_job, job})
         {:ok, job}
       end
 
-      apply(Governance, :approve, [1, "ops_user_1", [enqueue_fn: enqueue_fn]])
+      Governance.approve(1, "ops_user_1", enqueue_fn: enqueue_fn)
 
       assert_receive {:enqueued_job, job}
-      # The job worker should be ApprovalResumeWorker
-      worker = Map.get(job, :worker, nil) || Map.get(job, "__struct__", nil)
-      assert worker != nil
+      # Worker.new/1 returns an Ecto.Changeset — worker is in changes.worker
+      worker = get_job_worker(job)
+      assert worker == "Cairnloop.Workers.ApprovalResumeWorker"
     end
 
-    @tag :skip
     test "record-before-enqueue: repo_update observed before enqueue_fn fires (APRV-01)" do
       enqueue_fn = fn job ->
         send(self(), {:enqueued_job, job})
         {:ok, job}
       end
 
-      apply(Governance, :approve, [1, "ops_user_1", [enqueue_fn: enqueue_fn]])
+      Governance.approve(1, "ops_user_1", enqueue_fn: enqueue_fn)
 
-      # Assert the repo interaction (update or insert) happens before the enqueue
+      # Assert the repo interaction (update) happens before the enqueue
       assert_receive {:repo_update, _cs}
       assert_receive {:enqueued_job, _job}
     end
@@ -824,15 +841,26 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "approve/3 — append-only multi-decision trail (15-02-c)" do
-    @tag :skip
     test "request→approve sequence yields ≥ 2 ToolActionEvent inserts (no updates)" do
-      # Wave 3: after approve/3 is implemented, this test verifies the append-only trail.
-      # The request_approval/... call emits an :approval_requested event,
+      # Wave 3: request_approval opens a lane (emits :approval_requested event),
       # and approve/3 emits an :approved event — 2 distinct inserts, no updates.
-      _result = apply(Governance, :approve, [1, "ops_user_1", []])
+      tool_ref = Atom.to_string(ApprovableTool)
+      context = %{tool_params: %{target: "trail_test"}, scopes: []}
+      assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
+
+      enqueue_fn_noop = fn _job -> {:ok, :enqueued} end
+      assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: enqueue_fn_noop)
+
+      # Approve with a no-op enqueue_fn
+      enqueue_fn_approve = fn _job -> {:ok, :enqueued} end
+      assert {:ok, _} = Governance.approve(approval.id, "ops_user_1", enqueue_fn: enqueue_fn_approve)
+
       events = Process.get(:tool_action_events, [])
-      assert length(events) >= 2,
-             "Expected ≥ 2 events (request + approve), got #{length(events)}"
+      approval_events = Enum.filter(events, fn e ->
+        e.event_type in [:approval_requested, :approved]
+      end)
+      assert length(approval_events) >= 2,
+             "Expected ≥ 2 events (request + approve), got #{length(approval_events)}"
     end
   end
 
@@ -844,24 +872,30 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "approve/3, reject/3, defer/3 — transition guarded on :pending (15-02-d)" do
-    @tag :skip
+    setup do
+      # Seed id=2 as :approved (already resolved)
+      resolved = %Cairnloop.Governance.ToolApproval{
+        id: 2, tool_proposal_id: 43, status: :approved, expires_at: nil
+      }
+      Process.put(:tool_approvals, [resolved])
+      :ok
+    end
+
     test "approve on already-:approved approval returns error / no-op" do
-      # Wave 3: the approve/3 path must check current approval status == :pending
-      # before writing a decision. A non-:pending approval is rejected.
-      result = apply(Governance, :approve, [2, "ops_user_1", []])
-      assert match?({:error, _}, result) or result == :noop
+      # The approve/3 path must check current approval status == :pending
+      # before writing a decision. A non-:pending approval is refused.
+      result = Governance.approve(2, "ops_user_1", [])
+      assert match?({:error, _}, result)
     end
 
-    @tag :skip
     test "reject on already-:rejected approval returns error / no-op" do
-      result = apply(Governance, :reject, [2, "ops_user_1", [reason: "Retried rejection."]])
-      assert match?({:error, _}, result) or result == :noop
+      result = Governance.reject(2, "ops_user_1", reason: "Retried rejection.")
+      assert match?({:error, _}, result)
     end
 
-    @tag :skip
     test "already-resolved approval transition does NOT write a new ToolActionEvent" do
       before_events = length(Process.get(:tool_action_events, []))
-      apply(Governance, :approve, [2, "ops_user_1", []])
+      Governance.approve(2, "ops_user_1", [])
       after_events = length(Process.get(:tool_action_events, []))
       assert after_events == before_events,
              "No new events must be written for a transition on a non-:pending approval"
@@ -950,6 +984,135 @@ defmodule Cairnloop.GovernanceTest do
 
       refute String.contains?(reason, "#Ecto.Changeset<"),
              "ToolActionEvent.reason must not contain raw #Ecto.Changeset< — humanize (WR-01)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Governance.reject/3, defer/3 — FLOW-03 reason requirement (15-03-task2)
+  # Governance.expire/2 — admin parity (15-03-task2)
+  # ---------------------------------------------------------------------------
+
+  describe "reject/3 — FLOW-03 reason required (15-03)" do
+    setup do
+      pending = %Cairnloop.Governance.ToolApproval{
+        id: 10, tool_proposal_id: 50, status: :pending, expires_at: nil
+      }
+      Process.put(:tool_approvals, [pending])
+      :ok
+    end
+
+    test "reject with reason persists :rejected status + :rejected event" do
+      assert {:ok, approval} = Governance.reject(10, "ops_user_1", reason: "Too risky")
+      assert approval.status == :rejected
+      assert approval.reason == "Too risky"
+
+      events = Process.get(:tool_action_events, [])
+      rejected_events = Enum.filter(events, fn e -> e.event_type == :rejected end)
+      assert length(rejected_events) == 1
+    end
+
+    test "reject without reason returns {:error, changeset} and persists nothing (FLOW-03)" do
+      result = Governance.reject(10, "ops_user_1", [])
+      assert {:error, changeset} = result
+      assert %Ecto.Changeset{} = changeset
+      refute changeset.valid?
+
+      # No events should have been written
+      events = Process.get(:tool_action_events, [])
+      rejected_events = Enum.filter(events, fn e -> e.event_type == :rejected end)
+      assert length(rejected_events) == 0
+    end
+
+    test "reject does NOT enqueue any resume worker" do
+      enqueue_fn = fn _job ->
+        send(self(), :enqueued)
+        {:ok, :enqueued}
+      end
+      Governance.reject(10, "ops_user_1", reason: "No.", enqueue_fn: enqueue_fn)
+      refute_receive :enqueued
+    end
+  end
+
+  describe "defer/3 — FLOW-03 reason required (15-03)" do
+    setup do
+      pending = %Cairnloop.Governance.ToolApproval{
+        id: 11, tool_proposal_id: 51, status: :pending, expires_at: nil
+      }
+      Process.put(:tool_approvals, [pending])
+      :ok
+    end
+
+    test "defer with reason persists :deferred status + :deferred event" do
+      assert {:ok, approval} = Governance.defer(11, "ops_user_1", reason: "Review next week")
+      assert approval.status == :deferred
+      assert approval.reason == "Review next week"
+
+      events = Process.get(:tool_action_events, [])
+      deferred_events = Enum.filter(events, fn e -> e.event_type == :deferred end)
+      assert length(deferred_events) == 1
+    end
+
+    test "defer without reason returns {:error, changeset} and persists nothing (FLOW-03)" do
+      result = Governance.defer(11, "ops_user_1", [])
+      assert {:error, changeset} = result
+      assert %Ecto.Changeset{} = changeset
+      refute changeset.valid?
+
+      events = Process.get(:tool_action_events, [])
+      deferred_events = Enum.filter(events, fn e -> e.event_type == :deferred end)
+      assert length(deferred_events) == 0
+    end
+  end
+
+  describe "expire/2 — admin facade parity (15-03)" do
+    setup do
+      pending = %Cairnloop.Governance.ToolApproval{
+        id: 12, tool_proposal_id: 52, status: :pending, expires_at: nil
+      }
+      Process.put(:tool_approvals, [pending])
+      :ok
+    end
+
+    test "expire/2 transitions :pending approval to :expired + :expired event" do
+      assert {:ok, approval} = Governance.expire(12)
+      assert approval.status == :expired
+
+      events = Process.get(:tool_action_events, [])
+      expired_events = Enum.filter(events, fn e -> e.event_type == :expired end)
+      assert length(expired_events) == 1
+    end
+
+    test "expire/2 on non-:pending approval returns error / no-op" do
+      resolved = %Cairnloop.Governance.ToolApproval{
+        id: 13, tool_proposal_id: 53, status: :rejected, expires_at: nil
+      }
+      existing = Process.get(:tool_approvals, [])
+      Process.put(:tool_approvals, [resolved | existing])
+
+      result = Governance.expire(13)
+      assert match?({:error, _}, result)
+    end
+  end
+
+  describe "approve/3 — source asserts no inline execution (APRV-01)" do
+    test "governance.ex source contains no inline tool execution call in approve path" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      # Check that the actual code (outside of doc strings) doesn't call tool.run or module.run
+      # The approve function must only persist + enqueue, never execute inline (APRV-01)
+      refute source =~ ~r/tool_module\.run\s*\(|run\s*\(\s*tool/,
+             "approve/3 must not call tool_module.run/3 inline — execution is async via ApprovalResumeWorker (APRV-01)"
+    end
+
+    test "governance.ex source uses decision_changeset for reject/defer (FLOW-03)" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      assert source =~ "decision_changeset",
+             "governance.ex must use ToolApproval.decision_changeset/6 for reason-required transitions"
+    end
+
+    test "governance.ex source contains ApprovalResumeWorker enqueue (APRV-01)" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      assert source =~ "ApprovalResumeWorker",
+             "approve/3 must enqueue ApprovalResumeWorker (APRV-01)"
     end
   end
 

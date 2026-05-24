@@ -58,7 +58,7 @@ defmodule Cairnloop.Governance do
   import Ecto.Query
 
   alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
-  alias Cairnloop.Workers.ApprovalExpiryWorker
+  alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker}
 
   # ---------------------------------------------------------------------------
   # Private helpers
@@ -570,6 +570,208 @@ defmodule Cairnloop.Governance do
       enqueue_fn.(ApprovalExpiryWorker.new(%{"approval_id" => approval.id}, scheduled_at: expires_at))
 
       {:ok, approval}
+    end
+  end
+
+  @doc """
+  Approves a `:pending` governed tool approval.
+
+  Persists status `:approved` + `:approved` event, THEN enqueues `ApprovalResumeWorker`
+  via injectable `enqueue_fn` (default: `&safe_enqueue/1`). Record written BEFORE enqueue
+  (APRV-01). NEVER calls `run/3` — execution is async via the resume worker (D15-10).
+
+  Returns `{:ok, %ToolApproval{}}` on success.
+  Returns `{:error, :not_found}` if the approval does not exist.
+  Returns `{:error, :not_pending}` if the approval is not in `:pending` status (T-force-resolved).
+
+  ## Options
+
+    - `:note` — optional operator note (stored as reason, D15-07)
+    - `:enqueue_fn` — injectable enqueue callback for testing (default: `&safe_enqueue/1`)
+  """
+  def approve(approval_id, actor_id, opts \\ []) do
+    enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)
+    reason = Keyword.get(opts, :note)
+
+    case repo().get(ToolApproval, approval_id) do
+      nil ->
+        {:error, :not_found}
+
+      %ToolApproval{status: :pending} = approval ->
+        changeset =
+          ToolApproval.decision_changeset(
+            approval, :approved, "approved", reason, actor_id, DateTime.utc_now()
+          )
+
+        event_attrs = %{
+          event_type: :approved,
+          from_status: nil,
+          to_status: nil,
+          actor_id: actor_id,
+          reason: reason,
+          metadata: %{
+            approval_status: approval.status,
+            new_approval_status: :approved
+          }
+        }
+
+        # co-commit: update approval + insert :approved event (record BEFORE enqueue — APRV-01)
+        with {:ok, updated} <- update_approval_with_event(approval, changeset, event_attrs) do
+          # Enqueue ApprovalResumeWorker AFTER the record is persisted (APRV-01).
+          # NEVER call run/3 — execution is async via the resume worker (D15-10, Pitfall 6).
+          enqueue_fn.(ApprovalResumeWorker.new(%{"approval_id" => updated.id}))
+          {:ok, updated}
+        end
+
+      %ToolApproval{} ->
+        # Non-:pending status — guard prevents forcing a decision (T-force-resolved)
+        {:error, :not_pending}
+    end
+  end
+
+  @doc """
+  Rejects a `:pending` governed tool approval.
+
+  Requires a `:reason` (FLOW-03) — without one, returns `{:error, changeset}` and
+  persists nothing. Persists status `:rejected` + `:rejected` event. No enqueue.
+
+  Returns `{:ok, %ToolApproval{}}` on success.
+  Returns `{:error, :not_found}` or `{:error, :not_pending}` for status guards.
+  Returns `{:error, changeset}` if reason is missing (FLOW-03).
+
+  ## Options
+
+    - `:reason` — REQUIRED operator-visible reason (FLOW-03)
+  """
+  def reject(approval_id, actor_id, opts \\ []) do
+    reason = Keyword.get(opts, :reason)
+
+    case repo().get(ToolApproval, approval_id) do
+      nil ->
+        {:error, :not_found}
+
+      %ToolApproval{status: :pending} = approval ->
+        changeset =
+          ToolApproval.decision_changeset(
+            approval, :rejected, "rejected", reason, actor_id, DateTime.utc_now()
+          )
+
+        if changeset.valid? do
+          event_attrs = %{
+            event_type: :rejected,
+            from_status: nil,
+            to_status: nil,
+            actor_id: actor_id,
+            reason: reason,
+            metadata: %{
+              approval_status: approval.status,
+              new_approval_status: :rejected
+            }
+          }
+
+          update_approval_with_event(approval, changeset, event_attrs)
+        else
+          # FLOW-03: reason missing — return the changeset error, persist nothing
+          {:error, changeset}
+        end
+
+      %ToolApproval{} ->
+        {:error, :not_pending}
+    end
+  end
+
+  @doc """
+  Defers a `:pending` governed tool approval.
+
+  Requires a `:reason` (FLOW-03) — without one, returns `{:error, changeset}` and
+  persists nothing. Persists status `:deferred` + `:deferred` event. No enqueue.
+
+  Returns `{:ok, %ToolApproval{}}` on success.
+  Returns `{:error, :not_found}` or `{:error, :not_pending}` for status guards.
+  Returns `{:error, changeset}` if reason is missing (FLOW-03).
+
+  ## Options
+
+    - `:reason` — REQUIRED operator-visible reason (FLOW-03)
+  """
+  def defer(approval_id, actor_id, opts \\ []) do
+    reason = Keyword.get(opts, :reason)
+
+    case repo().get(ToolApproval, approval_id) do
+      nil ->
+        {:error, :not_found}
+
+      %ToolApproval{status: :pending} = approval ->
+        changeset =
+          ToolApproval.decision_changeset(
+            approval, :deferred, "deferred", reason, actor_id, DateTime.utc_now()
+          )
+
+        if changeset.valid? do
+          event_attrs = %{
+            event_type: :deferred,
+            from_status: nil,
+            to_status: nil,
+            actor_id: actor_id,
+            reason: reason,
+            metadata: %{
+              approval_status: approval.status,
+              new_approval_status: :deferred
+            }
+          }
+
+          update_approval_with_event(approval, changeset, event_attrs)
+        else
+          # FLOW-03: reason missing — return the changeset error, persist nothing
+          {:error, changeset}
+        end
+
+      %ToolApproval{} ->
+        {:error, :not_pending}
+    end
+  end
+
+  @doc """
+  Expires a `:pending` governed tool approval (admin/facade parity with `ApprovalExpiryWorker`).
+
+  Persists status `:expired` + `:expired` event. No enqueue. Guarded on `:pending`.
+
+  Returns `{:ok, %ToolApproval{}}` on success.
+  Returns `{:error, :not_found}` or `{:error, :not_pending}` for status guards.
+
+  ## Options
+
+    - `:actor_id` — actor performing the expiry (default: `"system"`)
+  """
+  def expire(approval_id, opts \\ []) do
+    actor_id = Keyword.get(opts, :actor_id, "system")
+
+    case repo().get(ToolApproval, approval_id) do
+      nil ->
+        {:error, :not_found}
+
+      %ToolApproval{status: :pending} = approval ->
+        changeset =
+          ToolApproval.decision_changeset(
+            approval, :expired, "expired", nil, actor_id, DateTime.utc_now()
+          )
+
+        event_attrs = %{
+          event_type: :expired,
+          from_status: nil,
+          to_status: nil,
+          actor_id: actor_id,
+          reason: nil,
+          metadata: %{
+            approval_status: approval.status,
+            new_approval_status: :expired
+          }
+        }
+
+        update_approval_with_event(approval, changeset, event_attrs)
+
+      %ToolApproval{} ->
+        {:error, :not_pending}
     end
   end
 
