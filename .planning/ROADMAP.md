@@ -58,7 +58,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-02-PLAN.md (M011-S02-02) — `governed_action_card/1` read-only function component (status chip color+text, separate risk/approval/status axes, humanized rows, event mini-timeline, empty Phase-15 footer slot).
+- [x] 14-02-PLAN.md (M011-S02-02) — `governed_action_card/1` read-only function component (status chip color+text, separate risk/approval/status axes, humanized rows, event mini-timeline, empty Phase-15 footer slot).
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
