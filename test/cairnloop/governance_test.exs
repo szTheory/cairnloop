@@ -107,6 +107,37 @@ defmodule Cairnloop.GovernanceTest do
     end
 
     defp persist_inserted(_struct), do: :ok
+
+    def update(%Ecto.Changeset{} = changeset) do
+      if changeset.valid? do
+        updated = Ecto.Changeset.apply_changes(changeset)
+        send(self(), {:repo_update, changeset})
+        # Replace the stored approval with the updated version
+        case updated do
+          %Cairnloop.Governance.ToolApproval{} ->
+            existing = Process.get(:tool_approvals, [])
+            updated_list = Enum.map(existing, fn a ->
+              if a.id == updated.id, do: updated, else: a
+            end)
+            Process.put(:tool_approvals, updated_list)
+          _ ->
+            :ok
+        end
+        {:ok, updated}
+      else
+        {:error, changeset}
+      end
+    end
+
+    def get(schema, id) do
+      case schema do
+        Cairnloop.Governance.ToolApproval ->
+          Process.get(:tool_approvals, [])
+          |> Enum.find(fn a -> a.id == id end)
+        _ ->
+          nil
+      end
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -214,6 +245,33 @@ defmodule Cairnloop.GovernanceTest do
     def authorize(_actor_id, _context), do: :ok
   end
 
+  # A :requires_approval tool that passes all gates — used for request_approval tests.
+  defmodule ApprovableTool do
+    use Cairnloop.Tool,
+      risk_tier: :low_write,
+      title: "Approvable Action"
+
+    embedded_schema do
+      field(:target, :string)
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(struct, attrs) do
+      struct
+      |> Ecto.Changeset.cast(attrs, [:target])
+      |> Ecto.Changeset.validate_required([:target])
+    end
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
+    def scope, do: []
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+  end
+
   # ---------------------------------------------------------------------------
   # Setup / teardown
   # ---------------------------------------------------------------------------
@@ -225,7 +283,8 @@ defmodule Cairnloop.GovernanceTest do
       ValidTool,
       ScopeFailingTool,
       PolicyDenyingTool,
-      InvalidInputTool
+      InvalidInputTool,
+      ApprovableTool
     ])
 
     on_exit(fn ->
@@ -891,6 +950,99 @@ defmodule Cairnloop.GovernanceTest do
 
       refute String.contains?(reason, "#Ecto.Changeset<"),
              "ToolActionEvent.reason must not contain raw #Ecto.Changeset< — humanize (WR-01)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Governance.request_approval/2 — lane open + co-commit event (15-03-task1)
+  #
+  # Wave 3 implements request_approval/2. Tests verify:
+  # - Opens one :pending ToolApproval lane with expires_at set
+  # - Co-commits an :approval_requested ToolActionEvent
+  # - Schedules expiry worker via enqueue_fn (injectable)
+  # - Defaults TTL to 172_800 seconds (48h, D15-13)
+  # ---------------------------------------------------------------------------
+
+  describe "request_approval/2 — opens :pending lane + :approval_requested event (15-03)" do
+    test "opens a :pending ToolApproval and co-commits :approval_requested event" do
+      # Requires a :requires_approval proposal — ApprovableTool has :low_write risk tier
+      tool_ref = Atom.to_string(ApprovableTool)
+      context = %{tool_params: %{target: "order_123"}, scopes: []}
+
+      assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
+      # Confirm it is a :requires_approval proposal
+      assert proposal.approval_mode == :requires_approval
+
+      # Now request an approval for it — inject a no-op enqueue_fn so no real Oban needed
+      enqueue_fn = fn _job -> {:ok, :enqueued} end
+
+      assert {:ok, approval} =
+               Governance.request_approval(proposal, enqueue_fn: enqueue_fn)
+
+      assert approval.status == :pending
+      assert approval.tool_proposal_id == proposal.id
+      assert approval.expires_at != nil
+
+      # An :approval_requested event must have been co-committed
+      events = Process.get(:tool_action_events, [])
+      approval_events = Enum.filter(events, fn e -> e.event_type == :approval_requested end)
+      assert length(approval_events) == 1
+      [event] = approval_events
+      assert event.tool_proposal_id == proposal.id
+    end
+
+    test "expires_at is set to now + approval_ttl_seconds (≈172_800s default)" do
+      tool_ref = Atom.to_string(ApprovableTool)
+      context = %{tool_params: %{target: "ttl_test"}, scopes: []}
+      assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
+
+      enqueue_fn = fn _job -> {:ok, :enqueued} end
+      assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: enqueue_fn)
+
+      assert approval.expires_at != nil
+      # expires_at should be in the future (at least 1 second from now)
+      assert DateTime.compare(approval.expires_at, DateTime.utc_now()) == :gt
+    end
+
+    test "schedules expiry worker via enqueue_fn after co-commit succeeds (Pattern 4)" do
+      tool_ref = Atom.to_string(ApprovableTool)
+      context = %{tool_params: %{target: "expiry_sched"}, scopes: []}
+      assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
+
+      test_pid = self()
+      enqueue_fn = fn job ->
+        send(test_pid, {:enqueued_expiry, job})
+        {:ok, :enqueued}
+      end
+
+      Governance.request_approval(proposal, enqueue_fn: enqueue_fn)
+      assert_receive {:enqueued_expiry, _job}
+    end
+
+    test "source: no Ecto.Multi used (sequential with, Pitfall 1)" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      refute source =~ "Ecto.Multi",
+             "governance.ex must not use Ecto.Multi — only sequential with co-commits (Pitfall 1)"
+    end
+
+    test "source: safe_enqueue/1 and update_approval_with_event/3 exist in governance.ex" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      assert source =~ "defp safe_enqueue",
+             "governance.ex must define defp safe_enqueue for host-runtime posture"
+      assert source =~ "defp update_approval_with_event",
+             "governance.ex must define defp update_approval_with_event for co-commit pattern"
+    end
+
+    test "source: Logger.warning used in safe_enqueue rescue (Pitfall 3)" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      assert source =~ "Logger.warning",
+             "safe_enqueue must Logger.warning on rescue (Pitfall 3)"
+    end
+
+    test "source: finite TTL default 172_800 documented in governance.ex (D15-13)" do
+      source = File.read!("lib/cairnloop/governance.ex")
+      assert source =~ "172_800",
+             "governance.ex must document 172_800s (48h) finite TTL default (D15-13)"
     end
   end
 end

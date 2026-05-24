@@ -9,6 +9,18 @@ defmodule Cairnloop.Governance do
   - `propose/3` — thin persistence wrapper: validates, derives idempotency key,
     co-commits `ToolProposal` + `ToolActionEvent` synchronously, handles duplicates
     (TOOL-04, D-26, D-25).
+  - `request_approval/2` — opens a `:pending` `ToolApproval` lane for a
+    `:requires_approval` proposal; sets `expires_at = now + ttl` (host-configurable;
+    default `172_800` seconds / 48 hours, D15-13); emits `:approval_requested` event;
+    schedules `ApprovalExpiryWorker` post-transaction via injectable `enqueue_fn` (Pattern 4).
+  - `approve/3` — persists `:approved` decision + event, then enqueues
+    `ApprovalResumeWorker` via injectable `enqueue_fn`; NEVER calls `run/3` (APRV-01).
+    Guarded on current status `== :pending`.
+  - `reject/3` — persists `:rejected` decision + event; requires a `:reason` (FLOW-03).
+    Guarded on `:pending`. No enqueue.
+  - `defer/3` — persists `:deferred` decision + event; requires a `:reason` (FLOW-03).
+    Guarded on `:pending`. No enqueue.
+  - `expire/2` — persists `:expired` decision + event (admin/facade parity). Guarded on `:pending`.
   - `get_proposal/1` — read helper.
   - `list_events/1` — read helper.
 
@@ -32,13 +44,21 @@ defmodule Cairnloop.Governance do
 
   ## No Execution
 
-  `propose/3` never calls `run/3`. No Oban job is enqueued in Phase 13 (D-26). Execution
-  lands in Phase 16; approval state machine lands in Phase 15.
+  `propose/3` never calls `run/3`. `approve/3` persists the decision + enqueues the resume
+  worker asynchronously — it never executes inline (APRV-01, D15-10). Execution lands in
+  Phase 16.
+
+  ## Approval TTL
+
+  The default TTL for approval lanes is `172_800` seconds (48 hours). Override per-call
+  via `ttl_seconds:` opt, or set globally via `Application.put_env(:cairnloop, :approval_ttl_seconds, N)`.
   """
 
+  require Logger
   import Ecto.Query
 
   alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
+  alias Cairnloop.Workers.ApprovalExpiryWorker
 
   # ---------------------------------------------------------------------------
   # Private helpers
@@ -46,6 +66,59 @@ defmodule Cairnloop.Governance do
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
+  end
+
+  # ---------------------------------------------------------------------------
+  # Approval TTL config (D15-13) — finite 48h default; host-configurable.
+  # ---------------------------------------------------------------------------
+
+  defp approval_ttl_seconds do
+    Application.get_env(:cairnloop, :approval_ttl_seconds, 172_800)
+  end
+
+  # ---------------------------------------------------------------------------
+  # safe_enqueue/1 — wraps Oban.insert in try/rescue (host may have no Oban).
+  # Mirrors application.ex L44-48 posture. Logs warning on failure (Pitfall 3).
+  # The ONLY sanctioned inspect/1 use is on an exception struct in this log line;
+  # it is never used on a persisted operator reason (T-15-13).
+  # ---------------------------------------------------------------------------
+
+  defp safe_enqueue(job) do
+    try do
+      Oban.insert(job)
+    rescue
+      e ->
+        Logger.warning("Oban enqueue failed: #{inspect(e)}")
+        :ok
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # update_approval_with_event/3 — sequential `with` co-commit: update approval
+  # status + insert an append-only ToolActionEvent (mirrors update_task_with_event/4
+  # in knowledge_automation.ex — sequential `with`, never the multi alternative).
+  # Telemetry emitted AFTER the `with` pipeline succeeds (D-29).
+  # ---------------------------------------------------------------------------
+
+  defp update_approval_with_event(approval, changeset, event_attrs) do
+    with {:ok, updated_approval} <- repo().update(changeset),
+         {:ok, _event} <-
+           %ToolActionEvent{}
+           |> ToolActionEvent.changeset(
+             Map.put(event_attrs, :tool_proposal_id, approval.tool_proposal_id)
+           )
+           |> repo().insert() do
+      # Telemetry AFTER with success — never inside the with clause list (D-29).
+      # Approval events use Cairnloop.Telemetry.execute/3 directly (Governance.Telemetry
+      # only covers proposal events — mirrors workers pattern, 15-02-SUMMARY).
+      Cairnloop.Telemetry.execute(
+        [:governance, :approval_transition],
+        %{count: 1},
+        %{event_type: Map.get(event_attrs, :event_type), new_status: updated_approval.status}
+      )
+
+      {:ok, updated_approval}
+    end
   end
 
   # Gate 0: resolve tool_ref to a module by delegating to ToolRegistry (D-19, T-13-05).
@@ -431,6 +504,73 @@ defmodule Cairnloop.Governance do
   """
   def get_active_approval(tool_proposal_id) do
     repo().get_by(ToolApproval, tool_proposal_id: tool_proposal_id, status: :pending)
+  end
+
+  @doc """
+  Opens a `:pending` `ToolApproval` lane for a `:requires_approval` proposal.
+
+  Sets `expires_at = now + ttl_seconds` (default `172_800` s / 48 h — D15-13).
+  Co-commits the approval record + an `:approval_requested` `ToolActionEvent`.
+  AFTER the transaction, schedules `ApprovalExpiryWorker` via `enqueue_fn`
+  (Pattern 4 — post-transaction, NOT inside the `with`).
+
+  Returns `{:ok, %ToolApproval{}}` on success, or `{:error, changeset}` if the
+  one-active-lane unique constraint fires (APRV-04 — concurrent request for the same
+  proposal).
+
+  Only opens a lane for `:requires_approval` proposals; `:auto`/`:always_block`
+  lanes are never opened here (D15-05).
+
+  ## Options
+
+    - `:ttl_seconds` — override TTL for this lane (default: `approval_ttl_seconds/0`)
+    - `:actor_id` — actor opening the lane (defaults to `proposal.actor_id`)
+    - `:enqueue_fn` — injectable enqueue callback for testing (default: `&safe_enqueue/1`)
+  """
+  def request_approval(proposal, opts \\ []) do
+    ttl_seconds = Keyword.get(opts, :ttl_seconds, approval_ttl_seconds())
+    actor_id = Keyword.get(opts, :actor_id, proposal.actor_id)
+    enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)
+
+    expires_at = DateTime.add(DateTime.utc_now(), ttl_seconds, :second)
+
+    approval_attrs = %{
+      tool_proposal_id: proposal.id,
+      status: :pending,
+      expires_at: expires_at
+    }
+
+    insert_cs = ToolApproval.changeset(%ToolApproval{}, approval_attrs)
+
+    event_attrs = %{
+      event_type: :approval_requested,
+      from_status: nil,
+      to_status: nil,
+      actor_id: actor_id,
+      reason: nil,
+      metadata: %{
+        approval_status: :pending,
+        new_approval_status: :pending
+      }
+    }
+
+    # Sequential `with` co-commit (never the multi alternative — Pitfall 1).
+    # Step 1: insert the new ToolApproval.
+    # Step 2: co-commit the :approval_requested event via update_approval_with_event,
+    #         passing a no-op Ecto.Changeset.change/2 so the shared helper can insert the
+    #         event and emit telemetry via the common code path.
+    with {:ok, approval} <- repo().insert(insert_cs),
+         {:ok, _updated} <-
+           update_approval_with_event(
+             approval,
+             Ecto.Changeset.change(approval, %{}),
+             event_attrs
+           ) do
+      # Pattern 4: schedule expiry worker AFTER transaction commits, NOT inside the with.
+      enqueue_fn.(ApprovalExpiryWorker.new(%{"approval_id" => approval.id}, scheduled_at: expires_at))
+
+      {:ok, approval}
+    end
   end
 
   @doc """
