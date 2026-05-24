@@ -177,6 +177,8 @@ defmodule Cairnloop.Web.ConversationLive do
     context = socket.assigns.host_context
     # Merge form params into context so Governance.validate/3 can call changeset/2 (D-27)
     context = Map.put(context, :tool_params, params["tool_params"] || %{})
+    # D-07: thread server-trusted conversation_id into propose context (NOT from request params)
+    context = Map.put(context, :conversation_id, socket.assigns.conversation.id)
 
     case Cairnloop.Governance.propose(tool_ref, actor_id, context) do
       {:ok, proposal} ->
@@ -190,25 +192,29 @@ defmodule Cairnloop.Web.ConversationLive do
   defp failure_reason_message(:unsupported, _reason), do: "Unknown tool — proposal rejected."
   defp failure_reason_message(:needs_input, _cs), do: "Invalid tool parameters."
 
+  # D-14: humanize via ToolProposalPresenter.reason_label/1 — no raw Elixir terms to operator
   defp failure_reason_message(:scope_invalid, reason),
-    do: "Tool not available in this context: #{inspect(reason)}."
+    do: "Tool not available in this context: #{ToolProposalPresenter.reason_label(reason)}."
 
   defp failure_reason_message(:policy_denied, reason),
-    do: "Tool call not permitted: #{inspect(reason)}."
+    do: "Tool call not permitted: #{ToolProposalPresenter.reason_label(reason)}."
 
   defp failure_reason_message(outcome, reason),
-    do: "Tool proposal blocked (#{outcome}): #{inspect(reason)}."
+    do: "Tool proposal blocked (#{outcome}): #{ToolProposalPresenter.reason_label(reason)}."
 
   defp reload_conversation_with_context(socket, conversation_id) do
     conversation = Chat.get_conversation!(conversation_id)
     {context, context_error} = load_host_context(conversation)
     quick_fix_card = load_quick_fix_card(conversation)
+    # D-09: load governed_actions via the narrow facade (never direct schema query from web layer)
+    governed_actions = Cairnloop.Governance.list_proposals_for_conversation(conversation_id)
 
     assign(socket,
       conversation: conversation,
       host_context: context,
       context_error: context_error,
-      quick_fix_card: quick_fix_card
+      quick_fix_card: quick_fix_card,
+      governed_actions: governed_actions
     )
   end
 
@@ -242,6 +248,8 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def render(assigns) do
     assigns = assign(assigns, :quick_fix_card, normalize_quick_fix_card(assigns))
+    # Default governed_actions to [] when not present (e.g. direct render_component tests)
+    assigns = Map.put_new(assigns, :governed_actions, [])
 
     ~H"""
     <.live_component
@@ -665,7 +673,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <input type="text" name={@form[field].name} value={@form[field].value} style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" />
               </div>
             <% end %>
-            <button type="submit" style="padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Execute</button>
+            <button type="submit" style="padding: 6px 12px; background: var(--cl-primary, #A94F30); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Propose</button>
           </.form>
         </div>
         """

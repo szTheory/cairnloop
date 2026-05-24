@@ -1435,11 +1435,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "MockRepo governed_actions load path — contract documentation" do
-    @tag :skip
     test "MockRepo.all/1 returns [] by default (current behavior)" do
-      # MockRepo.all/1 currently always returns [] — Wave 1 will extend it
-      # to return Process.get(:tool_proposals, []) filtered by conversation_id.
-      # This test verifies the default remains safe (no crash, returns list).
+      # MockRepo.all/1 always returns [] for any query (test isolation default).
+      # list_proposals_for_conversation/1 uses repo().all(query) — empty list is safe.
       result = MockRepo.all(Cairnloop.Governance.ToolProposal)
       assert is_list(result)
     end
@@ -1453,23 +1451,31 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "governed_action rail — blocked proposals visible (row 14-03-b, Support-Truth Gate)" do
-    @tag :skip
     test "blocked proposals (:needs_input) appear in the governed-action rail section" do
+      # Blocked proposals must appear durably in the rail (Support-Truth Gate).
+      # The governed_action_card/1 component renders :needs_input as "Needs input" chip text.
       blocked = tool_proposal_fixture(%{status: :needs_input})
-      # Wave 1: seed MockRepo with this blocked proposal for conversation 1;
-      # mount the LiveView; assert the rail section contains the proposal card.
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: blocked)
+      assert html =~ "Needs input"
       assert blocked.status == :needs_input
     end
 
-    @tag :skip
     test "blocked proposals (:scope_invalid) appear in the governed-action rail section" do
+      # :scope_invalid blocked proposals must be visible in the rail — never hidden.
       blocked = tool_proposal_fixture(%{status: :scope_invalid})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: blocked)
+      assert html =~ "Not available here"
       assert blocked.status == :scope_invalid
     end
 
-    @tag :skip
     test "blocked proposals (:policy_denied) appear in the governed-action rail section" do
+      # :policy_denied blocked proposals must be visible in the rail — never hidden.
       blocked = tool_proposal_fixture(%{status: :policy_denied})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: blocked)
+      assert html =~ "Blocked by policy"
       assert blocked.status == :policy_denied
     end
   end
@@ -1482,11 +1488,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "failure_reason_message/1 — no inspect on scope/policy reason (D-14)" do
-    test "failure_reason_message/1 clauses for scope_invalid and policy_denied use inspect(reason) in current source" do
-      # This test DOCUMENTS the current state (uses inspect) so Wave 3 can assert the
-      # opposite: that the humanized reason_label replacement is in place.
-      # NOTE: This test is intentionally a current-state assertion, NOT a regression guard.
-      # Wave 3 will INVERT this assertion when failure_reason_message/1 is updated.
+    test "failure_reason_message/1 clauses for scope_invalid and policy_denied do NOT use inspect(reason) (D-14 — Wave 3 inverted)" do
+      # Wave 3 inverted this assertion: after D-14 humanization, inspect(reason) must be ABSENT.
+      # All three clauses now use ToolProposalPresenter.reason_label/1 instead of inspect/1.
       project_root =
         __ENV__.file
         |> Path.expand()
@@ -1509,11 +1513,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       # Extract a region large enough to contain all failure_reason_message clauses
       region = binary_part(source, start_pos, min(byte_size(source) - start_pos, 800))
 
-      # Current implementation uses inspect/1 on reason — document this pre-D-14 state.
-      # Wave 3 will refute this assertion after humanizing the message.
-      assert region =~ "inspect(reason)",
-             "Expected failure_reason_message to use inspect(reason) in Wave 0; " <>
-               "Wave 3 should remove this and refute it instead"
+      # D-14: inspect(reason) must be ABSENT — humanized via ToolProposalPresenter.reason_label/1
+      refute region =~ "inspect(reason)",
+             "failure_reason_message/1 must not use inspect(reason) — use ToolProposalPresenter.reason_label/1 (D-14)"
+
+      # D-14: reason_label must be PRESENT in the region
+      assert region =~ "reason_label",
+             "failure_reason_message/1 must use ToolProposalPresenter.reason_label/1 (D-14)"
     end
 
     test "failure_reason_message/1 does not forward raw inspect output to the :scope_invalid flash (CR-01 regression guard)" do
