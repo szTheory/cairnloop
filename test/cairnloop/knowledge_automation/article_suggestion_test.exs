@@ -1261,7 +1261,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     )
   end
 
-  defp valid_revision_attrs(overrides \\ %{}) do
+  defp valid_revision_attrs(overrides) do
     Map.merge(
       %{
         stable_key: "article:77:revision",
