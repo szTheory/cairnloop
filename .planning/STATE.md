@@ -4,13 +4,13 @@ milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
 status: executing
 stopped_at: Phase 15 context gathered
-last_updated: "2026-05-24T16:35:51.507Z"
+last_updated: "2026-05-24T16:48:27.620Z"
 last_activity: 2026-05-24
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 12
-  completed_plans: 8
+  completed_plans: 9
   percent: 40
 ---
 
@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 ## Current Position
 
 Phase: 15 (approval-state-machine-oban-resume) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-05-24
 
@@ -63,6 +63,7 @@ Progress: [----------] 0%
 | Phase 13-governed-tool-contract-proposal-records P01 | 4 | 3 tasks | 5 files |
 | Phase 14 P01 | 8 | 2 tasks | 9 files |
 | Phase 14 P02 | 3 | 1 tasks | 2 files |
+| Phase 15-approval-state-machine-oban-resume P01 | 8 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,10 @@ Progress: [----------] 0%
 - [Phase 15 GUARDRAIL — carry forward]: when prose first becomes load-bearing (approval), Phase 15 MUST add nullable `rendered_consequence` + `title` columns to `cairnloop_tool_proposals`, populate in `propose/3` going forward, and have the approval/execution surfaces read the snapshotted columns — NEVER call live `Preview.render`. Add a test asserting snapshotted-vs-live divergence. (D-16 additive promotion.)
 - [Phase 14 → carry forward, WR-01]: the `:needs_input` blocked path persists `inspect(changeset)` (a raw `#Ecto.Changeset<...>`) into the durable `policy_snapshot` column + `ToolActionEvent.reason` via the SEALED Phase-13 `insert_blocked_proposal/10` chain (`governance.ex:313`). NOT churned in Phase 14 (seal-completed-phases). When Phase 15 reopens propose/approval persistence, decide whether `:needs_input` should persist at all; if it must, humanize via `Ecto.Changeset.traverse_errors` (NOT `inspect/1`) and add a test asserting `policy_snapshot` contains no `#Ecto.Changeset<` substring. (Code review 14-REVIEW.md WR-01/IN-01.)
 - [Phase 14 SECURITY — verified 2026-05-24]: `threats_open: 0`. All 15 mitigate-disposition threats independently verified in code by gsd-security-auditor (register authored at plan time, verify-mitigations mode); 2 accepted risks logged (AR-14-01 no-installs; AR-14-02 bounded rail list, re-evaluate at Phase 16). Report: `.planning/phases/14-operator-timeline-preview-surface/14-SECURITY.md`. Note: the root `SECURITY.md` is Phase 10's verification and still carries **5 open threats (T-10-09..T-10-13)** — pre-existing debt, untouched by Phase 14.
+- [Phase ?]: Phase 15 W1: D15-14 DISCHARGED - propose/3 snapshots prose at propose time
+- [Phase ?]: Phase 15 W1: WR-01 FIXED - traverse_errors replaces inspect(reason) at governance.ex; D15-15
+- [Phase ?]: Phase 15 W1: ToolApproval schema + one-active-lane partial unique index (APRV-04)
+- [Phase ?]: Phase 15 W1: get_active_approval/1 narrow facade read API on Cairnloop.Governance
 
 ### Pending Todos
 
@@ -104,6 +109,6 @@ Progress: [----------] 0%
 
 ## Session Continuity
 
-Last session: 2026-05-24T16:35:51.503Z
+Last session: 2026-05-24T16:48:27.617Z
 Stopped at: Phase 15 context gathered
 Resume file: None

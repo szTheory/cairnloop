@@ -85,7 +85,7 @@ Plans:
 
 **Wave 1** *(blocked on Wave 0 completion)*
 
-- [ ] 15-01-PLAN.md (M011-S03-01) — `ToolApproval` storage + one-active-lane partial unique index + `get_active_approval/1`; `ToolActionEvent`/`ToolProposal` extensions; the sanctioned `propose/3` reopen (D15-14 prose snapshot + D15-15/WR-01 humanization).
+- [x] 15-01-PLAN.md (M011-S03-01) — `ToolApproval` storage + one-active-lane partial unique index + `get_active_approval/1`; `ToolActionEvent`/`ToolProposal` extensions; the sanctioned `propose/3` reopen (D15-14 prose snapshot + D15-15/WR-01 humanization).
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
