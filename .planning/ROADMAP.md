@@ -97,7 +97,7 @@ Plans:
 
 **Wave 4** *(blocked on Waves 1, 3 completion)*
 
-- [ ] 15-04-PLAN.md (M011-S03-04) — reflect outcomes into the in-thread surface: presenter maps approval states into the existing four groups (zero relabeling), `approval_outlook` → real "Pending approval", footer-slot Approve/Reject/Defer (color+text, brand tokens), snapshot-read card (never live `Preview.render`), plain-assign reload (no streams).
+- [x] 15-04-PLAN.md (M011-S03-04) — reflect outcomes into the in-thread surface: presenter maps approval states into the existing four groups (zero relabeling), `approval_outlook` → real "Pending approval", footer-slot Approve/Reject/Defer (color+text, brand tokens), snapshot-read card (never live `Preview.render`), plain-assign reload (no streams).
 
 **Details:**
 
