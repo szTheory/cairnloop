@@ -89,7 +89,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 15-02-PLAN.md (M011-S03-03) — Oban `ApprovalResumeWorker` (re-validate-before-execute gate → `:execution_pending` seam, never `run/3`; lazy expiry guard; idempotent/double-enqueue-safe) + `ApprovalExpiryWorker` scheduled flip + `Policy.resolve/3` PDP seam.
+- [x] 15-02-PLAN.md (M011-S03-03) — Oban `ApprovalResumeWorker` (re-validate-before-execute gate → `:execution_pending` seam, never `run/3`; lazy expiry guard; idempotent/double-enqueue-safe) + `ApprovalExpiryWorker` scheduled flip + `Policy.resolve/3` PDP seam.
 
 **Wave 3** *(blocked on Waves 1-2 completion)*
 
