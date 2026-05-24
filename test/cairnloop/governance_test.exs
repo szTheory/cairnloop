@@ -108,13 +108,17 @@ defmodule Cairnloop.GovernanceTest do
       field(:order_id, :string)
     end
 
+    @impl Cairnloop.Tool
     def changeset(struct, attrs) do
       struct
       |> Ecto.Changeset.cast(attrs, [:order_id])
       |> Ecto.Changeset.validate_required([:order_id])
     end
 
+    @impl Cairnloop.Tool
     def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
     def scope, do: []
 
     @impl Cairnloop.Tool
@@ -130,11 +134,15 @@ defmodule Cairnloop.GovernanceTest do
       field(:data, :string)
     end
 
+    @impl Cairnloop.Tool
     def changeset(struct, attrs) do
       Ecto.Changeset.cast(struct, attrs, [:data])
     end
 
+    @impl Cairnloop.Tool
     def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
     def scope, do: [:admin_scope]
 
     @impl Cairnloop.Tool
@@ -150,11 +158,15 @@ defmodule Cairnloop.GovernanceTest do
       field(:data, :string)
     end
 
+    @impl Cairnloop.Tool
     def changeset(struct, attrs) do
       Ecto.Changeset.cast(struct, attrs, [:data])
     end
 
+    @impl Cairnloop.Tool
     def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
     def scope, do: []
 
     @impl Cairnloop.Tool
@@ -170,13 +182,17 @@ defmodule Cairnloop.GovernanceTest do
       field(:required_field, :string)
     end
 
+    @impl Cairnloop.Tool
     def changeset(struct, attrs) do
       struct
       |> Ecto.Changeset.cast(attrs, [:required_field])
       |> Ecto.Changeset.validate_required([:required_field])
     end
 
+    @impl Cairnloop.Tool
     def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
     def scope, do: []
 
     @impl Cairnloop.Tool
