@@ -45,10 +45,17 @@ defmodule Cairnloop.Governance.ToolProposal do
     field(:result_state, Ecto.Enum, values: @result_state_values, default: :not_executed)
     field(:result_summary, :string)
 
+    # Nullable prose-snapshot columns (D15-14 — pre-Phase-15 rows stay NULL):
+    # Populated by propose/3 from Phase 15 forward. Approval surfaces read these columns
+    # NEVER calling live Preview.render/1.
+    field(:rendered_consequence, :string)
+    field(:title, :string)
+
     # Nullable FK: pre-Phase-14 rows stay NULL; all Phase-14+ proposals are conversation-scoped (D-06, D-07)
     belongs_to(:conversation, Conversation)
 
     has_many(:events, ToolActionEvent)
+    has_one(:approval, Cairnloop.Governance.ToolApproval)
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -82,7 +89,9 @@ defmodule Cairnloop.Governance.ToolProposal do
       :oban_job_id,
       :result_state,
       :result_summary,
-      :conversation_id
+      :conversation_id,
+      :rendered_consequence,
+      :title
     ])
     |> validate_required([:tool_ref, :idempotency_key, :risk_tier, :approval_mode, :actor_id])
     |> unique_constraint(:idempotency_key)

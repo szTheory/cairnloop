@@ -20,7 +20,23 @@ defmodule Cairnloop.Governance.ToolActionEvent do
 
   alias Cairnloop.Governance.ToolProposal
 
-  @event_type_values [:proposal_created, :proposal_blocked]
+  @event_type_values [
+    :proposal_created,
+    :proposal_blocked,
+    # Approval lifecycle (Phase 15) — D15-03
+    # from_status/to_status are nil for approval events; transition carried in event_type + metadata
+    :approval_requested,
+    :approved,
+    :rejected,
+    :deferred,
+    :expired,
+    :invalidated,
+    :resume_scheduled,
+    :revalidation_passed,
+    :revalidation_failed
+  ]
+
+  @proposal_event_types [:proposal_created, :proposal_blocked]
 
   schema "cairnloop_tool_action_events" do
     field(:event_type, Ecto.Enum, values: @event_type_values)
@@ -54,8 +70,22 @@ defmodule Cairnloop.Governance.ToolActionEvent do
       :reason,
       :metadata
     ])
-    |> validate_required([:tool_proposal_id, :event_type, :to_status, :actor_id])
+    |> validate_required([:tool_proposal_id, :event_type, :actor_id])
+    |> validate_to_status_for_proposal_events()
     |> validate_metadata()
+  end
+
+  # :to_status is required only for proposal event types (D15-03).
+  # Approval event types carry the transition in event_type + metadata; from_status and
+  # to_status remain nil (they are typed against ToolProposal.status_values() — Pitfall 4 preserved).
+  defp validate_to_status_for_proposal_events(changeset) do
+    event_type = get_field(changeset, :event_type)
+
+    if event_type in @proposal_event_types do
+      validate_required(changeset, [:to_status])
+    else
+      changeset
+    end
   end
 
   defp validate_metadata(changeset) do

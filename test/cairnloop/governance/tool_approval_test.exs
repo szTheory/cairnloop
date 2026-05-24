@@ -28,7 +28,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
   # ---------------------------------------------------------------------------
 
   describe "changeset/2 — valid" do
-    @tag :skip
     test "is valid with required fields (tool_proposal_id + status)" do
       changeset = apply(@tool_approval_module, :changeset, [
         struct(@tool_approval_module),
@@ -37,7 +36,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "defaults status to :pending when status omitted" do
       changeset = apply(@tool_approval_module, :changeset, [
         struct(@tool_approval_module),
@@ -47,7 +45,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert Ecto.Changeset.get_field(changeset, :status) == :pending
     end
 
-    @tag :skip
     test "accepts all valid status values" do
       for status <- [:pending, :approved, :execution_pending, :rejected, :deferred, :expired, :invalidated] do
         changeset = apply(@tool_approval_module, :changeset, [
@@ -58,7 +55,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       end
     end
 
-    @tag :skip
     test "requires tool_proposal_id" do
       changeset = apply(@tool_approval_module, :changeset, [
         struct(@tool_approval_module),
@@ -76,15 +72,15 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
   # ---------------------------------------------------------------------------
 
   describe "changeset/2 — one-active-lane unique_constraint" do
-    @tag :skip
     test "declares unique_constraint for :tool_proposal_id with the partial index name" do
       changeset = apply(@tool_approval_module, :changeset, [
         struct(@tool_approval_module),
         approval()
       ])
-      # Assert the unique_constraint is registered on the changeset
-      constraint_names = Enum.map(changeset.constraints, & &1.constraint_name)
-      assert :cairnloop_tool_approvals_one_active_lane_index in constraint_names
+      # Assert the unique_constraint is registered on the changeset.
+      # Ecto stores the constraint name under the :constraint key (a string).
+      constraint_names = Enum.map(changeset.constraints, & &1.constraint)
+      assert "cairnloop_tool_approvals_one_active_lane_index" in constraint_names
     end
 
     # REPO-UNAVAILABLE
@@ -101,7 +97,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
   # ---------------------------------------------------------------------------
 
   describe "decision_changeset/6 — FLOW-03 reason requirement" do
-    @tag :skip
     test "reject requires reason — refute valid? and assert :reason error" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -115,7 +110,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert {:reason, _} = List.keyfind(cs.errors, :reason, 0)
     end
 
-    @tag :skip
     test "defer requires reason — refute valid?" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -129,7 +123,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert {:reason, _} = List.keyfind(cs.errors, :reason, 0)
     end
 
-    @tag :skip
     test "approve does NOT require reason — assert valid?" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -142,7 +135,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert cs.valid?
     end
 
-    @tag :skip
     test "reject with reason provided is valid" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -155,7 +147,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert cs.valid?
     end
 
-    @tag :skip
     test "defer with reason provided is valid" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -175,9 +166,8 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
   # ---------------------------------------------------------------------------
 
   describe "decision_changeset/6 — denormalized last-decision fields" do
-    @tag :skip
     test "captures decided_by on the changeset" do
-      decided_at = ~U[2026-01-01 12:00:00Z]
+      decided_at = ~U[2026-01-01 12:00:00.000000Z]
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
         :approved,
@@ -189,9 +179,9 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert Ecto.Changeset.get_change(cs, :decided_by) == "ops_user_1"
     end
 
-    @tag :skip
     test "captures decided_at on the changeset" do
-      decided_at = ~U[2026-01-01 12:00:00Z]
+      # Use microsecond precision to match :utc_datetime_usec Ecto type normalization
+      decided_at = ~U[2026-01-01 12:00:00.000000Z]
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
         :approved,
@@ -203,7 +193,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert Ecto.Changeset.get_change(cs, :decided_at) == decided_at
     end
 
-    @tag :skip
     test "captures last_decision on the changeset (denormalized ReviewTask idiom)" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),
@@ -216,7 +205,6 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       assert Ecto.Changeset.get_change(cs, :last_decision) == "approved"
     end
 
-    @tag :skip
     test "captures reason on the changeset when reason is provided" do
       cs = apply(@tool_approval_module, :decision_changeset, [
         struct(@tool_approval_module, %{tool_proposal_id: 1}),

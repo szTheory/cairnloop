@@ -165,7 +165,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
   # ---------------------------------------------------------------------------
 
   describe "new approval event_type values — Phase 15 (15-01-c)" do
-    @tag :skip
     test "accepts :approval_requested with from_status nil, to_status nil" do
       attrs = %{
         tool_proposal_id: 1,
@@ -180,7 +179,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
              "changeset must be valid for :approval_requested with nil to_status (Wave 1 relaxes required)"
     end
 
-    @tag :skip
     test "accepts :approved with from_status nil, to_status nil" do
       attrs = %{
         tool_proposal_id: 1,
@@ -192,7 +190,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :rejected with reason (FLOW-03)" do
       attrs = %{
         tool_proposal_id: 1,
@@ -205,7 +202,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :deferred with reason (FLOW-03)" do
       attrs = %{
         tool_proposal_id: 1,
@@ -218,7 +214,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :expired" do
       attrs = %{
         tool_proposal_id: 1,
@@ -230,7 +225,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :invalidated with reason" do
       attrs = %{
         tool_proposal_id: 1,
@@ -243,7 +237,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :resume_scheduled" do
       attrs = %{
         tool_proposal_id: 1,
@@ -255,7 +248,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :revalidation_passed" do
       attrs = %{
         tool_proposal_id: 1,
@@ -267,7 +259,6 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    @tag :skip
     test "accepts :revalidation_failed with reason" do
       attrs = %{
         tool_proposal_id: 1,
@@ -280,9 +271,8 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
       assert changeset.valid?
     end
 
-    # This test runs NOW — verifies the current @event_type_values do NOT yet include
-    # the approval atoms, documenting that Wave 1 must add them.
-    test "approval event_type atoms are NOT in @event_type_values until Wave 1 (Wave 0 state)" do
+    # Wave 1 shipped — verifies the approval atoms ARE now in @event_type_values.
+    test "approval event_type atoms are NOW in @event_type_values (Wave 1 shipped)" do
       approval_atoms = [
         :approval_requested, :approved, :rejected, :deferred,
         :expired, :invalidated, :resume_scheduled, :revalidation_passed, :revalidation_failed
@@ -292,13 +282,13 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         attrs = %{
           tool_proposal_id: 1,
           event_type: atom,
-          to_status: :proposed,
-          actor_id: "user_1"
+          actor_id: "user_1",
+          metadata: %{}
         }
         changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
-        # Currently invalid (not in @event_type_values) — Wave 1 makes them valid
-        refute changeset.valid?,
-               "#{atom} should be invalid in Wave 0 (not yet in @event_type_values)"
+        # Now valid (Wave 1 added them to @event_type_values)
+        assert changeset.valid?,
+               "#{atom} should be valid in Wave 1 (@event_type_values now includes approval atoms)"
       end
     end
   end
