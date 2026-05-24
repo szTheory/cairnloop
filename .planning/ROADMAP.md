@@ -75,14 +75,29 @@ Plans:
 **Goal**: Risky governed actions move through durable approval, rejection, deferral, expiry, and
 resume paths with append-only decision history.
 **Depends on**: Phase 14
-**Plans**: 4 plans
+**Plans**: 5 plans
 
 Plans:
 
-- [ ] M011-S03-01: Add `ToolApproval` storage, one-active-approval semantics, and public approval APIs.
-- [ ] M011-S03-02: Implement approve, reject, defer, and expire transitions with append-only decision events.
-- [ ] M011-S03-03: Add Oban resume workers that re-check scope and policy immediately before execution.
-- [ ] M011-S03-04: Reflect approval, expiry, and resume outcomes back into the conversation timeline and operator workflow.
+**Wave 0**
+
+- [ ] 15-00-PLAN.md — Wave 0 test infrastructure: 3 new headless test files (`tool_approval_test.exs`, `approval_resume_worker_test.exs`, `approval_expiry_worker_test.exs`) + 4 extensions (`governance_test.exs`, `tool_action_event_test.exs`, `preview_test.exs`, `tool_proposal_presenter_test.exs`).
+
+**Wave 1** *(blocked on Wave 0 completion)*
+
+- [ ] 15-01-PLAN.md (M011-S03-01) — `ToolApproval` storage + one-active-lane partial unique index + `get_active_approval/1`; `ToolActionEvent`/`ToolProposal` extensions; the sanctioned `propose/3` reopen (D15-14 prose snapshot + D15-15/WR-01 humanization).
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 15-02-PLAN.md (M011-S03-03) — Oban `ApprovalResumeWorker` (re-validate-before-execute gate → `:execution_pending` seam, never `run/3`; lazy expiry guard; idempotent/double-enqueue-safe) + `ApprovalExpiryWorker` scheduled flip + `Policy.resolve/3` PDP seam.
+
+**Wave 3** *(blocked on Waves 1-2 completion)*
+
+- [ ] 15-03-PLAN.md (M011-S03-02) — approve/reject/defer/expire transitions on the narrow facade (guarded on `:pending`, append-only co-commit, FLOW-03 reason-required, approve enqueues resume — never inline execute) + `request_approval` lane open with host-configurable TTL.
+
+**Wave 4** *(blocked on Waves 1, 3 completion)*
+
+- [ ] 15-04-PLAN.md (M011-S03-04) — reflect outcomes into the in-thread surface: presenter maps approval states into the existing four groups (zero relabeling), `approval_outlook` → real "Pending approval", footer-slot Approve/Reject/Defer (color+text, brand tokens), snapshot-read card (never live `Preview.render`), plain-assign reload (no streams).
 
 **Details:**
 
