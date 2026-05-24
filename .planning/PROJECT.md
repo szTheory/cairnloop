@@ -29,6 +29,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Reuse retrieval, review, telemetry, and audit primitives so tool actions stay grounded, fail closed, and inspectable in-thread.
 - Define MCP as an optional edge adapter over the governed-tool contract, with read-only/user-scoped integration first and broad remote write surfaces deferred.
 
+**Milestone progress:**
+- ✓ Phase 13 (Governed Tool Contract & Proposal Records) complete on 2026-05-24 — the single native governed-tool contract (compile-time-validated `Tool.Spec` + behaviour), durable `ToolProposal` + append-only `ToolActionEvent` records, and the fail-closed `Cairnloop.Governance` propose/validate facade (with a `Policy.resolve/3` approval seam) now exist; Cairnloop creates proposals without executing tools inline.
+
 ## Requirements
 
 ### Validated
@@ -44,7 +47,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ KB AI Maintenance — vM010
 
 ### Active
-- [ ] Define the governed-tool contract, policy seam, and durable execution records for host-owned support actions.
+- [x] Define the governed-tool contract, policy seam, and durable execution records for host-owned support actions. — validated in Phase 13 (vM011)
 - [ ] Replace synchronous in-LiveView tool execution with fail-closed proposal, approval, and Oban resume flow.
 - [ ] Keep tool actions grounded, reviewable, and visible in the existing operator workflow rather than introducing a parallel truth source.
 - [ ] Expose MCP compatibility only through the governed-tool seam, starting with optional read-only and user-scoped integration.
@@ -55,6 +58,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - vM010 validated `DRAFT-01` through `DRAFT-03`: article and revision suggestions are citation-backed and fail closed when grounding is weak.
 - vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and follow-through workflow state.
 - vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and maintenance telemetry remains bounded across publish and reindex follow-through.
+- vM011 Phase 13 validated `M011-S01-01` through `M011-S01-03`: one native governed-tool contract, durable proposal + append-only action-event records, and the fail-closed `Cairnloop.Governance` facade — proposals are created and fail closed on unsupported tools, missing input, invalid scope, or denied policy, with no inline execution.
 
 ### Out of Scope
 - Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven.
@@ -127,4 +131,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-23 after starting vM011*
+*Last updated: 2026-05-24 after completing Phase 13 (vM011)*
