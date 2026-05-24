@@ -3,16 +3,12 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
 
   # ---------------------------------------------------------------------------
   # Module-under-test reference
-  #
-  # Cairnloop.Workers.ApprovalExpiryWorker does NOT exist until Wave 2.
-  # All tests below are tagged :skip so this file compiles and runs now.
-  # Remove :skip as the worker is implemented in Wave 2.
   # ---------------------------------------------------------------------------
 
-  @worker_module Cairnloop.Workers.ApprovalExpiryWorker
+  alias Cairnloop.Workers.ApprovalExpiryWorker
 
   # ---------------------------------------------------------------------------
-  # MockRepo — mirrors sla_countdown_worker_test.exs pattern (L7-24)
+  # MockRepo — mirrors sla_countdown_worker_test.exs pattern
   #
   # Approval fixtures:
   #   1 → :pending   (should be flipped to :expired)
@@ -71,16 +67,14 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — :pending → :expired flip (15-03-e)" do
-    @tag :skip
     test "flips :pending approval to :expired" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalExpiryWorker.perform(%Oban.Job{args: %{"approval_id" => 1}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :expired
     end
 
-    @tag :skip
     test "inserts a :expired ToolActionEvent after flipping status" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalExpiryWorker.perform(%Oban.Job{args: %{"approval_id" => 1}})
       assert_receive {:repo_insert, event_changeset}
       event = Ecto.Changeset.apply_changes(event_changeset)
       assert event.event_type == :expired
@@ -89,19 +83,17 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
 
   # ---------------------------------------------------------------------------
   # describe: already-resolved and deleted approvals → :ok no-op
-  # (mirrors SlaCountdownWorker catch-all behavior at L22)
+  # (mirrors SlaCountdownWorker catch-all behavior)
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — already-resolved or deleted approval → :ok no-op" do
-    @tag :skip
     test "no-ops gracefully for already-resolved approval (status :approved)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 2}}])
+      assert :ok = ApprovalExpiryWorker.perform(%Oban.Job{args: %{"approval_id" => 2}})
       refute_receive {:repo_update, _}
     end
 
-    @tag :skip
     test "no-ops gracefully for missing approval (nil — deleted)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 3}}])
+      assert :ok = ApprovalExpiryWorker.perform(%Oban.Job{args: %{"approval_id" => 3}})
       refute_receive {:repo_update, _}
     end
   end
