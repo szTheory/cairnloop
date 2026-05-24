@@ -882,17 +882,19 @@ the real approval action copy and the chip label changes to "Pending approval".
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **D-15 ratification (trust-sensitive — flagged for user)**
    - What we know: D-15 is marked as a trust call in CONTEXT.md; it is "recommended and justified" but the user may veto in favour of snapshot-now before planning.
    - What's unclear: Whether the user has ratified D-15 or intends to reopen Phase 13's `propose/3` path to snapshot the consequence string now.
    - Recommendation: Planner should confirm with user before writing M011-S02-01/02 tasks that touch `Preview.render/1`. If the user vetoes D-15, the plan for M011-S02-01 must include reopening `propose/3` to snapshot the consequence string (a schema change + call-site change in Phase 13 code).
+   - **RESOLVED (2026-05-24):** Ratified **Hybrid** (no veto). The user delegated the call; three parallel deep-research passes (Elixir/Phoenix/Ecto idioms, cross-ecosystem review-then-act systems, project-vision coherence) converged unanimously on Hybrid. Phase 13 `propose/3` is NOT reopened; no prose migration in Phase 14. The Phase-15 forward-compat guardrail (additive `rendered_consequence`/`title` columns when prose first becomes load-bearing) is carried in 14-CONTEXT.md + STATE.md. See the "RATIFIED" note in 14-CONTEXT.md.
 
 2. **`policy_snapshot` reason string is `inspect(reason)` (from Phase 13)**
    - What we know: `insert_blocked_proposal/10` stores `reason_str = inspect(reason)` in `policy_snapshot` at L307. This is raw Elixir term output.
    - What's unclear: Whether the Phase 14 card should display this raw string in the "raw map behind expander" section, or attempt to parse/humanize it.
    - Recommendation: Display the raw string ONLY behind the expander (D-22 — inline = humanized, raw behind expander). The inline policy sentence uses the `outcome` key only (humanized via presenter). This is consistent with D-22 and requires no Phase 13 change.
+   - **RESOLVED (2026-05-24):** Adopt the recommendation as-is — inline humanized via the presenter, raw string only behind the `<details>` expander (D-22). No Phase 13 change. Implemented by 14-02 (raw maps behind expander) + 14-01 (`policy_explanation`/`block_reason_copy` in `ToolProposalPresenter`).
 
 ---
 
