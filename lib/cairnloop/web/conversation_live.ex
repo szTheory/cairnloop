@@ -973,14 +973,15 @@ defmodule Cairnloop.Web.ConversationLive do
               <span><%= event.line %></span>
               <span class="governed-action-event-time"><%= event.timestamp %></span>
               <%!-- Per-event detail (reason + metadata) behind expander (D-22) --%>
-              <%= if event.reason || event.metadata do %>
+              <%!-- WR-04: guard on emptiness — empty %{} metadata must not open the expander --%>
+              <%= if event.reason || (is_map(event.metadata) and map_size(event.metadata) > 0) do %>
                 <details style="margin-top: 4px;">
                   <summary style="font-size: 0.75rem; color: #8b7355; cursor: pointer;">Details</summary>
                   <div style="margin-top: 4px; font-size: 0.8rem; color: #4c4033;">
                     <%= if event.reason do %>
                       <p><strong>Reason:</strong> <%= event.reason %></p>
                     <% end %>
-                    <%= if event.metadata do %>
+                    <%= if is_map(event.metadata) and map_size(event.metadata) > 0 do %>
                       <pre class="governed-action-trace" style="margin-top: 4px; white-space: pre-wrap;"><%= inspect(event.metadata, pretty: true) %></pre>
                     <% end %>
                   </div>
