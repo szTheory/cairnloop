@@ -56,8 +56,11 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   def status_group(:needs_input), do: :awaiting
   def status_group(:scope_invalid), do: :blocked
   def status_group(:policy_denied), do: :blocked
-  # Approval status atoms — D15-16 zero relabeling (above catch-all)
-  def status_group(:pending_approval), do: :awaiting
+  # ToolApproval status atoms — D15-16 zero relabeling (above catch-all).
+  # These map the separate approval axis into the same four display groups, so the
+  # mapping is correct wherever an approval status is grouped (15-04-a).
+  def status_group(:pending), do: :awaiting
+  def status_group(:approved), do: :active
   def status_group(:execution_pending), do: :active
   def status_group(:rejected), do: :done
   def status_group(:deferred), do: :done

@@ -437,9 +437,14 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_group/1 — approval states (D15-16, 15-04-a)" do
-    test "returns :awaiting for :pending_approval" do
-      # :pending_approval on the ToolProposal → Awaiting group (D15-16)
-      assert apply(@presenter, :status_group, [:pending_approval]) == :awaiting
+    test "returns :awaiting for :pending" do
+      # :pending is the real ToolApproval status → Awaiting group (D15-16)
+      assert apply(@presenter, :status_group, [:pending]) == :awaiting
+    end
+
+    test "returns :active for :approved" do
+      # :approved (operator approved, resume pending) → Active group (D15-16)
+      assert apply(@presenter, :status_group, [:approved]) == :active
     end
 
     test "returns :active for :execution_pending" do
