@@ -35,6 +35,17 @@ defmodule Cairnloop.GovernanceTest do
           Process.get(:tool_proposals, [])
           |> Enum.find(fn p -> p.idempotency_key == key end)
 
+        Cairnloop.Governance.ToolApproval ->
+          # Support get_active_approval/1: find a :pending ToolApproval for a given
+          # tool_proposal_id. Reads from process dictionary (seeded in setup/tests).
+          proposal_id = Keyword.get(clauses, :tool_proposal_id)
+          status = Keyword.get(clauses, :status)
+
+          Process.get(:tool_approvals, [])
+          |> Enum.find(fn a ->
+            a.tool_proposal_id == proposal_id and a.status == status
+          end)
+
         _ ->
           nil
       end
@@ -89,6 +100,10 @@ defmodule Cairnloop.GovernanceTest do
 
     defp persist_inserted(%ToolActionEvent{} = event) do
       Process.put(:tool_action_events, [event | Process.get(:tool_action_events, [])])
+    end
+
+    defp persist_inserted(%Cairnloop.Governance.ToolApproval{} = approval) do
+      Process.put(:tool_approvals, [approval | Process.get(:tool_approvals, [])])
     end
 
     defp persist_inserted(_struct), do: :ok
@@ -642,18 +657,22 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "get_active_approval/1 — returns :pending approval or nil (row 15-01-d)" do
-    @tag :skip
     test "returns the single :pending ToolApproval for a proposal id" do
-      # Wave 1: extend MockRepo with get_by/all path returning a seeded :pending ToolApproval.
-      # When implemented, get_active_approval/1 queries for status == :pending on the
-      # one-active-lane constraint (D15-04).
-      approval = apply(Governance, :get_active_approval, [1])
+      # Seed a pending ToolApproval in the MockRepo process dictionary
+      pending_approval = %Cairnloop.Governance.ToolApproval{
+        id: 1,
+        tool_proposal_id: 42,
+        status: :pending
+      }
+      Process.put(:tool_approvals, [pending_approval])
+
+      approval = apply(Governance, :get_active_approval, [42])
       assert approval != nil
       assert approval.status == :pending
     end
 
-    @tag :skip
     test "returns nil when no :pending approval exists for the proposal" do
+      # No seeded approvals — process dictionary is empty for this key
       approval = apply(Governance, :get_active_approval, [99_999])
       assert is_nil(approval)
     end
@@ -818,7 +837,6 @@ defmodule Cairnloop.GovernanceTest do
       assert true  # placeholder — see skip tag below
     end
 
-    @tag :skip
     test "governance.ex L313 uses traverse_errors/2 not inspect/1 (WR-01 fix, D15-15)" do
       governance_source = File.read!("lib/cairnloop/governance.ex")
       # The WR-01 fix replaces `reason_str = inspect(reason)` with traverse_errors/2.
@@ -844,7 +862,6 @@ defmodule Cairnloop.GovernanceTest do
       assert hd(proposals).status == :needs_input
     end
 
-    @tag :skip
     test ":needs_input persisted policy_snapshot.reason contains no #Ecto.Changeset< substring (WR-01)" do
       # Wave 1: after D15-15 fix, policy_snapshot.reason must be humanized text.
       tool_ref = Atom.to_string(InvalidInputTool)
@@ -861,7 +878,6 @@ defmodule Cairnloop.GovernanceTest do
              "policy_snapshot.reason must not contain raw #Ecto.Changeset< — humanize via traverse_errors/2 (WR-01)"
     end
 
-    @tag :skip
     test ":needs_input ToolActionEvent.reason contains no #Ecto.Changeset< substring (WR-01)" do
       # Wave 1: the ToolActionEvent.reason written by insert_blocked_proposal must be humanized.
       tool_ref = Atom.to_string(InvalidInputTool)

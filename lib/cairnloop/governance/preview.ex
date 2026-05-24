@@ -29,23 +29,23 @@ defmodule Cairnloop.Governance.Preview do
   No tool in Phase 14 implements `preview/1`, so `{:structured, _}` is the expected
   result for all proposals in this phase.
 
-  ## Phase 15 forward-compat guardrail
+  ## Phase 15 forward-compat guardrail — DISCHARGED
 
-  When preview prose first becomes load-bearing (approval/execution surfaces), Phase 15
-  MUST do ALL of the following — this is an architectural contract:
+  The D-16 4-step mandate has been completed in Phase 15 (Plan 15-01):
 
-  1. Add nullable `rendered_consequence` and `title` columns to `cairnloop_tool_proposals`.
-  2. Populate both columns in `Cairnloop.Governance.propose/3` from Phase 15 forward
-     (call `Preview.render/1` at propose-time and snapshot the result).
-  3. Have the approval card and execution surfaces READ the snapshotted `rendered_consequence`
-     and `title` columns — NEVER call live `Preview.render/1` from an approval or execution
-     surface (D-16). The live leg is for the timeline preview only; approval truth must be
-     immutable.
-  4. Add a test asserting that the approval card shows the snapshotted consequence when it
-     diverges from the live registry description (regression gate for D-16).
+  1. ✓ Nullable `rendered_consequence` and `title` columns added to `cairnloop_tool_proposals`
+     (migration `20260524120100_add_snapshot_cols_to_proposals.exs`).
+  2. ✓ Both columns populated in `Cairnloop.Governance.propose/3` from Phase 15 forward
+     (`Preview.render/1` called at propose-time and result snapshotted — D15-14).
+  3. ✓ Approval and execution surfaces MUST read the snapshotted `rendered_consequence` and
+     `title` columns — NEVER call live `Preview.render/1` from an approval or execution surface
+     (D-16). The live leg is for the timeline preview only; approval trust facts must be immutable.
+  4. ✓ Test added asserting that the approval card shows the snapshotted consequence when it
+     diverges from the live registry description (regression gate — `preview_test.exs` D15-14 block).
 
   Failure to snapshot at propose-time means approval surfaces will silently show different
-  prose after a tool implementation changes — a trust and audit correctness failure.
+  prose after a tool implementation changes — a trust and audit correctness failure. This guard
+  remains here as the discoverable marker for future phases.
   """
 
   alias Cairnloop.Governance.ToolProposal

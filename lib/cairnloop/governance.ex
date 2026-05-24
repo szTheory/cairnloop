@@ -38,7 +38,7 @@ defmodule Cairnloop.Governance do
 
   import Ecto.Query
 
-  alias Cairnloop.Governance.{Policy, Telemetry, ToolActionEvent, ToolProposal}
+  alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
 
   # ---------------------------------------------------------------------------
   # Private helpers
@@ -216,6 +216,21 @@ defmodule Cairnloop.Governance do
   end
 
   defp insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated, conversation_id) do
+    # D15-14: snapshot rendered_consequence + title at propose time so approval surfaces
+    # NEVER call live Preview.render/1. Build a lightweight ToolProposal struct with only
+    # the fields Preview.render/1 needs (tool_ref, input_snapshot, scope_snapshot, policy_snapshot).
+    {rendered_consequence, title} =
+      case Preview.render(%ToolProposal{
+             tool_ref: tool_ref,
+             input_snapshot: validated.input_snapshot,
+             scope_snapshot: validated.scope_snapshot,
+             policy_snapshot: validated.policy_snapshot
+           }) do
+        {:preview, prose} -> {prose, nil}
+        {:structured, %{title: t}} -> {nil, t}
+        _ -> {nil, nil}
+      end
+
     proposal_attrs = %{
       tool_ref: tool_ref,
       tool_version: validated.tool_version,
@@ -229,7 +244,10 @@ defmodule Cairnloop.Governance do
       scope_snapshot: validated.scope_snapshot,
       policy_snapshot: validated.policy_snapshot,
       # D-07: conversation_id threaded in from context; NOT in idempotency canonical map (D-08)
-      conversation_id: conversation_id
+      conversation_id: conversation_id,
+      # D15-14: prose-snapshot columns — populated going forward; nil for pre-Phase-15 rows
+      rendered_consequence: rendered_consequence,
+      title: title
     }
 
     with {:ok, proposal} <-
@@ -310,7 +328,30 @@ defmodule Cairnloop.Governance do
          tool_ref, account_id, idempotency_key, actor_id, context,
          outcome, reason, risk_tier, approval_mode, input_snapshot
        ) do
-    reason_str = inspect(reason)
+    # D15-15 / WR-01: humanize the reason — never inspect(reason) which leaks raw
+    # #Ecto.Changeset< strings into durable operator-visible columns.
+    reason_str =
+      case reason do
+        %Ecto.Changeset{} = cs ->
+          cs
+          |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
+            Enum.reduce(opts, msg, fn {k, v}, acc ->
+              String.replace(acc, "%{#{k}}", to_string(v))
+            end)
+          end)
+          |> Enum.map(fn {field, msgs} -> "#{field}: #{Enum.join(msgs, ", ")}" end)
+          |> Enum.join("; ")
+
+        atom when is_atom(atom) ->
+          Atom.to_string(atom)
+
+        binary when is_binary(binary) ->
+          binary
+
+        _ ->
+          "blocked"
+      end
+
     conversation_id = Map.get(context, :conversation_id)
 
     proposal_attrs = %{
@@ -379,6 +420,17 @@ defmodule Cairnloop.Governance do
   """
   def get_proposal(id) do
     repo().get(ToolProposal, id)
+  end
+
+  @doc """
+  Returns the single `:pending` `ToolApproval` for a given `tool_proposal_id`, or nil.
+
+  The one-active-lane partial unique index (APRV-04) guarantees at most one `:pending`
+  approval record exists per proposal. All reads go through the narrow `Cairnloop.Governance`
+  facade — pipeline internals stay private (D15-17).
+  """
+  def get_active_approval(tool_proposal_id) do
+    repo().get_by(ToolApproval, tool_proposal_id: tool_proposal_id, status: :pending)
   end
 
   @doc """

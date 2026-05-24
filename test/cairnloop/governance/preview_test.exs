@@ -194,7 +194,6 @@ defmodule Cairnloop.Governance.PreviewTest do
   # ---------------------------------------------------------------------------
 
   describe "snapshotted prose vs live divergence — D15-14 (15-05-a)" do
-    @tag :skip
     test "approval surface uses proposal.rendered_consequence, not live Preview.render/1" do
       # D15-14: the approval card / presenter reads the SNAPSHOTTED rendered_consequence
       # column, never the live Preview.render/1 result.
@@ -218,7 +217,6 @@ defmodule Cairnloop.Governance.PreviewTest do
       assert Map.get(proposal_with_snapshot, :rendered_consequence) == snapshotted_consequence
     end
 
-    @tag :skip
     test "approval surface does NOT call Preview.render/1 on a proposal with rendered_consequence" do
       # Once Wave 1 adds rendered_consequence, the presenter must NOT call Preview.render/1
       # when the column is populated (D15-14 snapshot-at-propose-time).
@@ -233,7 +231,6 @@ defmodule Cairnloop.Governance.PreviewTest do
       assert true  # Wave 3 will implement the real assertion
     end
 
-    @tag :skip
     test "pre-Phase-15 NULL-snapshot proposal falls back to structured summary card, not live prose" do
       # D15-14: a proposal with rendered_consequence == nil (pre-Phase-15 row)
       # must fall back to the P14 D-17 structured-summary card, NEVER live prose.
