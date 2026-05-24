@@ -106,6 +106,9 @@ defmodule Cairnloop.Governance do
     account_id = Map.get(context, :account_id)
     dedupe_token = Map.get(context, :idempotency_token)
 
+    # D-08: conversation_id is EXCLUDED from this canonical map intentionally.
+    # Identical actions in different conversations must still deduplicate to the same
+    # proposal — conversation_id is routing/identity metadata, not action identity.
     canonical =
       %{
         tool_ref: tool_ref,
@@ -197,6 +200,7 @@ defmodule Cairnloop.Governance do
   defp propose_valid(tool_ref, actor_id, context, validated) do
     idempotency_key = derive_idempotency_key(tool_ref, actor_id, context, validated.input_snapshot)
     account_id = Map.get(context, :account_id)
+    conversation_id = Map.get(context, :conversation_id)
 
     # Check for existing proposal first — avoids the on_conflict footgun (Pitfall 6, D-25).
     # In a real Repo this is a SELECT before INSERT; a race condition is still handled by
@@ -207,11 +211,11 @@ defmodule Cairnloop.Governance do
         {:ok, existing}
 
       nil ->
-        insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated)
+        insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated, conversation_id)
     end
   end
 
-  defp insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated) do
+  defp insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated, conversation_id) do
     proposal_attrs = %{
       tool_ref: tool_ref,
       tool_version: validated.tool_version,
@@ -223,7 +227,9 @@ defmodule Cairnloop.Governance do
       account_id: account_id,
       input_snapshot: validated.input_snapshot,
       scope_snapshot: validated.scope_snapshot,
-      policy_snapshot: validated.policy_snapshot
+      policy_snapshot: validated.policy_snapshot,
+      # D-07: conversation_id threaded in from context; NOT in idempotency canonical map (D-08)
+      conversation_id: conversation_id
     }
 
     with {:ok, proposal} <-
@@ -305,6 +311,7 @@ defmodule Cairnloop.Governance do
          outcome, reason, risk_tier, approval_mode, input_snapshot
        ) do
     reason_str = inspect(reason)
+    conversation_id = Map.get(context, :conversation_id)
 
     proposal_attrs = %{
       tool_ref: tool_ref,
@@ -316,7 +323,10 @@ defmodule Cairnloop.Governance do
       account_id: account_id,
       input_snapshot: input_snapshot,
       scope_snapshot: %{scopes: Map.get(context, :scopes, [])},
-      policy_snapshot: %{outcome: outcome, reason: reason_str}
+      policy_snapshot: %{outcome: outcome, reason: reason_str},
+      # D-07: blocked proposals are conversation-scoped so they appear in the rail;
+      # NOT in idempotency canonical map (D-08)
+      conversation_id: conversation_id
     }
 
     with {:ok, proposal} <-
@@ -378,6 +388,26 @@ defmodule Cairnloop.Governance do
     ToolActionEvent
     |> where([e], e.tool_proposal_id == ^proposal_id)
     |> order_by([e], asc: e.inserted_at)
+    |> repo().all()
+  end
+
+  @doc """
+  Returns all `ToolProposal` records for a given conversation_id, ordered newest-first,
+  with their `events` preloaded in ascending inserted_at order.
+
+  Returns `[]` for an unknown or NULL conversation_id.
+  Used by Wave 2 to populate the governed-action rail in the conversation LiveView.
+  Goes through the `repo()` indirection — never `Cairnloop.Repo` directly (D-30).
+  """
+  def list_proposals_for_conversation(conversation_id) do
+    events_query =
+      ToolActionEvent
+      |> order_by([e], asc: e.inserted_at)
+
+    ToolProposal
+    |> where([p], p.conversation_id == ^conversation_id)
+    |> order_by([p], desc: p.inserted_at)
+    |> preload(events: ^events_query)
     |> repo().all()
   end
 end

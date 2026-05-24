@@ -17,6 +17,7 @@ defmodule Cairnloop.Governance.ToolProposal do
   import Ecto.Changeset
 
   alias Cairnloop.Governance.ToolActionEvent
+  alias Cairnloop.Conversation
 
   @status_values [:proposed, :needs_input, :scope_invalid, :policy_denied]
   @risk_tier_values [:read_only, :low_write, :high_write, :destructive]
@@ -43,6 +44,9 @@ defmodule Cairnloop.Governance.ToolProposal do
     field(:oban_job_id, :integer)
     field(:result_state, Ecto.Enum, values: @result_state_values, default: :not_executed)
     field(:result_summary, :string)
+
+    # Nullable FK: pre-Phase-14 rows stay NULL; all Phase-14+ proposals are conversation-scoped (D-06, D-07)
+    belongs_to(:conversation, Conversation)
 
     has_many(:events, ToolActionEvent)
 
@@ -77,7 +81,8 @@ defmodule Cairnloop.Governance.ToolProposal do
       :attempt,
       :oban_job_id,
       :result_state,
-      :result_summary
+      :result_summary,
+      :conversation_id
     ])
     |> validate_required([:tool_ref, :idempotency_key, :risk_tier, :approval_mode, :actor_id])
     |> unique_constraint(:idempotency_key)

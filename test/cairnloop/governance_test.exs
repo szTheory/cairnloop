@@ -16,7 +16,7 @@ defmodule Cairnloop.GovernanceTest do
           changeset
           |> Ecto.Changeset.apply_changes()
           |> maybe_put_id()
-          |> Map.put_new(:inserted_at, DateTime.utc_now())
+          |> maybe_put_inserted_at()
           |> put_maybe_updated_at()
 
         persist_inserted(struct)
@@ -40,8 +40,45 @@ defmodule Cairnloop.GovernanceTest do
       end
     end
 
+    # ---------------------------------------------------------------------------
+    # all/1 — handles Ecto.Query structs for list_proposals_for_conversation/1
+    #
+    # Parses the query's where clause to extract conversation_id, filters the
+    # process-stored proposals, applies order_by desc: inserted_at, and
+    # populates the events preload from the process-stored events list.
+    # ---------------------------------------------------------------------------
+    def all(%Ecto.Query{} = query) do
+      # Extract conversation_id from the first where clause param
+      conversation_id =
+        case query.wheres do
+          [%{params: [{conv_id, {0, :conversation_id}} | _]} | _] -> conv_id
+          _ -> nil
+        end
+
+      proposals =
+        Process.get(:tool_proposals, [])
+        |> Enum.filter(fn p -> p.conversation_id == conversation_id end)
+        |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+
+      # Handle preload of events (asc: inserted_at) if present
+      all_events = Process.get(:tool_action_events, [])
+
+      Enum.map(proposals, fn proposal ->
+        events =
+          all_events
+          |> Enum.filter(fn e -> e.tool_proposal_id == proposal.id end)
+          |> Enum.sort_by(& &1.inserted_at, :asc)
+
+        %{proposal | events: events}
+      end)
+    end
+
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
     defp maybe_put_id(struct), do: struct
+
+    # Use Map.put rather than Map.put_new because inserted_at starts as nil on new structs
+    defp maybe_put_inserted_at(%{inserted_at: nil} = struct), do: %{struct | inserted_at: DateTime.utc_now()}
+    defp maybe_put_inserted_at(struct), do: struct
 
     defp put_maybe_updated_at(%ToolActionEvent{} = event), do: event
     defp put_maybe_updated_at(struct), do: Map.put_new(struct, :updated_at, DateTime.utc_now())
@@ -430,7 +467,6 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "list_proposals_for_conversation/1 — ordered scoped proposals (row 14-01-a)" do
-    @tag :skip
     test "returns proposals ordered desc: inserted_at for a given conversation_id" do
       # Wave 1: extend MockRepo.all/1 to filter by conversation_id and return
       # seeded :tool_proposals; assert the result is ordered newest-first.
@@ -452,14 +488,12 @@ defmodule Cairnloop.GovernanceTest do
       assert ts_list == Enum.sort(ts_list, {:desc, DateTime})
     end
 
-    @tag :skip
     test "returns [] for a conversation with no proposals" do
       conversation_id = 9999
       results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
       assert results == []
     end
 
-    @tag :skip
     test "preloads events asc: inserted_at on each returned proposal" do
       conversation_id = 43
 
@@ -482,7 +516,6 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   describe "propose/3 — conversation_id written on valid path (D-07, row 14-01-b)" do
-    @tag :skip
     test "persisted ToolProposal carries conversation_id from context on valid path" do
       tool_ref = Atom.to_string(ValidTool)
       conversation_id = 100
@@ -497,7 +530,6 @@ defmodule Cairnloop.GovernanceTest do
       assert proposal.conversation_id == conversation_id
     end
 
-    @tag :skip
     test "persisted ToolProposal carries conversation_id from context on blocked path (D-07)" do
       # D-07: blocked proposals (scope_invalid, policy_denied) also appear in the rail —
       # the Support-Truth Gate requires blocked proposals to be conversation-scoped.

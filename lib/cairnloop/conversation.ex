@@ -13,6 +13,7 @@ defmodule Cairnloop.Conversation do
 
     has_many(:messages, Cairnloop.Message)
     has_many(:drafts, Cairnloop.Automation.Draft)
+    has_many(:tool_proposals, Cairnloop.Governance.ToolProposal)
 
     timestamps()
   end
