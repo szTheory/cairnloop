@@ -506,6 +506,28 @@ defmodule Cairnloop.Web.ConversationLive do
         font-size: 0.85rem;
         color: #5d3b16;
       }
+      /* governed-actions rail section — Wave 3 */
+      .governed-actions-rail {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .governed-actions-rail-header {
+        margin-bottom: 4px;
+      }
+      .governed-actions-rail-eyebrow {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--cl-primary, #A94F30);
+      }
+      .governed-actions-empty {
+        font-size: 0.9rem;
+        color: #7c5430;
+        margin: 0;
+        font-style: italic;
+      }
     </style>
     <div class="cairnloop-conversation">
       <.link navigate="/">Back to Inbox</.link>
@@ -533,15 +555,29 @@ defmodule Cairnloop.Web.ConversationLive do
         <div class="evidence-rail">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
           <.quick_fix_card card={@quick_fix_card} />
-          
+
           <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
             <%= for draft <- @conversation.drafts do %>
-              <.draft_audit_card 
-                draft={draft} 
-                pending_discard_id={@pending_discard_draft_id} 
+              <.draft_audit_card
+                draft={draft}
+                pending_discard_id={@pending_discard_draft_id}
               />
             <% end %>
           <% end %>
+
+          <%!-- Governed actions rail section (D-01: right rail, not center timeline; D-02: plain assign, no streams) --%>
+          <section class="rail-card governed-actions-rail" aria-label="Governed actions">
+            <div class="governed-actions-rail-header">
+              <span class="governed-actions-rail-eyebrow">Governed actions</span>
+            </div>
+            <%= if @governed_actions == [] do %>
+              <p class="governed-actions-empty">No governed actions yet.</p>
+            <% else %>
+              <%= for proposal <- @governed_actions do %>
+                <.governed_action_card proposal={proposal} />
+              <% end %>
+            <% end %>
+          </section>
         </div>
       </div>
     </div>
