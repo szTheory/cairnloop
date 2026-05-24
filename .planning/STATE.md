@@ -74,6 +74,8 @@ Progress: [----------] 0%
 - [Phase ?]: Cairnloop.Tool.Spec plain defstruct @enforce_keys [:risk_tier, :approval_mode] — pure data, MCP-01 Phase 17 projection point (D-03)
 - [Phase ?]: derive_approval_mode/1 fail-closed: unknown/nil tier -> :always_block; CompileError before quote do for invalid enums (D-11, D-02)
 - [Phase ?]: authorize/2 deny-by-default {:error, :no_policy_defined}; ToolRegistry uses Atom.to_string, not String.to_existing_atom (D-16, D-19)
+- [Phase 14]: D-15 RATIFIED Hybrid — preview trust fields render from propose-time snapshot; interpretive prose (consequence via `preview/1`, title via live `Spec`) is best-effort LIVE behind a total `Preview.render/1` fallback, labelled "current description". Phase 13 `propose/3` is NOT reopened; no prose migration in Phase 14. (3-agent deep research, unanimous; see 14-CONTEXT.md ratification note.)
+- [Phase 15 GUARDRAIL — carry forward]: when prose first becomes load-bearing (approval), Phase 15 MUST add nullable `rendered_consequence` + `title` columns to `cairnloop_tool_proposals`, populate in `propose/3` going forward, and have the approval/execution surfaces read the snapshotted columns — NEVER call live `Preview.render`. Add a test asserting snapshotted-vs-live divergence. (D-16 additive promotion.)
 
 ### Pending Todos
 

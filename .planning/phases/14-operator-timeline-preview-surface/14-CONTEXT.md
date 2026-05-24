@@ -254,6 +254,41 @@ Phase 15 promotion to a snapshotted consequence string is additive — D-16). Th
 snapshot the consequence/title **now** by reopening `propose/3` + a migration. Recorded as decided
 (Hybrid); the user may veto in favor of snapshot-now before planning.
 
+#### ✅ RATIFIED — Hybrid (Option A), 2026-05-24 (plan-phase)
+
+D-15 is **ratified as Hybrid**. The user delegated the call ("decide for me; only escalate VERY
+impactful ones") and it was resolved by three parallel deep-research passes — Elixir/Phoenix/Ecto
+idioms, cross-ecosystem review-then-act systems, and project-vision coherence — which **converged
+unanimously on Hybrid**. Key findings, recorded so this is not re-litigated:
+
+- **"Review must match apply" is an execution-boundary property, not a proposal-creation one.**
+  Terraform (`plan -out` → "stale plan" only at *apply*), CloudFormation change sets (OBSOLETE only
+  at execute), Atlantis, GitHub Actions (commit pinned at queue; gate holds execution), Argo CD
+  (Sync ⊥ Health, diff recomputed live) all pin **structured facts** at decision time and **derive
+  prose at display time**. None pre-snapshot prose before a human relies on it. Stripe deliberately
+  moved *away* from snapshot-events (they go stale vs schema evolution) toward thin events + live
+  fetch. Phase 14 has no apply/approve boundary, so the invariant does not bite.
+- **Idiomatic Elixir:** pure presenter + total `Preview.render/1 :: {:preview, str} | {:structured,
+  assigns}` is exactly the in-repo `ReviewTaskPresenter` idiom; the JSONB string-key footgun is
+  already managed by the `to_result/1` precedent (`conversation_live.ex` L747-753). An `embeds_one`
+  typed snapshot would kill the footgun class but is **not worth it** (heterogeneous per-tool input
+  shapes; would force reopening Phase 13's schema).
+- **Coherence:** D-14/D-24 sealed *trust config* (risk/approval/policy); prose is a different
+  category and P13 D-06 made `preview/1` **explicitly optional**, deliberately excluded from the
+  snapshot. REQUIREMENTS Support-Truth Gate ("fall back to a structured summary card") linguistically
+  presupposes a live leg that can fail — i.e. it was written *for* Hybrid. Option B's failure mode
+  (permanently pinning possibly-wrong Day-0 prose, no update path, migration cost per fix) is **worse**
+  than Hybrid's (cosmetic display drift while inert).
+
+**Forward-compat guardrail (MUST carry to Phase 15 — the one real risk all three agents flagged):**
+the danger is a Phase 15 author reusing the live `Preview.render` leg on the approval screen instead
+of D-16's additive snapshot. Phase 15 MUST: (1) add nullable `rendered_consequence` + `title` columns
+to `cairnloop_tool_proposals`; (2) populate them in `propose/3` from Phase 15 forward; (3) have the
+approval/execution surfaces read the **snapshotted columns**, never call live `Preview.render`; (4) add
+a test asserting the approval card shows the snapshotted consequence when it diverges from the live
+registry description. Phase 14 should leave a discoverable marker (e.g. a `@moduledoc` note on the
+`Preview` module + a `must_haves` truth) so this constraint survives context resets.
+
 </decisions>
 
 <canonical_refs>
