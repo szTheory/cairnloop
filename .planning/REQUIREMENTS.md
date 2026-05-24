@@ -57,8 +57,8 @@
 
 ### Operator Timeline & Review
 
-- [ ] **FLOW-01**: Operator can inspect governed action proposals and outcomes inside the existing conversation workflow as a durable timeline.
-- [ ] **FLOW-02**: Operator sees a human-readable preview card for each risky action, including risk label, actor scope, target, consequence summary, and evidence links.
+- [x] **FLOW-01**: Operator can inspect governed action proposals and outcomes inside the existing conversation workflow as a durable timeline.
+- [x] **FLOW-02**: Operator sees a human-readable preview card for each risky action, including risk label, actor scope, target, consequence summary, and evidence links.
 - [ ] **FLOW-03**: Operator can reject or defer a proposed action with a persisted reason that remains visible in the action timeline.
 
 ### Approval & Resume
@@ -102,8 +102,8 @@
 | TOOL-02 | Phase 13 | Complete |
 | TOOL-03 | Phase 13 | Complete |
 | TOOL-04 | Phase 13 | Complete |
-| FLOW-01 | Phase 14 | Pending |
-| FLOW-02 | Phase 14 | Pending |
+| FLOW-01 | Phase 14 | Complete |
+| FLOW-02 | Phase 14 | Complete |
 | FLOW-03 | Phase 15 | Pending |
 | APRV-01 | Phase 15 | Pending |
 | APRV-02 | Phase 15 | Pending |
