@@ -54,7 +54,7 @@ Plans:
 **Wave 1**
 
 - [x] 14-00-PLAN.md — Wave 0 test infrastructure: 2 new headless test files (`preview_test.exs`, `tool_proposal_presenter_test.exs`) + 2 extensions (`governance_test.exs`, `conversation_live_test.exs`).
-- [ ] 14-01-PLAN.md (M011-S02-01) — conversation_id linkage (migration/schema/both write paths/idempotency exclusion), `Governance.list_proposals_for_conversation/1`, `ToolProposalPresenter`, total `Preview.render/1` + Phase-15 guardrail.
+- [x] 14-01-PLAN.md (M011-S02-01) — conversation_id linkage (migration/schema/both write paths/idempotency exclusion), `Governance.list_proposals_for_conversation/1`, `ToolProposalPresenter`, total `Preview.render/1` + Phase-15 guardrail.
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
