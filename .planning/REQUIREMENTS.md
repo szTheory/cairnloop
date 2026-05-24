@@ -59,14 +59,14 @@
 
 - [x] **FLOW-01**: Operator can inspect governed action proposals and outcomes inside the existing conversation workflow as a durable timeline.
 - [x] **FLOW-02**: Operator sees a human-readable preview card for each risky action, including risk label, actor scope, target, consequence summary, and evidence links.
-- [ ] **FLOW-03**: Operator can reject or defer a proposed action with a persisted reason that remains visible in the action timeline.
+- [x] **FLOW-03**: Operator can reject or defer a proposed action with a persisted reason that remains visible in the action timeline.
 
 ### Approval & Resume
 
-- [ ] **APRV-01**: High-risk or sensitive governed actions create a durable approval record and never execute inside LiveView or a blocked worker process.
-- [ ] **APRV-02**: Approved governed actions resume through a new Oban job that re-validates scope and policy before execution.
-- [ ] **APRV-03**: Approval requests can expire or become invalid when policy, actor scope, or action context changes, and the timeline shows that state explicitly.
-- [ ] **APRV-04**: System allows only one active approval lane per governed action proposal and records all approval decisions as append-only events.
+- [x] **APRV-01**: High-risk or sensitive governed actions create a durable approval record and never execute inside LiveView or a blocked worker process.
+- [x] **APRV-02**: Approved governed actions resume through a new Oban job that re-validates scope and policy before execution.
+- [x] **APRV-03**: Approval requests can expire or become invalid when policy, actor scope, or action context changes, and the timeline shows that state explicitly.
+- [x] **APRV-04**: System allows only one active approval lane per governed action proposal and records all approval decisions as append-only events.
 
 ### First Action Path & Observability
 
@@ -104,11 +104,11 @@
 | TOOL-04 | Phase 13 | Complete |
 | FLOW-01 | Phase 14 | Complete |
 | FLOW-02 | Phase 14 | Complete |
-| FLOW-03 | Phase 15 | Pending |
-| APRV-01 | Phase 15 | Pending |
-| APRV-02 | Phase 15 | Pending |
-| APRV-03 | Phase 15 | Pending |
-| APRV-04 | Phase 15 | Pending |
+| FLOW-03 | Phase 15 | Complete |
+| APRV-01 | Phase 15 | Complete |
+| APRV-02 | Phase 15 | Complete |
+| APRV-03 | Phase 15 | Complete |
+| APRV-04 | Phase 15 | Complete |
 | ACT-01 | Phase 16 | Pending |
 | OBS-01 | Phase 16 | Pending |
 | OBS-02 | Phase 16 | Pending |

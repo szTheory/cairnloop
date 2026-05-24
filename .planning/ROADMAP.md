@@ -81,7 +81,7 @@ Plans:
 
 **Wave 0**
 
-- [ ] 15-00-PLAN.md — Wave 0 test infrastructure: 3 new headless test files (`tool_approval_test.exs`, `approval_resume_worker_test.exs`, `approval_expiry_worker_test.exs`) + 4 extensions (`governance_test.exs`, `tool_action_event_test.exs`, `preview_test.exs`, `tool_proposal_presenter_test.exs`).
+- [x] 15-00-PLAN.md — Wave 0 test infrastructure: 3 new headless test files (`tool_approval_test.exs`, `approval_resume_worker_test.exs`, `approval_expiry_worker_test.exs`) + 4 extensions (`governance_test.exs`, `tool_action_event_test.exs`, `preview_test.exs`, `tool_proposal_presenter_test.exs`).
 
 **Wave 1** *(blocked on Wave 0 completion)*
 
