@@ -317,8 +317,12 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
 
   # Dual-key map lookup (atom + string): survives JSONB round-trips where atom keys
   # become strings after Postgres INSERT+SELECT. Mirrors ReviewTaskPresenter.metadata_value/2.
+  # WR-05: use Map.fetch/2 so a stored `false` value is not discarded by ||.
   defp metadata_value(map, key) when is_map(map) do
-    Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    case Map.fetch(map, key) do
+      {:ok, value} -> value
+      :error -> Map.get(map, Atom.to_string(key))
+    end
   end
 
   defp metadata_value(_, _), do: nil
