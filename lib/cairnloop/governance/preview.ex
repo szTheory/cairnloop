@@ -169,6 +169,8 @@ defmodule Cairnloop.Governance.Preview do
   end
 
   defp humanize_label(nil), do: "Unknown tool"
+  # WR-06: guard empty string so a trailing-dot tool_ref never yields a blank headline
+  defp humanize_label(""), do: "Unknown tool"
   defp humanize_label(label) do
     label
     |> String.replace(~r/(?<=[a-z])(?=[A-Z])/, " ")
