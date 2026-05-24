@@ -1376,7 +1376,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     # a runtime function reference) so @tag :skip tests do not produce compile-time
     # warnings that would break --warnings-as-errors (T-14-W0-01).
 
-    @tag :skip
     test "renders :proposed status with a status label and chip text (not color-alone, brand §7.5)" do
       proposal = tool_proposal_fixture(%{status: :proposed})
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
@@ -1386,7 +1385,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Proposed"
     end
 
-    @tag :skip
     test "renders :needs_input status with label text" do
       proposal = tool_proposal_fixture(%{status: :needs_input})
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
@@ -1394,7 +1392,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Needs input"
     end
 
-    @tag :skip
     test "renders :scope_invalid status with label text" do
       proposal = tool_proposal_fixture(%{status: :scope_invalid})
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
@@ -1402,7 +1399,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Not available here"
     end
 
-    @tag :skip
     test "renders :policy_denied status with label text" do
       proposal = tool_proposal_fixture(%{status: :policy_denied})
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
@@ -1410,7 +1406,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "Blocked by policy"
     end
 
-    @tag :skip
     test "empty events list renders calm 'No history yet' instead of crashing (D-24)" do
       proposal = tool_proposal_fixture(%{events: []})
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
@@ -1418,7 +1413,6 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert html =~ "No history yet"
     end
 
-    @tag :skip
     test "Ecto.Association.NotLoaded events renders calm 'No history yet' (D-24 assoc_loaded? guard)" do
       not_loaded = %Ecto.Association.NotLoaded{
         __field__: :events,

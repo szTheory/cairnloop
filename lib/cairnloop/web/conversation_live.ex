@@ -7,6 +7,8 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Retrieval.Result
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
+  alias Cairnloop.Web.ToolProposalPresenter
+  alias Cairnloop.Governance.Preview
 
   def mount(%{"id" => id}, _session, socket) do
     if connected?(socket) do
@@ -370,6 +372,132 @@ defmodule Cairnloop.Web.ConversationLive do
         background: #fee2e2;
         border-radius: 4px;
       }
+      /* governed-action-card — Wave 2 */
+      .governed-action-card {
+        background: #fbf7ee;
+        border-color: #c9b89c;
+      }
+      .governed-action-eyebrow {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #7c5430;
+        margin-bottom: 4px;
+      }
+      .governed-action-headline {
+        margin: 0 0 12px;
+        font-size: 1rem;
+        line-height: 1.4;
+        color: #2f241d;
+      }
+      .governed-action-status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .governed-action-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid currentColor;
+      }
+      .governed-action-chip-info {
+        color: #1d6a8c;
+        background: #e8f4f9;
+      }
+      .governed-action-chip-warning {
+        color: #7a5c00;
+        background: #fef9e5;
+      }
+      .governed-action-chip-danger {
+        color: #8b1a1a;
+        background: #fdecea;
+      }
+      .governed-action-chip-status {
+        color: var(--cl-primary, #A94F30);
+        background: #f4e6d4;
+        border-color: #c38f57;
+      }
+      .governed-action-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 0.85rem;
+        color: #64513c;
+        margin-bottom: 8px;
+      }
+      .governed-action-outlook {
+        font-size: 0.85rem;
+        color: #4c4033;
+        margin-bottom: 12px;
+        font-style: italic;
+      }
+      .governed-action-section {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid #e8e0d0;
+      }
+      .governed-action-section-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #7c5430;
+        margin-bottom: 8px;
+      }
+      .governed-action-event-item {
+        padding: 8px 0;
+        border-bottom: 1px solid #ede7d6;
+        font-size: 0.85rem;
+      }
+      .governed-action-event-item:last-child {
+        border-bottom: none;
+      }
+      .governed-action-event-time {
+        font-size: 0.75rem;
+        color: #8b7355;
+        margin-left: 8px;
+      }
+      .governed-action-trace {
+        font-family: monospace;
+        font-size: 0.75rem;
+        color: #8b7355;
+        background: #f5efe3;
+        padding: 8px;
+        border-radius: 4px;
+        word-break: break-all;
+      }
+      .governed-action-trace dt {
+        font-weight: 600;
+        display: inline;
+      }
+      .governed-action-trace dd {
+        display: inline;
+        margin: 0 0 0 4px;
+      }
+      .governed-action-footer {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid #e8e0d0;
+        min-height: 8px;
+        /* Phase-15 affordance slot — empty in Phase 14 (D-05) */
+      }
+      .governed-action-scope-warning {
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: #fef9e5;
+        border: 1px solid #c38f57;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #5d3b16;
+      }
     </style>
     <div class="cairnloop-conversation">
       <.link navigate="/">Back to Inbox</.link>
@@ -656,6 +784,205 @@ defmodule Cairnloop.Web.ConversationLive do
         </div>
       <% end %>
     </div>
+    """
+  end
+
+  attr :proposal, :map, required: true
+
+  def governed_action_card(assigns) do
+    proposal = assigns.proposal
+
+    # Precompute presenter values before the ~H block (in-repo pattern — keep template declarative)
+    status_label = ToolProposalPresenter.status_label(proposal)
+    status_group = ToolProposalPresenter.status_group(proposal.status)
+    risk_tier_label = ToolProposalPresenter.risk_tier_label(proposal.risk_tier)
+    risk_tier_tone = ToolProposalPresenter.risk_tier_tone(proposal.risk_tier)
+    approval_mode_label = ToolProposalPresenter.approval_mode_label(proposal.approval_mode)
+    approval_outlook = ToolProposalPresenter.approval_outlook(proposal.approval_mode)
+    input_rows = ToolProposalPresenter.input_rows(proposal.input_snapshot)
+    scope_summary = ToolProposalPresenter.scope_summary(proposal.scope_snapshot)
+    policy_explanation = ToolProposalPresenter.policy_explanation(proposal.policy_snapshot)
+    trace = ToolProposalPresenter.trace_metadata(proposal)
+    block_reason = ToolProposalPresenter.block_reason_copy(proposal)
+
+    # Events guard: D-24 — empty or not-loaded → "No history yet"
+    events_loaded =
+      Ecto.assoc_loaded?(proposal.events) and is_list(proposal.events) and proposal.events != []
+
+    events =
+      if events_loaded do
+        proposal.events
+        |> Enum.map(fn ev ->
+          %{
+            line: ToolProposalPresenter.history_line(ev),
+            timestamp: ToolProposalPresenter.event_timestamp_label(ev.inserted_at),
+            reason: ToolProposalPresenter.reason_label(Map.get(ev, :reason)),
+            metadata: ev.metadata
+          }
+        end)
+      else
+        []
+      end
+
+    # Risk tone maps to CSS modifier class — brand §7.5 / D-13
+    # Tone atom (:info/:warning/:danger) → chip class. Never color-alone.
+    risk_chip_class =
+      case risk_tier_tone do
+        :info -> "governed-action-chip governed-action-chip-info"
+        :warning -> "governed-action-chip governed-action-chip-warning"
+        :danger -> "governed-action-chip governed-action-chip-danger"
+        _ -> "governed-action-chip governed-action-chip-info"
+      end
+
+    # Status chip uses brand primary token for visual emphasis (D-13 — separate axis from risk)
+    status_chip_class = "governed-action-chip governed-action-chip-status"
+
+    # Headline from Preview.render/1 — consequence vs structured (D-15)
+    preview_result = Preview.render(proposal)
+
+    {eyebrow, headline} =
+      case preview_result do
+        {:preview, str} when is_binary(str) and str != "" ->
+          # Best-effort live prose — labelled "current description" (D-15)
+          {"Current description", str}
+
+        {:structured, %{title: title}} when is_binary(title) ->
+          {"Governed action", title}
+
+        _ ->
+          {"Governed action", "Action details not available."}
+      end
+
+    assigns =
+      assigns
+      |> assign(:status_label, status_label)
+      |> assign(:status_group, status_group)
+      |> assign(:risk_tier_label, risk_tier_label)
+      |> assign(:approval_mode_label, approval_mode_label)
+      |> assign(:approval_outlook, approval_outlook)
+      |> assign(:input_rows, input_rows)
+      |> assign(:scope_summary, scope_summary)
+      |> assign(:policy_explanation, policy_explanation)
+      |> assign(:trace, trace)
+      |> assign(:block_reason, block_reason)
+      |> assign(:events_loaded, events_loaded)
+      |> assign(:events, events)
+      |> assign(:risk_chip_class, risk_chip_class)
+      |> assign(:status_chip_class, status_chip_class)
+      |> assign(:eyebrow, eyebrow)
+      |> assign(:headline, headline)
+
+    ~H"""
+    <section class="rail-card governed-action-card" aria-label="Governed action proposal">
+      <%!-- Eyebrow + headline (consequence via Preview.render/1 — D-15) --%>
+      <div class="governed-action-eyebrow"><%= @eyebrow %></div>
+      <h3 class="governed-action-headline"><%= @headline %></h3>
+
+      <%!-- Status chip: color tone + TEXT label — never color-alone (brand §7.5 / D-13) --%>
+      <div class="governed-action-status-row">
+        <span class={@status_chip_class}>
+          <%= @status_label %>
+        </span>
+      </div>
+
+      <%!-- Meta line: risk tier + approval mode as SEPARATE axes from the status chip (D-13) --%>
+      <div class="governed-action-meta-row">
+        <span class={@risk_chip_class}>
+          Risk: <%= @risk_tier_label %>
+        </span>
+        <span>
+          Approval: <%= @approval_mode_label %>
+        </span>
+      </div>
+
+      <%!-- Approval outlook sub-line — only when non-nil; future-tense, non-actionable (D-12) --%>
+      <%= if @approval_outlook do %>
+        <p class="governed-action-outlook"><%= @approval_outlook %></p>
+      <% end %>
+
+      <%!-- Block reason copy (scope_invalid / policy_denied only) --%>
+      <%= if @block_reason do %>
+        <p class="governed-action-scope-warning"><%= @block_reason %></p>
+      <% end %>
+
+      <%!-- Input snapshot: humanized rows via input_rows/1 (D-22 masking choke point) --%>
+      <%= if @input_rows != [] do %>
+        <div class="governed-action-section">
+          <div class="governed-action-section-label">Inputs</div>
+          <%= for {label, value} <- @input_rows do %>
+            <.context_field label={label} value={value} hide_label={false} />
+          <% end %>
+        </div>
+        <%!-- Raw input_snapshot ONLY behind an explicit expander (D-22) --%>
+        <details style="margin-top: 8px;">
+          <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw input snapshot</summary>
+          <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
+        </details>
+      <% end %>
+
+      <%!-- Event mini-timeline (D-24 guarded) --%>
+      <div class="governed-action-section">
+        <div class="governed-action-section-label">History</div>
+        <%= if @events_loaded do %>
+          <%= for event <- @events do %>
+            <div class="governed-action-event-item">
+              <span><%= event.line %></span>
+              <span class="governed-action-event-time"><%= event.timestamp %></span>
+              <%!-- Per-event detail (reason + metadata) behind expander (D-22) --%>
+              <%= if event.reason || event.metadata do %>
+                <details style="margin-top: 4px;">
+                  <summary style="font-size: 0.75rem; color: #8b7355; cursor: pointer;">Details</summary>
+                  <div style="margin-top: 4px; font-size: 0.8rem; color: #4c4033;">
+                    <%= if event.reason do %>
+                      <p><strong>Reason:</strong> <%= event.reason %></p>
+                    <% end %>
+                    <%= if event.metadata do %>
+                      <pre class="governed-action-trace" style="margin-top: 4px; white-space: pre-wrap;"><%= inspect(event.metadata, pretty: true) %></pre>
+                    <% end %>
+                  </div>
+                </details>
+              <% end %>
+            </div>
+          <% end %>
+        <% else %>
+          <p style="font-size: 0.85rem; color: #8b7355;">No history yet.</p>
+        <% end %>
+      </div>
+
+      <%!-- Scope snapshot --%>
+      <div class="governed-action-section">
+        <div class="governed-action-section-label">Scope</div>
+        <p style="font-size: 0.85rem; color: #4c4033;"><%= @scope_summary %></p>
+      </div>
+
+      <%!-- Policy snapshot: calm sentence (D-22 / D-14); raw policy map behind expander --%>
+      <div class="governed-action-section">
+        <div class="governed-action-section-label">Policy</div>
+        <p style="font-size: 0.85rem; color: #4c4033;"><%= @policy_explanation %></p>
+        <%= if @proposal.policy_snapshot do %>
+          <details style="margin-top: 4px;">
+            <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw policy snapshot</summary>
+            <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.policy_snapshot, pretty: true) %></pre>
+          </details>
+        <% end %>
+      </div>
+
+      <%!-- Trace metadata — de-emphasized mono, copyable (proposal id, tool_ref, version, idempotency key) --%>
+      <div class="governed-action-section">
+        <dl class="governed-action-trace">
+          <div><dt>Proposal:</dt><dd>#<%= @trace.proposal_id %></dd></div>
+          <div><dt>Tool:</dt><dd><%= @trace.tool_ref %></dd></div>
+          <div><dt>Version:</dt><dd><%= @trace.tool_version %></dd></div>
+          <div><dt>Idempotency key:</dt><dd><%= @trace.idempotency_key %></dd></div>
+        </dl>
+      </div>
+
+      <%!-- Footer action slot: structurally present but EMPTY in Phase 14 (D-05).
+           Phase 15 will add approve/reject/defer affordances here. --%>
+      <div class="governed-action-footer">
+        <%!-- Phase-15 affordance slot — no action buttons in Phase 14 (read-only, D-05) --%>
+      </div>
+    </section>
     """
   end
 
