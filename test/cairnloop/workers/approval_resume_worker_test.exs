@@ -3,29 +3,78 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
 
   # ---------------------------------------------------------------------------
   # Module-under-test reference
-  #
-  # Cairnloop.Workers.ApprovalResumeWorker does NOT exist until Wave 2.
-  # All tests below are tagged :skip so this file compiles and runs now.
-  # Remove :skip as the worker is implemented in Wave 2.
   # ---------------------------------------------------------------------------
 
-  @worker_module Cairnloop.Workers.ApprovalResumeWorker
+  alias Cairnloop.Workers.ApprovalResumeWorker
+
+  # ---------------------------------------------------------------------------
+  # Test tool modules
+  #
+  # PassTool: no required fields → validate/3 always passes (scope: [], authorize: :ok)
+  # ScopeFailTool: requires :admin_scope → scope check fails → :invalidated
+  # ---------------------------------------------------------------------------
+
+  defmodule PassTool do
+    use Cairnloop.Tool,
+      risk_tier: :read_only,
+      title: "Pass Tool",
+      description: "Always passes validation."
+
+    embedded_schema do
+      field(:note, :string)
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(struct, attrs), do: Ecto.Changeset.cast(struct, attrs, [:note])
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
+    def scope, do: []
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+  end
+
+  defmodule ScopeFailTool do
+    use Cairnloop.Tool,
+      risk_tier: :low_write,
+      title: "Scope Fail Tool",
+      description: "Requires :admin_scope — will fail if not granted."
+
+    embedded_schema do
+      field(:data, :string)
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(struct, attrs), do: Ecto.Changeset.cast(struct, attrs, [:data])
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor, _ctx), do: {:ok, %{}}
+
+    @impl Cairnloop.Tool
+    def scope, do: [:admin_scope]
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+  end
 
   # ---------------------------------------------------------------------------
   # MockRepo — process-dictionary-backed repo (no real DB required)
   #
-  # Mirrors sla_countdown_worker_test.exs MockRepo pattern (L7-24).
+  # Mirrors sla_countdown_worker_test.exs MockRepo pattern.
   #
   # Approval fixtures (id→status):
-  #   1 → :pending, expires_at nil  (validate-pass path)
+  #   1 → :pending, expires_at nil  (validate-pass path, tool: PassTool)
   #   2 → :approved                 (already transitioned — no-op)
   #   3 → nil                       (deleted — no-op)
   #   4 → :pending, expires_at past (lazy expires_at guard → :expired)
+  #   5 → :pending, expires_at nil  (validate-fail path, tool: ScopeFailTool)
   #
-  # ToolProposal fixture (id 10) — re-validates to {:ok, _} against a known tool ref.
-  # NOTE: In Wave 2 this fixture will need to reference a real registered tool_ref.
-  # For now the MockRepo is defined so the file compiles; live re-validation is
-  # # REPO-UNAVAILABLE because the tool ref must be in the registry at test time.
+  # ToolProposal fixtures:
+  #   id 10 → tool_ref PassTool (for ids 1, 2, 4)
+  #   id 20 → tool_ref ScopeFailTool, scope_snapshot: %{} → scope check fails
   # ---------------------------------------------------------------------------
 
   defmodule MockRepo do
@@ -68,12 +117,36 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
       })
     end
 
-    # ToolProposal id 10
+    # Approval id 5: :pending, no expiry — validate-fail path (ScopeFailTool)
+    def get(tool_approval_module, 5) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+      struct(tool_approval_module, %{
+        id: 5,
+        status: :pending,
+        tool_proposal_id: 20,
+        expires_at: nil,
+        decided_by: nil,
+        last_decision: nil,
+        reason: nil
+      })
+    end
+
+    # ToolProposal id 10: PassTool — passes validate/3 with empty input_snapshot
     def get!(tool_proposal_module, 10) when tool_proposal_module == Cairnloop.Governance.ToolProposal do
       struct(tool_proposal_module, %{
         id: 10,
-        # REPO-UNAVAILABLE: a real registered tool_ref would be used for live re-validation
-        tool_ref: "Cairnloop.GovernanceTest.ValidTool",
+        tool_ref: Atom.to_string(Cairnloop.Workers.ApprovalResumeWorkerTest.PassTool),
+        actor_id: "user_1",
+        input_snapshot: %{},
+        scope_snapshot: %{scopes: []},
+        policy_snapshot: %{}
+      })
+    end
+
+    # ToolProposal id 20: ScopeFailTool — fails scope check → :invalidated
+    def get!(tool_proposal_module, 20) when tool_proposal_module == Cairnloop.Governance.ToolProposal do
+      struct(tool_proposal_module, %{
+        id: 20,
+        tool_ref: Atom.to_string(Cairnloop.Workers.ApprovalResumeWorkerTest.ScopeFailTool),
         actor_id: "user_1",
         input_snapshot: %{},
         scope_snapshot: %{scopes: []},
@@ -93,52 +166,46 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   end
 
   setup do
-    # Mirror sla_countdown_worker_test.exs L26-29:
+    # Mirror sla_countdown_worker_test.exs setup:
     Application.put_env(:cairnloop, :repo, MockRepo)
-    on_exit(fn -> Application.delete_env(:cairnloop, :repo) end)
+    Application.put_env(:cairnloop, :tools, [PassTool, ScopeFailTool])
+    on_exit(fn ->
+      Application.delete_env(:cairnloop, :repo)
+      Application.delete_env(:cairnloop, :tools)
+    end)
     :ok
   end
 
   # ---------------------------------------------------------------------------
   # describe: :pending + validate pass → :execution_pending (15-VALIDATION row 15-03-a)
-  #
-  # Wave 2 will implement ApprovalResumeWorker; call it here.
-  # REPO-UNAVAILABLE: the live re-validation path requires a registered tool ref
-  # so the validate_pass test is skipped until Wave 2 wires in a real tool ref.
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — validate pass → :execution_pending (15-03-a)" do
-    @tag :skip
     test "transitions :pending approval to :execution_pending on re-validation pass" do
-      # Wave 2 note: approval id 1 has a tool_ref of "Cairnloop.GovernanceTest.ValidTool"
-      # which must be registered in :cairnloop, :tools for validate/3 to pass.
-      # Skipped until Wave 2 sets up the tool registry in this test module.
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 1}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :execution_pending
       # Assert an event was also inserted (revalidation_passed event)
       assert_receive {:repo_insert, _event_changeset}
     end
 
-    @tag :skip
     test "emits a :revalidation_passed event on validate pass (D15-10)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 1}})
       assert_receive {:repo_insert, event_changeset}
       event_attrs = Ecto.Changeset.apply_changes(event_changeset)
       assert event_attrs.event_type == :revalidation_passed
     end
 
     # Source assertion: the worker must NOT contain a .run( call (never calls run/3 — D15-10).
-    # This test runs NOW (no ApprovalResumeWorker needed — checks the source file directly).
-    # Once Wave 2 creates the file, this test verifies the Phase-16 seam invariant holds.
-    test "worker source file (when created) will contain no .run( call — Phase 16 seam" do
+    # This test verifies the Phase-16 seam invariant holds in the source file.
+    test "worker source file contains no .run( call — Phase 16 seam" do
       worker_path = "lib/cairnloop/workers/approval_resume_worker.ex"
       if File.exists?(worker_path) do
         source = File.read!(worker_path)
         refute source =~ ~r/\.run\s*\(/,
                "ApprovalResumeWorker must never call .run/3 — Phase 16 seam (D15-10)"
       else
-        # File does not exist yet (Wave 0) — test passes trivially; Wave 2 will make it meaningful
+        # File does not exist yet — test passes trivially
         assert true
       end
     end
@@ -149,23 +216,18 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — validate fail → :invalidated (15-03-b)" do
-    @tag :skip
     test "transitions :pending approval to :invalidated on re-validation fail" do
-      # Wave 2: wire in a tool ref that fails re-validation (e.g. scope changes)
-      # to exercise this path headlessly.
-      # REPO-UNAVAILABLE: requires a live-changing policy context; skipped until Wave 2.
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 5}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :invalidated
     end
 
-    @tag :skip
     test "emits a :revalidation_failed event with operator-visible reason on fail (D15-11)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 1}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 5}})
       assert_receive {:repo_insert, event_changeset}
       event = Ecto.Changeset.apply_changes(event_changeset)
       assert event.event_type == :revalidation_failed
-      # Reason must be present and not raw Elixir terms
+      # Reason must be present and not raw Elixir terms (T-15-09)
       assert is_binary(event.reason) or is_nil(event.reason)
       refute (event.reason || "") =~ "#Ecto.Changeset<"
     end
@@ -176,15 +238,13 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — already-transitioned or deleted approval → :ok no-op (15-03-d)" do
-    @tag :skip
     test "no-ops gracefully for already-transitioned approval (id 2, status :approved)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 2}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 2}})
       refute_receive {:repo_update, _}
     end
 
-    @tag :skip
     test "no-ops gracefully for missing approval (id 3 — deleted)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 3}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 3}})
       refute_receive {:repo_update, _}
     end
   end
@@ -192,25 +252,23 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
   # describe: lazy expires_at guard (15-VALIDATION row 15-03-c)
   #
-  # Approval id 4 has expires_at in the past. The worker must check this BEFORE
+  # Approval id 4 has expires_at in the past. The worker checks this BEFORE
   # running re-validation, so a stale approval can never execute even if the
   # scheduled expiry sweep never ran (D15-12 defense-in-depth).
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — lazy expires_at guard → :expired (15-03-c)" do
-    @tag :skip
     test "marks :pending approval as :expired when expires_at < now (lazy guard)" do
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 4}}])
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 4}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :expired
     end
 
-    @tag :skip
     test "lazy guard fires BEFORE re-validation runs (stale approval can never execute)" do
       # When expires_at is in the past, the worker must short-circuit immediately
       # without calling Governance.validate/3 (re-validation never runs).
-      # This is verified by the :expired status flip (not :execution_pending or :invalidated).
-      assert :ok = apply(@worker_module, :perform, [%Oban.Job{args: %{"approval_id" => 4}}])
+      # Verified by the :expired status flip (not :execution_pending or :invalidated).
+      assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 4}})
       assert_receive {:repo_update, changeset}
       status = Ecto.Changeset.get_change(changeset, :status)
       assert status == :expired,
