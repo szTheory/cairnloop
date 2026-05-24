@@ -519,7 +519,8 @@ defmodule Cairnloop.Governance do
   proposal).
 
   Only opens a lane for `:requires_approval` proposals; `:auto`/`:always_block`
-  lanes are never opened here (D15-05).
+  proposals are rejected fail-closed with `{:error, :not_requires_approval}` and
+  no lane is opened (D15-05).
 
   ## Options
 
@@ -527,7 +528,17 @@ defmodule Cairnloop.Governance do
     - `:actor_id` — actor opening the lane (defaults to `proposal.actor_id`)
     - `:enqueue_fn` — injectable enqueue callback for testing (default: `&safe_enqueue/1`)
   """
-  def request_approval(proposal, opts \\ []) do
+  def request_approval(proposal, opts \\ [])
+
+  def request_approval(%{approval_mode: mode} = _proposal, _opts)
+      when mode != :requires_approval do
+    # Fail-closed guard (D15-05): never open an approval lane for an :auto or
+    # :always_block proposal. Honors the docstring contract so a future caller
+    # (or host) cannot drive an :always_block action to :execution_pending.
+    {:error, :not_requires_approval}
+  end
+
+  def request_approval(proposal, opts) do
     ttl_seconds = Keyword.get(opts, :ttl_seconds, approval_ttl_seconds())
     actor_id = Keyword.get(opts, :actor_id, proposal.actor_id)
     enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)

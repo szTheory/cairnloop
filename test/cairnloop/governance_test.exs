@@ -1182,6 +1182,29 @@ defmodule Cairnloop.GovernanceTest do
       assert_receive {:enqueued_expiry, _job}
     end
 
+    test "fail-closed: refuses to open a lane for non-:requires_approval proposals (D15-05)" do
+      # CR-01: the docstring promises only :requires_approval proposals get a lane.
+      # An :always_block or :auto proposal must be rejected fail-closed with no lane
+      # opened and no enqueue — otherwise an always-blocked action could be driven
+      # to :execution_pending.
+      test_pid = self()
+      enqueue_fn = fn job ->
+        send(test_pid, {:should_not_enqueue, job})
+        {:ok, :enqueued}
+      end
+
+      for mode <- [:always_block, :auto] do
+        proposal = %ToolProposal{id: 9001, approval_mode: mode, actor_id: "user_1"}
+
+        assert {:error, :not_requires_approval} =
+                 Governance.request_approval(proposal, enqueue_fn: enqueue_fn),
+               "request_approval must fail-closed for approval_mode=#{mode} (D15-05)"
+      end
+
+      # No expiry worker may be enqueued for a refused lane.
+      refute_receive {:should_not_enqueue, _job}
+    end
+
     test "source: no Ecto.Multi used (sequential with, Pitfall 1)" do
       source = File.read!("lib/cairnloop/governance.ex")
       refute source =~ "Ecto.Multi",
