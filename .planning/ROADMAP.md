@@ -62,7 +62,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 14-03-PLAN.md (M011-S02-03) — wire into `ConversationLive`: thread conversation_id, assign `governed_actions`, render the "Governed actions" rail section (no streams), rename Execute→Propose + brand token, replace `inspect(reason)` with `reason_label/1`.
+- [x] 14-03-PLAN.md (M011-S02-03) — wire into `ConversationLive`: thread conversation_id, assign `governed_actions`, render the "Governed actions" rail section (no streams), rename Execute→Propose + brand token, replace `inspect(reason)` with `reason_label/1`.
 
 **Details:**
 
