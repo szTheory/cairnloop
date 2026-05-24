@@ -93,7 +93,7 @@ Plans:
 
 **Wave 3** *(blocked on Waves 1-2 completion)*
 
-- [ ] 15-03-PLAN.md (M011-S03-02) — approve/reject/defer/expire transitions on the narrow facade (guarded on `:pending`, append-only co-commit, FLOW-03 reason-required, approve enqueues resume — never inline execute) + `request_approval` lane open with host-configurable TTL.
+- [x] 15-03-PLAN.md (M011-S03-02) — approve/reject/defer/expire transitions on the narrow facade (guarded on `:pending`, append-only co-commit, FLOW-03 reason-required, approve enqueues resume — never inline execute) + `request_approval` lane open with host-configurable TTL.
 
 **Wave 4** *(blocked on Waves 1, 3 completion)*
 
