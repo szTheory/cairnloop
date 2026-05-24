@@ -47,13 +47,14 @@ Plans:
 **Goal**: Operators can inspect governed action proposals and outcomes inside the existing
 conversation workflow with durable timeline and preview semantics.
 **Depends on**: Phase 13
-**Plans**: 3 plans
+**Plans**: 4 plans
 
 Plans:
 
-- [ ] M011-S02-01: Add conversation-scoped governed-action timeline queries and presenter helpers.
-- [ ] M011-S02-02: Build preview-card rendering with risk labels, actor scope, consequence text, and evidence links.
-- [ ] M011-S02-03: Replace synchronous tool buttons with governed-action timeline cards and proposal-driven affordances in `ConversationLive`.
+- [ ] 14-00-PLAN.md — Wave 0 test infrastructure: 2 new headless test files (`preview_test.exs`, `tool_proposal_presenter_test.exs`) + 2 extensions (`governance_test.exs`, `conversation_live_test.exs`).
+- [ ] 14-01-PLAN.md (M011-S02-01) — conversation_id linkage (migration/schema/both write paths/idempotency exclusion), `Governance.list_proposals_for_conversation/1`, `ToolProposalPresenter`, total `Preview.render/1` + Phase-15 guardrail.
+- [ ] 14-02-PLAN.md (M011-S02-02) — `governed_action_card/1` read-only function component (status chip color+text, separate risk/approval/status axes, humanized rows, event mini-timeline, empty Phase-15 footer slot).
+- [ ] 14-03-PLAN.md (M011-S02-03) — wire into `ConversationLive`: thread conversation_id, assign `governed_actions`, render the "Governed actions" rail section (no streams), rename Execute→Propose + brand token, replace `inspect(reason)` with `reason_label/1`.
 
 **Details:**
 
