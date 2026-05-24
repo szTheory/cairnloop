@@ -51,27 +51,27 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_label/1" do
-    @tag :skip
+    
     test "returns 'Proposed' for :proposed" do
       assert apply(@presenter, :status_label, [:proposed]) == "Proposed"
     end
 
-    @tag :skip
+    
     test "returns 'Needs input' for :needs_input" do
       assert apply(@presenter, :status_label, [:needs_input]) == "Needs input"
     end
 
-    @tag :skip
+    
     test "returns 'Not available here' for :scope_invalid" do
       assert apply(@presenter, :status_label, [:scope_invalid]) == "Not available here"
     end
 
-    @tag :skip
+    
     test "returns 'Blocked by policy' for :policy_denied" do
       assert apply(@presenter, :status_label, [:policy_denied]) == "Blocked by policy"
     end
 
-    @tag :skip
+    
     test "accepts a ToolProposal struct (delegates to atom)" do
       p = proposal(%{status: :proposed})
       assert apply(@presenter, :status_label, [p]) == "Proposed"
@@ -83,22 +83,22 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_group/1" do
-    @tag :skip
+    
     test "returns :awaiting for :proposed" do
       assert apply(@presenter, :status_group, [:proposed]) == :awaiting
     end
 
-    @tag :skip
+    
     test "returns :awaiting for :needs_input" do
       assert apply(@presenter, :status_group, [:needs_input]) == :awaiting
     end
 
-    @tag :skip
+    
     test "returns :blocked for :scope_invalid" do
       assert apply(@presenter, :status_group, [:scope_invalid]) == :blocked
     end
 
-    @tag :skip
+    
     test "returns :blocked for :policy_denied" do
       assert apply(@presenter, :status_group, [:policy_denied]) == :blocked
     end
@@ -109,14 +109,14 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_group_label/1" do
-    @tag :skip
+    
     test "returns a string for :awaiting group" do
       label = apply(@presenter, :status_group_label, [:awaiting])
       assert is_binary(label)
       assert String.length(label) > 0
     end
 
-    @tag :skip
+    
     test "returns a string for :blocked group" do
       label = apply(@presenter, :status_group_label, [:blocked])
       assert is_binary(label)
@@ -129,7 +129,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "approval_outlook/1" do
-    @tag :skip
+    
     test "returns a future-tense sentence for :requires_approval" do
       outlook = apply(@presenter, :approval_outlook, [:requires_approval])
       assert is_binary(outlook)
@@ -137,13 +137,13 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(outlook) > 0
     end
 
-    @tag :skip
+    
     test "returns nil for :auto (no gate to describe)" do
       outlook = apply(@presenter, :approval_outlook, [:auto])
       assert is_nil(outlook)
     end
 
-    @tag :skip
+    
     test "returns a 'cannot be approved or run' sentence for :always_block" do
       outlook = apply(@presenter, :approval_outlook, [:always_block])
       assert is_binary(outlook)
@@ -156,7 +156,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "risk_tier_label/1" do
-    @tag :skip
+    
     test "returns a non-empty string for each risk tier" do
       for tier <- [:read_only, :low_write, :high_write, :destructive] do
         label = apply(@presenter, :risk_tier_label, [tier])
@@ -171,7 +171,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "risk_tier_tone/1" do
-    @tag :skip
+    
     test "returns an atom (:info | :warning | :danger) for each risk tier" do
       for tier <- [:read_only, :low_write, :high_write, :destructive] do
         tone = apply(@presenter, :risk_tier_tone, [tier])
@@ -186,7 +186,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "approval_mode_label/1" do
-    @tag :skip
+    
     test "returns a non-empty string for each approval mode" do
       for mode <- [:auto, :requires_approval, :always_block] do
         label = apply(@presenter, :approval_mode_label, [mode])
@@ -201,12 +201,12 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "reason_label/1" do
-    @tag :skip
+    
     test "returns nil for nil reason" do
       assert apply(@presenter, :reason_label, [nil]) == nil
     end
 
-    @tag :skip
+    
     test "humanizes {:missing_scopes, [:admin_scope]} without inspect-style output (D-14)" do
       result = apply(@presenter, :reason_label, [{:missing_scopes, [:admin_scope]}])
       assert is_binary(result) or is_nil(result)
@@ -219,7 +219,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "reason_label must not expose raw list [:admin_scope] to operators"
     end
 
-    @tag :skip
+    
     test "humanizes atom reasons without inspect output" do
       result = apply(@presenter, :reason_label, [:denied])
       assert is_binary(result)
@@ -227,7 +227,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       refute result =~ ":denied"
     end
 
-    @tag :skip
+    
     test "handles unknown tuple reasons gracefully (no crash, no raw inspect)" do
       result = apply(@presenter, :reason_label, [{:unknown_reason, "detail"}])
       # Either a human-friendly fallback string or nil — never a crash
@@ -242,14 +242,14 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "input_rows/1" do
-    @tag :skip
+    
     test "returns a list of rows for a simple flat map" do
       rows = apply(@presenter, :input_rows, [%{order_id: "ord_123"}])
       assert is_list(rows)
       assert length(rows) >= 1
     end
 
-    @tag :skip
+    
     test "never dumps raw nested maps — returns humanized rows or 'Unsupported value' sentinel (D-22)" do
       nested_input = %{
         order_id: "ord_123",
@@ -281,7 +281,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       end)
     end
 
-    @tag :skip
+    
     test "handles string-keyed snapshot (JSONB post-reload shape) without crashing" do
       # REPO-UNAVAILABLE: partial coverage of the string-key footgun (D-19)
       rows = apply(@presenter, :input_rows, [%{"order_id" => "ord_456"}])
@@ -294,13 +294,13 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "scope_summary/1" do
-    @tag :skip
+    
     test "returns a string summary for an empty scope list" do
       result = apply(@presenter, :scope_summary, [%{scopes: []}])
       assert is_binary(result)
     end
 
-    @tag :skip
+    
     test "returns a string summary listing required scopes" do
       result = apply(@presenter, :scope_summary, [%{scopes: [:admin_scope, :read_scope]}])
       assert is_binary(result)
@@ -313,7 +313,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "policy_explanation/1" do
-    @tag :skip
+    
     test "returns a calm sentence for a policy snapshot with outcome :proposed" do
       snapshot = %{outcome: :proposed, reason: nil}
       result = apply(@presenter, :policy_explanation, [snapshot])
@@ -321,7 +321,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(result) > 0
     end
 
-    @tag :skip
+    
     test "returns a calm sentence for a policy snapshot with outcome :policy_denied" do
       snapshot = %{outcome: :policy_denied, reason: "Policy guard blocked this tool."}
       result = apply(@presenter, :policy_explanation, [snapshot])
@@ -334,14 +334,14 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "block_reason_copy/1" do
-    @tag :skip
+    
     test "returns nil or empty string for non-blocked proposals" do
       p = proposal(%{status: :proposed})
       result = apply(@presenter, :block_reason_copy, [p])
       assert is_nil(result) or result == ""
     end
 
-    @tag :skip
+    
     test "returns a non-empty string for blocked proposals" do
       p = proposal(%{status: :policy_denied})
       result = apply(@presenter, :block_reason_copy, [p])
@@ -355,7 +355,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "history_line/1" do
-    @tag :skip
+    
     test "returns 'Workflow updated' for an unrecognized event_type (D-24 catch-all)" do
       # Build an event with a known event_type, then override to simulate unknown future type.
       e = event(%{event_type: :proposal_created})
@@ -367,14 +367,14 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
       assert String.length(result) > 0
     end
 
-    @tag :skip
+    
     test "handles :proposal_created event type without crashing" do
       e = event(%{event_type: :proposal_created, actor_id: "user_1"})
       result = apply(@presenter, :history_line, [e])
       assert is_binary(result)
     end
 
-    @tag :skip
+    
     test "handles :proposal_blocked event type without crashing" do
       e = event(%{event_type: :proposal_blocked, to_status: :scope_invalid, actor_id: "user_1"})
       result = apply(@presenter, :history_line, [e])
@@ -387,7 +387,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "event_timestamp_label/1" do
-    @tag :skip
+    
     test "returns a human-readable string for a recent datetime" do
       ts = DateTime.utc_now()
       result = apply(@presenter, :event_timestamp_label, [ts])
@@ -401,7 +401,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "trace_metadata/1" do
-    @tag :skip
+    
     test "returns a map with proposal_id, tool_ref, and idempotency_key fields" do
       p = proposal(%{idempotency_key: "abc123"})
       result = apply(@presenter, :trace_metadata, [p])
@@ -415,7 +415,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   # ---------------------------------------------------------------------------
 
   describe "status_meaning/1" do
-    @tag :skip
+    
     test "returns a non-empty string explaining the status for operators" do
       for status <- [:proposed, :needs_input, :scope_invalid, :policy_denied] do
         meaning = apply(@presenter, :status_meaning, [status])

@@ -45,7 +45,6 @@ defmodule Cairnloop.Governance.PreviewTest do
   # ---------------------------------------------------------------------------
 
   describe "Preview.render/1 — common path (no preview/1 callback, D-17)" do
-    @tag :skip
     test "returns {:structured, map} when the tool does not export preview/1" do
       proposal = base_proposal()
       result = apply(@preview_module, :render, [proposal])
@@ -53,14 +52,12 @@ defmodule Cairnloop.Governance.PreviewTest do
       assert is_map(structured)
     end
 
-    @tag :skip
     test "structured result contains risk_tier" do
       proposal = base_proposal()
       {:structured, structured} = apply(@preview_module, :render, [proposal])
       assert Map.has_key?(structured, :risk_tier) or Map.has_key?(structured, "risk_tier")
     end
 
-    @tag :skip
     test "structured result contains approval_mode" do
       proposal = base_proposal()
       {:structured, structured} = apply(@preview_module, :render, [proposal])
@@ -73,7 +70,6 @@ defmodule Cairnloop.Governance.PreviewTest do
   # ---------------------------------------------------------------------------
 
   describe "Preview.render/1 — fallback when tool is unregistered (D-19 footgun 4)" do
-    @tag :skip
     test "returns {:structured, _} when tool_ref resolves to unknown tool" do
       proposal = %{base_proposal() | tool_ref: "Elixir.NoSuchTool.DoesNotExist"}
       result = apply(@preview_module, :render, [proposal])
@@ -82,23 +78,74 @@ defmodule Cairnloop.Governance.PreviewTest do
   end
 
   describe "Preview.render/1 — fallback when live preview/1 raises (D-19 try/rescue)" do
-    # This test requires a test-only tool module that exports preview/1 and raises.
-    # It is skipped until Wave 1 defines such a module.
-    @tag :skip
     test "returns {:structured, _} when preview/1 raises an exception" do
-      # Wave 1 will define a test-only tool whose preview/1 raises ArgumentError.
-      # Placeholder: confirm the fallback contract once the tool exists.
-      :ok
+      # Test-only tool that exports preview/1 and raises RuntimeError
+      defmodule RaisingPreviewTool do
+        use Cairnloop.Tool,
+          risk_tier: :read_only,
+          title: "Raising Preview Tool"
+
+        embedded_schema do
+          field(:order_id, :string)
+        end
+
+        def changeset(struct, attrs) do
+          Ecto.Changeset.cast(struct, attrs, [:order_id])
+        end
+
+        def run(_tool, _actor, _ctx), do: {:ok, %{}}
+        def scope, do: []
+
+        @impl Cairnloop.Tool
+        def authorize(_actor_id, _context), do: :ok
+
+        @impl Cairnloop.Tool
+        def preview(_tool), do: raise(RuntimeError, "preview explodes")
+      end
+
+      Application.put_env(:cairnloop, :tools, [RaisingPreviewTool])
+
+      proposal = %{base_proposal() | tool_ref: Atom.to_string(RaisingPreviewTool)}
+      result = apply(@preview_module, :render, [proposal])
+      assert {:structured, _} = result
+
+      Application.delete_env(:cairnloop, :tools)
     end
   end
 
   describe "Preview.render/1 — fallback when live preview/1 returns non-string (D-19)" do
-    # Requires a test-only tool returning a non-string from preview/1.
-    @tag :skip
     test "returns {:structured, _} when preview/1 returns a non-string value" do
-      # Wave 1 will define a test-only tool whose preview/1 returns {:ok, "description"}.
-      # Non-string return → fallback to structured. Placeholder until Wave 1 ships.
-      :ok
+      # Test-only tool whose preview/1 returns {:ok, "description"} (not a plain binary)
+      defmodule NonStringPreviewTool do
+        use Cairnloop.Tool,
+          risk_tier: :read_only,
+          title: "Non String Preview Tool"
+
+        embedded_schema do
+          field(:order_id, :string)
+        end
+
+        def changeset(struct, attrs) do
+          Ecto.Changeset.cast(struct, attrs, [:order_id])
+        end
+
+        def run(_tool, _actor, _ctx), do: {:ok, %{}}
+        def scope, do: []
+
+        @impl Cairnloop.Tool
+        def authorize(_actor_id, _context), do: :ok
+
+        @impl Cairnloop.Tool
+        def preview(_tool), do: {:ok, "this is a description"}
+      end
+
+      Application.put_env(:cairnloop, :tools, [NonStringPreviewTool])
+
+      proposal = %{base_proposal() | tool_ref: Atom.to_string(NonStringPreviewTool)}
+      result = apply(@preview_module, :render, [proposal])
+      assert {:structured, _} = result
+
+      Application.delete_env(:cairnloop, :tools)
     end
   end
 
@@ -113,7 +160,6 @@ defmodule Cairnloop.Governance.PreviewTest do
     # surfaces on a live Postgres round-trip. This test simulates the post-reload shape so
     # the code path is exercised without a DB.
 
-    @tag :skip
     test "string-keyed input_snapshot produces same {:structured, _} as atom-keyed variant" do
       # Both atom-keyed and string-keyed proposals should produce the same structured output.
       atom_proposal = base_proposal()
@@ -128,12 +174,11 @@ defmodule Cairnloop.Governance.PreviewTest do
       assert {:structured, _} = string_result
     end
 
-    @tag :skip
     test "atomization uses String.to_existing_atom/1 not String.to_atom/1 (D-19 safety)" do
-      # The implementation must not call String.to_atom/1 (unbounded-atom DoS — D-19).
-      # Wave 1 source-assertion: read Preview module source, refute "String.to_atom" appears
-      # outside comments. Placeholder until Wave 1 ships.
-      :ok
+      # Source-assertion: the Preview module must not contain String.to_atom( (unbounded-atom DoS — D-19).
+      preview_source = File.read!("lib/cairnloop/governance/preview.ex")
+      refute preview_source =~ ~r/String\.to_atom\s*\(/,
+             "Preview must not call String.to_atom/1 (unbounded-atom DoS — D-19 / T-14-01)"
     end
   end
 end
