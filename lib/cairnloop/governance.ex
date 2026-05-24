@@ -801,7 +801,7 @@ defmodule Cairnloop.Governance do
     ToolProposal
     |> where([p], p.conversation_id == ^conversation_id)
     |> order_by([p], desc: p.inserted_at)
-    |> preload(events: ^events_query)
+    |> preload([events: ^events_query, approval: []])
     |> repo().all()
   end
 end

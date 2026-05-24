@@ -8,7 +8,6 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
   alias Cairnloop.Web.ToolProposalPresenter
-  alias Cairnloop.Governance.Preview
 
   def mount(%{"id" => id}, _session, socket) do
     if connected?(socket) do
@@ -195,6 +194,75 @@ defmodule Cairnloop.Web.ConversationLive do
            :error,
            "This action could not be recorded right now. Please try again."
          )}
+    end
+  end
+
+  # Phase 15: Approve/Reject/Defer handlers — persist + (approve) enqueue via facade; never inline execute (APRV-01).
+  # Reflects outcomes via existing thin-notification → reload_conversation_with_context path.
+  # Plain-assign, no streams (P14 D-02). Reason enforced by facade for reject/defer (FLOW-03).
+
+  def handle_event("approve_action", %{"approval-id" => id}, socket) do
+    actor_id = socket.assigns.conversation.host_user_id
+
+    case Cairnloop.Governance.approve(String.to_integer(id), actor_id, []) do
+      {:ok, _approval} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Action approved.")
+         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+
+      {:error, :not_pending} ->
+        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Approval could not be recorded. Please try again.")}
+    end
+  end
+
+  def handle_event("reject_action", %{"approval-id" => id, "reason" => reason}, socket) do
+    actor_id = socket.assigns.conversation.host_user_id
+
+    case Cairnloop.Governance.reject(String.to_integer(id), actor_id, reason: reason) do
+      {:ok, _approval} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Action rejected.")
+         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+
+      {:error, :not_pending} ->
+        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
+
+      {:error, _} ->
+        # FLOW-03: missing reason or invalid changeset — calm error (never raw changeset to operator)
+        {:noreply, put_flash(socket, :error, "A reason is required to reject this action.")}
+    end
+  end
+
+  def handle_event("defer_action", %{"approval-id" => id, "reason" => reason}, socket) do
+    actor_id = socket.assigns.conversation.host_user_id
+
+    case Cairnloop.Governance.defer(String.to_integer(id), actor_id, reason: reason) do
+      {:ok, _approval} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Action deferred.")
+         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+
+      {:error, :not_found} ->
+        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+
+      {:error, :not_pending} ->
+        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
+
+      {:error, _} ->
+        # FLOW-03: missing reason or invalid changeset — calm error
+        {:noreply, put_flash(socket, :error, "A reason is required to defer this action.")}
     end
   end
 
@@ -851,12 +919,36 @@ defmodule Cairnloop.Web.ConversationLive do
     risk_tier_label = ToolProposalPresenter.risk_tier_label(proposal.risk_tier)
     risk_tier_tone = ToolProposalPresenter.risk_tier_tone(proposal.risk_tier)
     approval_mode_label = ToolProposalPresenter.approval_mode_label(proposal.approval_mode)
-    approval_outlook = ToolProposalPresenter.approval_outlook(proposal.approval_mode)
     input_rows = ToolProposalPresenter.input_rows(proposal.input_snapshot)
     scope_summary = ToolProposalPresenter.scope_summary(proposal.scope_snapshot)
     policy_explanation = ToolProposalPresenter.policy_explanation(proposal.policy_snapshot)
     trace = ToolProposalPresenter.trace_metadata(proposal)
     block_reason = ToolProposalPresenter.block_reason_copy(proposal)
+
+    # Resolve active approval (D15-17): read from preloaded :approval association when loaded,
+    # otherwise fall back to facade (never inline re-read; goes through the narrow facade).
+    active_approval =
+      cond do
+        Ecto.assoc_loaded?(proposal.approval) and proposal.approval != nil ->
+          proposal.approval
+
+        Ecto.assoc_loaded?(proposal.approval) ->
+          # Loaded but nil — no active approval
+          nil
+
+        true ->
+          # Not preloaded — resolve via facade (D15-17)
+          Cairnloop.Governance.get_active_approval(proposal.id)
+      end
+
+    # Approval outlook: use real present-tense copy when approval exists (D15-16),
+    # fall back to future-tense honesty seam when no active approval.
+    approval_outlook =
+      if active_approval do
+        ToolProposalPresenter.approval_outlook_for_approval(active_approval)
+      else
+        ToolProposalPresenter.approval_outlook(proposal.approval_mode)
+      end
 
     # Events guard: D-24 — empty or not-loaded → "No history yet"
     events_loaded =
@@ -890,20 +982,30 @@ defmodule Cairnloop.Web.ConversationLive do
     # Status chip uses brand primary token for visual emphasis (D-13 — separate axis from risk)
     status_chip_class = "governed-action-chip governed-action-chip-status"
 
-    # Headline from Preview.render/1 — consequence vs structured (D-15)
-    preview_result = Preview.render(proposal)
-
+    # Headline: read snapshotted prose columns (D15-14).
+    # Phase 15+ rows: snapshotted title/rendered_consequence.
+    # Pre-Phase-15 rows (NULL snapshot columns): structured-summary card fallback (P14 D-17)
+    # using the humanized tool_ref display name — no live registry call.
     {eyebrow, headline} =
-      case preview_result do
-        {:preview, str} when is_binary(str) and str != "" ->
-          # Best-effort live prose — labelled "current description" (D-15)
-          {"Current description", str}
+      cond do
+        # Phase 15+ rows: prefer snapshotted title (D15-14)
+        is_binary(proposal.title) and proposal.title != "" ->
+          {"Governed action", proposal.title}
 
-        {:structured, %{title: title}} when is_binary(title) ->
-          {"Governed action", title}
+        # Phase 15+ rows with consequence prose
+        is_binary(proposal.rendered_consequence) and proposal.rendered_consequence != "" ->
+          {"Governed action", proposal.rendered_consequence}
 
-        _ ->
-          {"Governed action", "Action details not available."}
+        # Pre-Phase-15 rows: structured-summary card fallback (P14 D-17)
+        true ->
+          tool_display =
+            case proposal.tool_ref do
+              ref when is_binary(ref) ->
+                ref |> String.split(".") |> List.last() |> humanize_context_label()
+              _ ->
+                "Governed action"
+            end
+          {"Governed action", tool_display}
       end
 
     assigns =
@@ -913,6 +1015,7 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(:risk_tier_label, risk_tier_label)
       |> assign(:approval_mode_label, approval_mode_label)
       |> assign(:approval_outlook, approval_outlook)
+      |> assign(:active_approval, active_approval)
       |> assign(:input_rows, input_rows)
       |> assign(:scope_summary, scope_summary)
       |> assign(:policy_explanation, policy_explanation)
@@ -927,7 +1030,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
     ~H"""
     <section class="rail-card governed-action-card" aria-label="Governed action proposal">
-      <%!-- Eyebrow + headline (consequence via Preview.render/1 — D-15) --%>
+      <%!-- Eyebrow + headline (snapshotted title/consequence — D15-14; structured fallback for pre-Phase-15 rows) --%>
       <div class="governed-action-eyebrow"><%= @eyebrow %></div>
       <h3 class="governed-action-headline"><%= @headline %></h3>
 
@@ -1031,10 +1134,58 @@ defmodule Cairnloop.Web.ConversationLive do
         </dl>
       </div>
 
-      <%!-- Footer action slot: structurally present but EMPTY in Phase 14 (D-05).
-           Phase 15 will add approve/reject/defer affordances here. --%>
+      <%!-- Footer action slot: Approve / Reject / Defer affordances when :pending approval exists.
+           Status conveyed by text AND color — never color-alone (brand §7.5).
+           Brand token var(--cl-primary, #A94F30) for primary affordance color (§2.2/§7). --%>
       <div class="governed-action-footer">
-        <%!-- Phase-15 affordance slot — no action buttons in Phase 14 (read-only, D-05) --%>
+        <%= if @active_approval && @active_approval.status == :pending do %>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="font-size: 0.85rem; color: #4c4033; font-weight: 600;">Approval required</div>
+            <%!-- Approve: primary affordance — color + text (brand §7.5) --%>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;">
+              <button
+                phx-click="approve_action"
+                phx-value-approval-id={@active_approval.id}
+                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary, #A94F30); background: var(--cl-primary, #A94F30); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
+              >
+                Approve
+              </button>
+              <%!-- Reject: with inline reason capture --%>
+              <form phx-submit="reject_action" style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="hidden" name="approval-id" value={@active_approval.id} />
+                <textarea
+                  name="reason"
+                  placeholder="Reason for rejection (required)"
+                  rows="2"
+                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                ></textarea>
+                <button
+                  type="submit"
+                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #8b1a1a; background: #fdecea; color: #8b1a1a; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
+                >
+                  Reject
+                </button>
+              </form>
+              <%!-- Defer: with inline reason capture --%>
+              <form phx-submit="defer_action" style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="hidden" name="approval-id" value={@active_approval.id} />
+                <textarea
+                  name="reason"
+                  placeholder="Reason for deferral (required)"
+                  rows="2"
+                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                ></textarea>
+                <button
+                  type="submit"
+                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #7a5c00; background: #fef9e5; color: #7a5c00; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
+                >
+                  Defer
+                </button>
+              </form>
+            </div>
+            <p style="font-size: 0.75rem; color: #8b7355; font-style: italic;">A reason is required for rejection or deferral.</p>
+          </div>
+        <% end %>
       </div>
     </section>
     """
