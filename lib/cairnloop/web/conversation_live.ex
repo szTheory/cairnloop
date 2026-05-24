@@ -186,6 +186,15 @@ defmodule Cairnloop.Web.ConversationLive do
 
       {:blocked, outcome, reason} ->
         {:noreply, put_flash(socket, :error, failure_reason_message(outcome, reason))}
+
+      {:error, _changeset} ->
+        # Fail closed: never surface a raw changeset to the operator (CR-01)
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "This action could not be recorded right now. Please try again."
+         )}
     end
   end
 

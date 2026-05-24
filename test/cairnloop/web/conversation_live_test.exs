@@ -54,15 +54,20 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     def get_by(_schema, _clauses), do: nil
 
     def insert(%Ecto.Changeset{} = changeset) do
-      if changeset.valid? do
-        struct =
-          changeset
-          |> Ecto.Changeset.apply_changes()
-          |> maybe_put_id()
-
-        {:ok, struct}
-      else
+      # CR-01 regression test hook: force {:error, changeset} for specific tests
+      if Process.get(:force_insert_error) do
         {:error, changeset}
+      else
+        if changeset.valid? do
+          struct =
+            changeset
+            |> Ecto.Changeset.apply_changes()
+            |> maybe_put_id()
+
+          {:ok, struct}
+        else
+          {:error, changeset}
+        end
       end
     end
 
@@ -1042,6 +1047,38 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       refute handler_region =~ "try do"
       assert handler_region =~ "Governance.propose"
       assert handler_region =~ "failure_reason_message"
+    end
+
+    test "handle_event execute_tool emits calm error flash on {:error, changeset} without crashing (CR-01 regression)" do
+      # CR-01: Governance.propose/3 can return {:error, %Ecto.Changeset{}} on insert
+      # failure (FK violation, DB drop, etc.). The handler must NOT raise CaseClauseError.
+      # Force MockRepo.insert/1 to return {:error, changeset} for this test.
+      Process.put(:force_insert_error, true)
+
+      socket = %Phoenix.LiveView.Socket{
+        endpoint: Cairnloop.Web.Endpoint,
+        assigns: %{
+          conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          host_context: %{"id" => "123"},
+          flash: %{},
+          __changed__: %{}
+        }
+      }
+
+      tool_ref = Atom.to_string(SimpleTool)
+
+      # Must NOT raise CaseClauseError — must return {:noreply, socket} with an error flash
+      assert {:noreply, socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => tool_ref, "tool_params" => %{}},
+                 socket
+               )
+
+      # Fail closed: calm message, no raw changeset, no crash
+      assert socket.assigns.flash["error"] =~ "could not be recorded"
+      refute socket.assigns.flash["error"] =~ "Ecto.Changeset"
+      refute socket.assigns.flash["error"] =~ "#Ecto"
     end
   end
 
