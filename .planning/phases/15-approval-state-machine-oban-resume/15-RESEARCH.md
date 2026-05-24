@@ -1026,20 +1026,22 @@ state.
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three resolved inline below; the plans adopt these recommendations (D15-18 makes them planner discretion). No user confirmation needed.
 
 1. **TTL default value**
    - What we know: D15-13 requires a finite default; host-configurable via config/Policy seam.
    - What's unclear: Exact value. 48 hours is conventional for human review windows; 24 hours
      is more aggressive; 7 days is lenient.
-   - Recommendation: Default 48 hours (`172_800` seconds). Planner discretion. Document in
+   - RESOLVED: Default 48 hours (`172_800` seconds). Planner discretion. Document in
      `@moduledoc` so host knows what to override.
 
 2. **`:invalidated` vs `:expired` — one status or two**
    - What we know: D15-02 says they may merge if the planner finds the distinction noise.
      D15-02 also says operator must be able to tell "timed out" from "policy/scope changed."
    - What's unclear: Whether the timeline UX is clearer with two distinct labels.
-   - Recommendation: Keep both — `:expired` for TTL flip, `:invalidated` for re-validation
+   - RESOLVED: Keep both — `:expired` for TTL flip, `:invalidated` for re-validation
      failure. Two event_types (`:expired`, `:revalidation_failed`) drive the history_line
      wording, making the distinction clear even if statuses merge. Given operator legibility
      is required, two statuses is safer.
@@ -1049,7 +1051,7 @@ state.
      tests use `MockRepo` injection via `Application.put_env`.
    - What's unclear: Whether `Governance.approve/...` should accept `enqueue_fn` as an opt
      or whether `Application.put_env(:cairnloop, :oban_insert_fn, ...)` is cleaner.
-   - Recommendation: `opts` injection (`enqueue_fn` opt defaulting to `&Oban.insert/1`) is
+   - RESOLVED: `opts` injection (`enqueue_fn` opt defaulting to `&Oban.insert/1`) is
      the established pattern and keeps tests pure. Planner should use it.
 
 ---
