@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
-status: verifying
-stopped_at: Phase 15 context gathered
+status: executing
+stopped_at: Phase 15 complete (verified, human_needed UAT deferred) — ready for Phase 16
 last_updated: "2026-05-24T17:36:39.455Z"
-last_activity: 2026-05-24
+last_activity: 2026-05-24 -- Phase 15 executed + verified; 2 code-review blockers fixed
 progress:
   total_phases: 5
   completed_phases: 3
@@ -21,13 +21,13 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 15 — approval-state-machine-oban-resume
+**Current focus:** Phase 16 — first-approved-write-path-&-telemetry
 
 ## Current Position
 
 Phase: 16
 Plan: Not started
-Status: Phase complete — ready for verification
+Status: Phase 15 complete + verified — ready to discuss/plan Phase 16
 Last activity: 2026-05-24
 
 Progress: [----------] 0%
