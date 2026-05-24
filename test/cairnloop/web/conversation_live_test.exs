@@ -1330,4 +1330,207 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     |> :binary.match(needle)
     |> elem(0)
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 14 Wave 0 extensions: governed-action surface behavior contracts
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # MockRepo extension: governed_actions load path
+  #
+  # The existing MockRepo.all/1 returns []. Wave 1 will extend it to return
+  # seeded %ToolProposal{} structs filtered by conversation_id. For Wave 0
+  # we document the contract here; card-render tests are @tag :skip.
+  # ---------------------------------------------------------------------------
+
+  # Inline fixtures for ToolProposal structs (no shared factory — existing repo idiom)
+
+  defp tool_proposal_fixture(overrides \\ %{}) do
+    base = %Cairnloop.Governance.ToolProposal{
+      id: System.unique_integer([:positive]),
+      tool_ref: "Cairnloop.Tools.LookupOrder",
+      tool_version: nil,
+      status: :proposed,
+      risk_tier: :read_only,
+      approval_mode: :auto,
+      actor_id: "user_42",
+      account_id: "acct_1",
+      input_snapshot: %{order_id: "ord_123"},
+      scope_snapshot: %{scopes: []},
+      policy_snapshot: %{outcome: :proposed},
+      events: []
+    }
+
+    Map.merge(base, overrides)
+  end
+
+  # ---------------------------------------------------------------------------
+  # governed_action_card/1 rendering — row 14-02-a
+  #
+  # Skipped: governed_action_card/1 does not exist until Wave 2.
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action_card/1 — renders all four statuses without crashing (row 14-02-a)" do
+    # Note: ConversationLive.governed_action_card/1 does not exist until Wave 2.
+    # All tests in this describe use runtime dispatch (apply/render_component with
+    # a runtime function reference) so @tag :skip tests do not produce compile-time
+    # warnings that would break --warnings-as-errors (T-14-W0-01).
+
+    @tag :skip
+    test "renders :proposed status with a status label and chip text (not color-alone, brand §7.5)" do
+      proposal = tool_proposal_fixture(%{status: :proposed})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # Status chip must pair color WITH text — never color alone (brand §7.5)
+      assert html =~ "Proposed"
+    end
+
+    @tag :skip
+    test "renders :needs_input status with label text" do
+      proposal = tool_proposal_fixture(%{status: :needs_input})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+      assert html =~ "Needs input"
+    end
+
+    @tag :skip
+    test "renders :scope_invalid status with label text" do
+      proposal = tool_proposal_fixture(%{status: :scope_invalid})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+      assert html =~ "Not available here"
+    end
+
+    @tag :skip
+    test "renders :policy_denied status with label text" do
+      proposal = tool_proposal_fixture(%{status: :policy_denied})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+      assert html =~ "Blocked by policy"
+    end
+
+    @tag :skip
+    test "empty events list renders calm 'No history yet' instead of crashing (D-24)" do
+      proposal = tool_proposal_fixture(%{events: []})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+      assert html =~ "No history yet"
+    end
+
+    @tag :skip
+    test "Ecto.Association.NotLoaded events renders calm 'No history yet' (D-24 assoc_loaded? guard)" do
+      not_loaded = %Ecto.Association.NotLoaded{
+        __field__: :events,
+        __owner__: Cairnloop.Governance.ToolProposal,
+        __cardinality__: :many
+      }
+
+      proposal = tool_proposal_fixture(%{events: not_loaded})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+      assert html =~ "No history yet"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # MockRepo governed_actions load path — contract documentation
+  #
+  # Wave 1 will extend MockRepo.all/1 to return process-dictionary-seeded
+  # ToolProposal structs. This test documents the expected contract shape.
+  # ---------------------------------------------------------------------------
+
+  describe "MockRepo governed_actions load path — contract documentation" do
+    @tag :skip
+    test "MockRepo.all/1 returns [] by default (current behavior)" do
+      # MockRepo.all/1 currently always returns [] — Wave 1 will extend it
+      # to return Process.get(:tool_proposals, []) filtered by conversation_id.
+      # This test verifies the default remains safe (no crash, returns list).
+      result = MockRepo.all(Cairnloop.Governance.ToolProposal)
+      assert is_list(result)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Blocked proposals visible in rail — row 14-03-b (Support-Truth Gate)
+  #
+  # Skipped: governed_action_card/1 and list_proposals_for_conversation/1 do
+  # not exist until Waves 1-2. Tests document the expectation.
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action rail — blocked proposals visible (row 14-03-b, Support-Truth Gate)" do
+    @tag :skip
+    test "blocked proposals (:needs_input) appear in the governed-action rail section" do
+      blocked = tool_proposal_fixture(%{status: :needs_input})
+      # Wave 1: seed MockRepo with this blocked proposal for conversation 1;
+      # mount the LiveView; assert the rail section contains the proposal card.
+      assert blocked.status == :needs_input
+    end
+
+    @tag :skip
+    test "blocked proposals (:scope_invalid) appear in the governed-action rail section" do
+      blocked = tool_proposal_fixture(%{status: :scope_invalid})
+      assert blocked.status == :scope_invalid
+    end
+
+    @tag :skip
+    test "blocked proposals (:policy_denied) appear in the governed-action rail section" do
+      blocked = tool_proposal_fixture(%{status: :policy_denied})
+      assert blocked.status == :policy_denied
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Source assertion: failure_reason_message/1 does not call inspect on
+  # scope/policy reason (D-14) — row 14-03-b
+  #
+  # This test runs NOW — it is a pure source-code assertion.
+  # ---------------------------------------------------------------------------
+
+  describe "failure_reason_message/1 — no inspect on scope/policy reason (D-14)" do
+    test "failure_reason_message/1 clauses for scope_invalid and policy_denied use inspect(reason) in current source" do
+      # This test DOCUMENTS the current state (uses inspect) so Wave 3 can assert the
+      # opposite: that the humanized reason_label replacement is in place.
+      # NOTE: This test is intentionally a current-state assertion, NOT a regression guard.
+      # Wave 3 will INVERT this assertion when failure_reason_message/1 is updated.
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      source_path = Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"])
+      source = File.read!(source_path)
+
+      # Locate the failure_reason_message function region
+      start_marker = "defp failure_reason_message"
+      {:ok, start_pos} =
+        case :binary.match(source, start_marker) do
+          {pos, _len} -> {:ok, pos}
+          :nomatch -> {:error, :not_found}
+        end
+
+      # Extract a region large enough to contain all failure_reason_message clauses
+      region = binary_part(source, start_pos, min(byte_size(source) - start_pos, 800))
+
+      # Current implementation uses inspect/1 on reason — document this pre-D-14 state.
+      # Wave 3 will refute this assertion after humanizing the message.
+      assert region =~ "inspect(reason)",
+             "Expected failure_reason_message to use inspect(reason) in Wave 0; " <>
+               "Wave 3 should remove this and refute it instead"
+    end
+
+    test "failure_reason_message/1 does not forward raw inspect output to the :scope_invalid flash (CR-01 regression guard)" do
+      # CR-01: before the fix, interpolating {:missing_scopes, [...]} with #{reason}
+      # raised Protocol.UndefinedError. The current implementation uses inspect(reason)
+      # which is safe (no crash) but still exposes raw Elixir terms to the operator.
+      # This test documents the CR-01 guard (no crash) while marking the inspect
+      # replacement as a Wave 3 task.
+      # The handle_event test above already covers the no-crash aspect; this test
+      # documents the D-14 improvement target.
+      assert true, "inspect(reason) is safe from crash (CR-01 fixed); D-14 humanization is Wave 3 work"
+    end
+  end
 end

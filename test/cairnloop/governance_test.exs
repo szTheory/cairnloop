@@ -417,4 +417,165 @@ defmodule Cairnloop.GovernanceTest do
       assert proposal1.id == proposal2.id
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 14 Wave 0 extensions: governed-action surface behavior contracts
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Governance.list_proposals_for_conversation/1 — row 14-01-a
+  #
+  # This function does not exist until Wave 1 (Phase 14 plan 01). All tests
+  # below are @tag :skip so the file compiles and runs now.
+  # ---------------------------------------------------------------------------
+
+  describe "list_proposals_for_conversation/1 — ordered scoped proposals (row 14-01-a)" do
+    @tag :skip
+    test "returns proposals ordered desc: inserted_at for a given conversation_id" do
+      # Wave 1: extend MockRepo.all/1 to filter by conversation_id and return
+      # seeded :tool_proposals; assert the result is ordered newest-first.
+      conversation_id = 42
+
+      # Insert two proposals with different inserted_at values (oldest first)
+      tool_ref = Atom.to_string(ValidTool)
+      context1 = %{tool_params: %{order_id: "order_list_1"}, scopes: [], conversation_id: conversation_id}
+      context2 = %{tool_params: %{order_id: "order_list_2"}, scopes: [], conversation_id: conversation_id}
+
+      assert {:ok, _p1} = Governance.propose(tool_ref, "user_1", context1)
+      assert {:ok, _p2} = Governance.propose(tool_ref, "user_1", context2)
+
+      # Wave 1 will implement list_proposals_for_conversation/1; call it here.
+      results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
+      assert is_list(results)
+      # Newest-first ordering
+      ts_list = Enum.map(results, & &1.inserted_at)
+      assert ts_list == Enum.sort(ts_list, {:desc, DateTime})
+    end
+
+    @tag :skip
+    test "returns [] for a conversation with no proposals" do
+      conversation_id = 9999
+      results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
+      assert results == []
+    end
+
+    @tag :skip
+    test "preloads events asc: inserted_at on each returned proposal" do
+      conversation_id = 43
+
+      tool_ref = Atom.to_string(ValidTool)
+      context = %{tool_params: %{order_id: "order_events_preload"}, scopes: [], conversation_id: conversation_id}
+      assert {:ok, _} = Governance.propose(tool_ref, "user_1", context)
+
+      results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
+      assert [proposal | _] = results
+      # Events must be loaded (not Ecto.Association.NotLoaded)
+      assert is_list(proposal.events)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # conversation_id written on valid AND blocked paths (D-07) — row 14-01-b
+  #
+  # Skipped: conversation_id column does not exist on ToolProposal until
+  # Wave 1 adds the migration and belongs_to association.
+  # ---------------------------------------------------------------------------
+
+  describe "propose/3 — conversation_id written on valid path (D-07, row 14-01-b)" do
+    @tag :skip
+    test "persisted ToolProposal carries conversation_id from context on valid path" do
+      tool_ref = Atom.to_string(ValidTool)
+      conversation_id = 100
+      context = %{
+        tool_params: %{order_id: "order_conv_valid"},
+        scopes: [],
+        conversation_id: conversation_id
+      }
+
+      assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
+      # Wave 1 will add conversation_id field to ToolProposal and thread it through propose/3
+      assert proposal.conversation_id == conversation_id
+    end
+
+    @tag :skip
+    test "persisted ToolProposal carries conversation_id from context on blocked path (D-07)" do
+      # D-07: blocked proposals (scope_invalid, policy_denied) also appear in the rail —
+      # the Support-Truth Gate requires blocked proposals to be conversation-scoped.
+      tool_ref = Atom.to_string(ScopeFailingTool)
+      conversation_id = 101
+      context = %{
+        tool_params: %{data: "x"},
+        scopes: [],
+        conversation_id: conversation_id
+      }
+
+      assert {:blocked, :scope_invalid, _} = Governance.propose(tool_ref, "user_1", context)
+      proposals = Process.get(:tool_proposals, [])
+      assert [proposal] = proposals
+      # Wave 1 will add conversation_id field
+      assert proposal.conversation_id == conversation_id
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # conversation_id EXCLUDED from idempotency key (D-08) — row 14-01-b
+  #
+  # This test runs NOW: derive_idempotency_key/4 already excludes any key not in
+  # the canonical map. Adding conversation_id to context does not change the key.
+  # ---------------------------------------------------------------------------
+
+  describe "propose/3 — conversation_id excluded from idempotency key (D-08)" do
+    test "identical action params with different conversation_id produce the same idempotency key" do
+      # D-08: conversation_id is routing/identity metadata, not action identity.
+      # Two propose/3 calls with identical action params but different conversation_id
+      # must deduplicate to the same proposal (same idempotency key).
+      tool_ref = Atom.to_string(ValidTool)
+
+      context1 = %{
+        tool_params: %{order_id: "order_idem_conv"},
+        scopes: [],
+        idempotency_token: "tok_conv",
+        account_id: "acct_conv",
+        conversation_id: 201
+      }
+
+      context2 = %{
+        tool_params: %{order_id: "order_idem_conv"},
+        scopes: [],
+        idempotency_token: "tok_conv",
+        account_id: "acct_conv",
+        conversation_id: 202
+      }
+
+      assert {:ok, proposal1} = Governance.propose(tool_ref, "user_1", context1)
+      assert {:ok, proposal2} = Governance.propose(tool_ref, "user_1", context2)
+
+      # Second call must return the SAME proposal (deduplicated) because
+      # conversation_id is not in the canonical map.
+      assert proposal1.id == proposal2.id,
+             "Expected same proposal id but got #{proposal1.id} and #{proposal2.id}; " <>
+               "conversation_id must be excluded from the idempotency key (D-08)"
+    end
+
+    test "idempotency key is unchanged when conversation_id is added to context" do
+      # Verify the deduplication from the key angle: the idempotency_key on the proposal
+      # must be identical whether or not conversation_id is in context.
+      tool_ref = Atom.to_string(ValidTool)
+
+      context_without = %{
+        tool_params: %{order_id: "order_key_test"},
+        scopes: [],
+        idempotency_token: "tok_key",
+        account_id: "acct_key"
+      }
+
+      context_with = Map.put(context_without, :conversation_id, 999)
+
+      assert {:ok, proposal_without} = Governance.propose(tool_ref, "user_1", context_without)
+      assert {:ok, proposal_with} = Governance.propose(tool_ref, "user_1", context_with)
+
+      assert proposal_without.idempotency_key == proposal_with.idempotency_key,
+             "idempotency_key must not change when conversation_id is present in context (D-08)"
+    end
+  end
 end
