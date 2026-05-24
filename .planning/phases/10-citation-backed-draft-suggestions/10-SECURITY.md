@@ -5,7 +5,7 @@ status: verified
 threats_open: 0
 asvs_level: 1
 created: 2026-05-23
-updated: 2026-05-23
+updated: 2026-05-24
 ---
 
 # Phase 10 — Security
@@ -52,6 +52,14 @@ None. No `## Threat Flags` sections were present in `10-01-SUMMARY.md` through `
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
 | 2026-05-23 | 14 | 14 | 0 | Codex + `gsd-security-auditor` |
+| 2026-05-24 | 14 | 14 | 0 | Claude (re-verification, short-circuit) |
+
+**2026-05-24 re-verification note:** Plan-time threat register confirmed complete —
+all 5 plans (`10-01`…`10-05`) carry `<threat_model>` blocks whose threat IDs union to
+exactly T-10-01…T-10-14 (T-10-09 spans plans 03/04). `register_authored_at_plan_time: true`
+and `threats_open: 0`, so the secure-phase short-circuit applies (no new-threat scan). All
+13 cited evidence files were confirmed present on disk. No SUMMARY `## Threat Flags` exist;
+no accepted risks required. Status unchanged: **SECURED**.
 
 ## Audit Evidence
 
