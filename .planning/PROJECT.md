@@ -31,6 +31,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 **Milestone progress:**
 - ✓ Phase 13 (Governed Tool Contract & Proposal Records) complete on 2026-05-24 — the single native governed-tool contract (compile-time-validated `Tool.Spec` + behaviour), durable `ToolProposal` + append-only `ToolActionEvent` records, and the fail-closed `Cairnloop.Governance` propose/validate facade (with a `Policy.resolve/3` approval seam) now exist; Cairnloop creates proposals without executing tools inline.
+- ✓ Phase 14 (Operator Timeline & Preview Surface) complete on 2026-05-24 — governed actions render in-thread with a humanized timeline, risk/approval-mode chips, and a hybrid preview surface (snapshotted trust facts + best-effort interpretive prose behind a total fallback); raw Elixir terms and color-alone state are kept off the operator surface.
+- ✓ Phase 15 (Approval State Machine & Oban Resume) complete on 2026-05-24 — risky governed actions now move through a durable `ToolApproval` lane with approve / reject / defer / expiry / resume paths and an append-only decision trail; resume re-validates against current context via Oban and fails closed (never inline `run/3`), with operator approve/reject/defer affordances reflected in-thread. Actual write execution is deferred to Phase 16.
 
 ## Requirements
 
@@ -48,8 +50,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 ### Active
 - [x] Define the governed-tool contract, policy seam, and durable execution records for host-owned support actions. — validated in Phase 13 (vM011)
-- [ ] Replace synchronous in-LiveView tool execution with fail-closed proposal, approval, and Oban resume flow.
-- [ ] Keep tool actions grounded, reviewable, and visible in the existing operator workflow rather than introducing a parallel truth source.
+- [x] Replace synchronous in-LiveView tool execution with fail-closed proposal, approval, and Oban resume flow. — proposal (Phase 13) + durable approval state machine and Oban re-validate-before-execute resume (Phase 15) now exist; first write execution lands Phase 16 (vM011)
+- [x] Keep tool actions grounded, reviewable, and visible in the existing operator workflow rather than introducing a parallel truth source. — in-thread timeline/preview (Phase 14) + approval affordances and outcome reflection (Phase 15), zero parallel surface (vM011)
 - [ ] Expose MCP compatibility only through the governed-tool seam, starting with optional read-only and user-scoped integration.
 
 ## Validated Requirements
@@ -59,6 +61,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and follow-through workflow state.
 - vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and maintenance telemetry remains bounded across publish and reindex follow-through.
 - vM011 Phase 13 validated `M011-S01-01` through `M011-S01-03`: one native governed-tool contract, durable proposal + append-only action-event records, and the fail-closed `Cairnloop.Governance` facade — proposals are created and fail closed on unsupported tools, missing input, invalid scope, or denied policy, with no inline execution.
+- vM011 Phase 15 validated `APRV-01` through `APRV-04` and `FLOW-03`: a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with a one-active-lane invariant, append-only decision history, fail-closed Oban re-validate-before-execute resume (never inline `run/3`, lazy `expires_at` guard), reason-required rejection/deferral, and in-thread operator affordances that read snapshotted trust prose. (4 live-environment UAT items — Oban runtime, browser visual/brand, repo-backed divergence — deferred to a host app; see `15-HUMAN-UAT.md`.)
 
 ### Out of Scope
 - Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven.
@@ -131,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-24 after completing Phase 13 (vM011)*
+*Last updated: 2026-05-24 after completing Phase 15 (vM011)*
