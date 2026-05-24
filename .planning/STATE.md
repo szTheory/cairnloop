@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
-status: verifying
-stopped_at: Phase 14 context gathered
+status: executing
+stopped_at: Phase 14 complete (verified PASS 8/8)
 last_updated: "2026-05-24T13:00:23.673Z"
 last_activity: 2026-05-24
 progress:
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 14 — operator-timeline-preview-surface
+**Current focus:** Phase 15 — approval-state-machine-&-oban-resume
 
 ## Current Position
 
 Phase: 15
 Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-05-24
+Status: Phase 14 verified (PASS 8/8) — Phase 15 not started
+Last activity: 2026-05-24 -- Phase 14 executed, reviewed, fixed, and verified
 
 Progress: [----------] 0%
 
@@ -79,6 +79,7 @@ Progress: [----------] 0%
 - [Phase ?]: authorize/2 deny-by-default {:error, :no_policy_defined}; ToolRegistry uses Atom.to_string, not String.to_existing_atom (D-16, D-19)
 - [Phase 14]: D-15 RATIFIED Hybrid — preview trust fields render from propose-time snapshot; interpretive prose (consequence via `preview/1`, title via live `Spec`) is best-effort LIVE behind a total `Preview.render/1` fallback, labelled "current description". Phase 13 `propose/3` is NOT reopened; no prose migration in Phase 14. (3-agent deep research, unanimous; see 14-CONTEXT.md ratification note.)
 - [Phase 15 GUARDRAIL — carry forward]: when prose first becomes load-bearing (approval), Phase 15 MUST add nullable `rendered_consequence` + `title` columns to `cairnloop_tool_proposals`, populate in `propose/3` going forward, and have the approval/execution surfaces read the snapshotted columns — NEVER call live `Preview.render`. Add a test asserting snapshotted-vs-live divergence. (D-16 additive promotion.)
+- [Phase 14 → carry forward, WR-01]: the `:needs_input` blocked path persists `inspect(changeset)` (a raw `#Ecto.Changeset<...>`) into the durable `policy_snapshot` column + `ToolActionEvent.reason` via the SEALED Phase-13 `insert_blocked_proposal/10` chain (`governance.ex:313`). NOT churned in Phase 14 (seal-completed-phases). When Phase 15 reopens propose/approval persistence, decide whether `:needs_input` should persist at all; if it must, humanize via `Ecto.Changeset.traverse_errors` (NOT `inspect/1`) and add a test asserting `policy_snapshot` contains no `#Ecto.Changeset<` substring. (Code review 14-REVIEW.md WR-01/IN-01.)
 
 ### Pending Todos
 
