@@ -151,6 +151,58 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Phase 16 execution event_type values (D16-08)
+  # ---------------------------------------------------------------------------
+
+  describe "Phase 16 execution event_type values" do
+    test "accepts :execution_succeeded with from_status nil, to_status nil" do
+      attrs = %{
+        tool_proposal_id: 1,
+        event_type: :execution_succeeded,
+        actor_id: "system",
+        metadata: %{attempt: 1}
+      }
+      changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
+      assert changeset.valid?, "expected valid? for :execution_succeeded (Phase 16)"
+    end
+
+    test "accepts :execution_attempt_failed with from_status nil, to_status nil" do
+      attrs = %{
+        tool_proposal_id: 1,
+        event_type: :execution_attempt_failed,
+        actor_id: "system",
+        reason: "DB hiccup",
+        metadata: %{attempt: 1}
+      }
+      changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
+      assert changeset.valid?, "expected valid? for :execution_attempt_failed (Phase 16)"
+    end
+
+    test "accepts :execution_failed (terminal) with from_status nil, to_status nil" do
+      attrs = %{
+        tool_proposal_id: 1,
+        event_type: :execution_failed,
+        actor_id: "system",
+        reason: "All retry attempts exhausted.",
+        metadata: %{attempt: 3}
+      }
+      changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
+      assert changeset.valid?, "expected valid? for :execution_failed (Phase 16)"
+    end
+
+    test "accepts :execution_started (optional latency trace event)" do
+      attrs = %{
+        tool_proposal_id: 1,
+        event_type: :execution_started,
+        actor_id: "system",
+        metadata: %{attempt: 1}
+      }
+      changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
+      assert changeset.valid?, "expected valid? for :execution_started (Phase 16)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Phase 15 Wave 0 extension: new approval event_type values (15-VALIDATION row 15-01-c)
   #
   # These describe blocks encode the contract for the 9 new approval event_types.

@@ -231,4 +231,55 @@ defmodule Cairnloop.Governance.ToolApprovalTest do
       refute function_exported?(@tool_approval_module, :delete, 1)
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 16 contract extensions (D16-08): terminal execution statuses
+  # ---------------------------------------------------------------------------
+
+  describe "Phase 16 terminal execution statuses" do
+    test "@status_values includes :executed (success terminal)" do
+      assert :executed in @tool_approval_module.status_values()
+    end
+
+    test "@status_values includes :execution_failed (failure terminal)" do
+      assert :execution_failed in @tool_approval_module.status_values()
+    end
+
+    test "changeset accepts :executed status without requiring a reason" do
+      cs = apply(@tool_approval_module, :decision_changeset, [
+        struct(@tool_approval_module, %{tool_proposal_id: 1}),
+        :executed,
+        "executed",
+        nil,
+        "system",
+        DateTime.utc_now()
+      ])
+      assert cs.valid?
+    end
+
+    test "changeset accepts :execution_failed status without requiring a reason" do
+      cs = apply(@tool_approval_module, :decision_changeset, [
+        struct(@tool_approval_module, %{tool_proposal_id: 1}),
+        :execution_failed,
+        "execution_failed",
+        nil,
+        "system",
+        DateTime.utc_now()
+      ])
+      assert cs.valid?
+    end
+
+    test "changeset accepts :execution_failed with an optional humanized reason" do
+      cs = apply(@tool_approval_module, :decision_changeset, [
+        struct(@tool_approval_module, %{tool_proposal_id: 1}),
+        :execution_failed,
+        "execution_failed",
+        "DB write failed after 3 retries.",
+        "system",
+        DateTime.utc_now()
+      ])
+      assert cs.valid?
+      assert Ecto.Changeset.get_change(cs, :reason) == "DB write failed after 3 retries."
+    end
+  end
 end
