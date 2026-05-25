@@ -1,0 +1,23 @@
+# Local Postgres for the integration suite (`mix test.integration`).
+# Uses the pgvector image because migration 20260516000000 runs `CREATE EXTENSION vector`.
+#
+#   docker compose up -d db
+#   MIX_ENV=test mix test.integration
+#
+# If you already run Postgres on 5432 locally, pick another host port for both:
+#   PGPORT=5433 docker compose up -d db
+#   PGPORT=5433 MIX_ENV=test mix test.integration
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    # Host port is overridable (PGPORT) to avoid clashing with a local Postgres.
+    ports:
+      - "${PGPORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15

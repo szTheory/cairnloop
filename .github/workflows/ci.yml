@@ -46,3 +46,60 @@ jobs:
           test/cairnloop/web/conversation_live_test.exs
           test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
           test/cairnloop/knowledge_base/workers/chunk_revision_test.exs
+
+  # DB-backed integration suite: exercises the real Postgres + Oban-worker + LiveView legs
+  # that the headless suite cannot (Phase 15 approval flow). Tagged :integration and run
+  # explicitly via `mix test.integration` (test.setup creates both repos + migrates first).
+  integration:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        # pgvector image: migration 20260516000000 runs `CREATE EXTENSION vector`.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: "5432"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.0"
+          otp-version: "27.2"
+
+      - name: Restore Mix cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile (warnings as errors)
+        run: mix compile --warnings-as-errors
+
+      - name: Run integration suite (creates DBs, migrates, runs test/integration)
+        run: mix test.integration

@@ -65,12 +65,13 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   #
   # Mirrors sla_countdown_worker_test.exs MockRepo pattern.
   #
-  # Approval fixtures (id→status):
-  #   1 → :pending, expires_at nil  (validate-pass path, tool: PassTool)
-  #   2 → :approved                 (already transitioned — no-op)
-  #   3 → nil                       (deleted — no-op)
-  #   4 → :pending, expires_at past (lazy expires_at guard → :expired)
-  #   5 → :pending, expires_at nil  (validate-fail path, tool: ScopeFailTool)
+  # Approval fixtures (id→status). The resume worker is enqueued by approve/3, which has
+  # already set the lane to :approved — so the worker acts on :approved (not :pending).
+  #   1 → :approved, expires_at nil  (validate-pass path, tool: PassTool)
+  #   2 → :execution_pending         (already transitioned — no-op)
+  #   3 → nil                        (deleted — no-op)
+  #   4 → :approved, expires_at past (lazy expires_at guard → :expired)
+  #   5 → :approved, expires_at nil  (validate-fail path, tool: ScopeFailTool)
   #
   # ToolProposal fixtures:
   #   id 10 → tool_ref PassTool (for ids 1, 2, 4)
@@ -78,11 +79,11 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   defmodule MockRepo do
-    # Approval id 1: :pending, no expiry — normal validate-pass path
+    # Approval id 1: :approved, no expiry — normal validate-pass path
     def get(tool_approval_module, 1) when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 1,
-        status: :pending,
+        status: :approved,
         tool_proposal_id: 10,
         expires_at: nil,
         decided_by: nil,
@@ -91,11 +92,11 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
       })
     end
 
-    # Approval id 2: :approved — already transitioned
+    # Approval id 2: :execution_pending — already transitioned past the resume seam
     def get(tool_approval_module, 2) when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 2,
-        status: :approved,
+        status: :execution_pending,
         tool_proposal_id: 10,
         expires_at: nil
       })
@@ -107,21 +108,21 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
       nil
     end
 
-    # Approval id 4: :pending, expires_at in the past — lazy expiry guard
+    # Approval id 4: :approved, expires_at in the past — lazy expiry guard
     def get(tool_approval_module, 4) when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 4,
-        status: :pending,
+        status: :approved,
         tool_proposal_id: 10,
         expires_at: ~U[2020-01-01 00:00:00Z]
       })
     end
 
-    # Approval id 5: :pending, no expiry — validate-fail path (ScopeFailTool)
+    # Approval id 5: :approved, no expiry — validate-fail path (ScopeFailTool)
     def get(tool_approval_module, 5) when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 5,
-        status: :pending,
+        status: :approved,
         tool_proposal_id: 20,
         expires_at: nil,
         decided_by: nil,
@@ -181,7 +182,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — validate pass → :execution_pending (15-03-a)" do
-    test "transitions :pending approval to :execution_pending on re-validation pass" do
+    test "transitions :approved approval to :execution_pending on re-validation pass" do
       assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 1}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :execution_pending
@@ -216,7 +217,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — validate fail → :invalidated (15-03-b)" do
-    test "transitions :pending approval to :invalidated on re-validation fail" do
+    test "transitions :approved approval to :invalidated on re-validation fail" do
       assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 5}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :invalidated
@@ -238,7 +239,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — already-transitioned or deleted approval → :ok no-op (15-03-d)" do
-    test "no-ops gracefully for already-transitioned approval (id 2, status :approved)" do
+    test "no-ops gracefully for already-transitioned approval (id 2, status :execution_pending)" do
       assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 2}})
       refute_receive {:repo_update, _}
     end
@@ -258,7 +259,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
   # ---------------------------------------------------------------------------
 
   describe "perform/1 — lazy expires_at guard → :expired (15-03-c)" do
-    test "marks :pending approval as :expired when expires_at < now (lazy guard)" do
+    test "marks :approved approval as :expired when expires_at < now (lazy guard)" do
       assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 4}})
       assert_receive {:repo_update, changeset}
       assert Ecto.Changeset.get_change(changeset, :status) == :expired

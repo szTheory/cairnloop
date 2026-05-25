@@ -8,13 +8,18 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
 
   ## Branch Logic
 
+  The resume worker is enqueued by `Governance.approve/3`, which has already transitioned the
+  lane to `:approved`. It therefore acts on `:approved` approvals (the documented state axis:
+  `:approved → resume → :execution_pending`). A still-`:pending` lane (awaiting an operator
+  decision) is a no-op — re-validation must never bypass the approval gate.
+
   1. `nil` approval (deleted) → `:ok` — idempotent no-op.
-  2. `:pending` + `expires_at < now` → `:expired` + `:expired` event (lazy guard, D15-12).
-  3. `:pending` + re-validation pass → `:execution_pending` + `:revalidation_passed` event.
+  2. `:approved` + `expires_at < now` → `:expired` + `:expired` event (lazy guard, D15-12).
+  3. `:approved` + re-validation pass → `:execution_pending` + `:revalidation_passed` event.
      STOP — does NOT call `run/3` (Phase 16 seam, D15-10).
-  4. `:pending` + re-validation fail → `:invalidated` + `:revalidation_failed` event with
+  4. `:approved` + re-validation fail → `:invalidated` + `:revalidation_failed` event with
      humanized reason (fail-closed, APRV-03).
-  5. Any other status (`:approved`, `:rejected`, etc.) → `:ok` — idempotent no-op.
+  5. Any other status (`:pending`, `:rejected`, etc.) → `:ok` — idempotent no-op.
 
   ## Idempotency
 
@@ -43,7 +48,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
         # Deleted — idempotent no-op (mirrors SlaCountdownWorker nil branch)
         :ok
 
-      %ToolApproval{status: :pending} = approval ->
+      %ToolApproval{status: :approved} = approval ->
         # Lazy expires_at guard: belt-and-suspenders — fires BEFORE re-validation (D15-12)
         # so a missed scheduled sweep can never let a stale approval execute
         if approval.expires_at && DateTime.before?(approval.expires_at, DateTime.utc_now()) do
@@ -55,7 +60,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
         :ok
 
       _ ->
-        # Already transitioned — idempotent no-op (mirrors SlaCountdownWorker catch-all)
+        # Still :pending (awaiting decision) or already transitioned — idempotent no-op.
+        # Re-validation must never act on a lane the operator has not approved.
         :ok
     end
   end

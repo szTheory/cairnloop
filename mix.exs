@@ -7,7 +7,42 @@ defmodule Cairnloop.MixProject do
       version: "0.1.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env()),
+      aliases: aliases(),
       deps: deps()
+    ]
+  end
+
+  # Run the integration aliases under MIX_ENV=test without an explicit prefix.
+  def cli do
+    [preferred_envs: ["test.integration": :test, "test.setup": :test]]
+  end
+
+  # test/support holds the integration test host (Repo, Endpoint, Router, case
+  # templates). Compiled ONLY under MIX_ENV=test so the published library never
+  # ships a stray Repo/Endpoint — the host-owned, zero-children contract holds.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
+  defp aliases do
+    [
+      # DB bootstrap for the integration suite (Cairnloop.Repo + Chimeway.Repo boot DB).
+      # Host-owned tables (conversations/messages/drafts) are created FIRST via the
+      # test-host migration path — the library's own migrations reference but do not
+      # create them (the host owns them). Then the library migrations run.
+      # One migrate call with BOTH paths (a task runs once per mix invocation). Ecto merges
+      # and sorts by version: host tables (20260101…) precede the library migrations, so the
+      # library's FKs to cairnloop_conversations resolve.
+      # Create BOTH repos in one call (a task runs once per mix invocation; -r is :keep).
+      # Chimeway.Repo's DB only needs to EXIST so its unconditional supervisor boots cleanly
+      # (no migrations run against it). Migrate only Cairnloop.Repo.
+      "test.setup": [
+        "ecto.create --quiet -r Cairnloop.Repo -r Chimeway.Repo",
+        "ecto.migrate --quiet --migrations-path priv/test_host/migrations --migrations-path priv/repo/migrations"
+      ],
+      # Default `mix test` stays DB-free and excludes :integration (fast inner loop).
+      # Run the DB-backed suite explicitly with `mix test.integration`.
+      "test.integration": ["test.setup", "test --include integration test/integration"]
     ]
   end
 
@@ -34,7 +69,10 @@ defmodule Cairnloop.MixProject do
       {:earmark, "~> 1.4"},
       {:req, "~> 0.5"},
       {:chimeway, "~> 1.0", optional: true},
-      {:scrypath, ">= 0.0.0", optional: true}
+      {:scrypath, ">= 0.0.0", optional: true},
+      # phoenix_live_view 1.1 uses lazy_html (not floki) as its test-time HTML parser
+      # for Phoenix.LiveViewTest element/form helpers.
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 end

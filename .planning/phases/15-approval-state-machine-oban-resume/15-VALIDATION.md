@@ -97,12 +97,18 @@ per `sla_countdown_worker_test.exs`) and an `enqueue_fn` opt (defaulting to `&Ob
 
 ## Manual-Only Verifications
 
-| Behavior | Requirement | Why Manual | Test Instructions |
+> **UPDATE 2026-05-25 — no longer manual.** All four behaviors below are now covered by the
+> DB-backed integration suite (`test/integration/`, run via `mix test.integration` + CI), so
+> Phase 15 requires **0 human verification**. See the *Integration Harness Audit 2026-05-25*
+> section and `15-HUMAN-UAT.md` (status: complete) for the covering tests. Table retained for
+> provenance.
+
+| Behavior | Requirement | Why Manual (orig.) | Now Automated By |
 |----------|-------------|------------|-------------------|
-| Partial unique index actually rejects a second `:pending` approval on a live INSERT | APRV-04 | `Cairnloop.Repo` unavailable in this workspace (STATE.md); the constraint only bites on a real Postgres INSERT | When a repo-backed lane is available: insert two pending approvals for one proposal, assert the second raises a unique-constraint error. Mark the stub `# REPO-UNAVAILABLE`. |
-| JSONB atom→string round-trip on approval snapshot/`policy_snapshot` fields | APRV-02 | Repo unavailable; the footgun only surfaces on a Postgres INSERT+SELECT | Insert an approval, reload from Postgres, assert re-validation + presenter behave identically to the string-keyed unit fixtures. Mark stubs `# REPO-UNAVAILABLE`. |
-| `expires_at` column type + scheduled-job timing in the host's Oban runtime | APRV-03 | Library does not run Oban; the host owns the runtime | In a host app with Oban configured: approve an action, let the scheduled expiry job fire, confirm the `:pending → :expired` flip and the timeline event. |
-| Visual brand compliance of the approval affordances (footer slot, calm reason-forward copy, chip color+text pairing, rail placement) | FLOW-03 | Visual judgement | Run the app, open a conversation with a `:requires_approval` action, confirm Approve/Reject/Defer match brand §13.2/§10.2 and never convey state by color alone (§7.5). |
+| Partial unique index actually rejects a second `:pending` approval on a live INSERT | APRV-04 | `Cairnloop.Repo` unavailable in this workspace; the constraint only bites on a real Postgres INSERT | `test/integration/partial_unique_index_test.exs` (real INSERT → `{:error, changeset}`; non-`:pending` second lane allowed; `request_approval/2` conflict path) |
+| JSONB atom→string round-trip on approval snapshot fields | APRV-02 | Repo unavailable; the footgun only surfaces on a Postgres INSERT+SELECT | `test/integration/jsonb_roundtrip_test.exs` (insert atom-keyed snapshots, reload→string keys, resume worker rehydrates → `:execution_pending`; unknown-atom → `:invalidated`) |
+| `expires_at` + scheduled expiry + async resume flow | APRV-01/02/03 | Library does not run Oban; the host owns the runtime | `test/integration/approval_flow_test.exs` (request→approve→resume → `:execution_pending` + event trail; `ApprovalExpiryWorker` `:pending → :expired`) |
+| Footer affordances render text+color (never color-alone), reason-required, snapshot card | FLOW-03 / D15-14 | Visual/behavioral; needs a live LiveView | `test/integration/approval_footer_live_test.exs` (LiveViewTest: brand token + labels in DOM; blank-reason persists nothing; with-reason persists `:rejected`; snapshot prose shown) |
 
 ---
 
@@ -145,3 +151,47 @@ Manual-Only items (see section above) are genuinely environment-blocked in this 
 Oban runtime, no Postgres-backed `Cairnloop.Repo`, no browser) and are tracked in
 `15-HUMAN-UAT.md` (status: partial) — they are not Nyquist gaps. Frontmatter flipped to
 `nyquist_compliant: true`, `wave_0_complete: true`, `status: complete`.
+
+---
+
+## Integration Harness Audit 2026-05-25
+
+Shift-left of the 4 Manual-Only items into automated DB-backed integration tests, so Phase 15
+needs **0 human verification**. Built a `test/support` test host (test-only `Cairnloop.Repo`,
+`Cairnloop.Web.Endpoint` + router, `DataCase`/`ConnCase`, `Fixtures`) compiled only under
+`MIX_ENV=test` via `elixirc_paths(:test)`; host-owned tables (conversations/messages/drafts)
+created by a `priv/test_host/migrations` migration; runs locally on dockerized Postgres
+(`docker-compose.yml`, pgvector image) and in a new CI `integration` job.
+
+| Metric | Count |
+|--------|-------|
+| Manual items automated | 4 / 4 |
+| Integration tests added | 12 (4 suites) |
+| Phase-15 defects found & fixed | 2 |
+
+**Suites** (tag `:integration`, excluded from the fast headless lane):
+`partial_unique_index_test.exs`, `jsonb_roundtrip_test.exs`, `approval_flow_test.exs`,
+`approval_footer_live_test.exs`.
+
+**Defects surfaced by real-runtime testing (masked by the headless MockRepo suite):**
+1. **Schema (APRV-04 trail):** `cairnloop_tool_action_events.to_status` was `NOT NULL`, but
+   Phase-15 approval events insert it as `nil` (D15-03 — transition carried in
+   `event_type`+`metadata`). Every approval transition would fail on a real host DB. Fixed
+   additively by migration `20260524120200_relax_action_event_to_status_null` (no sealed
+   migration edited).
+2. **Logic (APRV-01/02 handoff):** `approve/3` sets the lane to `:approved` and enqueues
+   `ApprovalResumeWorker`, but the worker's `perform/1` matched `status: :pending`, so the
+   real approve→resume handoff no-op'd and the lane never reached `:execution_pending`. The
+   documented state axis is `:approved → resume → :execution_pending`. Fixed by matching
+   `:approved` (owner-approved 2026-05-25); headless `approval_resume_worker_test.exs`
+   fixtures updated from `:pending` to `:approved` accordingly.
+
+**Evidence.**
+- `MIX_ENV=test mix test.integration` → **12 tests, 0 failures** (real Postgres, no boot noise).
+- Full headless suite `mix test` → **472 tests, 1 failure (12 excluded)** — the single
+  failure is the documented baseline `Automation.DraftTest` (M005 drift), not a regression.
+- `mix compile --warnings-as-errors` → exit 0 in both `:dev` and `:test`.
+
+**Carried decision (durable):** Phase-15 approval lanes flow `:pending → :approved →
+:execution_pending`; the resume worker acts on `:approved` (never `:pending` — re-validation
+must not bypass the approval gate). Phase 16 execution should resume from `:execution_pending`.
