@@ -509,6 +509,27 @@ defmodule Cairnloop.Governance do
   end
 
   @doc """
+  Returns the most-recent `ToolApproval` for a given `tool_proposal_id`, or nil.
+
+  Status-agnostic: returns whichever approval record was updated most recently,
+  regardless of status (`:pending`, `:executed`, `:execution_failed`, etc.).
+
+  Use this for display/outlook resolution so terminal lanes (`:executed`,
+  `:execution_failed`) are visible even when the approval is not preloaded and
+  `get_active_approval/1` (which filters to `:pending`) would return nil.
+
+  Leave `get_active_approval/1` in place for the footer affordance and other
+  callers that specifically need the active pending lane (D15-17, CR-02 fix).
+  """
+  def get_latest_approval(tool_proposal_id) do
+    ToolApproval
+    |> where([a], a.tool_proposal_id == ^tool_proposal_id)
+    |> order_by([a], desc: a.updated_at)
+    |> limit(1)
+    |> repo().one()
+  end
+
+  @doc """
   Opens a `:pending` `ToolApproval` lane for a `:requires_approval` proposal.
 
   Sets `expires_at = now + ttl_seconds` (default `172_800` s / 48 h — D15-13).

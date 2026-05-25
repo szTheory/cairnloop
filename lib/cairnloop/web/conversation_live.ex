@@ -949,8 +949,12 @@ defmodule Cairnloop.Web.ConversationLive do
           nil
 
         true ->
-          # Not preloaded — resolve via facade (D15-17)
-          Cairnloop.Governance.get_active_approval(proposal.id)
+          # Not preloaded — resolve via facade using status-agnostic read (CR-02 fix).
+          # get_active_approval/1 filters to :pending only, so terminal lanes (:executed,
+          # :execution_failed) would return nil and the outlook would silently regress to
+          # the pre-execution future-tense copy. get_latest_approval/1 returns the most
+          # recent approval regardless of status, so terminal outcomes are reflected (D15-17).
+          Cairnloop.Governance.get_latest_approval(proposal.id)
       end
 
     # Approval outlook: use real present-tense copy when approval exists (D15-16),
