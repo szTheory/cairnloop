@@ -111,7 +111,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 18. Release Gate & Hex.pm Publish | vM012 | 0/? | Not started | - |
+| 18. Release Gate & Hex.pm Publish | vM012 | 1/3 | In Progress|  |
 | 19. Example Phoenix App | vM012 | 0/? | Not started | - |
 | 20. MCP OAuth Seam | vM012 | 0/? | Not started | - |
 | 21. MCP Write Tools | vM012 | 0/? | Not started | - |

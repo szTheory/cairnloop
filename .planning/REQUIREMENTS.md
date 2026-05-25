@@ -9,11 +9,11 @@
 ### Release (REL)
 
 - [ ] **REL-01** — CI passes on main branch (both integration and standard jobs green before tagging)
-- [ ] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
+- [x] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
 - [ ] **REL-03** — v0.1.0 semver tag created and pushed to origin
-- [ ] **REL-04** — mix.exs package metadata complete: `:description`, `:package` block with `:licenses`, `:links`, `:maintainers`; `:source_url`; `:homepage_url`; `:docs` block pointing at ExDoc
+- [x] **REL-04** — mix.exs package metadata complete: `:description`, `:package` block with `:licenses`, `:links`, `:maintainers`; `:source_url`; `:homepage_url`; `:docs` block pointing at ExDoc
 - [ ] **REL-05** — Package published to hex.pm and available at hex.pm/packages/cairnloop
-- [ ] **REL-06** — ExDoc configured; API docs published to hexdocs.pm alongside the hex release
+- [x] **REL-06** — ExDoc configured; API docs published to hexdocs.pm alongside the hex release
 
 ### Example App (DEMO)
 
@@ -58,11 +58,11 @@
 | Req ID | Phase | Status |
 |--------|-------|--------|
 | REL-01 | Phase 18 | Pending |
-| REL-02 | Phase 18 | Pending |
+| REL-02 | Phase 18 | Complete |
 | REL-03 | Phase 18 | Pending |
-| REL-04 | Phase 18 | Pending |
+| REL-04 | Phase 18 | Complete |
 | REL-05 | Phase 18 | Pending |
-| REL-06 | Phase 18 | Pending |
+| REL-06 | Phase 18 | Complete |
 | DEMO-01 | Phase 19 | Pending |
 | DEMO-02 | Phase 19 | Pending |
 | DEMO-03 | Phase 19 | Pending |
