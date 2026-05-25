@@ -138,8 +138,10 @@ read-only MCP seam without changing core approval or execution truth.
 
 Plans:
 
-- [ ] M011-S05-01: Add optional Scoria/evidence hooks for governed-action traces, policy snapshots, and approval attribution.
-- [ ] M011-S05-02: Expose a read-only MCP seam over the governed-tool contract without widening auth or bypassing host-owned workflow truth.
+**Wave 1** *(both plans are independent — disjoint files, run in parallel)*
+
+- [ ] M011-S05-01-PLAN.md — Evidence lane: `Cairnloop.Governance.Telemetry.Traces` OI-conformant trace module + 7 additive emit call sites in governance.ex, tool_execution_worker.ex, approval_resume_worker.ex.
+- [ ] M011-S05-02-PLAN.md — Read-only MCP seam: `ToolRegistry.list_all_tools/0` + `Cairnloop.Web.MCP.ToolProjector` (pure Spec→MCP transform) + `Cairnloop.Web.MCP.Router` optional Plug (tools/list + initialize only, -32601 for all other methods).
 
 **Details:**
 
@@ -159,13 +161,13 @@ Plans:
 - Keep workflow truth in Phoenix, Ecto, and Oban; LiveView reflects durable state rather than owning action execution.
 - Reuse retrieval and existing review/audit patterns so tool actions stay grounded and inspectable in-thread.
 - Delay the first write workflow until contract, timeline, and approval-resume machinery already exist.
-- Treat Scoria as an optional evidence lane and MCP as an optional edge adapter, not the milestone’s center.
+- Treat Scoria as an optional evidence lane and MCP as an optional edge adapter, not the milestone's center.
 
 **Issues Addressed:**
 
 - The current synchronous `execute_tool` path has no durable approval, resume, or structured policy model.
 - Tool execution needs richer metadata, explicit risk tiers, and fail-closed structured outcomes.
-- Operator review for actions should live in the same support workflow as the rest of Cairnloop’s trust model.
+- Operator review for actions should live in the same support workflow as the rest of Cairnloop's trust model.
 - MCP needs a clean integration seam without becoming the internal workflow architecture.
 
 **Issues Deferred:**
