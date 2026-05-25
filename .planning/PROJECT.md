@@ -58,22 +58,23 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ Optional read-only MCP seam over governed-tool contract — vM011 (MCP-01)
 
 ### Active (vM012)
-- [ ] **REL-01** — CI green on main (integration + standard jobs)
+- [ ] **REL-01** — CI passes on main (integration + standard jobs green before tagging)
 - [ ] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
-- [ ] **REL-03** — v0.1.0 semver tag created and pushed
-- [ ] **REL-04** — Package metadata complete (description, links, licenses, maintainers)
-- [ ] **REL-05** — Package published to hex.pm (cairnloop available at hex.pm/packages/cairnloop)
-- [ ] **REL-06** — ExDoc API docs generated and published to hexdocs.pm
-- [ ] **DEMO-01** — Runnable example Phoenix app with `mix setup` + seed script
-- [ ] **DEMO-02** — Example app demonstrates draft/approval/KB flow end-to-end
-- [ ] **DEMO-03** — Example app README documents configuration and integration
-- [ ] **DEMO-04** — Example app references library via published hex dependency
-- [ ] **MCP-02** — MCP server supports OAuth 2.0 authorization code flow, host-controlled token delegation
-- [ ] **MCP-03** — OAuth token lifecycle (issue, validate, revoke) durable and Ecto-backed; unauthorized requests return 401/403
-- [ ] **ACT-02** — MCP clients can invoke write-capable governed tools via MCP; invocations flow through full governed-action approval pipeline
+- [ ] **REL-03** — v0.1.0 semver tag created and pushed to origin
+- [ ] **REL-04** — mix.exs package metadata complete (description, package block with licenses/links/maintainers, source_url, homepage_url, docs block)
+- [ ] **REL-05** — Package published to hex.pm and available at hex.pm/packages/cairnloop
+- [ ] **REL-06** — ExDoc configured; API docs published to hexdocs.pm alongside the release
+- [ ] **DEMO-01** — Example Phoenix app at `examples/cairnloop_example/` boots with single `mix setup` + seed command
+- [ ] **DEMO-02** — Example app demonstrates draft/approval/KB flow end-to-end in the browser
+- [ ] **DEMO-03** — Example app README documents how to add cairnloop to a host app and configure it
+- [ ] **DEMO-04** — Example app references `{:cairnloop, "~> 0.1"}` published hex dep (not path dep); verified by CI
+- [ ] **MCP-02** — MCP server validates OAuth 2.1 Bearer tokens; unauthenticated write requests return 401 + WWW-Authenticate header with RFC 9728 resource-metadata pointer
+- [ ] **MCP-03** — OAuth token lifecycle (issue, validate, revoke) Ecto-backed (SHA-256 hash stored); `/.well-known/oauth-protected-resource` endpoint served
+- [ ] **ACT-02** — MCP clients invoke write-capable governed tools via `tools/call`; every call creates a `ToolProposal` via `Governance.propose/3` (never calls `Tool.run/3` directly)
+- [ ] **ACT-03** — MCP write responses include `proposal_id` + `"pending_approval"` status; one-active-lane idempotency extended to MCP origination
 
 ### Out of Scope
-- Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven. _(MCP-02 now a candidate for next milestone — internal contract is proven.)_
+- Broad external MCP server surface open to untrusted third-party public clients (Dynamic Client Registration open; external IDP federation). _(MCP-02/03 are being added as host-controlled OAuth, not public open access.)_
 - High-risk financial or destructive mutations as the first governed-action path.
 - Autonomous customer-visible replies or side effects based only on retrieval confidence.
 - Treating raw tool output as canonical truth over reviewed Knowledge Base and support evidence.
