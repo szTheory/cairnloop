@@ -55,22 +55,22 @@
 
 ## Traceability
 
-| Req ID | Phase | Plans |
-|--------|-------|-------|
-| REL-01 | Phase 18 | — |
-| REL-02 | Phase 18 | — |
-| REL-03 | Phase 18 | — |
-| REL-04 | Phase 18 | — |
-| REL-05 | Phase 18 | — |
-| REL-06 | Phase 18 | — |
-| DEMO-01 | Phase 19 | — |
-| DEMO-02 | Phase 19 | — |
-| DEMO-03 | Phase 19 | — |
-| DEMO-04 | Phase 19 | — |
-| MCP-02 | Phase 20 | — |
-| MCP-03 | Phase 20 | — |
-| ACT-02 | Phase 21 | — |
-| ACT-03 | Phase 21 | — |
+| Req ID | Phase | Status |
+|--------|-------|--------|
+| REL-01 | Phase 18 | Pending |
+| REL-02 | Phase 18 | Pending |
+| REL-03 | Phase 18 | Pending |
+| REL-04 | Phase 18 | Pending |
+| REL-05 | Phase 18 | Pending |
+| REL-06 | Phase 18 | Pending |
+| DEMO-01 | Phase 19 | Pending |
+| DEMO-02 | Phase 19 | Pending |
+| DEMO-03 | Phase 19 | Pending |
+| DEMO-04 | Phase 19 | Pending |
+| MCP-02 | Phase 20 | Pending |
+| MCP-03 | Phase 20 | Pending |
+| ACT-02 | Phase 21 | Pending |
+| ACT-03 | Phase 21 | Pending |
 
 ---
-*Last updated: 2026-05-25 — vM012 milestone start*
+*Last updated: 2026-05-25 — vM012 roadmap created; traceability table updated with phase assignments and Pending status*

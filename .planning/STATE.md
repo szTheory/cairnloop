@@ -6,11 +6,24 @@ status: planning
 last_updated: "2026-05-25T15:25:53.835Z"
 last_activity: 2026-05-25
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
+phases:
+  - id: 18
+    name: Release Gate & Hex.pm Publish
+    status: not_started
+  - id: 19
+    name: Example Phoenix App
+    status: not_started
+  - id: 20
+    name: MCP OAuth Seam
+    status: not_started
+  - id: 21
+    name: MCP Write Tools
+    status: not_started
 ---
 
 # Project State
@@ -24,10 +37,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-25)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap defined; ready for phase planning)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-25 — Milestone vM012 started
+Status: Roadmap created; next step is `/gsd:plan-phase 18`
+Last activity: 2026-05-25 — Roadmap created for vM012 (4 phases: 18–21)
+
+Progress bar: `░░░░░░░░░░ 0%` (0/4 phases)
 
 ## Accumulated Context
 
@@ -41,6 +56,11 @@ Last activity: 2026-05-25 — Milestone vM012 started
 - **[2026-05-25 assessment]** vM012 phase order decided: Phase 18 = release gate + hex.pm publish (hard June 2 CI deadline); Phase 19 = example Phoenix app (biggest adopter gap); Phase 20 = MCP-02 OAuth seam; Phase 21 = MCP-03/ACT-02 write tools. Do NOT start feature phases before Phase 18 release gate closes.
 - **[2026-05-25 assessment]** Example Phoenix app is the highest-leverage adopter gap — no runnable demo exists today. A `mix setup` → seed → draft/approval/KB flow example multiplies adoption value of all existing work.
 - **[2026-05-25 assessment]** After vM012 (release + MCP write + example app), assess whether the scope has earned expansion before committing to vM013. InternalNote is the only reference tool; real adoption signals should drive ACT-02 and FLOW-04 priority.
+- **[2026-05-25 roadmap]** Cairnloop is a resource server only for MCP OAuth — it validates tokens, never issues them as an authorization server. Raw tokens are never persisted; SHA-256 hashes only.
+- **[2026-05-25 roadmap]** `Tool.run/3` must NEVER be called from MCP handlers — hard architectural constraint enforced across all MCP write phases.
+- **[2026-05-25 roadmap]** MCP protocol version must be bumped from "2025-03-26" to "2025-11-05" in Phase 20.
+- **[2026-05-25 roadmap]** Phase 19 must reference `{:cairnloop, "~> 0.1"}` published hex dep (not path dep); verified by CI `mix deps.tree`. Do not start Phase 19 before Phase 18 publishes.
+- **[2026-05-25 roadmap]** Phase 21 depends on Phase 20 because ACT-02 handler reads `conn.private` values set by the Auth Plug added in Phase 20.
 
 ### Hygiene Gate — Before vM012 Execution (⚠️ June 2, 2026 deadline for Node.js item)
 
@@ -93,5 +113,5 @@ Package status as of 2026-05-25: **unpublished** (hex.pm returns 404 for `cairnl
 ## Session Continuity
 
 Last session: 2026-05-25
-Stopped at: Adopter-first assessment complete; vM012 phase ordering decided (see Decisions above)
-Next step: `/gsd:new-milestone` — milestone name: "Public Release & MCP Write Surface"; start at Phase 18
+Stopped at: Roadmap created for vM012 (Phases 18–21); 14/14 requirements mapped; files written
+Next step: `/gsd:plan-phase 18` — Phase 18: Release Gate & Hex.pm Publish
