@@ -39,6 +39,31 @@ Last activity: 2026-05-25
 - Telemetry must use enum-only labels; no actor_id/conversation_id/payload in metric event names.
 - All approval-surface prose must read from snapshotted columns on `cairnloop_tool_proposals` — never call live `Preview.render` from approval or execution context.
 
+### Hygiene Gate — Before vM012 Execution (⚠️ June 2, 2026 deadline for Node.js item)
+
+Before the first `/gsd:execute-phase` of vM012, complete all of the following in order:
+1. Run `mix format` — commit any diffs as `chore: fix formatting violations`
+2. Update `.github/workflows/ci.yml` — pin `actions/checkout` and `actions/cache` to Node.js 24-compatible versions or add `env: ACTIONS_RUNNER_NODE_VERSION: '24'` (**hard deadline: June 2, 2026** — GitHub forces Node.js 24 default then)
+3. `git push origin main` — push all local commits (currently 57 ahead as of 2026-05-25)
+4. Verify CI green on `origin/main` (both `integration` and `phase-12-shift-left` jobs pass)
+5. Optional: archive legacy `.planning/phases/` dirs (`1`, `2`, `3`, `10-citation-backed-draft-suggestions`, `12-in-thread-quick-fix-ops-closure`) into `.planning/milestones/`
+
+Only proceed to vM012 phase execution once CI is green on origin/main.
+
+### Release Gate — vM012 Close
+
+Before opening vM013 or declaring vM012 complete, run the following release gate:
+1. `git push origin main` — confirm 0 commits ahead of origin
+2. CI green on `origin/main` — both `integration` and `phase-12-shift-left` jobs pass
+3. `CHANGELOG.md` exists and covers vM009–vM012 with dates and feature summaries
+4. `v0.1.0` semver tag created and pushed (first public release tag; current milestone tags are planning markers only)
+5. `mix hex.publish` dry-run succeeds (package name available, metadata complete, docs build)
+
+If all 5 pass → proceed to first Hex.pm publish as a vM012 milestone-close artifact.
+If any fail → add a release-prep phase to vM013 roadmap before execution begins.
+
+Package status as of 2026-05-25: **unpublished** (hex.pm returns 404 for `cairnloop`).
+
 ### Pending Todos
 
 - Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear.
