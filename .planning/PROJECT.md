@@ -6,6 +6,16 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
+## Current Milestone: vM012 Public Release & MCP Write Surface
+
+**Goal:** Ship Cairnloop's first public Hex.pm release, close the adopter demo gap with a runnable example app, then extend the proven governed-tool contract with MCP write surfaces and OAuth.
+
+**Target features:**
+- Release gate + Hex.pm publish — CI-clean v0.1.0 tag, CHANGELOG, and first hex.pm publish (⚠️ hard June 2, 2026 CI deadline)
+- Example Phoenix app — Runnable `mix setup` → seed → draft/approval/KB flow demo (biggest adopter gap)
+- MCP OAuth seam (MCP-02) — Remote OAuth over MCP, host-controlled token delegation
+- MCP write tools (MCP-03 / ACT-02) — Write-capable MCP tools with full governed-action approval flow
+
 ## Current State
 
 **Latest shipped milestone:** `vM011 AI Tool Governance & MCP Integration` on 2026-05-25.
@@ -24,9 +34,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - First narrow approved write path is proven: `ToolExecutionWorker` (sole `run/3` caller) with three-layer at-most-once idempotency and bounded `[:cairnloop, :governance, ...]` telemetry.
 - An optional OpenInference-conformant evidence lane and read-only MCP seam (`tools/list` + `initialize`) exist as additive adapters; core approval and execution truth is unchanged.
 
-**Next milestone:** To be defined via `/gsd:new-milestone`.
+**Current milestone:** vM012 — "Public Release & MCP Write Surface" — started 2026-05-25.
 
-**Why now:** The governed-action contract, durable approval workflow, and MCP seam are all proven. Next opportunities: broader tool types, remote MCP write surfaces with OAuth, multi-step runbook orchestration, or deeper observability/eval instrumentation.
+**Why now:** The governed-action contract, durable approval workflow, and MCP seam are all proven. Adopter-first assessment (2026-05-25) identified two critical gaps: no runnable example app, and the package is unpublished (hex.pm 404). vM012 closes both, then adds MCP write surfaces (the one meaningful new feature wedge). After that: diminishing returns — assess real adoption signals before expanding further.
 
 ## Requirements
 
@@ -47,8 +57,20 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ First narrow approved write path with three-layer at-most-once idempotency and bounded telemetry — vM011 (ACT-01, OBS-01, OBS-02)
 - ✓ Optional read-only MCP seam over governed-tool contract — vM011 (MCP-01)
 
-### Active
-_(To be defined for next milestone via `/gsd:new-milestone`)_
+### Active (vM012)
+- [ ] **REL-01** — CI green on main (integration + standard jobs)
+- [ ] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
+- [ ] **REL-03** — v0.1.0 semver tag created and pushed
+- [ ] **REL-04** — Package metadata complete (description, links, licenses, maintainers)
+- [ ] **REL-05** — Package published to hex.pm (cairnloop available at hex.pm/packages/cairnloop)
+- [ ] **REL-06** — ExDoc API docs generated and published to hexdocs.pm
+- [ ] **DEMO-01** — Runnable example Phoenix app with `mix setup` + seed script
+- [ ] **DEMO-02** — Example app demonstrates draft/approval/KB flow end-to-end
+- [ ] **DEMO-03** — Example app README documents configuration and integration
+- [ ] **DEMO-04** — Example app references library via published hex dependency
+- [ ] **MCP-02** — MCP server supports OAuth 2.0 authorization code flow, host-controlled token delegation
+- [ ] **MCP-03** — OAuth token lifecycle (issue, validate, revoke) durable and Ecto-backed; unauthorized requests return 401/403
+- [ ] **ACT-02** — MCP clients can invoke write-capable governed tools via MCP; invocations flow through full governed-action approval pipeline
 
 ### Out of Scope
 - Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven. _(MCP-02 now a candidate for next milestone — internal contract is proven.)_
@@ -141,4 +163,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-25 after vM011 milestone completion*
+*Last updated: 2026-05-25 — vM012 milestone started*
