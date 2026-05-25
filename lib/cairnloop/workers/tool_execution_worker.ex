@@ -79,7 +79,22 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     if proposal.result_state == :succeeded do
       :ok
     else
-      revalidate_and_execute(approval, proposal, attempt, max_attempts)
+      # WR-02: lazy expires_at guard (belt-and-suspenders, mirrors ApprovalResumeWorker).
+      # A lane can sit in :execution_pending through queue backlog or retry backoff.
+      # If the TTL has elapsed while waiting, record a terminal :invalidated outcome
+      # and cancel the job — never execute a stale approval (D15-12 extended to Phase 16).
+      if approval.expires_at && DateTime.before?(approval.expires_at, DateTime.utc_now()) do
+        humanized = "Approval expired before execution could begin."
+        # WR-04: check transaction result — only cancel if the durable write committed.
+        case record_terminal_failure(approval, proposal, :invalidated, humanized) do
+          {:ok, :ok} -> {:cancel, humanized}
+          {:error, _} ->
+            Logger.error("expires_at guard co-commit failed for approval #{approval.id}")
+            {:error, :persist_failed}
+        end
+      else
+        revalidate_and_execute(approval, proposal, attempt, max_attempts)
+      end
     end
   end
 
@@ -93,10 +108,15 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         execute_tool(approval, proposal, context, attempt, max_attempts)
 
       {:blocked, _outcome, reason} ->
-        # Re-validation failed — fail closed, write nothing (T-16-02, APRV-03)
+        # Re-validation failed — fail closed (T-16-02, APRV-03).
+        # WR-04: {:cancel, ...} only if the durable write committed; {:error, ...} otherwise.
         humanized = humanize_reason(reason)
-        record_terminal_failure(approval, proposal, :invalidated, humanized)
-        {:cancel, humanized}
+        case record_terminal_failure(approval, proposal, :invalidated, humanized) do
+          {:ok, :ok} -> {:cancel, humanized}
+          {:error, _} ->
+            Logger.error("record_terminal_failure (invalidated) co-commit failed for approval #{approval.id}")
+            {:error, :persist_failed}
+        end
     end
   end
 
@@ -106,8 +126,13 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     case Cairnloop.ToolRegistry.find_tool_module(tool_ref) do
       {:error, :unknown_tool} ->
         humanized = "Tool #{tool_ref} is no longer registered"
-        record_terminal_failure(approval, proposal, :execution_failed, humanized)
-        {:cancel, humanized}
+        # WR-04: {:cancel, ...} only if the durable write committed; {:error, ...} otherwise.
+        case record_terminal_failure(approval, proposal, :execution_failed, humanized) do
+          {:ok, :ok} -> {:cancel, humanized}
+          {:error, _} ->
+            Logger.error("record_terminal_failure (unknown_tool) co-commit failed for approval #{approval.id}")
+            {:error, :persist_failed}
+        end
 
       {:ok, tool_module} ->
         # Build the tool struct from input_snapshot (cast via the tool's own changeset)
@@ -164,24 +189,44 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       metadata: %{attempt: new_attempt}
     }
 
-    with {:ok, _updated_approval} <- repo().update(approval_cs),
-         {:ok, _updated_proposal} <- repo().update(proposal_cs),
-         {:ok, _event} <-
-           %ToolActionEvent{}
-           |> ToolActionEvent.changeset(event_attrs)
-           |> repo().insert() do
-      # Telemetry AFTER the with pipeline — never inside (D-29)
-      GovTelemetry.emit(:action_executed, %{count: 1, duration_ms: duration_ms}, %{
-        risk_tier: proposal.risk_tier,
-        approval_mode: proposal.approval_mode,
-        result_state: :succeeded,
-        tool_ref: tool_ref
-      })
+    # WR-03: wrap all three writes in a transaction so the outcome is all-or-nothing.
+    # The host side effect (run/3) is already idempotency-keyed, so rollback + retry is safe.
+    # WR-04: return value depends on whether the transaction committed. On failure, return
+    # {:error, ...} so Oban retries — never {:cancel} after a failed durable write.
+    tx_result =
+      repo().transaction(fn ->
+        with {:ok, _updated_approval} <- repo().update(approval_cs),
+             {:ok, _updated_proposal} <- repo().update(proposal_cs),
+             {:ok, _event} <-
+               %ToolActionEvent{}
+               |> ToolActionEvent.changeset(event_attrs)
+               |> repo().insert() do
+          :ok
+        else
+          {:error, reason} -> repo().rollback(reason)
+        end
+      end)
 
-      # PubSub broadcast — after co-commit; failures are non-fatal (D16-11)
-      broadcast_executed(approval.id, proposal)
+    case tx_result do
+      {:ok, :ok} ->
+        # Telemetry AFTER committed transaction — never inside (D-29)
+        GovTelemetry.emit(:action_executed, %{count: 1, duration_ms: duration_ms}, %{
+          risk_tier: proposal.risk_tier,
+          approval_mode: proposal.approval_mode,
+          result_state: :succeeded,
+          tool_ref: tool_ref
+        })
 
-      :ok
+        # PubSub broadcast — after committed co-commit; failures are non-fatal (D16-11)
+        broadcast_executed(approval.id, proposal)
+
+        :ok
+
+      {:error, reason} ->
+        # Durable write failed — return {:error, ...} so Oban retries rather than
+        # cancelling. The run/3 side effect is idempotency-guarded, so retry is safe.
+        Logger.error("record_success co-commit failed: #{inspect(reason)}")
+        {:error, :persist_failed}
     end
   end
 
@@ -194,7 +239,10 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     new_attempt = attempt + 1
 
     if attempt >= max_attempts do
-      # Exhausted — record terminal failure
+      # Exhausted — record terminal failure.
+      # WR-03: wrap in transaction for all-or-nothing atomicity.
+      # WR-04: only {:cancel, ...} when the durable write committed; {:error, ...} on failure
+      # so Oban retries rather than silently discarding a job with no persisted terminal state.
       proposal_cs = Ecto.Changeset.change(proposal, %{result_state: :failed, attempt: new_attempt})
 
       event_attrs = %{
@@ -212,26 +260,43 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
           approval, :execution_failed, "execution_failed", humanized, "system", DateTime.utc_now()
         )
 
-      with {:ok, _} <- repo().update(approval_cs),
-           {:ok, _} <- repo().update(proposal_cs),
-           {:ok, _} <-
-             %ToolActionEvent{}
-             |> ToolActionEvent.changeset(event_attrs)
-             |> repo().insert() do
-        GovTelemetry.emit(:action_failed, %{count: 1}, %{
-          risk_tier: proposal.risk_tier,
-          approval_mode: proposal.approval_mode,
-          result_state: :failed,
-          tool_ref: tool_ref
-        })
+      tx_result =
+        repo().transaction(fn ->
+          with {:ok, _} <- repo().update(approval_cs),
+               {:ok, _} <- repo().update(proposal_cs),
+               {:ok, _} <-
+                 %ToolActionEvent{}
+                 |> ToolActionEvent.changeset(event_attrs)
+                 |> repo().insert() do
+            :ok
+          else
+            {:error, r} -> repo().rollback(r)
+          end
+        end)
 
-        # PubSub broadcast — terminal failure; LiveView reloads to reflect :execution_failed (D16-11)
-        broadcast_execution_failed(approval.id, proposal)
+      case tx_result do
+        {:ok, :ok} ->
+          # Telemetry and broadcast ONLY after committed transaction (D-29, D16-11)
+          GovTelemetry.emit(:action_failed, %{count: 1}, %{
+            risk_tier: proposal.risk_tier,
+            approval_mode: proposal.approval_mode,
+            result_state: :failed,
+            tool_ref: tool_ref
+          })
+
+          broadcast_execution_failed(approval.id, proposal)
+          {:cancel, humanized}
+
+        {:error, persist_reason} ->
+          # Durable write failed — retry rather than discard the job with no terminal state.
+          Logger.error("handle_transient_failure terminal co-commit failed: #{inspect(persist_reason)}")
+          {:error, :persist_failed}
       end
-
-      {:cancel, humanized}
     else
-      # Transient — record attempt_failed event + increment attempt, return {:error, _} for Oban retry
+      # Transient — record attempt_failed event + increment attempt, return {:error, _} for Oban retry.
+      # WR-03: wrap in transaction.
+      # WR-04: if the attempt-increment co-commit fails, still return {:error, ...} for retry,
+      # but log the failure so the operator can diagnose (proposal.attempt may not advance).
       proposal_cs = Ecto.Changeset.change(proposal, %{attempt: new_attempt})
 
       event_attrs = %{
@@ -244,14 +309,26 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         metadata: %{attempt: new_attempt}
       }
 
-      with {:ok, _} <- repo().update(proposal_cs),
-           {:ok, _} <-
-             %ToolActionEvent{}
-             |> ToolActionEvent.changeset(event_attrs)
-             |> repo().insert() do
-        :ok
+      tx_result =
+        repo().transaction(fn ->
+          with {:ok, _} <- repo().update(proposal_cs),
+               {:ok, _} <-
+                 %ToolActionEvent{}
+                 |> ToolActionEvent.changeset(event_attrs)
+                 |> repo().insert() do
+            :ok
+          else
+            {:error, r} -> repo().rollback(r)
+          end
+        end)
+
+      case tx_result do
+        {:ok, :ok} -> :ok
+        {:error, persist_reason} ->
+          Logger.warning("handle_transient_failure attempt co-commit failed: #{inspect(persist_reason)}")
       end
 
+      # Always return {:error, humanized} so Oban retries the job.
       {:error, humanized}
     end
   end
@@ -260,6 +337,11 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # Co-commit: terminal failure (re-validation fail or permanent error)
   # ---------------------------------------------------------------------------
 
+  # WR-03: wrapped in repo().transaction/1 for all-or-nothing atomicity.
+  # Returns {:ok, :ok} on success or {:error, reason} on failure.
+  # Callers (revalidate_and_execute, execute_tool) check the result:
+  # - {:ok, :ok} → {:cancel, humanized} (terminal write committed, Oban discards job)
+  # - {:error, _} → {:error, :persist_failed} (write failed, Oban retries)
   defp record_terminal_failure(approval, proposal, new_status, humanized) do
     approval_cs =
       ToolApproval.decision_changeset(
@@ -278,13 +360,17 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       metadata: %{}
     }
 
-    with {:ok, _} <- repo().update(approval_cs),
-         {:ok, _} <-
-           %ToolActionEvent{}
-           |> ToolActionEvent.changeset(event_attrs)
-           |> repo().insert() do
-      :ok
-    end
+    repo().transaction(fn ->
+      with {:ok, _} <- repo().update(approval_cs),
+           {:ok, _} <-
+             %ToolActionEvent{}
+             |> ToolActionEvent.changeset(event_attrs)
+             |> repo().insert() do
+        :ok
+      else
+        {:error, r} -> repo().rollback(r)
+      end
+    end)
   end
 
   # ---------------------------------------------------------------------------
@@ -328,21 +414,43 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # Humanize result for result_summary (never raw terms to operators)
   # ---------------------------------------------------------------------------
 
+  # WR-05: never interpolate arbitrary values — Protocol.UndefinedError on non-String.Chars terms
+  # would crash inside the success co-commit after the host write has already been made.
+  # Restrict to known scalar shapes; fall back to "Completed." for anything else.
+  # Never let humanize_result raise (brand §5.6: humanized strings only to operators).
   defp humanize_result(outcome) do
     case outcome do
       %{message_id: id} when not is_nil(id) -> "Note written (id: #{id})."
       %{idempotent: true} -> "Note already written (idempotent replay)."
       map when is_map(map) ->
-        map
-        |> Enum.map(fn {k, v} -> "#{k}: #{v}" end)
-        |> Enum.join(", ")
-        |> case do
-          "" -> "Completed."
-          str -> str
+        # Only serialize scalar values to prevent Protocol.UndefinedError on nested
+        # structures, lists, or any value that does not implement String.Chars.
+        parts =
+          map
+          |> Enum.flat_map(fn {k, v} ->
+            case safe_scalar_to_string(v) do
+              {:ok, str} -> ["#{k}: #{str}"]
+              :skip -> []
+            end
+          end)
+
+        case parts do
+          [] -> "Completed."
+          _ -> Enum.join(parts, ", ")
         end
+
       _ -> "Completed."
     end
   end
+
+  # Returns {:ok, string} for safe scalar values, :skip for anything that could
+  # raise Protocol.UndefinedError or produce raw Elixir syntax in operator copy.
+  defp safe_scalar_to_string(v) when is_binary(v), do: {:ok, v}
+  defp safe_scalar_to_string(v) when is_integer(v), do: {:ok, Integer.to_string(v)}
+  defp safe_scalar_to_string(v) when is_float(v), do: {:ok, Float.to_string(v)}
+  defp safe_scalar_to_string(v) when is_boolean(v), do: {:ok, to_string(v)}
+  defp safe_scalar_to_string(v) when is_atom(v) and not is_nil(v), do: {:ok, Atom.to_string(v)}
+  defp safe_scalar_to_string(_), do: :skip
 
   # ---------------------------------------------------------------------------
   # derive_run_key/1 — D16-05 layer 3: per-attempt deterministic idempotency key.
@@ -393,6 +501,10 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # PubSub broadcast — non-fatal; failures must not block the co-commit result
   # ---------------------------------------------------------------------------
 
+  # IN-02: skip broadcast when conversation_id is nil — broadcasting to "conversation:"
+  # (nil interpolated) reaches no subscriber and indicates a misconfigured proposal.
+  defp broadcast_executed(_approval_id, %{conversation_id: nil}), do: :ok
+
   defp broadcast_executed(approval_id, proposal) do
     topic = "conversation:#{proposal.conversation_id}"
 
@@ -402,6 +514,8 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       _ -> :ok
     end
   end
+
+  defp broadcast_execution_failed(_approval_id, %{conversation_id: nil}), do: :ok
 
   defp broadcast_execution_failed(approval_id, proposal) do
     topic = "conversation:#{proposal.conversation_id}"
