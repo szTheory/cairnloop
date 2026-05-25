@@ -914,7 +914,7 @@ All other claims in this document are `[VERIFIED]` against the live codebase or 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Queue name for `ToolExecutionWorker`**
    - What we know: existing workers use `queue: :default`; the CONTEXT.md notes queue name is
