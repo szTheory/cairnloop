@@ -157,10 +157,12 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
     do: "Approval invalidated — policy or scope changed since approval."
 
   # Phase 16 execution terminal clauses — MUST precede catch-all (D16-11, Pitfall 6)
-  # Reads result_summary/reason via dual-key lookup (atom then string) for JSONB survival (D16-11).
+  # Reads reason via dual-key lookup (atom then string) for JSONB survival (D16-11).
+  # The worker stores the humanized result_summary in approval.reason via decision_changeset/6
+  # (tool_execution_worker.ex record_success: decision_changeset(approval, :executed, "executed", result_summary, ...)).
   # Never surfaces raw Elixir terms — humanized strings only (T-16-10, brand §5.6).
   def approval_outlook_for_approval(%{status: :executed} = approval) do
-    summary = Map.get(approval, :result_summary) || Map.get(approval, "result_summary")
+    summary = Map.get(approval, :reason) || Map.get(approval, "reason")
     "Action completed: #{summary || "Done."}"
   end
 
