@@ -66,6 +66,9 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   def status_group(:deferred), do: :done
   def status_group(:expired), do: :done
   def status_group(:invalidated), do: :done
+  # Phase 16 execution terminal statuses — MUST precede catch-all (Pitfall 6, D16-11)
+  def status_group(:executed), do: :done
+  def status_group(:execution_failed), do: :done
   def status_group(_), do: :blocked
 
   @doc "Human label for the status group."
@@ -152,6 +155,19 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
 
   def approval_outlook_for_approval(%{status: :invalidated}),
     do: "Approval invalidated — policy or scope changed since approval."
+
+  # Phase 16 execution terminal clauses — MUST precede catch-all (D16-11, Pitfall 6)
+  # Reads result_summary/reason via dual-key lookup (atom then string) for JSONB survival (D16-11).
+  # Never surfaces raw Elixir terms — humanized strings only (T-16-10, brand §5.6).
+  def approval_outlook_for_approval(%{status: :executed} = approval) do
+    summary = Map.get(approval, :result_summary) || Map.get(approval, "result_summary")
+    "Action completed: #{summary || "Done."}"
+  end
+
+  def approval_outlook_for_approval(%{status: :execution_failed} = approval) do
+    reason = Map.get(approval, :reason) || Map.get(approval, "reason")
+    "Action failed: #{reason || "An error occurred."}"
+  end
 
   def approval_outlook_for_approval(_), do: nil
 
@@ -342,6 +358,23 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
 
   def history_line(%ToolActionEvent{event_type: :resume_scheduled}) do
     "Resume scheduled."
+  end
+
+  # Phase 16 execution event clauses — MUST precede catch-all (D16-11, D-24, Pitfall 6)
+  # Reads attempt from STRING key "attempt" (JSONB round-trip: atom keys become strings after SELECT).
+  # Never surfaces raw Elixir terms — humanized strings only (T-16-10, brand §5.6).
+  def history_line(%ToolActionEvent{event_type: :execution_succeeded, metadata: meta}) do
+    attempt = Map.get(meta || %{}, "attempt", 1)
+    "Action completed (attempt #{attempt})."
+  end
+
+  def history_line(%ToolActionEvent{event_type: :execution_attempt_failed, reason: reason, metadata: meta}) do
+    attempt = Map.get(meta || %{}, "attempt", 1)
+    "Attempt #{attempt} failed: #{reason || "Transient error — will retry."}"
+  end
+
+  def history_line(%ToolActionEvent{event_type: :execution_failed, reason: reason}) do
+    "Action failed permanently: #{reason || "All retry attempts exhausted."}"
   end
 
   # D-24 catch-all: unknown event types must not crash; future event types get a neutral label
