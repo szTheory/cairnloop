@@ -26,6 +26,18 @@ defmodule Cairnloop.Web.ConversationLive do
     {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
   end
 
+  # Phase 16: execution-outcome PubSub handlers (D16-11, D16-12).
+  # Mirror {:draft_created, _} exactly — plain-assign reload via reload_conversation_with_context/2.
+  # No Phoenix.LiveView.stream (D16-12); no manual retry (D16-07 — retries are automatic).
+  # PubSub topic is "conversation:#{id}" (broadcast by ToolExecutionWorker after co-commit).
+  def handle_info({:tool_executed, _approval_id}, socket) do
+    {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
+  end
+
+  def handle_info({:tool_execution_failed, _approval_id}, socket) do
+    {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
+  end
+
   def handle_event("reply", %{"content" => content}, socket) do
     if content != "" do
       case Chat.reply_to_conversation(socket.assigns.conversation.id, content) do
