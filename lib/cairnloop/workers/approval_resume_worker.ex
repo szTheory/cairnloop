@@ -38,6 +38,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
   require Logger
 
   alias Cairnloop.Governance.{ToolApproval, ToolProposal, ToolActionEvent}
+  alias Cairnloop.Governance.Telemetry.Traces
   alias Cairnloop.Workers.ToolExecutionWorker
 
   defp repo do
@@ -176,6 +177,14 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
         %{count: 1},
         %{event_type: event_type, new_status: new_status}
       )
+
+      # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+      Traces.emit(event_type, %{
+        tool_proposal_id: approval.tool_proposal_id,
+        actor_id: actor_id,
+        decided_by: Map.get(updated, :decided_by),
+        attempt: nil
+      })
 
       {:ok, updated}
     end

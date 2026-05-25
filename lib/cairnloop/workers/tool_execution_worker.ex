@@ -44,6 +44,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
 
   alias Cairnloop.Governance.{ToolActionEvent, ToolApproval, ToolProposal}
   alias Cairnloop.Governance.Telemetry, as: GovTelemetry
+  alias Cairnloop.Governance.Telemetry.Traces
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
@@ -217,6 +218,9 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
           tool_ref: tool_ref
         })
 
+        # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+        Traces.emit(:execution_succeeded, %{tool_proposal_id: proposal.id, actor_id: proposal.actor_id, decided_by: approval.decided_by, attempt: new_attempt})
+
         # PubSub broadcast — after committed co-commit; failures are non-fatal (D16-11)
         broadcast_executed(approval.id, proposal)
 
@@ -283,6 +287,9 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
             result_state: :failed,
             tool_ref: tool_ref
           })
+
+          # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+          Traces.emit(:execution_failed, %{tool_proposal_id: proposal.id, actor_id: proposal.actor_id, decided_by: approval.decided_by, attempt: new_attempt})
 
           broadcast_execution_failed(approval.id, proposal)
           {:cancel, humanized}

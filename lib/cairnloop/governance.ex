@@ -60,6 +60,7 @@ defmodule Cairnloop.Governance do
   import Ecto.Query
 
   alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
+  alias Cairnloop.Governance.Telemetry.Traces
   alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker, ToolExecutionWorker}
 
   # ---------------------------------------------------------------------------
@@ -118,6 +119,14 @@ defmodule Cairnloop.Governance do
         %{count: 1},
         %{event_type: Map.get(event_attrs, :event_type), new_status: updated_approval.status}
       )
+
+      # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+      Traces.emit(Map.get(event_attrs, :event_type), %{
+        tool_proposal_id: approval.tool_proposal_id,
+        actor_id: Map.get(event_attrs, :actor_id),
+        decided_by: Map.get(updated_approval, :decided_by),
+        attempt: nil
+      })
 
       {:ok, updated_approval}
     end
@@ -347,6 +356,9 @@ defmodule Cairnloop.Governance do
         approval_mode: validated.approval_mode
       })
 
+      # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+      Traces.emit(:proposal_created, %{tool_proposal_id: proposal.id, actor_id: actor_id, decided_by: nil, attempt: nil})
+
       {:ok, proposal}
     else
       {:error, %Ecto.Changeset{} = cs} ->
@@ -467,6 +479,9 @@ defmodule Cairnloop.Governance do
         risk_tier: risk_tier,
         approval_mode: approval_mode
       })
+
+      # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
+      Traces.emit(:proposal_blocked, %{tool_proposal_id: proposal.id, actor_id: actor_id, decided_by: nil, attempt: nil})
 
       :ok
     else
@@ -846,6 +861,8 @@ defmodule Cairnloop.Governance do
         # Co-commit event then enqueue (record-before-enqueue ordering)
         with {:ok, updated} <- update_approval_with_event(approval, Ecto.Changeset.change(approval, %{}), event_attrs) do
           enqueue_fn.(ToolExecutionWorker.new(%{"approval_id" => updated.id}))
+          # OI trace event — additive, fire-and-forget, after enqueue (Phase 17)
+          Traces.emit(:execution_started, %{tool_proposal_id: approval.tool_proposal_id, actor_id: "system", decided_by: nil, attempt: nil})
           {:ok, updated}
         end
 
