@@ -4,14 +4,14 @@ milestone: vM012
 milestone_name: Public Release & MCP Write Surface
 status: "Roadmap created; next step is `/gsd:plan-phase 18`"
 stopped_at: Phase 18 context gathered
-last_updated: "2026-05-25T16:26:52.182Z"
+last_updated: "2026-05-25T16:45:56.397Z"
 last_activity: "2026-05-25 — Roadmap created for vM012 (4 phases: 18–21)"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 1
-  percent: 0
+  completed_plans: 3
+  percent: 25
 ---
 
 # Project State
