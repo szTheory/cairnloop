@@ -30,6 +30,21 @@ defmodule Cairnloop.Tools.InternalNote do
   The worker passes `:run_idempotency_key` in the execution `context`. `run/3` does an
   indexed existence check before inserting. If the row already exists, returns
   `{:ok, %{idempotent: true}}` without inserting — safe under Oban job replay (T-16-01).
+
+  ## Atomicity precondition (WR-01)
+
+  The `run_idempotency_key` passed to `run/3` is attempt-scoped: it is derived from the
+  proposal's `idempotency_key` and the current `attempt` number, so a Oban retry gets a
+  **different** key. This design allows a retry to proceed cleanly if a prior attempt left
+  no evidence row.
+
+  **IMPORTANT for host tool authors copying this module:** your `run/3` MUST be a
+  **single atomic write** keyed on `run_key`. If your tool performs multiple writes (e.g.
+  row A then row B), a transient failure between them would be retried with a *new*
+  `run_idempotency_key` — the existence check for the new key finds nothing, and the
+  partial prior write (row A) is not rolled back. This could result in duplicate or
+  inconsistent state. Rule: one `run/3` invocation = one atomic operation (one `INSERT`,
+  one Ecto.Multi inside a single transaction, etc.).
   """
 
   use Cairnloop.Tool,

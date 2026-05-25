@@ -462,6 +462,13 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   #   - Attempt-scoped: a different attempt number produces a different key, so a
   #     prior failed attempt's existence record does not block the retry.
   #   - Fixed cardinality: 64-char hex — safe to index and store.
+  #
+  # ATOMICITY PRECONDITION (WR-01): because the key is attempt-scoped, a retry gets
+  # a DIFFERENT key. This is safe only when a host tool's run/3 is a single atomic
+  # write (one INSERT or one Ecto.Multi in one transaction). A non-atomic run/3 that
+  # partially writes on one attempt and retries under a new key could produce duplicate
+  # or inconsistent rows — the existence check guards the new key, not the prior partial
+  # write. See also: Cairnloop.Tools.InternalNote @moduledoc.
   # ---------------------------------------------------------------------------
 
   defp derive_run_key(proposal) do
