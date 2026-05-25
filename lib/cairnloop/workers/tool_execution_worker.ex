@@ -115,9 +115,10 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         tool_struct = tool_module.changeset(struct(tool_module), tool_params) |> Ecto.Changeset.apply_changes()
 
         # Pass the run-level idempotency key into context (D16-05)
-        # The per-attempt key is derived from the proposal idempotency key.
-        # Plan 02 hardens the derivation; for Plan 01 we use the proposal's key directly.
-        run_context = Map.put(context, :run_idempotency_key, proposal.idempotency_key)
+        # The per-attempt key is derived deterministically from the proposal's idempotency key
+        # and the current attempt number so a retry gets a fresh key that won't collide with
+        # any prior (failed) attempt's key at the tool's existence check.
+        run_context = Map.put(context, :run_idempotency_key, derive_run_key(proposal))
 
         start = System.monotonic_time(:millisecond)
         result = tool_module.run(tool_struct, proposal.actor_id, run_context)
@@ -338,6 +339,23 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         end
       _ -> "Completed."
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # derive_run_key/1 — D16-05 layer 3: per-attempt deterministic idempotency key.
+  #
+  # Composes the proposal's own idempotency key (P13 D-25) with the current attempt
+  # number, then SHA-256 hashes the composite to produce a fixed-length lowercase hex
+  # string. Properties:
+  #   - Deterministic: same (proposal.idempotency_key, proposal.attempt) → same key.
+  #   - Attempt-scoped: a different attempt number produces a different key, so a
+  #     prior failed attempt's existence record does not block the retry.
+  #   - Fixed cardinality: 64-char hex — safe to index and store.
+  # ---------------------------------------------------------------------------
+
+  defp derive_run_key(proposal) do
+    raw = "#{proposal.idempotency_key}::attempt::#{proposal.attempt}"
+    :crypto.hash(:sha256, raw) |> Base.encode16(case: :lower)
   end
 
   # ---------------------------------------------------------------------------
