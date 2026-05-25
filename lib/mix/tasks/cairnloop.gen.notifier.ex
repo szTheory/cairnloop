@@ -30,20 +30,20 @@ defmodule Mix.Tasks.Cairnloop.Gen.Notifier do
     create_file(target_file, notifier_template(assigns))
 
     inject_config(app_module)
-    
+
     Mix.shell().info("""
 
     Done! A new Notifier has been generated at #{target_file}.
 
     Please verify your config/config.exs contains the correct configuration:
-    
+
         config :cairnloop, :notifier, #{app_module}.CairnloopNotifier
     """)
   end
 
   defp inject_config(app_module) do
     config_file = "config/config.exs"
-    
+
     config_snippet = """
 
     # Configure Cairnloop Notifier
@@ -52,15 +52,25 @@ defmodule Mix.Tasks.Cairnloop.Gen.Notifier do
 
     if File.exists?(config_file) do
       content = File.read!(config_file)
-      
+
       unless String.contains?(content, "#{app_module}.CairnloopNotifier") do
         File.write!(config_file, content <> config_snippet)
         Mix.shell().info([:green, "* injecting ", :reset, "config/config.exs"])
       else
-        Mix.shell().info([:yellow, "* skipped ", :reset, "config/config.exs (already configured)"])
+        Mix.shell().info([
+          :yellow,
+          "* skipped ",
+          :reset,
+          "config/config.exs (already configured)"
+        ])
       end
     else
-      Mix.shell().info([:yellow, "* warning ", :reset, "could not find config/config.exs to inject configuration. Please add manually:\n#{config_snippet}"])
+      Mix.shell().info([
+        :yellow,
+        "* warning ",
+        :reset,
+        "could not find config/config.exs to inject configuration. Please add manually:\n#{config_snippet}"
+      ])
     end
   end
 

@@ -110,7 +110,10 @@ defmodule Cairnloop.Governance.Telemetry do
   # Anything not in the registry normalizes to :unknown.
   defp normalize_tool_ref(value) when is_binary(value) do
     configured = Application.get_env(:cairnloop, :tools, []) || []
-    if Enum.any?(configured, fn mod -> Atom.to_string(mod) == value end), do: value, else: :unknown
+
+    if Enum.any?(configured, fn mod -> Atom.to_string(mod) == value end),
+      do: value,
+      else: :unknown
   end
 
   defp normalize_tool_ref(_), do: :unknown

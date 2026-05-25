@@ -530,9 +530,9 @@ defmodule Cairnloop.Web.SearchModalComponent do
   defp maybe_record_search_gap_for_results(socket, results) do
     case search_gap_reason(results) do
       {:empty_recall, :no_canonical_results} ->
-      maybe_record_search_gap(socket, :empty_recall, :no_canonical_results,
-        attempted_evidence: []
-      )
+        maybe_record_search_gap(socket, :empty_recall, :no_canonical_results,
+          attempted_evidence: []
+        )
 
       {:weak_grounding, :assistive_only_results} ->
         maybe_record_search_gap(socket, :weak_grounding, :assistive_only_results,

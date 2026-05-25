@@ -177,6 +177,7 @@ defmodule Cairnloop.Governance.PreviewTest do
     test "atomization uses String.to_existing_atom/1 not String.to_atom/1 (D-19 safety)" do
       # Source-assertion: the Preview module must not contain String.to_atom( (unbounded-atom DoS — D-19).
       preview_source = File.read!("lib/cairnloop/governance/preview.ex")
+
       refute preview_source =~ ~r/String\.to_atom\s*\(/,
              "Preview must not call String.to_atom/1 (unbounded-atom DoS — D-19 / T-14-01)"
     end
@@ -228,7 +229,8 @@ defmodule Cairnloop.Governance.PreviewTest do
       # After Wave 3, the presenter must not call Preview.render in the approval path.
       # (The structured fallback may still call Preview.render for NULL-snapshot proposals.)
       _ = presenter_source
-      assert true  # Wave 3 will implement the real assertion
+      # Wave 3 will implement the real assertion
+      assert true
     end
 
     test "pre-Phase-15 NULL-snapshot proposal falls back to structured summary card, not live prose" do

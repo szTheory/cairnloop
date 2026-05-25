@@ -3,17 +3,20 @@ defmodule Cairnloop.Workers.CheckSLA do
 
   def perform(%Oban.Job{args: %{"conversation_id" => conversation_id, "sla" => sla_map}}) do
     conversation = %{id: conversation_id}
-    
+
     sla = %{
       target_type: Map.get(sla_map, "target_type"),
-      completed_at: case Map.get(sla_map, "completed_at") do
-        nil -> nil
-        iso8601 -> 
-          case DateTime.from_iso8601(iso8601) do
-            {:ok, datetime, _offset} -> datetime
-            _ -> iso8601
-          end
-      end
+      completed_at:
+        case Map.get(sla_map, "completed_at") do
+          nil ->
+            nil
+
+          iso8601 ->
+            case DateTime.from_iso8601(iso8601) do
+              {:ok, datetime, _offset} -> datetime
+              _ -> iso8601
+            end
+        end
     }
 
     case Application.get_env(:cairnloop, :notifier) do
@@ -24,7 +27,13 @@ defmodule Cairnloop.Workers.CheckSLA do
           e ->
             require Logger
             Logger.warning("Notifier #{inspect(notifier)} failed: #{Exception.message(e)}")
-            :telemetry.execute([:cairnloop, :notifier, :failed], %{}, %{error: e, conversation: conversation, sla: sla})
+
+            :telemetry.execute([:cairnloop, :notifier, :failed], %{}, %{
+              error: e,
+              conversation: conversation,
+              sla: sla
+            })
+
             :ok
         end
 
@@ -32,7 +41,7 @@ defmodule Cairnloop.Workers.CheckSLA do
         # Gracefully default to :ok if no notifier is configured
         :ok
     end
-    
+
     :ok
   end
 end

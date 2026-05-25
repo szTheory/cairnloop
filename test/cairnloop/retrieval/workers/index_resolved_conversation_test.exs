@@ -20,7 +20,12 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversationTest do
       %{
         conversation
         | messages: [
-            %Message{id: 10, role: :user, content: "The CSV export is empty.", inserted_at: DateTime.utc_now()},
+            %Message{
+              id: 10,
+              role: :user,
+              content: "The CSV export is empty.",
+              inserted_at: DateTime.utc_now()
+            },
             %Message{
               id: 11,
               role: :agent,
@@ -71,8 +76,13 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversationTest do
     System.delete_env("OPENAI_API_KEY")
 
     on_exit(fn ->
-      if original_repo, do: Application.put_env(:cairnloop, :repo, original_repo), else: Application.delete_env(:cairnloop, :repo)
-      if original_api_key, do: System.put_env("OPENAI_API_KEY", original_api_key), else: System.delete_env("OPENAI_API_KEY")
+      if original_repo,
+        do: Application.put_env(:cairnloop, :repo, original_repo),
+        else: Application.delete_env(:cairnloop, :repo)
+
+      if original_api_key,
+        do: System.put_env("OPENAI_API_KEY", original_api_key),
+        else: System.delete_env("OPENAI_API_KEY")
     end)
 
     :ok

@@ -3,12 +3,12 @@ defmodule Cairnloop.KnowledgeBase.Revision do
   import Ecto.Changeset
 
   schema "cairnloop_revisions" do
-    field :content, :string
-    field :version, :integer, default: 1
-    field :state, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
+    field(:content, :string)
+    field(:version, :integer, default: 1)
+    field(:state, Ecto.Enum, values: [:draft, :published, :archived], default: :draft)
 
-    belongs_to :article, Cairnloop.KnowledgeBase.Article
-    has_many :chunks, Cairnloop.KnowledgeBase.Chunk
+    belongs_to(:article, Cairnloop.KnowledgeBase.Article)
+    has_many(:chunks, Cairnloop.KnowledgeBase.Chunk)
 
     timestamps()
   end

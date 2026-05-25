@@ -7,10 +7,10 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidateMembership do
   @source_type_values [:retrieval_gap_event, :manual_handling_case]
 
   schema "cairnloop_gap_candidate_memberships" do
-    field :source_type, Ecto.Enum, values: @source_type_values
-    field :source_id, :integer
+    field(:source_type, Ecto.Enum, values: @source_type_values)
+    field(:source_id, :integer)
 
-    belongs_to :gap_candidate, GapCandidate
+    belongs_to(:gap_candidate, GapCandidate)
 
     timestamps(type: :utc_datetime_usec, updated_at: false)
   end

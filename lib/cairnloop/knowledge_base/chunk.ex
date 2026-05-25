@@ -3,12 +3,12 @@ defmodule Cairnloop.KnowledgeBase.Chunk do
   import Ecto.Changeset
 
   schema "cairnloop_chunks" do
-    field :chunk_index, :integer
-    field :heading, :string
-    field :content, :string
-    field :embedding, Pgvector.Ecto.Vector
+    field(:chunk_index, :integer)
+    field(:heading, :string)
+    field(:content, :string)
+    field(:embedding, Pgvector.Ecto.Vector)
 
-    belongs_to :revision, Cairnloop.KnowledgeBase.Revision
+    belongs_to(:revision, Cairnloop.KnowledgeBase.Revision)
 
     timestamps()
   end

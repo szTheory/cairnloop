@@ -29,11 +29,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
           {:noreply, push_navigate(socket, to: "/knowledge-base/suggestions?task=#{task.id}")}
         else
           _ ->
-            {:noreply, put_flash(socket, :error, "Unable to open the shared review task right now.")}
+            {:noreply,
+             put_flash(socket, :error, "Unable to open the shared review task right now.")}
         end
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Unable to create the revision suggestion right now.")}
+        {:noreply,
+         put_flash(socket, :error, "Unable to create the revision suggestion right now.")}
     end
   end
 

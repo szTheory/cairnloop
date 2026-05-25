@@ -59,7 +59,15 @@ defmodule Cairnloop.Governance do
   require Logger
   import Ecto.Query
 
-  alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
+  alias Cairnloop.Governance.{
+    Policy,
+    Preview,
+    Telemetry,
+    ToolActionEvent,
+    ToolApproval,
+    ToolProposal
+  }
+
   alias Cairnloop.Governance.Telemetry.Traces
   alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker, ToolExecutionWorker}
 
@@ -282,7 +290,9 @@ defmodule Cairnloop.Governance do
   end
 
   defp propose_valid(tool_ref, actor_id, context, validated) do
-    idempotency_key = derive_idempotency_key(tool_ref, actor_id, context, validated.input_snapshot)
+    idempotency_key =
+      derive_idempotency_key(tool_ref, actor_id, context, validated.input_snapshot)
+
     account_id = Map.get(context, :account_id)
     conversation_id = Map.get(context, :conversation_id)
 
@@ -295,11 +305,25 @@ defmodule Cairnloop.Governance do
         {:ok, existing}
 
       nil ->
-        insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated, conversation_id)
+        insert_new_proposal(
+          tool_ref,
+          account_id,
+          idempotency_key,
+          actor_id,
+          validated,
+          conversation_id
+        )
     end
   end
 
-  defp insert_new_proposal(tool_ref, account_id, idempotency_key, actor_id, validated, conversation_id) do
+  defp insert_new_proposal(
+         tool_ref,
+         account_id,
+         idempotency_key,
+         actor_id,
+         validated,
+         conversation_id
+       ) do
     # D15-14: snapshot rendered_consequence + title at propose time so approval surfaces
     # NEVER call live Preview.render/1. Build a lightweight ToolProposal struct with only
     # the fields Preview.render/1 needs (tool_ref, input_snapshot, scope_snapshot, policy_snapshot).
@@ -357,7 +381,12 @@ defmodule Cairnloop.Governance do
       })
 
       # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
-      Traces.emit(:proposal_created, %{tool_proposal_id: proposal.id, actor_id: actor_id, decided_by: nil, attempt: nil})
+      Traces.emit(:proposal_created, %{
+        tool_proposal_id: proposal.id,
+        actor_id: actor_id,
+        decided_by: nil,
+        attempt: nil
+      })
 
       {:ok, proposal}
     else
@@ -388,6 +417,7 @@ defmodule Cairnloop.Governance do
     # Derive input_snapshot identically to propose_valid/4: run the tool changeset
     # and call apply_changes so atom/string key shape is normalized (WR-01).
     raw_params = Map.get(context, :tool_params, %{})
+
     input_snapshot =
       tool_module
       |> struct()
@@ -405,15 +435,31 @@ defmodule Cairnloop.Governance do
 
       nil ->
         insert_blocked_proposal(
-          tool_ref, account_id, idempotency_key, actor_id, context,
-          outcome, reason, risk_tier, approval_mode, input_snapshot
+          tool_ref,
+          account_id,
+          idempotency_key,
+          actor_id,
+          context,
+          outcome,
+          reason,
+          risk_tier,
+          approval_mode,
+          input_snapshot
         )
     end
   end
 
   defp insert_blocked_proposal(
-         tool_ref, account_id, idempotency_key, actor_id, context,
-         outcome, reason, risk_tier, approval_mode, input_snapshot
+         tool_ref,
+         account_id,
+         idempotency_key,
+         actor_id,
+         context,
+         outcome,
+         reason,
+         risk_tier,
+         approval_mode,
+         input_snapshot
        ) do
     # D15-15 / WR-01: humanize the reason — never inspect(reason) which leaks raw
     # #Ecto.Changeset< strings into durable operator-visible columns.
@@ -481,7 +527,12 @@ defmodule Cairnloop.Governance do
       })
 
       # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
-      Traces.emit(:proposal_blocked, %{tool_proposal_id: proposal.id, actor_id: actor_id, decided_by: nil, attempt: nil})
+      Traces.emit(:proposal_blocked, %{
+        tool_proposal_id: proposal.id,
+        actor_id: actor_id,
+        decided_by: nil,
+        attempt: nil
+      })
 
       :ok
     else
@@ -500,6 +551,7 @@ defmodule Cairnloop.Governance do
     Enum.any?(changeset.errors, fn
       {^field, {_msg, opts}} when is_list(opts) ->
         Keyword.get(opts, :constraint) == :unique
+
       _ ->
         false
     end)
@@ -616,7 +668,9 @@ defmodule Cairnloop.Governance do
              event_attrs
            ) do
       # Pattern 4: schedule expiry worker AFTER transaction commits, NOT inside the with.
-      enqueue_fn.(ApprovalExpiryWorker.new(%{"approval_id" => approval.id}, scheduled_at: expires_at))
+      enqueue_fn.(
+        ApprovalExpiryWorker.new(%{"approval_id" => approval.id}, scheduled_at: expires_at)
+      )
 
       {:ok, approval}
     end
@@ -649,7 +703,12 @@ defmodule Cairnloop.Governance do
       %ToolApproval{status: :pending} = approval ->
         changeset =
           ToolApproval.decision_changeset(
-            approval, :approved, "approved", reason, actor_id, DateTime.utc_now()
+            approval,
+            :approved,
+            "approved",
+            reason,
+            actor_id,
+            DateTime.utc_now()
           )
 
         event_attrs = %{
@@ -702,7 +761,12 @@ defmodule Cairnloop.Governance do
       %ToolApproval{status: :pending} = approval ->
         changeset =
           ToolApproval.decision_changeset(
-            approval, :rejected, "rejected", reason, actor_id, DateTime.utc_now()
+            approval,
+            :rejected,
+            "rejected",
+            reason,
+            actor_id,
+            DateTime.utc_now()
           )
 
         if changeset.valid? do
@@ -753,7 +817,12 @@ defmodule Cairnloop.Governance do
       %ToolApproval{status: :pending} = approval ->
         changeset =
           ToolApproval.decision_changeset(
-            approval, :deferred, "deferred", reason, actor_id, DateTime.utc_now()
+            approval,
+            :deferred,
+            "deferred",
+            reason,
+            actor_id,
+            DateTime.utc_now()
           )
 
         if changeset.valid? do
@@ -802,7 +871,12 @@ defmodule Cairnloop.Governance do
       %ToolApproval{status: :pending} = approval ->
         changeset =
           ToolApproval.decision_changeset(
-            approval, :expired, "expired", nil, actor_id, DateTime.utc_now()
+            approval,
+            :expired,
+            "expired",
+            nil,
+            actor_id,
+            DateTime.utc_now()
           )
 
         event_attrs = %{
@@ -859,10 +933,21 @@ defmodule Cairnloop.Governance do
         }
 
         # Co-commit event then enqueue (record-before-enqueue ordering)
-        with {:ok, updated} <- update_approval_with_event(approval, Ecto.Changeset.change(approval, %{}), event_attrs) do
+        with {:ok, updated} <-
+               update_approval_with_event(
+                 approval,
+                 Ecto.Changeset.change(approval, %{}),
+                 event_attrs
+               ) do
           enqueue_fn.(ToolExecutionWorker.new(%{"approval_id" => updated.id}))
           # OI trace event — additive, fire-and-forget, after enqueue (Phase 17)
-          Traces.emit(:execution_started, %{tool_proposal_id: approval.tool_proposal_id, actor_id: "system", decided_by: nil, attempt: nil})
+          Traces.emit(:execution_started, %{
+            tool_proposal_id: approval.tool_proposal_id,
+            actor_id: "system",
+            decided_by: nil,
+            attempt: nil
+          })
+
           {:ok, updated}
         end
 
@@ -897,7 +982,7 @@ defmodule Cairnloop.Governance do
     ToolProposal
     |> where([p], p.conversation_id == ^conversation_id)
     |> order_by([p], desc: p.inserted_at)
-    |> preload([events: ^events_query, approval: []])
+    |> preload(events: ^events_query, approval: [])
     |> repo().all()
   end
 end

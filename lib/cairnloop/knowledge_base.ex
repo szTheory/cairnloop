@@ -74,7 +74,10 @@ defmodule Cairnloop.KnowledgeBase do
     |> Ecto.Multi.update(:article, fn %{revision: rev} ->
       Article.changeset(repo().get!(Article, rev.article_id), %{status: :published})
     end)
-    |> Ecto.Multi.insert(:chunk_job, Cairnloop.KnowledgeBase.Workers.ChunkRevision.new(%{revision_id: revision.id}))
+    |> Ecto.Multi.insert(
+      :chunk_job,
+      Cairnloop.KnowledgeBase.Workers.ChunkRevision.new(%{revision_id: revision.id})
+    )
     |> repo().transaction()
     |> case do
       {:ok, %{revision: published_revision}} -> {:ok, published_revision}

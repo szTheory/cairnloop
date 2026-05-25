@@ -16,9 +16,10 @@ defmodule Cairnloop.Chimeway.SLABreachNotifier do
 
   @impl true
   def build(params, _recipient) do
-    {:ok, %{
-      subject: "SLA Breach on #{params.conversation_id}",
-      body: "SLA #{params.sla_type} breached at #{params.breached_at}"
-    }}
+    {:ok,
+     %{
+       subject: "SLA Breach on #{params.conversation_id}",
+       body: "SLA #{params.sla_type} breached at #{params.breached_at}"
+     }}
   end
 end

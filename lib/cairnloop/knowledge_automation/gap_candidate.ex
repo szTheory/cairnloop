@@ -10,27 +10,27 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidate do
   @ui_surface_values [:conversation, :inbox, :settings, :unspecified]
 
   schema "cairnloop_gap_candidates" do
-    field :stable_key, :string
-    field :status, Ecto.Enum, values: @status_values, default: :open
-    field :candidate_type, Ecto.Enum, values: @candidate_type_values, default: :mixed
-    field :title, :string
-    field :seed_excerpt, :string
-    field :tenant_scope, Ecto.Enum, values: @tenant_scope_values
-    field :host_user_id, :string
-    field :ui_surface, Ecto.Enum, values: @ui_surface_values, default: :unspecified
-    field :first_seen_at, :utc_datetime_usec
-    field :last_seen_at, :utc_datetime_usec
-    field :evidence_count, :integer, default: 0
-    field :manual_case_count, :integer, default: 0
-    field :weak_grounding_count, :integer, default: 0
-    field :no_hit_count, :integer, default: 0
-    field :score, :float, default: 0.0
-    field :score_components, :map, default: %{}
+    field(:stable_key, :string)
+    field(:status, Ecto.Enum, values: @status_values, default: :open)
+    field(:candidate_type, Ecto.Enum, values: @candidate_type_values, default: :mixed)
+    field(:title, :string)
+    field(:seed_excerpt, :string)
+    field(:tenant_scope, Ecto.Enum, values: @tenant_scope_values)
+    field(:host_user_id, :string)
+    field(:ui_surface, Ecto.Enum, values: @ui_surface_values, default: :unspecified)
+    field(:first_seen_at, :utc_datetime_usec)
+    field(:last_seen_at, :utc_datetime_usec)
+    field(:evidence_count, :integer, default: 0)
+    field(:manual_case_count, :integer, default: 0)
+    field(:weak_grounding_count, :integer, default: 0)
+    field(:no_hit_count, :integer, default: 0)
+    field(:score, :float, default: 0.0)
+    field(:score_components, :map, default: %{})
 
-    field :retrieval_gap_events, {:array, :map}, virtual: true, default: []
-    field :manual_handling_evidence, {:array, :map}, virtual: true, default: []
+    field(:retrieval_gap_events, {:array, :map}, virtual: true, default: [])
+    field(:manual_handling_evidence, {:array, :map}, virtual: true, default: [])
 
-    has_many :memberships, GapCandidateMembership
+    has_many(:memberships, GapCandidateMembership)
 
     timestamps(type: :utc_datetime_usec)
   end

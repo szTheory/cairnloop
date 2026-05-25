@@ -26,7 +26,8 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def queue_filter_status(value) when is_binary(value), do: String.to_existing_atom(value)
   def queue_filter_status(value), do: value
 
-  def queue_filter_label(status) when is_atom(status), do: status |> Atom.to_string() |> queue_filter_label()
+  def queue_filter_label(status) when is_atom(status),
+    do: status |> Atom.to_string() |> queue_filter_label()
 
   def queue_filter_label(value) do
     @queue_filters
@@ -47,36 +48,64 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def next_step_copy(%ReviewTask{status: :pending_review, article_suggestion: suggestion})
       when not is_nil(suggestion) do
     case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
-      "Draft shell created" -> "Draft shell created. Review the thread context and finish the grounding in this lane."
-      _ -> "Review evidence and decide what happens next."
+      "Draft shell created" ->
+        "Draft shell created. Review the thread context and finish the grounding in this lane."
+
+      _ ->
+        "Review evidence and decide what happens next."
     end
   end
 
-  def next_step_copy(%ReviewTask{status: :pending_review}), do: "Review evidence and decide what happens next."
-  def next_step_copy(%ReviewTask{status: :approved_ready_to_publish}), do: "Ready to publish when you are."
-  def next_step_copy(%ReviewTask{status: :rejected}), do: "Rejected with a durable reason. Regenerate only after the evidence changes."
-  def next_step_copy(%ReviewTask{status: :deferred}), do: "Deferred until a manual authoring pass or operator follow-up happens."
+  def next_step_copy(%ReviewTask{status: :pending_review}),
+    do: "Review evidence and decide what happens next."
+
+  def next_step_copy(%ReviewTask{status: :approved_ready_to_publish}),
+    do: "Ready to publish when you are."
+
+  def next_step_copy(%ReviewTask{status: :rejected}),
+    do: "Rejected with a durable reason. Regenerate only after the evidence changes."
+
+  def next_step_copy(%ReviewTask{status: :deferred}),
+    do: "Deferred until a manual authoring pass or operator follow-up happens."
 
   def next_step_copy(%ReviewTask{status: :review_needed, article_suggestion: suggestion})
       when not is_nil(suggestion) do
     case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
-      "Manual draft required" -> "Manual draft required. Review the blocking reason, then open manual draft from this lane."
-      _ -> "Review again before this can move forward."
+      "Manual draft required" ->
+        "Manual draft required. Review the blocking reason, then open manual draft from this lane."
+
+      _ ->
+        "Review again before this can move forward."
     end
   end
 
-  def next_step_copy(%ReviewTask{status: :review_needed}), do: "Review again before this can move forward."
-  def next_step_copy(%ReviewTask{status: :published}), do: "Published and queued for reindex follow-through."
+  def next_step_copy(%ReviewTask{status: :review_needed}),
+    do: "Review again before this can move forward."
 
-  def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id, reindex_status: :completed}) do
+  def next_step_copy(%ReviewTask{status: :published}),
+    do: "Published and queued for reindex follow-through."
+
+  def publish_outcome(%ReviewTask{
+        status: :published,
+        published_revision_id: revision_id,
+        reindex_status: :completed
+      }) do
     "Published revision ##{revision_id}. Reindex completed."
   end
 
-  def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id, reindex_status: :failed}) do
+  def publish_outcome(%ReviewTask{
+        status: :published,
+        published_revision_id: revision_id,
+        reindex_status: :failed
+      }) do
     "Published revision ##{revision_id}. Reindex failed and needs attention."
   end
 
-  def publish_outcome(%ReviewTask{status: :published, published_revision_id: revision_id, reindex_status: :running}) do
+  def publish_outcome(%ReviewTask{
+        status: :published,
+        published_revision_id: revision_id,
+        reindex_status: :running
+      }) do
     "Published revision ##{revision_id}. Reindexing in progress."
   end
 
@@ -90,7 +119,10 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
 
   def decision_summary(%ReviewTask{} = task) do
     actor = task.last_actor_id || "system"
-    decision = task.last_decision |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+
+    decision =
+      task.last_decision |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
+
     reason = reason_label(task.last_reason)
 
     [decision <> " by " <> actor, reason && "Reason: #{reason}", task.notes]
@@ -102,7 +134,12 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     "Task created by #{actor_id}"
   end
 
-  def history_line(%ReviewTaskEvent{event_type: :decision_recorded, decision: decision, actor_id: actor_id, notes: notes}) do
+  def history_line(%ReviewTaskEvent{
+        event_type: :decision_recorded,
+        decision: decision,
+        actor_id: actor_id,
+        notes: notes
+      }) do
     action = decision |> Atom.to_string() |> String.replace("_", " ") |> String.capitalize()
 
     [action <> " by " <> actor_id, notes]
@@ -110,7 +147,11 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     |> Enum.join(" · ")
   end
 
-  def history_line(%ReviewTaskEvent{event_type: :publish_recorded, actor_id: actor_id, metadata: metadata}) do
+  def history_line(%ReviewTaskEvent{
+        event_type: :publish_recorded,
+        actor_id: actor_id,
+        metadata: metadata
+      }) do
     revision_id = metadata_value(metadata, :published_revision_id)
     publish_status = metadata_value(metadata, :publish_status)
 
@@ -137,9 +178,15 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     |> String.replace("_", " ")
   end
 
-  def available_actions(%ReviewTask{status: :pending_review}), do: [:approve, :reject, :defer, :open_for_edit]
-  def available_actions(%ReviewTask{status: :review_needed}), do: [:approve, :reject, :defer, :open_for_edit]
-  def available_actions(%ReviewTask{status: :approved_ready_to_publish}), do: [:publish, :open_for_edit, :reject, :defer]
+  def available_actions(%ReviewTask{status: :pending_review}),
+    do: [:approve, :reject, :defer, :open_for_edit]
+
+  def available_actions(%ReviewTask{status: :review_needed}),
+    do: [:approve, :reject, :defer, :open_for_edit]
+
+  def available_actions(%ReviewTask{status: :approved_ready_to_publish}),
+    do: [:publish, :open_for_edit, :reject, :defer]
+
   def available_actions(%ReviewTask{status: :deferred}), do: [:approve, :reject, :open_for_edit]
   def available_actions(%ReviewTask{status: :rejected}), do: [:open_for_edit]
   def available_actions(%ReviewTask{status: :published}), do: []
@@ -150,7 +197,8 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def action_label(:publish), do: "Publish"
   def action_label(:open_for_edit), do: "Open for edit"
 
-  def action_label(action, %ReviewTask{article_suggestion: suggestion}) when not is_nil(suggestion) do
+  def action_label(action, %ReviewTask{article_suggestion: suggestion})
+      when not is_nil(suggestion) do
     case {action, ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion)} do
       {:open_for_edit, "Manual draft required"} -> "Open manual draft"
       _ -> action_label(action)

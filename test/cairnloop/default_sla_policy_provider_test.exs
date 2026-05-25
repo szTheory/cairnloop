@@ -13,7 +13,9 @@ defmodule Cairnloop.DefaultSLAPolicyProviderTest do
 
   describe "set_policy/2" do
     test "returns a read-only error" do
-      assert {:error, message} = DefaultSLAPolicyProvider.set_policy(:normal, %{target_first_response_minutes: 30})
+      assert {:error, message} =
+               DefaultSLAPolicyProvider.set_policy(:normal, %{target_first_response_minutes: 30})
+
       assert message =~ "read-only"
     end
   end

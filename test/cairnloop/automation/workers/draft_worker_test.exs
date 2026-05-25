@@ -23,7 +23,8 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
   end
 
   defmodule RetrievalMock do
-    def ground_for_draft(%{clarification_attempts: attempts} = context, opts) when attempts >= 1 do
+    def ground_for_draft(%{clarification_attempts: attempts} = context, opts)
+        when attempts >= 1 do
       send(self(), {:ground_for_draft, context, opts})
 
       %{
@@ -148,9 +149,12 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
 
     assert :ok = DraftWorker.perform(%Oban.Job{args: %{"conversation_id" => 124}})
 
-    assert_received {:ground_for_draft,
-                     %{host_surface: "conversation", host_user_id: "user_42"},
-                     [surface: :draft_generation, host_surface: "conversation", host_user_id: "user_42"]}
+    assert_received {:ground_for_draft, %{host_surface: "conversation", host_user_id: "user_42"},
+                     [
+                       surface: :draft_generation,
+                       host_surface: "conversation",
+                       host_user_id: "user_42"
+                     ]}
 
     assert_receive {:draft_created, 999}, 1000
   end

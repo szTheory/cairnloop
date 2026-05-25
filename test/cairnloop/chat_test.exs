@@ -43,6 +43,7 @@ defmodule Cairnloop.ChatTest do
 
         {_name, {:merge, merge_fn}}, {:ok, results} ->
           merged_multi = merge_fn.(results)
+
           case execute_multi(merged_multi, results) do
             {:ok, new_results} -> {:cont, {:ok, new_results}}
             error -> {:halt, error}
@@ -62,7 +63,11 @@ defmodule Cairnloop.ChatTest do
       messages =
         Process.get(:mock_messages, [
           %Cairnloop.Message{id: 1, role: :user, content: "The billing export failed."},
-          %Cairnloop.Message{id: 2, role: :agent, content: "We regenerated the export and confirmed it works now."}
+          %Cairnloop.Message{
+            id: 2,
+            role: :agent,
+            content: "We regenerated the export and confirmed it works now."
+          }
         ])
 
       %{conversation | messages: messages}
@@ -93,7 +98,7 @@ defmodule Cairnloop.ChatTest do
       assert sla = results.new_sla
       assert sla.target_type == :first_response
       assert sla.status == :active
-      
+
       assert sla_job = results.sla_job
       assert sla_job.worker == "Cairnloop.Workers.SlaCountdownWorker"
       assert sla_job.args == %{"sla_id" => 999}
@@ -101,14 +106,14 @@ defmodule Cairnloop.ChatTest do
 
     test "user message does not create duplicate SLA if one is active" do
       Process.put(:mock_sla, %SLA{id: 5, conversation_id: 2, status: :active})
-      
+
       assert {:ok, results} = Chat.reply_to_conversation(2, "hello again", :user)
       refute Map.has_key?(results, :new_sla)
       refute Map.has_key?(results, :sla_job)
     end
 
     test "inserts message but no draft job when role is :agent, fulfills active SLA and creates resolution SLA" do
-    Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
+      Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
 
       assert {:ok, results} = Chat.reply_to_conversation(1, "hello again", :agent)
       assert %{content: "hello again", role: :agent, conversation_id: 1} = results.message
@@ -132,7 +137,7 @@ defmodule Cairnloop.ChatTest do
   describe "resolve_conversation/2" do
     test "sets status to :resolved, fulfills any active SLA, and inserts system message" do
       Process.put(:mock_sla, %SLA{id: 5, conversation_id: 1, status: :active})
-      
+
       actor = %{type: "user", id: 1}
       assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: actor)
       conversation = results.conversation
@@ -248,13 +253,28 @@ defmodule Cairnloop.ChatTest do
     end
 
     test "reply_to_conversation/4 injects auditor" do
-      assert {:ok, results} = Chat.reply_to_conversation(1, "hello", :agent, actor: "agent_smith", auditor: TestAuditor)
-      assert %{action: :reply_to_conversation, actor: "agent_smith", metadata: %{conversation_id: 1}} = results.audit
+      assert {:ok, results} =
+               Chat.reply_to_conversation(1, "hello", :agent,
+                 actor: "agent_smith",
+                 auditor: TestAuditor
+               )
+
+      assert %{
+               action: :reply_to_conversation,
+               actor: "agent_smith",
+               metadata: %{conversation_id: 1}
+             } = results.audit
     end
 
     test "resolve_conversation/2 injects auditor" do
-      assert {:ok, results} = Chat.resolve_conversation(1, resolved_by: "agent_smith", auditor: TestAuditor)
-      assert %{action: :resolve_conversation, actor: "agent_smith", metadata: %{conversation_id: 1}} = results.audit
+      assert {:ok, results} =
+               Chat.resolve_conversation(1, resolved_by: "agent_smith", auditor: TestAuditor)
+
+      assert %{
+               action: :resolve_conversation,
+               actor: "agent_smith",
+               metadata: %{conversation_id: 1}
+             } = results.audit
     end
   end
 end

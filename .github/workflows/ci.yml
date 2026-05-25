@@ -7,6 +7,11 @@ on:
       - master
   pull_request:
 
+# Opt into Node.js 24 for all actions (actions/checkout, actions/cache, etc.)
+# GitHub forces this default on June 2, 2026 — opting in early avoids surprise breakage.
+env:
+  ACTIONS_RUNNER_NODE_VERSION: "24"
+
 jobs:
   phase-12-shift-left:
     runs-on: ubuntu-latest

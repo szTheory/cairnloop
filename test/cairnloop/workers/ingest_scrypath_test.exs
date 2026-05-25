@@ -11,7 +11,9 @@ defmodule Cairnloop.Workers.IngestScrypathTest do
       end)
 
       # Inject the stub
-      Application.put_env(:cairnloop, :scrypath_req_options, plug: {Req.Test, Cairnloop.ScrypathApi})
+      Application.put_env(:cairnloop, :scrypath_req_options,
+        plug: {Req.Test, Cairnloop.ScrypathApi}
+      )
 
       job = %Oban.Job{
         args: %{

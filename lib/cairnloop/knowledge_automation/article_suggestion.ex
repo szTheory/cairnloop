@@ -141,7 +141,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
         |> require_anchor(:article_id, article_id)
         |> require_anchor(:base_revision_id, base_revision_id)
 
-      {:article, entrypoint_type} when entrypoint_type in [:gap_candidate, :conversation_quick_fix] ->
+      {:article, entrypoint_type}
+      when entrypoint_type in [:gap_candidate, :conversation_quick_fix] ->
         changeset
         |> reject_anchor(:article_id, article_id)
         |> reject_anchor(:base_revision_id, base_revision_id)
@@ -177,7 +178,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
 
   defp validate_quick_fix_outcome(changeset, outcome)
        when outcome in @quick_fix_outcome_values or outcome in @quick_fix_outcome_atoms,
-    do: changeset
+       do: changeset
 
   defp validate_quick_fix_outcome(changeset, _outcome) do
     add_error(changeset, :grounding_metadata, "must include a bounded quick-fix outcome")

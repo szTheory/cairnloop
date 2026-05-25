@@ -3,7 +3,7 @@ defmodule Cairnloop.Embedder.ExternalApi do
   Implementation of Embedder behaviour using an external API.
   Uses OpenAI's text-embedding-ada-002 as default.
   """
-  
+
   @behaviour Cairnloop.Embedder
 
   @impl true
@@ -12,9 +12,12 @@ defmodule Cairnloop.Embedder.ExternalApi do
 
     if is_nil(api_key) or api_key == "" do
       # Return mock embeddings for development safety if no API key
-      mock_embeddings = Enum.map(chunks, fn _chunk ->
-        List.duplicate(0.0, 1536) # Default OpenAI dimension size
-      end)
+      mock_embeddings =
+        Enum.map(chunks, fn _chunk ->
+          # Default OpenAI dimension size
+          List.duplicate(0.0, 1536)
+        end)
+
       {:ok, mock_embeddings}
     else
       req_body = %{

@@ -90,10 +90,21 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
   def status_values, do: @status_values
   def decision_values, do: @decision_values
   def reason_values, do: @reason_values
-  def active_status_values, do: [:pending_review, :review_needed, :approved_ready_to_publish, :deferred]
+
+  def active_status_values,
+    do: [:pending_review, :review_needed, :approved_ready_to_publish, :deferred]
+
   def active_status?(status), do: status in active_status_values()
 
-  def decision_changeset(review_task, status, decision, reason, actor_id, decided_at, attrs \\ %{}) do
+  def decision_changeset(
+        review_task,
+        status,
+        decision,
+        reason,
+        actor_id,
+        decided_at,
+        attrs \\ %{}
+      ) do
     attrs =
       attrs
       |> Map.new()
@@ -111,9 +122,16 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTask do
   end
 
   def valid_reason_for_decision?(:approved, reason), do: reason in [:ready_to_publish]
-  def valid_reason_for_decision?(:rejected, reason), do: reason in [:insufficient_evidence, :policy_rejected]
-  def valid_reason_for_decision?(:deferred, reason), do: reason in [:needs_manual_edit, :operator_deferred]
-  def valid_reason_for_decision?(:review_needed, reason), do: reason in [:needs_manual_edit, :freshness_invalidated, :draft_conflict]
+
+  def valid_reason_for_decision?(:rejected, reason),
+    do: reason in [:insufficient_evidence, :policy_rejected]
+
+  def valid_reason_for_decision?(:deferred, reason),
+    do: reason in [:needs_manual_edit, :operator_deferred]
+
+  def valid_reason_for_decision?(:review_needed, reason),
+    do: reason in [:needs_manual_edit, :freshness_invalidated, :draft_conflict]
+
   def valid_reason_for_decision?(_, _reason), do: false
 
   defp validate_host_scope(changeset) do

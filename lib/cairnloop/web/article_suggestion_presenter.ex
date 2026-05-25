@@ -28,10 +28,14 @@ defmodule Cairnloop.Web.ArticleSuggestionPresenter do
     end
   end
 
-  def queue_summary(%ArticleSuggestion{status: :failed} = suggestion), do: failure_copy(suggestion)
+  def queue_summary(%ArticleSuggestion{status: :failed} = suggestion),
+    do: failure_copy(suggestion)
+
   def queue_summary(%ArticleSuggestion{} = suggestion), do: stale_pressure_label(suggestion)
 
-  def action_labels(%ArticleSuggestion{status: :ready}), do: ["regenerate", "dismiss", "open for manual edit"]
+  def action_labels(%ArticleSuggestion{status: :ready}),
+    do: ["regenerate", "dismiss", "open for manual edit"]
+
   def action_labels(%ArticleSuggestion{status: :failed}), do: ["regenerate", "inspect failure"]
   def action_labels(_suggestion), do: ["inspect"]
 

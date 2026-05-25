@@ -16,14 +16,28 @@ defmodule Cairnloop.KnowledgeBase.RevisionTest do
     end
 
     test "rejects content updates when state is published" do
-      revision = %Revision{id: 1, content: "Published", state: :published, article_id: 1, version: 1}
+      revision = %Revision{
+        id: 1,
+        content: "Published",
+        state: :published,
+        article_id: 1,
+        version: 1
+      }
+
       changeset = Revision.changeset(revision, %{content: "Hacked!"})
       refute changeset.valid?
       assert "cannot be modified after publication" in errors_on(changeset).content
     end
 
     test "allows state updates (e.g. archiving) when state is published, but not content" do
-      revision = %Revision{id: 1, content: "Published", state: :published, article_id: 1, version: 1}
+      revision = %Revision{
+        id: 1,
+        content: "Published",
+        state: :published,
+        article_id: 1,
+        version: 1
+      }
+
       changeset = Revision.changeset(revision, %{state: :archived})
       assert changeset.valid?
     end

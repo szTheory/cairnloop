@@ -48,7 +48,11 @@ defmodule Cairnloop.Integration.ApprovalFlowTest do
 
   test "request → approve → resume yields :execution_pending with the full append-only event trail" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{

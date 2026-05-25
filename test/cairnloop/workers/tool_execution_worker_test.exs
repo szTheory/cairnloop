@@ -113,6 +113,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
         nil -> :ok
         pid -> send(pid, {:run_context, context})
       end
+
       {:ok, %{message_id: 999}}
     end
 
@@ -134,12 +135,22 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
     # Approval id 10 → :execution_pending (normal happy path, OkRunTool)
     def get(ToolApproval, 10) do
-      struct(ToolApproval, %{id: 10, status: :execution_pending, tool_proposal_id: 100, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 10,
+        status: :execution_pending,
+        tool_proposal_id: 100,
+        expires_at: nil
+      })
     end
 
     # Approval id 11 → :execution_pending (but proposal already :succeeded — LAYER-2 terminal guard)
     def get(ToolApproval, 11) do
-      struct(ToolApproval, %{id: 11, status: :execution_pending, tool_proposal_id: 101, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 11,
+        status: :execution_pending,
+        tool_proposal_id: 101,
+        expires_at: nil
+      })
     end
 
     # Approval id 12 → :executed (already terminal — no-op)
@@ -152,7 +163,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
     # Approval id 14 → :execution_pending (ScopeFailTool — re-validation fails)
     def get(ToolApproval, 14) do
-      struct(ToolApproval, %{id: 14, status: :execution_pending, tool_proposal_id: 110, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 14,
+        status: :execution_pending,
+        tool_proposal_id: 110,
+        expires_at: nil
+      })
     end
 
     # Approval id 15 → :pending (wrong status — no-op)
@@ -162,17 +178,32 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
     # Approval id 16 → :execution_pending (FailRunTool — run/3 always {:error, _})
     def get(ToolApproval, 16) do
-      struct(ToolApproval, %{id: 16, status: :execution_pending, tool_proposal_id: 120, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 16,
+        status: :execution_pending,
+        tool_proposal_id: 120,
+        expires_at: nil
+      })
     end
 
     # Approval id 20 → :execution_pending (ContextCaptureTool, attempt 0 in proposal)
     def get(ToolApproval, 20) do
-      struct(ToolApproval, %{id: 20, status: :execution_pending, tool_proposal_id: 200, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 20,
+        status: :execution_pending,
+        tool_proposal_id: 200,
+        expires_at: nil
+      })
     end
 
     # Approval id 21 → :execution_pending (ContextCaptureTool, attempt 1 in proposal — different key expected)
     def get(ToolApproval, 21) do
-      struct(ToolApproval, %{id: 21, status: :execution_pending, tool_proposal_id: 201, expires_at: nil})
+      struct(ToolApproval, %{
+        id: 21,
+        status: :execution_pending,
+        tool_proposal_id: 201,
+        expires_at: nil
+      })
     end
 
     # Fallback catch-all
@@ -298,11 +329,19 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
-    Application.put_env(:cairnloop, :tools, [OkRunTool, ScopeFailTool, FailRunTool, ContextCaptureTool])
+
+    Application.put_env(:cairnloop, :tools, [
+      OkRunTool,
+      ScopeFailTool,
+      FailRunTool,
+      ContextCaptureTool
+    ])
+
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :tools)
     end)
+
     :ok
   end
 
@@ -336,9 +375,11 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
       assert_receive {:repo_update, _}
       # Find the :execution_succeeded event insert
       events = drain_inserts()
+
       assert Enum.any?(events, fn cs ->
-        Ecto.Changeset.apply_changes(cs).event_type == :execution_succeeded
-      end), "expected an :execution_succeeded event to be inserted"
+               Ecto.Changeset.apply_changes(cs).event_type == :execution_succeeded
+             end),
+             "expected an :execution_succeeded event to be inserted"
     end
   end
 
@@ -419,6 +460,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
       assert_receive {:repo_update, changeset}
       status = Ecto.Changeset.get_change(changeset, :status)
+
       assert status in [:invalidated, :execution_failed],
              "expected :invalidated or :execution_failed, got #{status}"
     end
@@ -432,9 +474,14 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
       assert_receive {:repo_update, _}
       events = drain_inserts()
+
       assert Enum.any?(events, fn cs ->
-        Ecto.Changeset.apply_changes(cs).event_type in [:revalidation_failed, :execution_failed]
-      end), "expected a failure event to be inserted"
+               Ecto.Changeset.apply_changes(cs).event_type in [
+                 :revalidation_failed,
+                 :execution_failed
+               ]
+             end),
+             "expected a failure event to be inserted"
     end
   end
 
@@ -463,9 +510,11 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
       })
 
       events = drain_inserts()
+
       assert Enum.any?(events, fn cs ->
-        Ecto.Changeset.apply_changes(cs).event_type == :execution_attempt_failed
-      end), "expected an :execution_attempt_failed event for transient failure"
+               Ecto.Changeset.apply_changes(cs).event_type == :execution_attempt_failed
+             end),
+             "expected an :execution_attempt_failed event for transient failure"
     end
   end
 
@@ -518,8 +567,10 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
   describe "ApprovalResumeWorker additive enqueue" do
     test "resume worker source contains ToolExecutionWorker.new reference" do
       resume_path = "lib/cairnloop/workers/approval_resume_worker.ex"
+
       if File.exists?(resume_path) do
         source = File.read!(resume_path)
+
         assert source =~ "ToolExecutionWorker.new",
                "ApprovalResumeWorker must enqueue ToolExecutionWorker after :execution_pending"
       end
@@ -527,6 +578,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
     test "resume worker source still contains no .run( tool invocation (sealed contract)" do
       resume_path = "lib/cairnloop/workers/approval_resume_worker.ex"
+
       if File.exists?(resume_path) do
         # Strip comment lines then check for tool .run( calls
         non_comment_lines =
@@ -567,6 +619,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
                })
 
       assert_receive {:run_context, context}, 500
+
       assert Map.has_key?(context, :run_idempotency_key),
              "context must contain :run_idempotency_key (D16-05 layer 3)"
     end
@@ -588,7 +641,10 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
       # Must be a 64-char lowercase hex string (SHA-256 output)
       assert is_binary(run_key), "run_key must be a binary"
-      assert String.length(run_key) == 64, "SHA-256 hex should be 64 chars, got #{String.length(run_key || "")}"
+
+      assert String.length(run_key) == 64,
+             "SHA-256 hex should be 64 chars, got #{String.length(run_key || "")}"
+
       assert run_key =~ ~r/\A[0-9a-f]{64}\z/,
              "run_key must be lowercase hex, got #{inspect(run_key)}"
     end

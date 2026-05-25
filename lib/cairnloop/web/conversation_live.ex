@@ -133,14 +133,16 @@ defmodule Cairnloop.Web.ConversationLive do
         end
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Quick fix could not prepare a reviewable suggestion.")}
+        {:noreply,
+         put_flash(socket, :error, "Quick fix could not prepare a reviewable suggestion.")}
     end
   end
 
   def handle_event("open_review_task", _params, socket) do
     case socket.assigns.quick_fix_card[:review_task_id] do
       nil ->
-        {:noreply, put_flash(socket, :error, "No review task is available for this quick fix yet.")}
+        {:noreply,
+         put_flash(socket, :error, "No review task is available for this quick fix yet.")}
 
       review_task_id ->
         {:noreply, push_navigate(socket, to: review_task_path(review_task_id))}
@@ -150,7 +152,8 @@ defmodule Cairnloop.Web.ConversationLive do
   def handle_event("open_manual_draft", _params, socket) do
     case socket.assigns.quick_fix_card[:suggestion_id] do
       nil ->
-        {:noreply, put_flash(socket, :error, "No manual draft is available for this quick fix yet.")}
+        {:noreply,
+         put_flash(socket, :error, "No manual draft is available for this quick fix yet.")}
 
       suggestion_id ->
         case knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
@@ -160,7 +163,10 @@ defmodule Cairnloop.Web.ConversationLive do
           {:ok, article_id} ->
             return_path = "/#{socket.assigns.conversation.id}"
             return_to = URI.encode_www_form(return_path)
-            review_task_param = manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
+
+            review_task_param =
+              manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
+
             handoff_token =
               EditorHandoff.sign(
                 suggestion_id,
@@ -174,7 +180,8 @@ defmodule Cairnloop.Web.ConversationLive do
                socket,
                to:
                  "/knowledge-base/#{article_id}/edit?suggestion_id=#{suggestion_id}" <>
-                   review_task_param <> "&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
+                   review_task_param <>
+                   "&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
              )}
 
           {:error, _reason} ->
@@ -713,7 +720,7 @@ defmodule Cairnloop.Web.ConversationLive do
     """
   end
 
-  attr :card, :map, required: true
+  attr(:card, :map, required: true)
 
   def quick_fix_card(assigns) do
     ~H"""
@@ -920,7 +927,7 @@ defmodule Cairnloop.Web.ConversationLive do
     """
   end
 
-  attr :proposal, :map, required: true
+  attr(:proposal, :map, required: true)
 
   def governed_action_card(assigns) do
     proposal = assigns.proposal
@@ -1018,9 +1025,11 @@ defmodule Cairnloop.Web.ConversationLive do
             case proposal.tool_ref do
               ref when is_binary(ref) ->
                 ref |> String.split(".") |> List.last() |> humanize_context_label()
+
               _ ->
                 "Governed action"
             end
+
           {"Governed action", tool_display}
       end
 
@@ -1323,9 +1332,21 @@ defmodule Cairnloop.Web.ConversationLive do
         "Use conversation evidence to open a KB maintenance task when this thread exposes missing or stale guidance.",
       reason: nil,
       layers: [
-        %{label: "Thread context", trust: "Conversation signal", summary: "No bounded thread summary"},
-        %{label: "Canonical retrieval", trust: "Citation-eligible", summary: "No citation-ready canonical evidence"},
-        %{label: "Resolved case assists", trust: "Supporting context", summary: "No supporting resolved cases"}
+        %{
+          label: "Thread context",
+          trust: "Conversation signal",
+          summary: "No bounded thread summary"
+        },
+        %{
+          label: "Canonical retrieval",
+          trust: "Citation-eligible",
+          summary: "No citation-ready canonical evidence"
+        },
+        %{
+          label: "Resolved case assists",
+          trust: "Supporting context",
+          summary: "No supporting resolved cases"
+        }
       ],
       primary_action: %{event: "start_quick_fix", label: "Start KB quick fix"},
       secondary_action: nil,
@@ -1338,12 +1359,14 @@ defmodule Cairnloop.Web.ConversationLive do
     Map.merge(idle_quick_fix_card(conversation), quick_fix_card)
   end
 
-  defp normalize_quick_fix_card(%{conversation: conversation}), do: idle_quick_fix_card(conversation)
+  defp normalize_quick_fix_card(%{conversation: conversation}),
+    do: idle_quick_fix_card(conversation)
 
   defp quick_fix_primary_action(:blocked_manual_required),
     do: %{event: "open_manual_draft", label: "Open manual draft"}
 
-  defp quick_fix_primary_action(_status), do: %{event: "open_review_task", label: "Open review task"}
+  defp quick_fix_primary_action(_status),
+    do: %{event: "open_review_task", label: "Open review task"}
 
   defp quick_fix_secondary_action(nil), do: nil
 
@@ -1351,11 +1374,19 @@ defmodule Cairnloop.Web.ConversationLive do
     %{label: "View maintenance lane", to: "/knowledge-base/suggestions?task=#{review_task.id}"}
   end
 
-  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :completed}), do: :reindexed
-  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :running}), do: :reindexing
-  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :failed}), do: :retry_needed
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :completed}),
+    do: :reindexed
+
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :running}),
+    do: :reindexing
+
+  defp quick_fix_status(_suggestion, %{status: :published, reindex_status: :failed}),
+    do: :retry_needed
+
   defp quick_fix_status(_suggestion, %{status: :published}), do: :published
-  defp quick_fix_status(_suggestion, %{status: :approved_ready_to_publish}), do: :approved_ready_to_publish
+
+  defp quick_fix_status(_suggestion, %{status: :approved_ready_to_publish}),
+    do: :approved_ready_to_publish
 
   defp quick_fix_status(suggestion, _review_task) do
     case ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) do
@@ -1397,7 +1428,10 @@ defmodule Cairnloop.Web.ConversationLive do
   defp quick_fix_status_rail(:published) do
     [
       %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
-      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{
+        label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish),
+        current: false
+      },
       %{label: ReviewTaskPresenter.thread_status_label(:published), current: true}
     ]
   end
@@ -1405,7 +1439,10 @@ defmodule Cairnloop.Web.ConversationLive do
   defp quick_fix_status_rail(:reindexing) do
     [
       %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
-      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{
+        label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish),
+        current: false
+      },
       %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
       %{label: ReviewTaskPresenter.thread_status_label(:reindexing), current: true}
     ]
@@ -1414,7 +1451,10 @@ defmodule Cairnloop.Web.ConversationLive do
   defp quick_fix_status_rail(:reindexed) do
     [
       %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
-      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{
+        label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish),
+        current: false
+      },
       %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
       %{label: ReviewTaskPresenter.thread_status_label(:reindexed), current: true}
     ]
@@ -1423,13 +1463,17 @@ defmodule Cairnloop.Web.ConversationLive do
   defp quick_fix_status_rail(:retry_needed) do
     [
       %{label: ReviewTaskPresenter.thread_status_label(:ready), current: false},
-      %{label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish), current: false},
+      %{
+        label: ReviewTaskPresenter.thread_status_label(:approved_ready_to_publish),
+        current: false
+      },
       %{label: ReviewTaskPresenter.thread_status_label(:published), current: false},
       %{label: ReviewTaskPresenter.thread_status_label(:retry_needed), current: true}
     ]
   end
 
-  defp quick_fix_summary(_suggestion, review_task, :approved_ready_to_publish) when is_map(review_task) do
+  defp quick_fix_summary(_suggestion, review_task, :approved_ready_to_publish)
+       when is_map(review_task) do
     ReviewTaskPresenter.next_step_copy(review_task)
   end
 

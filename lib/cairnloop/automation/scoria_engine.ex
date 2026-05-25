@@ -84,8 +84,12 @@ defmodule Cairnloop.Automation.ScoriaEngine do
               title: suggestion.title || title_from_evidence(canonical_evidence),
               operator_summary:
                 "Prepared a citation-backed article suggestion with #{length(canonical_evidence)} canonical anchors and #{length(assistive_evidence)} supporting rows.",
-              proposed_markdown: article_markdown(suggestion, canonical_evidence, assistive_evidence),
-              evidence_metadata: %{citations: citations, assistive_count: length(assistive_evidence)}
+              proposed_markdown:
+                article_markdown(suggestion, canonical_evidence, assistive_evidence),
+              evidence_metadata: %{
+                citations: citations,
+                assistive_count: length(assistive_evidence)
+              }
             }
 
           :revision ->
@@ -95,8 +99,12 @@ defmodule Cairnloop.Automation.ScoriaEngine do
                   "Revision grounded in repeated article-linked failures and fresh canonical evidence.",
               operator_summary:
                 "Prepared a citation-backed revision suggestion with #{length(canonical_evidence)} canonical anchors and #{length(assistive_evidence)} supporting rows.",
-              proposed_markdown: revision_markdown(suggestion, canonical_evidence, assistive_evidence),
-              evidence_metadata: %{citations: citations, assistive_count: length(assistive_evidence)}
+              proposed_markdown:
+                revision_markdown(suggestion, canonical_evidence, assistive_evidence),
+              evidence_metadata: %{
+                citations: citations,
+                assistive_count: length(assistive_evidence)
+              }
             }
         end
 
@@ -156,7 +164,9 @@ defmodule Cairnloop.Automation.ScoriaEngine do
   end
 
   defp support_line([]), do: nil
-  defp support_line(assistive_evidence), do: "Supporting evidence rows: #{length(assistive_evidence)}."
+
+  defp support_line(assistive_evidence),
+    do: "Supporting evidence rows: #{length(assistive_evidence)}."
 
   defp title_from_evidence([primary | _]), do: primary.title
   defp title_from_evidence(_), do: "Knowledge Base suggestion"

@@ -8,7 +8,7 @@ defmodule Cairnloop.NotifierTest do
       # To test the behaviour itself, we can define a dummy module and ensure it complains
       # if it's missing the callbacks, but the easiest way to assert the behaviour exists
       # is to just check its module info or manually implement it.
-      
+
       # Let's ensure the callbacks are defined
       assert {:on_conversation_resolved, 2} in Cairnloop.Notifier.behaviour_info(:callbacks)
       assert {:on_sla_breach, 3} in Cairnloop.Notifier.behaviour_info(:callbacks)

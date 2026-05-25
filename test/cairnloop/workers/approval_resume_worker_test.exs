@@ -80,7 +80,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
 
   defmodule MockRepo do
     # Approval id 1: :approved, no expiry — normal validate-pass path
-    def get(tool_approval_module, 1) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 1)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 1,
         status: :approved,
@@ -93,7 +94,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     end
 
     # Approval id 2: :execution_pending — already transitioned past the resume seam
-    def get(tool_approval_module, 2) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 2)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 2,
         status: :execution_pending,
@@ -103,13 +105,15 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     end
 
     # Approval id 3: nil — deleted
-    def get(tool_approval_module, 3) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 3)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       _ = tool_approval_module
       nil
     end
 
     # Approval id 4: :approved, expires_at in the past — lazy expiry guard
-    def get(tool_approval_module, 4) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 4)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 4,
         status: :approved,
@@ -119,7 +123,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     end
 
     # Approval id 5: :approved, no expiry — validate-fail path (ScopeFailTool)
-    def get(tool_approval_module, 5) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 5)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 5,
         status: :approved,
@@ -132,7 +137,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     end
 
     # ToolProposal id 10: PassTool — passes validate/3 with empty input_snapshot
-    def get!(tool_proposal_module, 10) when tool_proposal_module == Cairnloop.Governance.ToolProposal do
+    def get!(tool_proposal_module, 10)
+        when tool_proposal_module == Cairnloop.Governance.ToolProposal do
       struct(tool_proposal_module, %{
         id: 10,
         tool_ref: Atom.to_string(Cairnloop.Workers.ApprovalResumeWorkerTest.PassTool),
@@ -144,7 +150,8 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     end
 
     # ToolProposal id 20: ScopeFailTool — fails scope check → :invalidated
-    def get!(tool_proposal_module, 20) when tool_proposal_module == Cairnloop.Governance.ToolProposal do
+    def get!(tool_proposal_module, 20)
+        when tool_proposal_module == Cairnloop.Governance.ToolProposal do
       struct(tool_proposal_module, %{
         id: 20,
         tool_ref: Atom.to_string(Cairnloop.Workers.ApprovalResumeWorkerTest.ScopeFailTool),
@@ -170,10 +177,12 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     # Mirror sla_countdown_worker_test.exs setup:
     Application.put_env(:cairnloop, :repo, MockRepo)
     Application.put_env(:cairnloop, :tools, [PassTool, ScopeFailTool])
+
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :tools)
     end)
+
     :ok
   end
 
@@ -201,8 +210,10 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
     # This test verifies the Phase-16 seam invariant holds in the source file.
     test "worker source file contains no .run( call — Phase 16 seam" do
       worker_path = "lib/cairnloop/workers/approval_resume_worker.ex"
+
       if File.exists?(worker_path) do
         source = File.read!(worker_path)
+
         refute source =~ ~r/\.run\s*\(/,
                "ApprovalResumeWorker must never call .run/3 — Phase 16 seam (D15-10)"
       else
@@ -272,6 +283,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
       assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => 4}})
       assert_receive {:repo_update, changeset}
       status = Ecto.Changeset.get_change(changeset, :status)
+
       assert status == :expired,
              "Lazy guard must flip to :expired, not #{status} (stale approval must never execute)"
     end

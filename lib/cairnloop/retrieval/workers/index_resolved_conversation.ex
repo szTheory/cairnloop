@@ -41,7 +41,7 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
 
     repo().transaction(fn ->
       evidence =
-        repo().one(from e in ResolvedCaseEvidence, where: e.conversation_id == ^conversation.id)
+        repo().one(from(e in ResolvedCaseEvidence, where: e.conversation_id == ^conversation.id))
 
       evidence_changeset =
         (evidence || %ResolvedCaseEvidence{})
@@ -83,7 +83,8 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
         _ = schedule_gap_candidate_refresh(conversation.id)
         :ok
 
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -115,14 +116,15 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
   end
 
   defp build_chunk_sections(evidence_attrs) do
-    document = [
-      "# #{evidence_attrs.subject}",
-      "## Issue Summary\n#{evidence_attrs.issue_summary}",
-      "## Resolution Note\n#{evidence_attrs.resolution_note}",
-      "## Actions Taken\n#{Enum.join(evidence_attrs.actions_taken, "\n")}",
-      "## Outcome\n#{evidence_attrs.outcome}"
-    ]
-    |> Enum.join("\n\n")
+    document =
+      [
+        "# #{evidence_attrs.subject}",
+        "## Issue Summary\n#{evidence_attrs.issue_summary}",
+        "## Resolution Note\n#{evidence_attrs.resolution_note}",
+        "## Actions Taken\n#{Enum.join(evidence_attrs.actions_taken, "\n")}",
+        "## Outcome\n#{evidence_attrs.outcome}"
+      ]
+      |> Enum.join("\n\n")
 
     MarkdownParser.parse_sections(document)
   end
@@ -135,7 +137,9 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
   defp summarize_issue([message | _], _subject), do: String.trim(message.content)
 
   defp summarize_resolution([]), do: "Conversation resolved by host agent."
-  defp summarize_resolution(messages), do: messages |> List.last() |> Map.fetch!(:content) |> String.trim()
+
+  defp summarize_resolution(messages),
+    do: messages |> List.last() |> Map.fetch!(:content) |> String.trim()
 
   defp summarize_actions(messages) do
     messages

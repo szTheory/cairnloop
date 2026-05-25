@@ -31,7 +31,15 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.GenerateArticleSuggestionTest do
 
   defmodule MockScoriaEngine do
     def generate_article_suggestion(_suggestion, _bundle) do
-      Process.get(:worker_scoria_result, {:ok, %{operator_summary: "ok", proposed_markdown: "# Draft", evidence_metadata: %{citations: []}}})
+      Process.get(
+        :worker_scoria_result,
+        {:ok,
+         %{
+           operator_summary: "ok",
+           proposed_markdown: "# Draft",
+           evidence_metadata: %{citations: []}
+         }}
+      )
     end
   end
 

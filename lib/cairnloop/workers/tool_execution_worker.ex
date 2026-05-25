@@ -51,7 +51,11 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   end
 
   @impl Oban.Worker
-  def perform(%Oban.Job{attempt: attempt, max_attempts: max_attempts, args: %{"approval_id" => approval_id}}) do
+  def perform(%Oban.Job{
+        attempt: attempt,
+        max_attempts: max_attempts,
+        args: %{"approval_id" => approval_id}
+      }) do
     case repo().get(ToolApproval, approval_id) do
       nil ->
         # Deleted — idempotent no-op (mirrors SlaCountdownWorker nil branch)
@@ -88,7 +92,9 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         humanized = "Approval expired before execution could begin."
         # WR-04: check transaction result — only cancel if the durable write committed.
         case record_terminal_failure(approval, proposal, :invalidated, humanized) do
-          {:ok, :ok} -> {:cancel, humanized}
+          {:ok, :ok} ->
+            {:cancel, humanized}
+
           {:error, _} ->
             Logger.error("expires_at guard co-commit failed for approval #{approval.id}")
             {:error, :persist_failed}
@@ -112,10 +118,16 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         # Re-validation failed — fail closed (T-16-02, APRV-03).
         # WR-04: {:cancel, ...} only if the durable write committed; {:error, ...} otherwise.
         humanized = humanize_reason(reason)
+
         case record_terminal_failure(approval, proposal, :invalidated, humanized) do
-          {:ok, :ok} -> {:cancel, humanized}
+          {:ok, :ok} ->
+            {:cancel, humanized}
+
           {:error, _} ->
-            Logger.error("record_terminal_failure (invalidated) co-commit failed for approval #{approval.id}")
+            Logger.error(
+              "record_terminal_failure (invalidated) co-commit failed for approval #{approval.id}"
+            )
+
             {:error, :persist_failed}
         end
     end
@@ -129,16 +141,24 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         humanized = "Tool #{tool_ref} is no longer registered"
         # WR-04: {:cancel, ...} only if the durable write committed; {:error, ...} otherwise.
         case record_terminal_failure(approval, proposal, :execution_failed, humanized) do
-          {:ok, :ok} -> {:cancel, humanized}
+          {:ok, :ok} ->
+            {:cancel, humanized}
+
           {:error, _} ->
-            Logger.error("record_terminal_failure (unknown_tool) co-commit failed for approval #{approval.id}")
+            Logger.error(
+              "record_terminal_failure (unknown_tool) co-commit failed for approval #{approval.id}"
+            )
+
             {:error, :persist_failed}
         end
 
       {:ok, tool_module} ->
         # Build the tool struct from input_snapshot (cast via the tool's own changeset)
         tool_params = Map.get(context, :tool_params, %{})
-        tool_struct = tool_module.changeset(struct(tool_module), tool_params) |> Ecto.Changeset.apply_changes()
+
+        tool_struct =
+          tool_module.changeset(struct(tool_module), tool_params)
+          |> Ecto.Changeset.apply_changes()
 
         # Pass the run-level idempotency key into context (D16-05)
         # The per-attempt key is derived deterministically from the proposal's idempotency key
@@ -170,7 +190,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
 
     approval_cs =
       ToolApproval.decision_changeset(
-        approval, :executed, "executed", result_summary, "system", DateTime.utc_now()
+        approval,
+        :executed,
+        "executed",
+        result_summary,
+        "system",
+        DateTime.utc_now()
       )
 
     proposal_cs =
@@ -219,7 +244,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         })
 
         # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
-        Traces.emit(:execution_succeeded, %{tool_proposal_id: proposal.id, actor_id: proposal.actor_id, decided_by: approval.decided_by, attempt: new_attempt})
+        Traces.emit(:execution_succeeded, %{
+          tool_proposal_id: proposal.id,
+          actor_id: proposal.actor_id,
+          decided_by: approval.decided_by,
+          attempt: new_attempt
+        })
 
         # PubSub broadcast — after committed co-commit; failures are non-fatal (D16-11)
         broadcast_executed(approval.id, proposal)
@@ -247,7 +277,8 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       # WR-03: wrap in transaction for all-or-nothing atomicity.
       # WR-04: only {:cancel, ...} when the durable write committed; {:error, ...} on failure
       # so Oban retries rather than silently discarding a job with no persisted terminal state.
-      proposal_cs = Ecto.Changeset.change(proposal, %{result_state: :failed, attempt: new_attempt})
+      proposal_cs =
+        Ecto.Changeset.change(proposal, %{result_state: :failed, attempt: new_attempt})
 
       event_attrs = %{
         tool_proposal_id: proposal.id,
@@ -261,7 +292,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
 
       approval_cs =
         ToolApproval.decision_changeset(
-          approval, :execution_failed, "execution_failed", humanized, "system", DateTime.utc_now()
+          approval,
+          :execution_failed,
+          "execution_failed",
+          humanized,
+          "system",
+          DateTime.utc_now()
         )
 
       tx_result =
@@ -289,14 +325,22 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
           })
 
           # OI trace event — additive, fire-and-forget, after bounded-metrics (Phase 17)
-          Traces.emit(:execution_failed, %{tool_proposal_id: proposal.id, actor_id: proposal.actor_id, decided_by: approval.decided_by, attempt: new_attempt})
+          Traces.emit(:execution_failed, %{
+            tool_proposal_id: proposal.id,
+            actor_id: proposal.actor_id,
+            decided_by: approval.decided_by,
+            attempt: new_attempt
+          })
 
           broadcast_execution_failed(approval.id, proposal)
           {:cancel, humanized}
 
         {:error, persist_reason} ->
           # Durable write failed — retry rather than discard the job with no terminal state.
-          Logger.error("handle_transient_failure terminal co-commit failed: #{inspect(persist_reason)}")
+          Logger.error(
+            "handle_transient_failure terminal co-commit failed: #{inspect(persist_reason)}"
+          )
+
           {:error, :persist_failed}
       end
     else
@@ -330,9 +374,13 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         end)
 
       case tx_result do
-        {:ok, :ok} -> :ok
+        {:ok, :ok} ->
+          :ok
+
         {:error, persist_reason} ->
-          Logger.warning("handle_transient_failure attempt co-commit failed: #{inspect(persist_reason)}")
+          Logger.warning(
+            "handle_transient_failure attempt co-commit failed: #{inspect(persist_reason)}"
+          )
       end
 
       # Always return {:error, humanized} so Oban retries the job.
@@ -352,7 +400,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   defp record_terminal_failure(approval, proposal, new_status, humanized) do
     approval_cs =
       ToolApproval.decision_changeset(
-        approval, new_status, Atom.to_string(new_status), humanized, "system", DateTime.utc_now()
+        approval,
+        new_status,
+        Atom.to_string(new_status),
+        humanized,
+        "system",
+        DateTime.utc_now()
       )
 
     event_type = if new_status == :invalidated, do: :revalidation_failed, else: :execution_failed
@@ -427,8 +480,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # Never let humanize_result raise (brand §5.6: humanized strings only to operators).
   defp humanize_result(outcome) do
     case outcome do
-      %{message_id: id} when not is_nil(id) -> "Note written (id: #{id})."
-      %{idempotent: true} -> "Note already written (idempotent replay)."
+      %{message_id: id} when not is_nil(id) ->
+        "Note written (id: #{id})."
+
+      %{idempotent: true} ->
+        "Note already written (idempotent replay)."
+
       map when is_map(map) ->
         # Only serialize scalar values to prevent Protocol.UndefinedError on nested
         # structures, lists, or any value that does not implement String.Chars.
@@ -446,7 +503,8 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
           _ -> Enum.join(parts, ", ")
         end
 
-      _ -> "Completed."
+      _ ->
+        "Completed."
     end
   end
 

@@ -53,7 +53,9 @@ defmodule Cairnloop.Fixtures do
 
     {:ok, approval} =
       %ToolApproval{}
-      |> ToolApproval.changeset(Map.merge(%{tool_proposal_id: proposal.id, status: :pending}, attrs))
+      |> ToolApproval.changeset(
+        Map.merge(%{tool_proposal_id: proposal.id, status: :pending}, attrs)
+      )
       |> Repo.insert()
 
     approval

@@ -38,10 +38,14 @@ defmodule Cairnloop.Governance.ToolActionEvent do
     # Phase 16 execution lifecycle (D16-08) — append-only, no schema migration needed
     # from_status/to_status are nil for execution events (Pitfall 7: typed against ToolProposal.status_values/0,
     # NOT ToolApproval; execution statuses are NOT ToolProposal statuses — carry in event_type + metadata)
-    :execution_started,           # optional; emitted before run/3 for latency tracing
-    :execution_succeeded,         # run/3 returned {:ok, result}; co-committed with :executed
-    :execution_attempt_failed,    # transient failure; Oban will retry up to max_attempts
-    :execution_failed             # terminal failure; no further retry
+    # optional; emitted before run/3 for latency tracing
+    :execution_started,
+    # run/3 returned {:ok, result}; co-committed with :executed
+    :execution_succeeded,
+    # transient failure; Oban will retry up to max_attempts
+    :execution_attempt_failed,
+    # terminal failure; no further retry
+    :execution_failed
   ]
 
   @proposal_event_types [:proposal_created, :proposal_blocked]

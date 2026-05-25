@@ -88,7 +88,9 @@ defmodule Cairnloop.GovernanceTest do
     defp maybe_put_id(struct), do: struct
 
     # Use Map.put rather than Map.put_new because inserted_at starts as nil on new structs
-    defp maybe_put_inserted_at(%{inserted_at: nil} = struct), do: %{struct | inserted_at: DateTime.utc_now()}
+    defp maybe_put_inserted_at(%{inserted_at: nil} = struct),
+      do: %{struct | inserted_at: DateTime.utc_now()}
+
     defp maybe_put_inserted_at(struct), do: struct
 
     defp put_maybe_updated_at(%ToolActionEvent{} = event), do: event
@@ -116,13 +118,18 @@ defmodule Cairnloop.GovernanceTest do
         case updated do
           %Cairnloop.Governance.ToolApproval{} ->
             existing = Process.get(:tool_approvals, [])
-            updated_list = Enum.map(existing, fn a ->
-              if a.id == updated.id, do: updated, else: a
-            end)
+
+            updated_list =
+              Enum.map(existing, fn a ->
+                if a.id == updated.id, do: updated, else: a
+              end)
+
             Process.put(:tool_approvals, updated_list)
+
           _ ->
             :ok
         end
+
         {:ok, updated}
       else
         {:error, changeset}
@@ -134,6 +141,7 @@ defmodule Cairnloop.GovernanceTest do
         Cairnloop.Governance.ToolApproval ->
           Process.get(:tool_approvals, [])
           |> Enum.find(fn a -> a.id == id end)
+
         _ ->
           nil
       end
@@ -329,7 +337,8 @@ defmodule Cairnloop.GovernanceTest do
   describe "validate/3 — needs_input (gate 1)" do
     test "returns {:blocked, :needs_input, changeset} when changeset invalid" do
       tool_ref = Atom.to_string(InvalidInputTool)
-      context = %{tool_params: %{}}  # missing required_field
+      # missing required_field
+      context = %{tool_params: %{}}
 
       result = Governance.validate(tool_ref, "user_1", context)
       assert {:blocked, :needs_input, cs} = result
@@ -489,6 +498,7 @@ defmodule Cairnloop.GovernanceTest do
   describe "propose/3 — idempotency (D-25)" do
     test "identical inputs return the same proposal on duplicate propose" do
       tool_ref = Atom.to_string(ValidTool)
+
       context = %{
         tool_params: %{order_id: "order_idem"},
         scopes: [],
@@ -577,8 +587,18 @@ defmodule Cairnloop.GovernanceTest do
 
       # Insert two proposals with different inserted_at values (oldest first)
       tool_ref = Atom.to_string(ValidTool)
-      context1 = %{tool_params: %{order_id: "order_list_1"}, scopes: [], conversation_id: conversation_id}
-      context2 = %{tool_params: %{order_id: "order_list_2"}, scopes: [], conversation_id: conversation_id}
+
+      context1 = %{
+        tool_params: %{order_id: "order_list_1"},
+        scopes: [],
+        conversation_id: conversation_id
+      }
+
+      context2 = %{
+        tool_params: %{order_id: "order_list_2"},
+        scopes: [],
+        conversation_id: conversation_id
+      }
 
       assert {:ok, _p1} = Governance.propose(tool_ref, "user_1", context1)
       assert {:ok, _p2} = Governance.propose(tool_ref, "user_1", context2)
@@ -601,7 +621,13 @@ defmodule Cairnloop.GovernanceTest do
       conversation_id = 43
 
       tool_ref = Atom.to_string(ValidTool)
-      context = %{tool_params: %{order_id: "order_events_preload"}, scopes: [], conversation_id: conversation_id}
+
+      context = %{
+        tool_params: %{order_id: "order_events_preload"},
+        scopes: [],
+        conversation_id: conversation_id
+      }
+
       assert {:ok, _} = Governance.propose(tool_ref, "user_1", context)
 
       results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
@@ -622,6 +648,7 @@ defmodule Cairnloop.GovernanceTest do
     test "persisted ToolProposal carries conversation_id from context on valid path" do
       tool_ref = Atom.to_string(ValidTool)
       conversation_id = 100
+
       context = %{
         tool_params: %{order_id: "order_conv_valid"},
         scopes: [],
@@ -638,6 +665,7 @@ defmodule Cairnloop.GovernanceTest do
       # the Support-Truth Gate requires blocked proposals to be conversation-scoped.
       tool_ref = Atom.to_string(ScopeFailingTool)
       conversation_id = 101
+
       context = %{
         tool_params: %{data: "x"},
         scopes: [],
@@ -736,6 +764,7 @@ defmodule Cairnloop.GovernanceTest do
         tool_proposal_id: 42,
         status: :pending
       }
+
       Process.put(:tool_approvals, [pending_approval])
 
       approval = apply(Governance, :get_active_approval, [42])
@@ -764,11 +793,19 @@ defmodule Cairnloop.GovernanceTest do
     setup do
       # Seed id=1 as :pending, id=2 as :approved (already resolved)
       pending = %Cairnloop.Governance.ToolApproval{
-        id: 1, tool_proposal_id: 42, status: :pending, expires_at: nil
+        id: 1,
+        tool_proposal_id: 42,
+        status: :pending,
+        expires_at: nil
       }
+
       resolved = %Cairnloop.Governance.ToolApproval{
-        id: 2, tool_proposal_id: 43, status: :approved, expires_at: nil
+        id: 2,
+        tool_proposal_id: 43,
+        status: :approved,
+        expires_at: nil
       }
+
       Process.put(:tool_approvals, [pending, resolved])
       :ok
     end
@@ -853,12 +890,17 @@ defmodule Cairnloop.GovernanceTest do
 
       # Approve with a no-op enqueue_fn
       enqueue_fn_approve = fn _job -> {:ok, :enqueued} end
-      assert {:ok, _} = Governance.approve(approval.id, "ops_user_1", enqueue_fn: enqueue_fn_approve)
+
+      assert {:ok, _} =
+               Governance.approve(approval.id, "ops_user_1", enqueue_fn: enqueue_fn_approve)
 
       events = Process.get(:tool_action_events, [])
-      approval_events = Enum.filter(events, fn e ->
-        e.event_type in [:approval_requested, :approved]
-      end)
+
+      approval_events =
+        Enum.filter(events, fn e ->
+          e.event_type in [:approval_requested, :approved]
+        end)
+
       assert length(approval_events) >= 2,
              "Expected ≥ 2 events (request + approve), got #{length(approval_events)}"
     end
@@ -875,8 +917,12 @@ defmodule Cairnloop.GovernanceTest do
     setup do
       # Seed id=2 as :approved (already resolved)
       resolved = %Cairnloop.Governance.ToolApproval{
-        id: 2, tool_proposal_id: 43, status: :approved, expires_at: nil
+        id: 2,
+        tool_proposal_id: 43,
+        status: :approved,
+        expires_at: nil
       }
+
       Process.put(:tool_approvals, [resolved])
       :ok
     end
@@ -897,6 +943,7 @@ defmodule Cairnloop.GovernanceTest do
       before_events = length(Process.get(:tool_action_events, []))
       Governance.approve(2, "ops_user_1", [])
       after_events = length(Process.get(:tool_action_events, []))
+
       assert after_events == before_events,
              "No new events must be written for a transition on a non-:pending approval"
     end
@@ -927,7 +974,8 @@ defmodule Cairnloop.GovernanceTest do
       # Using @tag :skip here so the known-failing WR-01 source assert does not
       # block Wave 0 baseline. Wave 1 removes the :skip tag.
       _ = governance_source
-      assert true  # placeholder — see skip tag below
+      # placeholder — see skip tag below
+      assert true
     end
 
     test "governance.ex L313 uses traverse_errors/2 not inspect/1 (WR-01 fix, D15-15)" do
@@ -936,6 +984,7 @@ defmodule Cairnloop.GovernanceTest do
       # After Wave 1: assert traverse_errors is used and inspect(reason) is gone.
       refute governance_source =~ ~r/reason_str\s*=\s*inspect\(reason\)/,
              "WR-01: insert_blocked_proposal must not use inspect(reason) — use traverse_errors/2 (D15-15)"
+
       assert governance_source =~ "traverse_errors",
              "WR-01: insert_blocked_proposal must use Ecto.Changeset.traverse_errors/2 (D15-15)"
     end
@@ -944,14 +993,17 @@ defmodule Cairnloop.GovernanceTest do
       # :needs_input still persists even after the WR-01 fix.
       # This test runs NOW (no fix needed — :needs_input already persists in Phase 13).
       tool_ref = Atom.to_string(InvalidInputTool)
-      context = %{tool_params: %{}, scopes: []}  # missing required_field
+      # missing required_field
+      context = %{tool_params: %{}, scopes: []}
 
       result = Governance.propose(tool_ref, "user_1", context)
       assert {:blocked, :needs_input, _} = result
 
       proposals = Process.get(:tool_proposals, [])
+
       assert length(proposals) == 1,
              ":needs_input must still persist a ToolProposal row (Support-Truth Gate)"
+
       assert hd(proposals).status == :needs_input
     end
 
@@ -964,8 +1016,10 @@ defmodule Cairnloop.GovernanceTest do
 
       proposals = Process.get(:tool_proposals, [])
       [proposal] = proposals
-      reason = get_in(proposal.policy_snapshot, [:reason]) ||
-               get_in(proposal.policy_snapshot, ["reason"]) || ""
+
+      reason =
+        get_in(proposal.policy_snapshot, [:reason]) ||
+          get_in(proposal.policy_snapshot, ["reason"]) || ""
 
       refute String.contains?(to_string(reason), "#Ecto.Changeset<"),
              "policy_snapshot.reason must not contain raw #Ecto.Changeset< — humanize via traverse_errors/2 (WR-01)"
@@ -995,8 +1049,12 @@ defmodule Cairnloop.GovernanceTest do
   describe "reject/3 — FLOW-03 reason required (15-03)" do
     setup do
       pending = %Cairnloop.Governance.ToolApproval{
-        id: 10, tool_proposal_id: 50, status: :pending, expires_at: nil
+        id: 10,
+        tool_proposal_id: 50,
+        status: :pending,
+        expires_at: nil
       }
+
       Process.put(:tool_approvals, [pending])
       :ok
     end
@@ -1028,6 +1086,7 @@ defmodule Cairnloop.GovernanceTest do
         send(self(), :enqueued)
         {:ok, :enqueued}
       end
+
       Governance.reject(10, "ops_user_1", reason: "No.", enqueue_fn: enqueue_fn)
       refute_receive :enqueued
     end
@@ -1036,8 +1095,12 @@ defmodule Cairnloop.GovernanceTest do
   describe "defer/3 — FLOW-03 reason required (15-03)" do
     setup do
       pending = %Cairnloop.Governance.ToolApproval{
-        id: 11, tool_proposal_id: 51, status: :pending, expires_at: nil
+        id: 11,
+        tool_proposal_id: 51,
+        status: :pending,
+        expires_at: nil
       }
+
       Process.put(:tool_approvals, [pending])
       :ok
     end
@@ -1067,8 +1130,12 @@ defmodule Cairnloop.GovernanceTest do
   describe "expire/2 — admin facade parity (15-03)" do
     setup do
       pending = %Cairnloop.Governance.ToolApproval{
-        id: 12, tool_proposal_id: 52, status: :pending, expires_at: nil
+        id: 12,
+        tool_proposal_id: 52,
+        status: :pending,
+        expires_at: nil
       }
+
       Process.put(:tool_approvals, [pending])
       :ok
     end
@@ -1084,8 +1151,12 @@ defmodule Cairnloop.GovernanceTest do
 
     test "expire/2 on non-:pending approval returns error / no-op" do
       resolved = %Cairnloop.Governance.ToolApproval{
-        id: 13, tool_proposal_id: 53, status: :rejected, expires_at: nil
+        id: 13,
+        tool_proposal_id: 53,
+        status: :rejected,
+        expires_at: nil
       }
+
       existing = Process.get(:tool_approvals, [])
       Process.put(:tool_approvals, [resolved | existing])
 
@@ -1105,12 +1176,14 @@ defmodule Cairnloop.GovernanceTest do
 
     test "governance.ex source uses decision_changeset for reject/defer (FLOW-03)" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       assert source =~ "decision_changeset",
              "governance.ex must use ToolApproval.decision_changeset/6 for reason-required transitions"
     end
 
     test "governance.ex source contains ApprovalResumeWorker enqueue (APRV-01)" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       assert source =~ "ApprovalResumeWorker",
              "approve/3 must enqueue ApprovalResumeWorker (APRV-01)"
     end
@@ -1173,6 +1246,7 @@ defmodule Cairnloop.GovernanceTest do
       assert {:ok, proposal} = Governance.propose(tool_ref, "user_1", context)
 
       test_pid = self()
+
       enqueue_fn = fn job ->
         send(test_pid, {:enqueued_expiry, job})
         {:ok, :enqueued}
@@ -1188,6 +1262,7 @@ defmodule Cairnloop.GovernanceTest do
       # opened and no enqueue — otherwise an always-blocked action could be driven
       # to :execution_pending.
       test_pid = self()
+
       enqueue_fn = fn job ->
         send(test_pid, {:should_not_enqueue, job})
         {:ok, :enqueued}
@@ -1207,26 +1282,31 @@ defmodule Cairnloop.GovernanceTest do
 
     test "source: no Ecto.Multi used (sequential with, Pitfall 1)" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       refute source =~ "Ecto.Multi",
              "governance.ex must not use Ecto.Multi — only sequential with co-commits (Pitfall 1)"
     end
 
     test "source: safe_enqueue/1 and update_approval_with_event/3 exist in governance.ex" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       assert source =~ "defp safe_enqueue",
              "governance.ex must define defp safe_enqueue for host-runtime posture"
+
       assert source =~ "defp update_approval_with_event",
              "governance.ex must define defp update_approval_with_event for co-commit pattern"
     end
 
     test "source: Logger.warning used in safe_enqueue rescue (Pitfall 3)" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       assert source =~ "Logger.warning",
              "safe_enqueue must Logger.warning on rescue (Pitfall 3)"
     end
 
     test "source: finite TTL default 172_800 documented in governance.ex (D15-13)" do
       source = File.read!("lib/cairnloop/governance.ex")
+
       assert source =~ "172_800",
              "governance.ex must document 172_800s (48h) finite TTL default (D15-13)"
     end

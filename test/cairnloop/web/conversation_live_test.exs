@@ -1042,7 +1042,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       # Extract just the execute_tool handler body — from the handler def to the next top-level def
       # This avoids catching the unrelated String.to_existing_atom at line 754 (map-key atomization).
       handler_start = :binary.match(source, "\"execute_tool\"") |> elem(0)
-      handler_end_marker = :binary.match(source, "defp reload_conversation_with_context") |> elem(0)
+
+      handler_end_marker =
+        :binary.match(source, "defp reload_conversation_with_context") |> elem(0)
+
       handler_region = binary_part(source, handler_start, handler_end_marker - handler_start)
 
       refute handler_region =~ "String.to_existing_atom"
@@ -1545,6 +1548,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       # Locate the failure_reason_message function region
       start_marker = "defp failure_reason_message"
+
       {:ok, start_pos} =
         case :binary.match(source, start_marker) do
           {pos, _len} -> {:ok, pos}
@@ -1571,7 +1575,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       # replacement as a Wave 3 task.
       # The handle_event test above already covers the no-crash aspect; this test
       # documents the D-14 improvement target.
-      assert true, "inspect(reason) is safe from crash (CR-01 fixed); D-14 humanization is Wave 3 work"
+      assert true,
+             "inspect(reason) is safe from crash (CR-01 fixed); D-14 humanization is Wave 3 work"
     end
   end
 
@@ -1587,17 +1592,29 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     # :approve_result, :reject_result, :defer_result
     def approve(approval_id, _actor_id, _opts) do
       Process.put(:approve_called_with, approval_id)
-      Process.get(:approve_result, {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :approved}})
+
+      Process.get(
+        :approve_result,
+        {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :approved}}
+      )
     end
 
     def reject(approval_id, _actor_id, opts) do
       Process.put(:reject_called_with, {approval_id, Keyword.get(opts, :reason)})
-      Process.get(:reject_result, {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :rejected}})
+
+      Process.get(
+        :reject_result,
+        {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :rejected}}
+      )
     end
 
     def defer(approval_id, _actor_id, opts) do
       Process.put(:defer_called_with, {approval_id, Keyword.get(opts, :reason)})
-      Process.get(:defer_result, {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :deferred}})
+
+      Process.get(
+        :defer_result,
+        {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :deferred}}
+      )
     end
   end
 
@@ -1642,11 +1659,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "footer slot renders Approve button when active :pending approval exists (brand §7.5 / APRV-01)" do
       # Proposal with a :pending approval preloaded
       approval = pending_approval_fixture()
-      proposal = tool_proposal_fixture(%{
-        approval: approval,
-        rendered_consequence: "Will update the order status to refunded.",
-        title: "Refund Order"
-      })
+
+      proposal =
+        tool_proposal_fixture(%{
+          approval: approval,
+          rendered_consequence: "Will update the order status to refunded.",
+          title: "Refund Order"
+        })
 
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
       html = render_component(card_fn, proposal: proposal)
@@ -1654,6 +1673,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       # Footer must render Approve affordance with phx-click
       assert html =~ "approve_action" or html =~ "approve",
              "footer must render Approve affordance when :pending approval exists"
+
       # Status conveyed by text AND color (brand §7.5)
       assert html =~ "Approve" or html =~ "approve",
              "Approve affordance must have text label (never color-alone, §7.5)"
@@ -1668,6 +1688,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       assert html =~ "Reject" or html =~ "reject",
              "footer must render Reject affordance"
+
       assert html =~ "Defer" or html =~ "defer",
              "footer must render Defer affordance"
     end
@@ -1675,11 +1696,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "card reads snapshotted rendered_consequence, never calls live Preview.render (D15-14)" do
       # The card must show the snapshotted prose, not re-call Preview.render
       approval = pending_approval_fixture()
-      proposal = tool_proposal_fixture(%{
-        approval: approval,
-        rendered_consequence: "Snapshotted consequence text",
-        title: "Snapshotted Title"
-      })
+
+      proposal =
+        tool_proposal_fixture(%{
+          approval: approval,
+          rendered_consequence: "Snapshotted consequence text",
+          title: "Snapshotted Title"
+        })
 
       card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
       html = render_component(card_fn, proposal: proposal)
@@ -1697,6 +1720,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       assert html =~ "Pending approval",
              "card must show 'Pending approval' copy when active :pending approval exists (D15-16)"
+
       refute html =~ "Will require",
              "card must not show future-tense honesty seam when real approval exists (D15-16)"
     end
@@ -1704,28 +1728,50 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "brand token var(--cl-primary) used in footer (§2.2/§7 — no hardcoded hex for affordance)" do
       # Source assertion: var(--cl-primary) must appear at least once (footer affordances)
       project_root =
-        __ENV__.file |> Path.expand() |> Path.dirname() |> Path.dirname() |> Path.dirname() |> Path.dirname()
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
 
-      source = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+      source =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
       assert source =~ "var(--cl-primary",
              "brand token var(--cl-primary) must be used in conversation_live (§2.2/§7)"
     end
 
     test "no streams used in conversation_live (P14 D-02 plain-assign invariant)" do
       project_root =
-        __ENV__.file |> Path.expand() |> Path.dirname() |> Path.dirname() |> Path.dirname() |> Path.dirname()
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
 
-      source = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+      source =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
       refute source =~ "LiveView.stream(",
              "no Phoenix.LiveView.stream/3 must be used (P14 D-02 plain-assign invariant)"
+
       refute source =~ ~r/stream\([^)]+\).*stream/s
     end
 
     test "card does not call live Preview.render (D15-14 source assertion)" do
       project_root =
-        __ENV__.file |> Path.expand() |> Path.dirname() |> Path.dirname() |> Path.dirname() |> Path.dirname()
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
 
-      source = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+      source =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
       # The card precompute must read rendered_consequence, not call Preview.render
       assert source =~ "rendered_consequence",
              "card must reference rendered_consequence column (D15-14)"
@@ -1751,22 +1797,33 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     test "approve_action handler calls Governance.approve (source assertion — never .run/3)" do
       project_root =
-        __ENV__.file |> Path.expand() |> Path.dirname() |> Path.dirname() |> Path.dirname() |> Path.dirname()
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
 
-      source = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+      source =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
 
       # Handler must call Governance.approve/reject/defer (at least 3 times total)
       assert source =~ "Governance.approve",
              "conversation_live must call Cairnloop.Governance.approve"
+
       assert source =~ "Governance.reject",
              "conversation_live must call Cairnloop.Governance.reject"
+
       assert source =~ "Governance.defer",
              "conversation_live must call Cairnloop.Governance.defer"
 
       # Handler must NOT call run/3 or execute inline (APRV-01)
       # Extract approve_action handler region to avoid matching doc strings
       approve_start = :binary.match(source, "approve_action") |> elem(0)
-      approve_region = binary_part(source, approve_start, min(byte_size(source) - approve_start, 400))
+
+      approve_region =
+        binary_part(source, approve_start, min(byte_size(source) - approve_start, 400))
+
       refute approve_region =~ ".run(",
              "approve_action handler must not call .run/3 — no inline execution (APRV-01)"
     end

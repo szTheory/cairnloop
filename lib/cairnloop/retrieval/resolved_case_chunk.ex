@@ -3,11 +3,11 @@ defmodule Cairnloop.Retrieval.ResolvedCaseChunk do
   import Ecto.Changeset
 
   schema "cairnloop_resolved_case_chunks" do
-    field :chunk_index, :integer
-    field :content, :string
-    field :embedding, Pgvector.Ecto.Vector
+    field(:chunk_index, :integer)
+    field(:content, :string)
+    field(:embedding, Pgvector.Ecto.Vector)
 
-    belongs_to :resolved_case_evidence, Cairnloop.Retrieval.ResolvedCaseEvidence
+    belongs_to(:resolved_case_evidence, Cairnloop.Retrieval.ResolvedCaseEvidence)
 
     timestamps()
   end

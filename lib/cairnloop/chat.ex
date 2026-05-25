@@ -25,7 +25,14 @@ defmodule Cairnloop.Chat do
   def reply_to_conversation(conversation_id, content, role \\ :agent, opts \\ []) do
     conversation = repo().get!(Conversation, conversation_id)
     actor = Keyword.get(opts, :actor)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+
+    auditor =
+      Keyword.get(
+        opts,
+        :auditor,
+        Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
+      )
+
     meta = %{conversation_id: conversation.id, role: role}
 
     Cairnloop.Telemetry.span([:conversation, :reply], meta, fn ->
@@ -53,22 +60,34 @@ defmodule Cairnloop.Chat do
             )
           )
           |> Ecto.Multi.merge(fn _changes ->
-            active_sla = repo().one(from s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
+            active_sla =
+              repo().one(
+                from(s in SLA,
+                  where: s.conversation_id == ^conversation.id and s.status == :active
+                )
+              )
+
             if active_sla do
               Ecto.Multi.new()
             else
               target_at = DateTime.utc_now() |> DateTime.add(2, :hour)
-              sla_changeset = SLA.changeset(%SLA{}, %{
-                conversation_id: conversation.id,
-                target_type: :first_response,
-                status: :active,
-                target_at: target_at
-              })
+
+              sla_changeset =
+                SLA.changeset(%SLA{}, %{
+                  conversation_id: conversation.id,
+                  target_type: :first_response,
+                  status: :active,
+                  target_at: target_at
+                })
 
               Ecto.Multi.new()
               |> Ecto.Multi.insert(:new_sla, sla_changeset)
               |> Ecto.Multi.merge(fn %{new_sla: sla} ->
-                job = Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id}, scheduled_at: target_at)
+                job =
+                  Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id},
+                    scheduled_at: target_at
+                  )
+
                 Ecto.Multi.insert(Ecto.Multi.new(), :sla_job, job)
               end)
             end
@@ -76,27 +95,47 @@ defmodule Cairnloop.Chat do
         else
           multi
           |> Ecto.Multi.merge(fn _changes ->
-            active_sla = repo().one(from s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
-            
+            active_sla =
+              repo().one(
+                from(s in SLA,
+                  where: s.conversation_id == ^conversation.id and s.status == :active
+                )
+              )
+
             m = Ecto.Multi.new()
-            m = if active_sla do
-              Ecto.Multi.update(m, :fulfill_sla, Ecto.Changeset.change(active_sla, %{status: :fulfilled, completed_at: DateTime.utc_now()}))
-            else
-              m
-            end
+
+            m =
+              if active_sla do
+                Ecto.Multi.update(
+                  m,
+                  :fulfill_sla,
+                  Ecto.Changeset.change(active_sla, %{
+                    status: :fulfilled,
+                    completed_at: DateTime.utc_now()
+                  })
+                )
+              else
+                m
+              end
 
             target_at = DateTime.utc_now() |> DateTime.add(24, :hour)
-            sla_changeset = SLA.changeset(%SLA{}, %{
-              conversation_id: conversation.id,
-              target_type: :resolution,
-              status: :active,
-              target_at: target_at
-            })
+
+            sla_changeset =
+              SLA.changeset(%SLA{}, %{
+                conversation_id: conversation.id,
+                target_type: :resolution,
+                status: :active,
+                target_at: target_at
+              })
 
             m
             |> Ecto.Multi.insert(:new_sla, sla_changeset)
             |> Ecto.Multi.merge(fn %{new_sla: sla} ->
-              job = Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id}, scheduled_at: target_at)
+              job =
+                Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id},
+                  scheduled_at: target_at
+                )
+
               Ecto.Multi.insert(Ecto.Multi.new(), :sla_job, job)
             end)
           end)
@@ -109,7 +148,14 @@ defmodule Cairnloop.Chat do
 
   def resolve_conversation(conversation_id, opts) when is_list(opts) do
     {actor, metadata} = Keyword.pop!(opts, :resolved_by)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+
+    auditor =
+      Keyword.get(
+        opts,
+        :auditor,
+        Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
+      )
+
     conversation = repo().get!(Conversation, conversation_id)
     resolved_at = DateTime.utc_now()
 
@@ -155,9 +201,17 @@ defmodule Cairnloop.Chat do
       )
       |> auditor.audit(:resolve_conversation, actor, %{conversation_id: conversation.id})
       |> Ecto.Multi.merge(fn _changes ->
-        active_sla = repo().one(from s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
+        active_sla =
+          repo().one(
+            from(s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
+          )
+
         if active_sla do
-          Ecto.Multi.update(Ecto.Multi.new(), :fulfill_sla, Ecto.Changeset.change(active_sla, %{status: :fulfilled, completed_at: resolved_at}))
+          Ecto.Multi.update(
+            Ecto.Multi.new(),
+            :fulfill_sla,
+            Ecto.Changeset.change(active_sla, %{status: :fulfilled, completed_at: resolved_at})
+          )
         else
           Ecto.Multi.new()
         end

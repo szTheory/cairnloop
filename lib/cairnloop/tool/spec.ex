@@ -21,11 +21,17 @@ defmodule Cairnloop.Tool.Spec do
 
   @enforce_keys [:risk_tier, :approval_mode]
   defstruct [
-    :risk_tier,     # atom — :read_only | :low_write | :high_write | :destructive
-    :approval_mode, # atom — :auto | :requires_approval | :always_block
-    :idempotency,   # atom or map — idempotency key derivation strategy
-    :result_states, # list of atoms — declared result vocabulary for this tool
-    :title,         # string — human-readable name (Phase 14 preview, Phase 17 MCP "title")
-    :description    # string — operator description (Phase 17 MCP "description")
+    # atom — :read_only | :low_write | :high_write | :destructive
+    :risk_tier,
+    # atom — :auto | :requires_approval | :always_block
+    :approval_mode,
+    # atom or map — idempotency key derivation strategy
+    :idempotency,
+    # list of atoms — declared result vocabulary for this tool
+    :result_states,
+    # string — human-readable name (Phase 14 preview, Phase 17 MCP "title")
+    :title,
+    # string — operator description (Phase 17 MCP "description")
+    :description
   ]
 end

@@ -8,9 +8,21 @@ defmodule Cairnloop.KnowledgeAutomation.Telemetry do
 
   alias Cairnloop.Telemetry
 
-  @events [:gap_candidate, :suggestion_outcome, :review_decision, :publish_outcome, :reindex_outcome]
+  @events [
+    :gap_candidate,
+    :suggestion_outcome,
+    :review_decision,
+    :publish_outcome,
+    :reindex_outcome
+  ]
   @allowed_surfaces [:conversation_thread, :review_lane, :worker, :api, :unspecified]
-  @allowed_entrypoint_types [:gap_candidate, :article_revision, :conversation_quick_fix, :manual, :unspecified]
+  @allowed_entrypoint_types [
+    :gap_candidate,
+    :article_revision,
+    :conversation_quick_fix,
+    :manual,
+    :unspecified
+  ]
   @allowed_outcomes [
     :created,
     :reused,
@@ -49,7 +61,14 @@ defmodule Cairnloop.KnowledgeAutomation.Telemetry do
     :mixed
   ]
   @allowed_publish_statuses [:not_started, :queued, :published, :failed, :not_applicable]
-  @allowed_reindex_statuses [:not_started, :queued, :running, :completed, :failed, :not_applicable]
+  @allowed_reindex_statuses [
+    :not_started,
+    :queued,
+    :running,
+    :completed,
+    :failed,
+    :not_applicable
+  ]
 
   def event_name(event) when event in @events, do: [:cairnloop, :knowledge_automation, event]
 

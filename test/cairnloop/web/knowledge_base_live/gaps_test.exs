@@ -69,12 +69,18 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
         GapEvent ->
           Process.get(:live_gap_events, [])
           |> filter(query)
-          |> Enum.sort_by(fn event -> {Map.get(event, :occurred_at), Map.get(event, :id, 0)} end, :desc)
+          |> Enum.sort_by(
+            fn event -> {Map.get(event, :occurred_at), Map.get(event, :id, 0)} end,
+            :desc
+          )
 
         ResolvedCaseEvidence ->
           Process.get(:live_resolved_case_evidence, [])
           |> filter(query)
-          |> Enum.sort_by(fn evidence -> {Map.get(evidence, :resolved_at), Map.get(evidence, :id, 0)} end, :desc)
+          |> Enum.sort_by(
+            fn evidence -> {Map.get(evidence, :resolved_at), Map.get(evidence, :id, 0)} end,
+            :desc
+          )
 
         ArticleSuggestion ->
           Process.get(:live_article_suggestions, [])
@@ -139,7 +145,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
     defp store_inserted(%ArticleSuggestion{} = suggestion) do
       Process.put(:live_last_inserted_suggestion, suggestion)
-      Process.put(:live_article_suggestions, [suggestion | Process.get(:live_article_suggestions, [])])
+
+      Process.put(:live_article_suggestions, [
+        suggestion | Process.get(:live_article_suggestions, [])
+      ])
     end
 
     defp store_inserted(%KnowledgeAutomation.ReviewTask{} = task) do
@@ -224,6 +233,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
   test "operators can navigate to /knowledge-base/gaps from the dashboard shell" do
     {:ok, socket} = Index.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+
     html =
       socket.assigns
       |> Index.render()
@@ -330,7 +340,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
   test "selected gap candidates queue article suggestion generation with candidate-scoped evidence" do
     Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
     Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
-    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-gap-ui"}} end)
+
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job ->
+      {:ok, %{id: "job-gap-ui"}}
+    end)
 
     Process.put(:mock_gap_candidates, [%GapCandidate{id: 5, title: "Billing Export"}])
 
@@ -437,18 +450,29 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
     assert suggestion.entrypoint_id == 5
     assert suggestion.grounding_metadata["query"] == "billing export missing from knowledge base"
-    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} = socket.redirected
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} =
+             socket.redirected
   end
 
   test "knowledge base index queues revision suggestions from domain-loaded stale evidence" do
     Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
     Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
     Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
-    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-revision-ui"}} end)
+
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job ->
+      {:ok, %{id: "job-revision-ui"}}
+    end)
 
     Process.put(:index_articles, [%Article{id: 77, title: "Billing Export", status: :published}])
-    Process.put(:index_article_lookup_fn, fn 77 -> %Article{id: 77, title: "Billing Export", status: :published} end)
-    Process.put(:index_latest_active_revision_fn, fn 77 -> %Revision{id: 44, article_id: 77, state: :published, version: 3} end)
+
+    Process.put(:index_article_lookup_fn, fn 77 ->
+      %Article{id: 77, title: "Billing Export", status: :published}
+    end)
+
+    Process.put(:index_latest_active_revision_fn, fn 77 ->
+      %Revision{id: 44, article_id: 77, state: :published, version: 3}
+    end)
 
     Process.put(:live_gap_events, [
       %GapEvent{
@@ -516,7 +540,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
         }
     end)
 
-    {:ok, mounted_socket} = Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+    {:ok, mounted_socket} =
+      Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+
     socket = %{mounted_socket | assigns: Map.put(mounted_socket.assigns, :flash, %{})}
     {:noreply, socket} = Index.handle_event("suggest_revision", %{"article_id" => "77"}, socket)
 
@@ -525,16 +551,22 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     assert suggestion.base_revision_id == 44
     assert suggestion.grounding_metadata["canonical_evidence_count"] == 1
     assert suggestion.grounding_metadata["stale_signal"][:signal_count] == 2
-    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} = socket.redirected
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _task_id}} =
+             socket.redirected
   end
 
   test "entrypoint redirects preserve enough state for deterministic review-lane smoke coverage" do
     Application.put_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
     Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
     Application.put_env(:cairnloop, :retrieval_module, MockRetrieval)
-    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job -> {:ok, %{id: "job-e2e"}} end)
+
+    Application.put_env(:cairnloop, :knowledge_automation_enqueue_fn, fn _job ->
+      {:ok, %{id: "job-e2e"}}
+    end)
 
     Process.put(:mock_gap_candidates, [%GapCandidate{id: 5, title: "Billing Export"}])
+
     Process.put(:live_gap_candidate_lookup, fn _query ->
       %GapCandidate{
         id: 5,
@@ -637,8 +669,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     ])
 
     Process.put(:index_articles, [%Article{id: 77, title: "Billing Export", status: :published}])
-    Process.put(:index_article_lookup_fn, fn 77 -> %Article{id: 77, title: "Billing Export", status: :published} end)
-    Process.put(:index_latest_active_revision_fn, fn 77 -> %Revision{id: 44, article_id: 77, state: :published, version: 3} end)
+
+    Process.put(:index_article_lookup_fn, fn 77 ->
+      %Article{id: 77, title: "Billing Export", status: :published}
+    end)
+
+    Process.put(:index_latest_active_revision_fn, fn 77 ->
+      %Revision{id: 44, article_id: 77, state: :published, version: 3}
+    end)
 
     Process.put(:live_retrieval_ground_for_draft, fn
       "billing export missing from knowledge base", request, _opts ->
@@ -676,20 +714,37 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
         }
     end)
 
-    {:ok, gaps_socket} = Gaps.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+    {:ok, gaps_socket} =
+      Gaps.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+
     {:noreply, gaps_socket} = Gaps.handle_params(%{"candidate" => "5"}, "", gaps_socket)
-    {:noreply, gaps_socket} = Gaps.handle_event("suggest_article", %{"candidate_id" => "5"}, gaps_socket)
 
-    {:ok, index_socket} = Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
-    {:noreply, index_socket} = Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
+    {:noreply, gaps_socket} =
+      Gaps.handle_event("suggest_article", %{"candidate_id" => "5"}, gaps_socket)
 
-    article_suggestion = Process.get(:live_article_suggestions) |> Enum.find(&(&1.entrypoint_type == :gap_candidate))
-    revision_suggestion = Process.get(:live_article_suggestions) |> Enum.find(&(&1.entrypoint_type == :article_revision))
+    {:ok, index_socket} =
+      Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
 
-    assert article_suggestion.grounding_metadata["query"] == "billing export missing from knowledge base"
+    {:noreply, index_socket} =
+      Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)
+
+    article_suggestion =
+      Process.get(:live_article_suggestions) |> Enum.find(&(&1.entrypoint_type == :gap_candidate))
+
+    revision_suggestion =
+      Process.get(:live_article_suggestions)
+      |> Enum.find(&(&1.entrypoint_type == :article_revision))
+
+    assert article_suggestion.grounding_metadata["query"] ==
+             "billing export missing from knowledge base"
+
     assert revision_suggestion.grounding_metadata["stale_signal"][:signal_count] == 2
-    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} = gaps_socket.redirected
-    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} = index_socket.redirected
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} =
+             gaps_socket.redirected
+
+    assert {:live, :redirect, %{to: "/knowledge-base/suggestions?task=" <> _}} =
+             index_socket.redirected
   end
 
   defp render_html(assigns) do

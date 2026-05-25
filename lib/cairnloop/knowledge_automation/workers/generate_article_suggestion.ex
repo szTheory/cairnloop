@@ -1,7 +1,11 @@
 defmodule Cairnloop.KnowledgeAutomation.Workers.GenerateArticleSuggestion do
   use Oban.Worker,
     queue: :default,
-    unique: [period: 60, fields: [:worker, :args], keys: [:entrypoint_type, :entrypoint_id, :base_revision_id, :evidence_digest]]
+    unique: [
+      period: 60,
+      fields: [:worker, :args],
+      keys: [:entrypoint_type, :entrypoint_id, :base_revision_id, :evidence_digest]
+    ]
 
   def new_job(args \\ %{}, opts \\ []) do
     args
@@ -30,7 +34,10 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.GenerateArticleSuggestion do
           fail_suggestion(suggestion, :generation_failed)
       end
     else
-      fail_suggestion(suggestion, prepared.failure_reason || args["failure_reason"] || :generation_failed)
+      fail_suggestion(
+        suggestion,
+        prepared.failure_reason || args["failure_reason"] || :generation_failed
+      )
     end
   end
 

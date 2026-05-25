@@ -29,7 +29,7 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       results =
         Enum.reduce(operations, %{}, fn
-        {name, {:insert, changeset, _}}, acc ->
+          {name, {:insert, changeset, _}}, acc ->
             inserted = Ecto.Changeset.apply_changes(changeset)
             send(self(), {:multi_insert, name, inserted})
             Map.put(acc, name, inserted)
@@ -71,18 +71,33 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
   describe "save_draft/2" do
     test "creates a new revision with version N+1 if latest revision is published" do
-      Process.put(:mock_repo_one_result, %Revision{id: 1, article_id: 42, version: 1, state: :published})
+      Process.put(:mock_repo_one_result, %Revision{
+        id: 1,
+        article_id: 42,
+        version: 1,
+        state: :published
+      })
 
-      assert {:ok, revision} = KnowledgeBase.save_draft(%Article{id: 42}, %{content: "new content"})
+      assert {:ok, revision} =
+               KnowledgeBase.save_draft(%Article{id: 42}, %{content: "new content"})
+
       assert revision.version == 2
       assert revision.state == :draft
       assert revision.content == "new content"
     end
 
     test "updates the existing draft if latest revision is a draft" do
-      Process.put(:mock_repo_one_result, %Revision{id: 1, article_id: 42, version: 2, state: :draft, content: "old"})
+      Process.put(:mock_repo_one_result, %Revision{
+        id: 1,
+        article_id: 42,
+        version: 2,
+        state: :draft,
+        content: "old"
+      })
 
-      assert {:ok, revision} = KnowledgeBase.save_draft(%Article{id: 42}, %{content: "new content"})
+      assert {:ok, revision} =
+               KnowledgeBase.save_draft(%Article{id: 42}, %{content: "new content"})
+
       assert revision.id == 1
       assert revision.version == 2
       assert revision.state == :draft

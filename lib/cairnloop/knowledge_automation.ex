@@ -319,7 +319,10 @@ defmodule Cairnloop.KnowledgeAutomation do
                 reason: :freshness_invalidated,
                 actor_id: actor_id,
                 notes: note,
-                metadata: %{latest_active_revision_id: latest_revision.id, publish_status: :not_started}
+                metadata: %{
+                  latest_active_revision_id: latest_revision.id,
+                  publish_status: :not_started
+                }
               },
               :error
             )
@@ -350,7 +353,8 @@ defmodule Cairnloop.KnowledgeAutomation do
           {:ok, task}
 
         true ->
-          note = "Material edits were made after approval and require review again before publish."
+          note =
+            "Material edits were made after approval and require review again before publish."
 
           update_task_with_event(
             task,
@@ -448,7 +452,8 @@ defmodule Cairnloop.KnowledgeAutomation do
          %{
            suggestion: suggestion,
            reused?: true,
-           quick_fix: quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
+           quick_fix:
+             quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
          }}
         |> attach_review_task_to_quick_fix(opts)
     end
@@ -729,7 +734,10 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     evidence_digest = quick_fix_evidence_digest(attrs, canonical_evidence)
     citation_ready? = quick_fix_citation_ready?(attrs, canonical_evidence)
-    quick_fix_package = quick_fix_package_for(attrs, evidence_digest, length(canonical_evidence), citation_ready?)
+
+    quick_fix_package =
+      quick_fix_package_for(attrs, evidence_digest, length(canonical_evidence), citation_ready?)
+
     {quick_fix_outcome, quick_fix_reason} =
       quick_fix_outcome(attrs, canonical_evidence, citation_ready?)
 
@@ -757,14 +765,15 @@ defmodule Cairnloop.KnowledgeAutomation do
         stable_key: derive_stable_key(bundle),
         suggestion_type: :article,
         status: quick_fix_suggestion_status(quick_fix_outcome),
-        tenant_scope:
-          anchor_id(attrs, :tenant_scope) || :host_user_scoped,
+        tenant_scope: anchor_id(attrs, :tenant_scope) || :host_user_scoped,
         host_user_id: anchor_id(attrs, :host_user_id),
         entrypoint_type: :conversation_quick_fix,
         entrypoint_id: conversation_id,
         article_id: nil,
         base_revision_id: nil,
-        title: anchor_id(attrs, :title) || map_value(map_value(quick_fix_package, :thread_context), :subject),
+        title:
+          anchor_id(attrs, :title) ||
+            map_value(map_value(quick_fix_package, :thread_context), :subject),
         change_summary: anchor_id(attrs, :change_summary),
         operator_summary: quick_fix_operator_summary(bundle),
         proposed_markdown: quick_fix_markdown(bundle),
@@ -1010,7 +1019,8 @@ defmodule Cairnloop.KnowledgeAutomation do
        %{
          suggestion: suggestion,
          reused?: false,
-         quick_fix: quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
+         quick_fix:
+           quick_fix_package_for(suggestion.grounding_metadata, prepared.quick_fix_package)
        }}
     end
   end
@@ -1019,7 +1029,8 @@ defmodule Cairnloop.KnowledgeAutomation do
        when status in [:failed, :ready],
        do: {:ok, :skipped}
 
-  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{} = suggestion, opts), do: enqueue_generation_job(suggestion, opts)
+  defp maybe_enqueue_quick_fix_generation(%ArticleSuggestion{} = suggestion, opts),
+    do: enqueue_generation_job(suggestion, opts)
 
   defp attach_review_task_to_quick_fix({:ok, %{suggestion: suggestion} = result}, opts) do
     case ensure_review_task_for_loaded_suggestion(suggestion, Keyword.get(opts, :actor_id), opts) do
@@ -1205,20 +1216,26 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
-  defp normalize_quick_fix_reason(nil, canonical_evidence, true) when canonical_evidence != [], do: nil
-  defp normalize_quick_fix_reason(nil, _canonical_evidence, false), do: :citation_anchors_unavailable
-  defp normalize_quick_fix_reason(nil, _canonical_evidence, true), do: :missing_canonical_grounding
+  defp normalize_quick_fix_reason(nil, canonical_evidence, true) when canonical_evidence != [],
+    do: nil
+
+  defp normalize_quick_fix_reason(nil, _canonical_evidence, false),
+    do: :citation_anchors_unavailable
+
+  defp normalize_quick_fix_reason(nil, _canonical_evidence, true),
+    do: :missing_canonical_grounding
 
   defp normalize_quick_fix_reason(reason, _canonical_evidence, _citation_ready?)
        when is_atom(reason) do
-    if reason in @quick_fix_shell_reasons ++ @quick_fix_blocked_reasons do
+    if reason in (@quick_fix_shell_reasons ++ @quick_fix_blocked_reasons) do
       reason
     else
       :policy_guard_blocked
     end
   end
 
-  defp normalize_quick_fix_reason(reason, _canonical_evidence, _citation_ready?) when is_binary(reason) do
+  defp normalize_quick_fix_reason(reason, _canonical_evidence, _citation_ready?)
+       when is_binary(reason) do
     reason
     |> String.to_existing_atom()
   rescue
@@ -1244,7 +1261,8 @@ defmodule Cairnloop.KnowledgeAutomation do
     "Article suggestion blocked: #{failure_reason_message(reason)}. Use manual authoring from the shared review lane."
   end
 
-  defp quick_fix_markdown(%{quick_fix_outcome: :ready} = bundle), do: proposed_markdown_for(:article, bundle)
+  defp quick_fix_markdown(%{quick_fix_outcome: :ready} = bundle),
+    do: proposed_markdown_for(:article, bundle)
 
   defp quick_fix_markdown(%{quick_fix_outcome: :shell_created}) do
     """
@@ -1288,13 +1306,18 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp quick_fix_package_for(attrs, evidence_digest, canonical_evidence_count, citation_ready?) do
     %{
-      "thread_context" => normalize_quick_fix_thread_context(anchor_id(attrs, :thread_context), anchor_id(attrs, :conversation_id)),
+      "thread_context" =>
+        normalize_quick_fix_thread_context(
+          anchor_id(attrs, :thread_context),
+          anchor_id(attrs, :conversation_id)
+        ),
       "canonical_retrieval" => %{
         "evidence_digest" => evidence_digest,
         "canonical_evidence_count" => canonical_evidence_count,
         "citation_ready" => citation_ready?
       },
-      "resolved_case_assists" => normalize_quick_fix_case_assists(anchor_id(attrs, :resolved_case_assists))
+      "resolved_case_assists" =>
+        normalize_quick_fix_case_assists(anchor_id(attrs, :resolved_case_assists))
     }
   end
 
@@ -1315,7 +1338,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     case_assists = case_assists || %{}
 
     %{
-      "case_count" => map_value(case_assists, :case_count) || length(List.wrap(map_value(case_assists, :summaries))),
+      "case_count" =>
+        map_value(case_assists, :case_count) ||
+          length(List.wrap(map_value(case_assists, :summaries))),
       "summaries" => List.wrap(map_value(case_assists, :summaries))
     }
     |> Enum.reject(fn {key, value} -> key != "summaries" and is_nil(value) end)
@@ -1338,10 +1363,15 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp initial_review_task_attrs(_suggestion, _actor_id, _opts), do: %{}
 
-  defp quick_fix_task_note(%ArticleSuggestion{entrypoint_type: :conversation_quick_fix} = suggestion) do
+  defp quick_fix_task_note(
+         %ArticleSuggestion{entrypoint_type: :conversation_quick_fix} = suggestion
+       ) do
     case map_value(suggestion.grounding_metadata || %{}, :quick_fix_reason) do
-      nil -> suggestion.operator_summary
-      reason -> "Manual draft required: #{failure_reason_message(normalize_failure_reason(reason))}."
+      nil ->
+        suggestion.operator_summary
+
+      reason ->
+        "Manual draft required: #{failure_reason_message(normalize_failure_reason(reason))}."
     end
   end
 
@@ -1420,7 +1450,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     %{
       source_type: :resolved_case,
       trust_level: :assistive,
-      title: map_value(evidence, :issue_summary) || map_value(evidence, :subject) || "Resolved case evidence",
+      title:
+        map_value(evidence, :issue_summary) || map_value(evidence, :subject) ||
+          "Resolved case evidence",
       excerpt: map_value(evidence, :resolution_note) || "",
       metadata: %{
         destination: %{
@@ -1439,8 +1471,12 @@ defmodule Cairnloop.KnowledgeAutomation do
       |> normalize_candidate_query()
     end)
     |> case do
-      nil -> normalize_candidate_query(candidate.title) || normalize_candidate_query(candidate.seed_excerpt) || "Gap candidate #{candidate.id}"
-      query -> query
+      nil ->
+        normalize_candidate_query(candidate.title) ||
+          normalize_candidate_query(candidate.seed_excerpt) || "Gap candidate #{candidate.id}"
+
+      query ->
+        query
     end
   end
 
@@ -1457,7 +1493,9 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp build_revision_gate_inputs(revision, attrs, opts) do
     gap_events = article_linked_gap_events(revision.article_id, revision.id, attrs)
-    grounding_bundle = fresh_revision_grounding_bundle(revision.article_id, revision.id, attrs, opts)
+
+    grounding_bundle =
+      fresh_revision_grounding_bundle(revision.article_id, revision.id, attrs, opts)
 
     {gap_events, grounding_bundle}
   end
@@ -1627,11 +1665,19 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   defp knowledge_base_module(opts) do
-    Keyword.get(opts, :knowledge_base_module, Application.get_env(:cairnloop, :knowledge_base, KnowledgeBase))
+    Keyword.get(
+      opts,
+      :knowledge_base_module,
+      Application.get_env(:cairnloop, :knowledge_base, KnowledgeBase)
+    )
   end
 
   defp retrieval_module(opts) do
-    Keyword.get(opts, :retrieval_module, Application.get_env(:cairnloop, :retrieval_module, Retrieval))
+    Keyword.get(
+      opts,
+      :retrieval_module,
+      Application.get_env(:cairnloop, :retrieval_module, Retrieval)
+    )
   end
 
   defp approval_article_id(%ArticleSuggestion{article_id: article_id}, _task, _opts)
@@ -1677,7 +1723,8 @@ defmodule Cairnloop.KnowledgeAutomation do
     end
   end
 
-  defp load_staged_revision(%ReviewTask{staged_revision_id: nil}, _opts), do: {:error, :missing_staged_revision}
+  defp load_staged_revision(%ReviewTask{staged_revision_id: nil}, _opts),
+    do: {:error, :missing_staged_revision}
 
   defp load_staged_revision(%ReviewTask{staged_revision_id: revision_id}, opts) do
     case Keyword.get(opts, :get_revision_fn) do
@@ -1715,7 +1762,8 @@ defmodule Cairnloop.KnowledgeAutomation do
       when not is_nil(task.staged_revision_id) and draft_id == task.staged_revision_id ->
         :ok
 
-      %{state: :draft, id: draft_id} = revision when is_nil(task.staged_revision_id) or draft_id != task.staged_revision_id ->
+      %{state: :draft, id: draft_id} = revision
+      when is_nil(task.staged_revision_id) or draft_id != task.staged_revision_id ->
         {:error, {:draft_conflict, revision}}
 
       _ ->
@@ -1726,7 +1774,11 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp ensure_publishable_status(%ReviewTask{status: :approved_ready_to_publish}), do: :ok
   defp ensure_publishable_status(_task), do: {:error, :invalid_publish_state}
 
-  defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{suggestion_type: :article}, _opts), do: :ok
+  defp ensure_publish_freshness(
+         %ReviewTask{},
+         %ArticleSuggestion{suggestion_type: :article},
+         _opts
+       ), do: :ok
 
   defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{} = suggestion, opts) do
     latest_active_revision_fn =
@@ -1753,7 +1805,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     with {:ok, task, _suggestion} <- load_review_task_with_suggestion(id, opts) do
       update_task_with_event(
         task,
-        ReviewTask.decision_changeset(task, status, decision, reason, actor_id, now, %{notes: Keyword.get(opts, :note)}),
+        ReviewTask.decision_changeset(task, status, decision, reason, actor_id, now, %{
+          notes: Keyword.get(opts, :note)
+        }),
         %{
           event_type: :decision_recorded,
           from_status: task.status,
@@ -1790,7 +1844,9 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp persist_reindex_outcome(task, published_revision_id, result, opts) do
     actor_id = Keyword.get(opts, :actor_id, "chunk_revision")
-    {result_type, reindex_status, metadata} = reindex_outcome_payload(published_revision_id, result)
+
+    {result_type, reindex_status, metadata} =
+      reindex_outcome_payload(published_revision_id, result)
 
     update_task_with_event(
       task,
@@ -1844,7 +1900,11 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp reindex_outcome_payload(published_revision_id, :ok) do
     {:ok, :completed,
-     %{published_revision_id: published_revision_id, publish_status: :published, reindex_status: :completed}}
+     %{
+       published_revision_id: published_revision_id,
+       publish_status: :published,
+       reindex_status: :completed
+     }}
   end
 
   defp reindex_outcome_payload(published_revision_id, {:error, reason}) do
@@ -1912,14 +1972,21 @@ defmodule Cairnloop.KnowledgeAutomation do
     where(query, [candidate], field(candidate, ^field) == ^value)
   end
 
-  defp emit_suggestion_outcome(outcome, suggestion, reason \\ :unspecified, surface \\ :review_lane) do
+  defp emit_suggestion_outcome(
+         outcome,
+         suggestion,
+         reason \\ :unspecified,
+         surface \\ :review_lane
+       ) do
     Telemetry.emit(:suggestion_outcome, %{count: 1}, %{
       surface: surface,
       entrypoint_type: suggestion.entrypoint_type,
       outcome: outcome,
       reason: normalize_maintenance_reason(reason),
-      canonical_evidence_count: metadata_count(suggestion.grounding_metadata, :canonical_evidence_count),
-      assistive_evidence_count: metadata_count(suggestion.grounding_metadata, :assistive_evidence_count)
+      canonical_evidence_count:
+        metadata_count(suggestion.grounding_metadata, :canonical_evidence_count),
+      assistive_evidence_count:
+        metadata_count(suggestion.grounding_metadata, :assistive_evidence_count)
     })
   end
 
@@ -1939,7 +2006,11 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     case Map.get(event_attrs, :event_type) do
       :decision_recorded ->
-        Telemetry.emit(:review_decision, %{count: 1}, Map.put(base_metadata, :outcome, Map.get(event_attrs, :decision)))
+        Telemetry.emit(
+          :review_decision,
+          %{count: 1},
+          Map.put(base_metadata, :outcome, Map.get(event_attrs, :decision))
+        )
 
       :publish_recorded ->
         outcome =
@@ -1953,7 +2024,10 @@ defmodule Cairnloop.KnowledgeAutomation do
           %{count: 1},
           base_metadata
           |> Map.put(:outcome, outcome)
-          |> Map.put(:publish_status, metadata_value(metadata, :publish_status) || updated_task.publish_status)
+          |> Map.put(
+            :publish_status,
+            metadata_value(metadata, :publish_status) || updated_task.publish_status
+          )
         )
 
       :reindex_recorded ->
@@ -1962,8 +2036,14 @@ defmodule Cairnloop.KnowledgeAutomation do
           %{count: 1},
           base_metadata
           |> Map.put(:outcome, reindex_outcome_for(updated_task.reindex_status))
-          |> Map.put(:publish_status, metadata_value(metadata, :publish_status) || updated_task.publish_status)
-          |> Map.put(:reindex_status, metadata_value(metadata, :reindex_status) || updated_task.reindex_status)
+          |> Map.put(
+            :publish_status,
+            metadata_value(metadata, :publish_status) || updated_task.publish_status
+          )
+          |> Map.put(
+            :reindex_status,
+            metadata_value(metadata, :reindex_status) || updated_task.reindex_status
+          )
         )
 
       _ ->
@@ -1975,11 +2055,17 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp review_task_surface(_event_type), do: :review_lane
 
   defp quick_fix_telemetry_outcome(%ArticleSuggestion{status: :ready}), do: :shell_created
-  defp quick_fix_telemetry_outcome(%ArticleSuggestion{status: :failed}), do: :blocked_manual_required
+
+  defp quick_fix_telemetry_outcome(%ArticleSuggestion{status: :failed}),
+    do: :blocked_manual_required
+
   defp quick_fix_telemetry_outcome(_suggestion), do: :queued
 
   defp normalize_maintenance_reason(reason) when reason in [nil, :ready], do: :unspecified
-  defp normalize_maintenance_reason(:missing_canonical_citations), do: :missing_canonical_citations
+
+  defp normalize_maintenance_reason(:missing_canonical_citations),
+    do: :missing_canonical_citations
+
   defp normalize_maintenance_reason(:weak_grounding), do: :weak_grounding
   defp normalize_maintenance_reason(reason), do: normalize_failure_reason(reason)
 
@@ -1987,7 +2073,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     metadata
     |> map_value(key)
     |> case do
-      value when is_integer(value) -> value
+      value when is_integer(value) ->
+        value
+
       value when is_binary(value) ->
         case Integer.parse(value) do
           {int, _} -> int
@@ -2001,10 +2089,15 @@ defmodule Cairnloop.KnowledgeAutomation do
 
   defp suggestion_evidence_count(nil, _key), do: 0
   defp suggestion_evidence_count(%Ecto.Association.NotLoaded{}, _key), do: 0
-  defp suggestion_evidence_count(%ArticleSuggestion{grounding_metadata: metadata}, key), do: metadata_count(metadata, key)
+
+  defp suggestion_evidence_count(%ArticleSuggestion{grounding_metadata: metadata}, key),
+    do: metadata_count(metadata, key)
+
   defp suggestion_entrypoint_type(nil), do: :unspecified
   defp suggestion_entrypoint_type(%Ecto.Association.NotLoaded{}), do: :unspecified
-  defp suggestion_entrypoint_type(%ArticleSuggestion{entrypoint_type: type}), do: type || :unspecified
+
+  defp suggestion_entrypoint_type(%ArticleSuggestion{entrypoint_type: type}),
+    do: type || :unspecified
 
   defp reindex_outcome_for(:completed), do: :completed
   defp reindex_outcome_for(:running), do: :running
@@ -2068,6 +2161,7 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp active_review_task_statuses do
     ReviewTask.active_status_values()
   end
+
   defp initial_review_task_status(%ArticleSuggestion{status: :failed}), do: :review_needed
   defp initial_review_task_status(%ArticleSuggestion{}), do: :pending_review
 

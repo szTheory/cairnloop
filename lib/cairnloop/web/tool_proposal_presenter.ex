@@ -35,9 +35,17 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
 
   @doc "Status meaning — one calm sentence explaining what this state means for operators."
   def status_meaning(:proposed), do: "This action is awaiting operator review before it can run."
-  def status_meaning(:needs_input), do: "The action is missing required input and cannot proceed yet."
-  def status_meaning(:scope_invalid), do: "This tool is not available in the current context or the actor lacks the required permissions."
-  def status_meaning(:policy_denied), do: "A policy gate prevented this action from running in this context."
+
+  def status_meaning(:needs_input),
+    do: "The action is missing required input and cannot proceed yet."
+
+  def status_meaning(:scope_invalid),
+    do:
+      "This tool is not available in the current context or the actor lacks the required permissions."
+
+  def status_meaning(:policy_denied),
+    do: "A policy gate prevented this action from running in this context."
+
   def status_meaning(_), do: "Status details are not available."
 
   # ---------------------------------------------------------------------------
@@ -323,7 +331,11 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
     "Proposal created by #{actor_id}"
   end
 
-  def history_line(%ToolActionEvent{event_type: :proposal_blocked, to_status: status, actor_id: actor_id}) do
+  def history_line(%ToolActionEvent{
+        event_type: :proposal_blocked,
+        to_status: status,
+        actor_id: actor_id
+      }) do
     status_copy = status_label(status)
     "Blocked (#{status_copy}) for #{actor_id}"
   end
@@ -373,7 +385,11 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
     "Action completed (attempt #{attempt})."
   end
 
-  def history_line(%ToolActionEvent{event_type: :execution_attempt_failed, reason: reason, metadata: meta}) do
+  def history_line(%ToolActionEvent{
+        event_type: :execution_attempt_failed,
+        reason: reason,
+        metadata: meta
+      }) do
     attempt = Map.get(meta || %{}, "attempt", 1)
     "Attempt #{attempt} failed: #{reason || "Transient error — will retry."}"
   end
@@ -392,7 +408,10 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   @doc "Human-readable relative timestamp for an event datetime."
   def event_timestamp_label(nil), do: "Unknown time"
   def event_timestamp_label(%DateTime{} = dt), do: relative_time(dt)
-  def event_timestamp_label(%NaiveDateTime{} = dt), do: relative_time(DateTime.from_naive!(dt, "Etc/UTC"))
+
+  def event_timestamp_label(%NaiveDateTime{} = dt),
+    do: relative_time(DateTime.from_naive!(dt, "Etc/UTC"))
+
   def event_timestamp_label(_), do: "Unknown time"
 
   # ---------------------------------------------------------------------------
@@ -507,6 +526,9 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   defp humanize_duration(seconds) when seconds < 3_600, do: "#{div(seconds, 60)}m ago"
   defp humanize_duration(seconds) when seconds < 86_400, do: "#{div(seconds, 3_600)}h ago"
   defp humanize_duration(seconds) when seconds < 2_592_000, do: "#{div(seconds, 86_400)}d ago"
-  defp humanize_duration(seconds) when seconds < 31_536_000, do: "#{div(seconds, 2_592_000)}mo ago"
+
+  defp humanize_duration(seconds) when seconds < 31_536_000,
+    do: "#{div(seconds, 2_592_000)}mo ago"
+
   defp humanize_duration(seconds), do: "#{div(seconds, 31_536_000)}y ago"
 end

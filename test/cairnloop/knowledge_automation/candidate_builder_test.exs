@@ -118,7 +118,9 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilderTest do
       )
       |> List.first()
 
-    assert no_hit_candidate.candidate.score_components == no_hit_candidate.candidate.score_components
+    assert no_hit_candidate.candidate.score_components ==
+             no_hit_candidate.candidate.score_components
+
     assert manual_candidate.candidate.score > no_hit_candidate.candidate.score
   end
 end

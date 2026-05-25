@@ -94,7 +94,10 @@ defmodule Cairnloop.Web.SearchResultPresenter do
   end
 
   def diagnostic_reason_label(:assistive_only_results), do: "Only supporting evidence matched"
-  def diagnostic_reason_label(:canonical_insufficient_detail), do: "Canonical detail is still missing"
+
+  def diagnostic_reason_label(:canonical_insufficient_detail),
+    do: "Canonical detail is still missing"
+
   def diagnostic_reason_label(:clarification_limit_reached), do: "Clarification limit reached"
   def diagnostic_reason_label(:no_canonical_results), do: "No verified guidance matched"
   def diagnostic_reason_label(:provider_timeout), do: "Search timed out"

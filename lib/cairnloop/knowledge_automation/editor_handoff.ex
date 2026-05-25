@@ -22,10 +22,13 @@ defmodule Cairnloop.KnowledgeAutomation.EditorHandoff do
 
   defp normalize(attrs) do
     %{
-      "article_id" => normalize_integer(Map.get(attrs, :article_id) || Map.get(attrs, "article_id")),
-      "review_task_id" => normalize_integer(Map.get(attrs, :review_task_id) || Map.get(attrs, "review_task_id")),
+      "article_id" =>
+        normalize_integer(Map.get(attrs, :article_id) || Map.get(attrs, "article_id")),
+      "review_task_id" =>
+        normalize_integer(Map.get(attrs, :review_task_id) || Map.get(attrs, "review_task_id")),
       "return_to" => Map.get(attrs, :return_to) || Map.get(attrs, "return_to"),
-      "suggestion_id" => normalize_integer(Map.get(attrs, :suggestion_id) || Map.get(attrs, "suggestion_id"))
+      "suggestion_id" =>
+        normalize_integer(Map.get(attrs, :suggestion_id) || Map.get(attrs, "suggestion_id"))
     }
   end
 

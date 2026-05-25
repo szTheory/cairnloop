@@ -62,10 +62,22 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.RefreshGapCandidatesTest do
       :ok
     end
 
-    assert :ok = KnowledgeAutomation.refresh_gap_candidates(gap_events: gap_events, manual_signals: [], persist_fn: persist_fn)
+    assert :ok =
+             KnowledgeAutomation.refresh_gap_candidates(
+               gap_events: gap_events,
+               manual_signals: [],
+               persist_fn: persist_fn
+             )
+
     assert_receive {:persisted_candidates, first}
 
-    assert :ok = KnowledgeAutomation.refresh_gap_candidates(gap_events: gap_events, manual_signals: [], persist_fn: persist_fn)
+    assert :ok =
+             KnowledgeAutomation.refresh_gap_candidates(
+               gap_events: gap_events,
+               manual_signals: [],
+               persist_fn: persist_fn
+             )
+
     assert_receive {:persisted_candidates, second}
 
     assert first == second
@@ -92,7 +104,14 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.RefreshGapCandidatesTest do
       :ok
     end
 
-    assert :ok = KnowledgeAutomation.rebuild_gap_candidates(gap_events: gap_events, manual_signals: [], persist_fn: persist_fn, sync: true)
+    assert :ok =
+             KnowledgeAutomation.rebuild_gap_candidates(
+               gap_events: gap_events,
+               manual_signals: [],
+               persist_fn: persist_fn,
+               sync: true
+             )
+
     assert_receive {:persisted_candidates, actual}
     assert actual == expected
   end

@@ -38,7 +38,9 @@ defmodule Mix.Tasks.Cairnloop.Retrieval.Rebuild do
   end
 
   defp maybe_put_ids(opts, _key, []), do: opts
-  defp maybe_put_ids(opts, key, values), do: Keyword.put(opts, key, Enum.map(values, &String.to_integer/1))
+
+  defp maybe_put_ids(opts, key, values),
+    do: Keyword.put(opts, key, Enum.map(values, &String.to_integer/1))
 
   defp retrieval_module do
     Application.get_env(:cairnloop, :retrieval_module, Cairnloop.Retrieval)

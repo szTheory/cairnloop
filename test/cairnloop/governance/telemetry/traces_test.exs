@@ -48,7 +48,8 @@ defmodule Cairnloop.Governance.Telemetry.TracesTest do
 
       Traces.emit(:execution_succeeded, @attrs)
 
-      assert_receive {:trace_metadata, meta}, 500,
+      assert_receive {:trace_metadata, meta},
+                     500,
                      "expected [:cairnloop, :governance, :trace, :execution_succeeded] to fire"
 
       assert meta["openinference.span.kind"] == "TOOL",
@@ -60,7 +61,8 @@ defmodule Cairnloop.Governance.Telemetry.TracesTest do
 
       Traces.emit(:approval_requested, @attrs)
 
-      assert_receive {:trace_metadata, meta}, 500,
+      assert_receive {:trace_metadata, meta},
+                     500,
                      "expected [:cairnloop, :governance, :trace, :approval_requested] to fire"
 
       assert meta["openinference.span.kind"] == "GUARDRAIL",
@@ -72,7 +74,8 @@ defmodule Cairnloop.Governance.Telemetry.TracesTest do
 
       Traces.emit(:proposal_created, @attrs)
 
-      assert_receive {:trace_metadata, meta}, 500,
+      assert_receive {:trace_metadata, meta},
+                     500,
                      "expected [:cairnloop, :governance, :trace, :proposal_created] to fire"
 
       assert meta["openinference.span.kind"] == "GUARDRAIL",
@@ -147,7 +150,8 @@ defmodule Cairnloop.Governance.Telemetry.TracesTest do
 
       Traces.emit(:not_a_trace_event, @attrs)
 
-      refute_receive {:trace_metadata, _}, 100,
+      refute_receive {:trace_metadata, _},
+                     100,
                      "unknown event must be silently dropped — guard clause (D17-05)"
     end
   end
@@ -178,7 +182,8 @@ defmodule Cairnloop.Governance.Telemetry.TracesTest do
       Traces.emit(:proposal_created, @attrs)
 
       # The bounded-metrics handler on the 3-segment path must NOT receive anything.
-      refute_receive {:bounded_metadata, _}, 100,
+      refute_receive {:bounded_metadata, _},
+                     100,
                      "Traces.emit must NOT fire the bounded-metrics 3-segment event (D17-01 namespace isolation)"
     end
   end

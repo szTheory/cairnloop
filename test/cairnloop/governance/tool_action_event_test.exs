@@ -162,6 +162,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "system",
         metadata: %{attempt: 1}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?, "expected valid? for :execution_succeeded (Phase 16)"
     end
@@ -174,6 +175,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "DB hiccup",
         metadata: %{attempt: 1}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?, "expected valid? for :execution_attempt_failed (Phase 16)"
     end
@@ -186,6 +188,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "All retry attempts exhausted.",
         metadata: %{attempt: 3}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?, "expected valid? for :execution_failed (Phase 16)"
     end
@@ -197,6 +200,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "system",
         metadata: %{attempt: 1}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?, "expected valid? for :execution_started (Phase 16)"
     end
@@ -225,6 +229,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         # Approval events carry nil for from_status/to_status (D15-03)
         metadata: %{approval_status: "pending", new_approval_status: "pending"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       # Wave 1: to_status validation relaxed for approval events — changeset must be valid
       assert changeset.valid?,
@@ -238,6 +243,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "ops_user_1",
         metadata: %{approval_status: "pending", new_approval_status: "approved"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -250,6 +256,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "Risk exceeds threshold.",
         metadata: %{approval_status: "pending", new_approval_status: "rejected"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -262,6 +269,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "Review after board meeting.",
         metadata: %{approval_status: "pending", new_approval_status: "deferred"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -273,6 +281,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "system",
         metadata: %{approval_status: "pending", new_approval_status: "expired"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -285,6 +294,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "Policy changed since approval.",
         metadata: %{approval_status: "pending", new_approval_status: "invalidated"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -296,6 +306,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "system",
         metadata: %{approval_status: "approved"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -307,6 +318,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         actor_id: "system",
         metadata: %{approval_status: "approved", new_approval_status: "execution_pending"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -319,6 +331,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
         reason: "Policy scope changed since approval.",
         metadata: %{approval_status: "approved", new_approval_status: "invalidated"}
       }
+
       changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
       assert changeset.valid?
     end
@@ -326,8 +339,15 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
     # Wave 1 shipped — verifies the approval atoms ARE now in @event_type_values.
     test "approval event_type atoms are NOW in @event_type_values (Wave 1 shipped)" do
       approval_atoms = [
-        :approval_requested, :approved, :rejected, :deferred,
-        :expired, :invalidated, :resume_scheduled, :revalidation_passed, :revalidation_failed
+        :approval_requested,
+        :approved,
+        :rejected,
+        :deferred,
+        :expired,
+        :invalidated,
+        :resume_scheduled,
+        :revalidation_passed,
+        :revalidation_failed
       ]
 
       for atom <- approval_atoms do
@@ -337,6 +357,7 @@ defmodule Cairnloop.Governance.ToolActionEventTest do
           actor_id: "user_1",
           metadata: %{}
         }
+
         changeset = ToolActionEvent.changeset(%ToolActionEvent{}, attrs)
         # Now valid (Wave 1 added them to @event_type_values)
         assert changeset.valid?,

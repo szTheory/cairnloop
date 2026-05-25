@@ -18,7 +18,8 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
 
   defmodule MockRepo do
     # Approval id 1: :pending — should flip to :expired
-    def get(tool_approval_module, 1) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 1)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 1,
         status: :pending,
@@ -28,7 +29,8 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
     end
 
     # Approval id 2: :approved — already resolved
-    def get(tool_approval_module, 2) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 2)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       struct(tool_approval_module, %{
         id: 2,
         status: :approved,
@@ -38,7 +40,8 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorkerTest do
     end
 
     # Approval id 3: nil — deleted
-    def get(tool_approval_module, 3) when tool_approval_module == Cairnloop.Governance.ToolApproval do
+    def get(tool_approval_module, 3)
+        when tool_approval_module == Cairnloop.Governance.ToolApproval do
       _ = tool_approval_module
       nil
     end

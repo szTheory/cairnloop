@@ -507,7 +507,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         entrypoint_id: 321,
         host_user_id: "host-1",
         inserted_at: ~U[2026-05-22 10:00:00Z],
-        grounding_metadata: %{"quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}}
+        grounding_metadata: %{
+          "quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}
+        }
       })
 
     latest =
@@ -518,7 +520,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         entrypoint_id: 321,
         host_user_id: "host-1",
         inserted_at: ~U[2026-05-22 11:00:00Z],
-        grounding_metadata: %{"quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}}
+        grounding_metadata: %{
+          "quick_fix_package" => %{"thread_context" => %{"conversation_id" => 321}}
+        }
       })
 
     task =
@@ -697,8 +701,17 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         actor_id: "operator-7",
         note: "Ready after review",
         now_fn: fn -> now end,
-        load_article_fn: fn 21 -> {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}} end,
-        latest_revision_fn: fn 21 -> %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published} end,
+        load_article_fn: fn 21 ->
+          {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}}
+        end,
+        latest_revision_fn: fn 21 ->
+          %Cairnloop.KnowledgeBase.Revision{
+            id: 301,
+            article_id: 21,
+            version: 2,
+            state: :published
+          }
+        end,
         save_draft_fn: fn article, attrs ->
           assert article.id == 21
           assert attrs.content == suggestion.proposed_markdown
@@ -769,7 +782,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
                  {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}}
                end,
                latest_revision_fn: fn 21 -> conflicting_draft end,
-               save_draft_fn: fn _article, _attrs -> flunk("should not save when unrelated draft exists") end
+               save_draft_fn: fn _article, _attrs ->
+                 flunk("should not save when unrelated draft exists")
+               end
              )
 
     assert updated_task.status == :review_needed
@@ -889,7 +904,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       KnowledgeAutomation.approve_review_task(task.id,
         host_user_id: "host-1",
         actor_id: "operator-7",
-        load_article_fn: fn 21 -> {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}} end,
+        load_article_fn: fn 21 ->
+          {:ok, %Cairnloop.KnowledgeBase.Article{id: 21, title: "Exports"}}
+        end,
         latest_revision_fn: fn 21 -> owned_draft end,
         save_draft_fn: fn _article, attrs ->
           assert attrs.content == suggestion.proposed_markdown
@@ -949,7 +966,12 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         now_fn: fn -> now end,
         get_revision_fn: fn 401 -> staged_revision end,
         latest_active_revision_fn: fn 21 ->
-          %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published}
+          %Cairnloop.KnowledgeBase.Revision{
+            id: 301,
+            article_id: 21,
+            version: 2,
+            state: :published
+          }
         end,
         publish_revision_fn: fn revision ->
           assert revision.id == staged_revision.id
@@ -1152,7 +1174,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       KnowledgeAutomation.mark_review_task_material_edit(task.id,
         host_user_id: "host-1",
         actor_id: "operator-9",
-        content: "# Proposed KB update\n\nUse the export endpoint with a date range.\n\nManual clarifications added.",
+        content:
+          "# Proposed KB update\n\nUse the export endpoint with a date range.\n\nManual clarifications added.",
         saved_revision_id: 401,
         get_revision_fn: fn 401 ->
           %Cairnloop.KnowledgeBase.Revision{
@@ -1205,7 +1228,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     Process.put(:review_task_events, [])
 
     assert {:ok, updated_task} =
-             KnowledgeAutomation.record_review_task_reindex_outcome(901, :ok, host_user_id: "host-1")
+             KnowledgeAutomation.record_review_task_reindex_outcome(901, :ok,
+               host_user_id: "host-1"
+             )
 
     assert updated_task.status == :published
     assert updated_task.publish_status == :published
@@ -1303,9 +1328,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     Process.put(:review_task_events, [])
 
     assert {:error, updated_task} =
-             KnowledgeAutomation.record_review_task_reindex_outcome(902, {:error, :embedding_timeout},
-               host_user_id: "host-1"
-             )
+             KnowledgeAutomation.record_review_task_reindex_outcome(
+               902,
+               {:error, :embedding_timeout}, host_user_id: "host-1")
 
     assert updated_task.id == linked_task.id
     assert updated_task.status == :published
@@ -1347,8 +1372,19 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         last_decided_at: ~U[2026-05-22 12:00:00Z]
       })
 
-    staged_revision = %Cairnloop.KnowledgeBase.Revision{id: 401, article_id: 21, version: 3, state: :draft}
-    published_revision = %Cairnloop.KnowledgeBase.Revision{id: 901, article_id: 21, version: 3, state: :published}
+    staged_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 401,
+      article_id: 21,
+      version: 3,
+      state: :draft
+    }
+
+    published_revision = %Cairnloop.KnowledgeBase.Revision{
+      id: 901,
+      article_id: 21,
+      version: 3,
+      state: :published
+    }
 
     Process.put(:article_suggestions, [suggestion])
     Process.put(:review_task_detail_lookup, fn _query -> task end)
@@ -1360,7 +1396,12 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
                actor_id: "operator-8",
                get_revision_fn: fn 401 -> staged_revision end,
                latest_active_revision_fn: fn 21 ->
-                 %Cairnloop.KnowledgeBase.Revision{id: 301, article_id: 21, version: 2, state: :published}
+                 %Cairnloop.KnowledgeBase.Revision{
+                   id: 301,
+                   article_id: 21,
+                   version: 2,
+                   state: :published
+                 }
                end,
                publish_revision_fn: fn ^staged_revision -> {:ok, published_revision} end
              )
@@ -1413,9 +1454,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     Process.put(:review_task_events, [])
 
     assert {:error, _updated_task} =
-             KnowledgeAutomation.record_review_task_reindex_outcome(903, {:error, :embedding_timeout},
-               host_user_id: "host-1"
-             )
+             KnowledgeAutomation.record_review_task_reindex_outcome(
+               903,
+               {:error, :embedding_timeout}, host_user_id: "host-1")
 
     assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :reindex_outcome],
                     measurements, metadata}

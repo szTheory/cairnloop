@@ -3,18 +3,18 @@ defmodule Cairnloop.Retrieval.ResolvedCaseEvidence do
   import Ecto.Changeset
 
   schema "cairnloop_resolved_case_evidences" do
-    field :subject, :string
-    field :issue_summary, :string
-    field :resolution_note, :string
-    field :actions_taken, {:array, :string}, default: []
-    field :outcome, :string
-    field :resolved_at, :utc_datetime_usec
-    field :host_user_id, :string
-    field :metadata, :map, default: %{}
-    field :citation_backreferences, {:array, :map}, default: []
+    field(:subject, :string)
+    field(:issue_summary, :string)
+    field(:resolution_note, :string)
+    field(:actions_taken, {:array, :string}, default: [])
+    field(:outcome, :string)
+    field(:resolved_at, :utc_datetime_usec)
+    field(:host_user_id, :string)
+    field(:metadata, :map, default: %{})
+    field(:citation_backreferences, {:array, :map}, default: [])
 
-    belongs_to :conversation, Cairnloop.Conversation
-    has_many :chunks, Cairnloop.Retrieval.ResolvedCaseChunk
+    belongs_to(:conversation, Cairnloop.Conversation)
+    has_many(:chunks, Cairnloop.Retrieval.ResolvedCaseChunk)
 
     timestamps()
   end

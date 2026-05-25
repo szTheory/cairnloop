@@ -7,6 +7,7 @@ defmodule Cairnloop.Workers.CheckSLATest do
       send(self(), {:sla_breached, conversation, sla, metadata})
       :ok
     end
+
     def on_conversation_resolved(_conversation, _metadata), do: :ok
   end
 
@@ -15,6 +16,7 @@ defmodule Cairnloop.Workers.CheckSLATest do
     def on_sla_breach(_conversation, _sla, _metadata) do
       raise "Notifier failed"
     end
+
     def on_conversation_resolved(_conversation, _metadata), do: :ok
   end
 
@@ -28,6 +30,7 @@ defmodule Cairnloop.Workers.CheckSLATest do
     Application.put_env(:cairnloop, :notifier, ErrorNotifier)
 
     parent = self()
+
     handler = fn [:cairnloop, :notifier, :failed], _measurements, metadata, _config ->
       send(parent, {:telemetry_event, metadata})
     end

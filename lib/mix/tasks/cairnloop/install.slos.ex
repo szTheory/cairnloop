@@ -55,7 +55,7 @@ defmodule Mix.Tasks.Cairnloop.Install.Slos do
     """
 
     # Create modules
-    igniter = 
+    igniter =
       igniter
       |> Igniter.Project.Module.create_module(slos_module, slos_contents)
       |> Igniter.Project.Module.create_module(doctor_module, doctor_contents)
@@ -80,7 +80,13 @@ defmodule Mix.Tasks.Cairnloop.Install.Slos do
 
     igniter
     |> Igniter.create_new_file(Path.join(runbook_dir, "cairnloop_ttfr_breach.md"), ttfr_runbook)
-    |> Igniter.create_new_file(Path.join(runbook_dir, "cairnloop_resolution_breach.md"), resolution_runbook)
-    |> Igniter.create_new_file(Path.join(runbook_dir, "cairnloop_system_health.md"), health_runbook)
+    |> Igniter.create_new_file(
+      Path.join(runbook_dir, "cairnloop_resolution_breach.md"),
+      resolution_runbook
+    )
+    |> Igniter.create_new_file(
+      Path.join(runbook_dir, "cairnloop_system_health.md"),
+      health_runbook
+    )
   end
 end

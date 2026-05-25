@@ -4,7 +4,7 @@ defmodule Mix.Tasks.Cairnloop.Install.SlaPoliciesTest do
   import Igniter.Test
 
   test "installs sla policies" do
-    igniter = 
+    igniter =
       test_project()
       |> Igniter.compose_task("cairnloop.install.sla_policies")
 

@@ -7,11 +7,11 @@ defmodule Mix.Tasks.Cairnloop.Install.SlosTest do
 
     # Verify SLOs module creation
     assert_creates(igniter, "lib/cairnloop/sl_os.ex")
-    
+
     rewrite = igniter.rewrite
     source = Rewrite.source!(rewrite, "lib/cairnloop/sl_os.ex")
     content = source.content
-    
+
     assert content =~ "defmodule Cairnloop.SLOs do"
     assert content =~ "Parapet.SLO.define"
     assert content =~ "TTFR"
@@ -23,7 +23,7 @@ defmodule Mix.Tasks.Cairnloop.Install.SlosTest do
 
     source = Rewrite.source!(rewrite, "lib/cairnloop/doctor.ex")
     content = source.content
-    
+
     assert content =~ "defmodule Cairnloop.Doctor do"
 
     # Verify Runbook creation

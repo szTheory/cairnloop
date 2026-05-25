@@ -2,6 +2,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
   use ExUnit.Case, async: false
 
   alias Cairnloop.KnowledgeAutomation
+
   alias Cairnloop.KnowledgeAutomation.{
     ArticleSuggestion,
     ArticleSuggestionEvidence,
@@ -9,6 +10,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     GapCandidateMembership,
     StaleArticleSignal
   }
+
   alias Cairnloop.KnowledgeBase.Revision
   alias Cairnloop.Retrieval.{GapEvent, ResolvedCaseEvidence}
 
@@ -73,6 +75,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
 
     def one!(%Ecto.Query{} = query) do
       Process.put(:last_one_query, query)
+
       query
       |> query_source()
       |> one_for_source(query, true)
@@ -137,13 +140,19 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     defp all_for_source(GapEvent, query) do
       Process.get(:gap_events, [])
       |> filter_scope(query)
-      |> Enum.sort_by(fn event -> {Map.get(event, :occurred_at), Map.get(event, :id, 0)} end, :desc)
+      |> Enum.sort_by(
+        fn event -> {Map.get(event, :occurred_at), Map.get(event, :id, 0)} end,
+        :desc
+      )
     end
 
     defp all_for_source(ResolvedCaseEvidence, query) do
       Process.get(:resolved_case_evidence, [])
       |> filter_scope(query)
-      |> Enum.sort_by(fn evidence -> {Map.get(evidence, :resolved_at), Map.get(evidence, :id, 0)} end, :desc)
+      |> Enum.sort_by(
+        fn evidence -> {Map.get(evidence, :resolved_at), Map.get(evidence, :id, 0)} end,
+        :desc
+      )
     end
 
     defp all_for_source(_module, _query), do: []
@@ -1016,10 +1025,10 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
 
     refute shell_missing_reason.valid?
     refute blocked_missing_reason.valid?
+
     assert "must include a bounded quick-fix reason" in errors_on(shell_missing_reason).grounding_metadata
 
-    assert "must include a bounded quick-fix reason" in
-             errors_on(blocked_missing_reason).grounding_metadata
+    assert "must include a bounded quick-fix reason" in errors_on(blocked_missing_reason).grounding_metadata
   end
 
   test "dismiss and regenerate seams update suggestion-safe status without review or publish semantics" do
@@ -1092,9 +1101,11 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     ]
 
     Process.put(:gap_events, [])
+
     Process.put(:knowledge_base_article_fn, fn 77 ->
       %Cairnloop.KnowledgeBase.Article{id: 77, title: "Billing export", status: :published}
     end)
+
     Process.put(:retrieval_ground_for_draft, fn _query, request, _opts ->
       %{
         query: request.query,
@@ -1108,12 +1119,15 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     assert {:error, {:stale_gate_blocked, %StaleArticleSignal{reason: :insufficient_signals}}} =
              KnowledgeAutomation.suggest_revision(
                valid_revision_request(),
-               latest_revision_fn: fn 77 -> %Revision{id: 44, article_id: 77, state: :published} end,
+               latest_revision_fn: fn 77 ->
+                 %Revision{id: 44, article_id: 77, state: :published}
+               end,
                knowledge_base_module: MockKnowledgeBase,
                retrieval_module: MockRetrieval
              )
 
     Process.put(:gap_events, gap_events)
+
     Process.put(:retrieval_ground_for_draft, fn _query, request, _opts ->
       %{
         query: request.query,
@@ -1171,7 +1185,11 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
             ]
           }
         ],
-        grounding_bundle: %{canonical_results: [%{citation_target: %{article_id: 77, revision_id: 44, chunk_index: 1}}]},
+        grounding_bundle: %{
+          canonical_results: [
+            %{citation_target: %{article_id: 77, revision_id: 44, chunk_index: 1}}
+          ]
+        },
         now_fn: fn -> ~U[2026-05-22 10:00:00Z] end
       )
 
@@ -1194,10 +1212,12 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         41,
         knowledge_base_module: MockKnowledgeBase
       )
+
     assert is_integer(article_id)
 
     updated = Process.get(:last_updated_suggestion)
     Process.put(:authoring_target_suggestion, updated)
+
     Process.put(:knowledge_base_article_fn, fn ^article_id ->
       %Cairnloop.KnowledgeBase.Article{id: article_id, status: :draft}
     end)
@@ -1225,6 +1245,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     end)
 
     Process.put(:authoring_target_suggestion, suggestion)
+
     Process.put(:knowledge_base_article_fn, fn 91 ->
       %Cairnloop.KnowledgeBase.Article{id: 91, status: :published}
     end)
@@ -1237,7 +1258,9 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
 
     assert replacement_id != 91
     assert Process.get(:created_article_attrs).status == :draft
-    assert Process.get(:last_updated_suggestion).grounding_metadata["authoring_article_id"] == replacement_id
+
+    assert Process.get(:last_updated_suggestion).grounding_metadata["authoring_article_id"] ==
+             replacement_id
   end
 
   defp valid_article_attrs(overrides \\ %{}) do

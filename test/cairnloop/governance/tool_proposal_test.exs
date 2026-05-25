@@ -148,21 +148,36 @@ defmodule Cairnloop.Governance.ToolProposalTest do
     end
 
     test "requires tool_ref" do
-      attrs = %{idempotency_key: "abc123", risk_tier: :read_only, approval_mode: :auto, actor_id: "user_1"}
+      attrs = %{
+        idempotency_key: "abc123",
+        risk_tier: :read_only,
+        approval_mode: :auto,
+        actor_id: "user_1"
+      }
 
       changeset = ToolProposal.changeset(%ToolProposal{}, attrs)
       refute changeset.valid?
     end
 
     test "requires idempotency_key" do
-      attrs = %{tool_ref: "SomeTool", risk_tier: :read_only, approval_mode: :auto, actor_id: "user_1"}
+      attrs = %{
+        tool_ref: "SomeTool",
+        risk_tier: :read_only,
+        approval_mode: :auto,
+        actor_id: "user_1"
+      }
 
       changeset = ToolProposal.changeset(%ToolProposal{}, attrs)
       refute changeset.valid?
     end
 
     test "requires actor_id" do
-      attrs = %{tool_ref: "SomeTool", idempotency_key: "abc123", risk_tier: :read_only, approval_mode: :auto}
+      attrs = %{
+        tool_ref: "SomeTool",
+        idempotency_key: "abc123",
+        risk_tier: :read_only,
+        approval_mode: :auto
+      }
 
       changeset = ToolProposal.changeset(%ToolProposal{}, attrs)
       refute changeset.valid?
@@ -171,49 +186,53 @@ defmodule Cairnloop.Governance.ToolProposalTest do
 
   describe "Phase 16 reserved columns" do
     test "attempt defaults to 0" do
-      changeset = ToolProposal.changeset(%ToolProposal{}, %{
-        tool_ref: "SomeTool",
-        idempotency_key: "key1",
-        risk_tier: :read_only,
-        approval_mode: :auto,
-        actor_id: "user_1"
-      })
+      changeset =
+        ToolProposal.changeset(%ToolProposal{}, %{
+          tool_ref: "SomeTool",
+          idempotency_key: "key1",
+          risk_tier: :read_only,
+          approval_mode: :auto,
+          actor_id: "user_1"
+        })
 
       assert Ecto.Changeset.get_field(changeset, :attempt) == 0
     end
 
     test "result_state defaults to :not_executed" do
-      changeset = ToolProposal.changeset(%ToolProposal{}, %{
-        tool_ref: "SomeTool",
-        idempotency_key: "key1",
-        risk_tier: :read_only,
-        approval_mode: :auto,
-        actor_id: "user_1"
-      })
+      changeset =
+        ToolProposal.changeset(%ToolProposal{}, %{
+          tool_ref: "SomeTool",
+          idempotency_key: "key1",
+          risk_tier: :read_only,
+          approval_mode: :auto,
+          actor_id: "user_1"
+        })
 
       assert Ecto.Changeset.get_field(changeset, :result_state) == :not_executed
     end
 
     test "oban_job_id defaults to nil" do
-      changeset = ToolProposal.changeset(%ToolProposal{}, %{
-        tool_ref: "SomeTool",
-        idempotency_key: "key1",
-        risk_tier: :read_only,
-        approval_mode: :auto,
-        actor_id: "user_1"
-      })
+      changeset =
+        ToolProposal.changeset(%ToolProposal{}, %{
+          tool_ref: "SomeTool",
+          idempotency_key: "key1",
+          risk_tier: :read_only,
+          approval_mode: :auto,
+          actor_id: "user_1"
+        })
 
       assert Ecto.Changeset.get_field(changeset, :oban_job_id) == nil
     end
 
     test "result_summary defaults to nil" do
-      changeset = ToolProposal.changeset(%ToolProposal{}, %{
-        tool_ref: "SomeTool",
-        idempotency_key: "key1",
-        risk_tier: :read_only,
-        approval_mode: :auto,
-        actor_id: "user_1"
-      })
+      changeset =
+        ToolProposal.changeset(%ToolProposal{}, %{
+          tool_ref: "SomeTool",
+          idempotency_key: "key1",
+          risk_tier: :read_only,
+          approval_mode: :auto,
+          actor_id: "user_1"
+        })
 
       assert Ecto.Changeset.get_field(changeset, :result_summary) == nil
     end
@@ -229,7 +248,9 @@ defmodule Cairnloop.Governance.ToolProposalTest do
         actor_id: "user_1"
       }
 
-      changeset = ToolProposal.blocked_changeset(%ToolProposal{}, Map.put(attrs, :status, :scope_invalid))
+      changeset =
+        ToolProposal.blocked_changeset(%ToolProposal{}, Map.put(attrs, :status, :scope_invalid))
+
       assert changeset.valid?
       assert Ecto.Changeset.get_field(changeset, :status) == :scope_invalid
     end

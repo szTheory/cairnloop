@@ -51,9 +51,14 @@ defmodule Cairnloop.KnowledgeAutomation.StaleArticleSignal do
     occurred_at = map_value(event, :occurred_at)
 
     case occurred_at do
-      %DateTime{} = value -> DateTime.diff(now, value, :day) <= @window_days
-      %NaiveDateTime{} = value -> DateTime.diff(now, DateTime.from_naive!(value, "Etc/UTC"), :day) <= @window_days
-      _ -> false
+      %DateTime{} = value ->
+        DateTime.diff(now, value, :day) <= @window_days
+
+      %NaiveDateTime{} = value ->
+        DateTime.diff(now, DateTime.from_naive!(value, "Etc/UTC"), :day) <= @window_days
+
+      _ ->
+        false
     end
   end
 
@@ -62,7 +67,8 @@ defmodule Cairnloop.KnowledgeAutomation.StaleArticleSignal do
     outcome_class = map_value(event, :outcome_class)
     clarification_attempts = map_value(event, :clarification_attempts) || 0
 
-    outcome_class in @eligible_outcomes or reason in @eligible_reasons or clarification_attempts > 0
+    outcome_class in @eligible_outcomes or reason in @eligible_reasons or
+      clarification_attempts > 0
   end
 
   defp article_linked?(event, article_id, base_revision_id) do
@@ -70,7 +76,8 @@ defmodule Cairnloop.KnowledgeAutomation.StaleArticleSignal do
     |> map_value(:attempted_evidence_snapshots)
     |> List.wrap()
     |> Enum.any?(fn snapshot ->
-      canonical_anchor_snapshot?(snapshot) and article_linked_result?(snapshot, article_id, base_revision_id)
+      canonical_anchor_snapshot?(snapshot) and
+        article_linked_result?(snapshot, article_id, base_revision_id)
     end)
   end
 
@@ -94,7 +101,11 @@ defmodule Cairnloop.KnowledgeAutomation.StaleArticleSignal do
 
   defp canonical_anchor_snapshot?(%ArticleSuggestionEvidence{} = evidence) do
     evidence.source_type == :knowledge_base and evidence.trust_level == :canonical and
-      article_linked_result?(evidence, map_value(evidence.citation_target, :article_id), map_value(evidence.citation_target, :revision_id))
+      article_linked_result?(
+        evidence,
+        map_value(evidence.citation_target, :article_id),
+        map_value(evidence.citation_target, :revision_id)
+      )
   end
 
   defp canonical_anchor_snapshot?(snapshot) do

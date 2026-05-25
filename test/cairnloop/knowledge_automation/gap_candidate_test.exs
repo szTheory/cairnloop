@@ -9,9 +9,12 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidateTest do
       case query.from.source do
         {"cairnloop_gap_candidates", _module} ->
           Process.get(:gap_candidates, [])
-          |> Enum.sort_by(fn candidate ->
-            {candidate.score || 0.0, candidate.last_seen_at, candidate.id}
-          end, :desc)
+          |> Enum.sort_by(
+            fn candidate ->
+              {candidate.score || 0.0, candidate.last_seen_at, candidate.id}
+            end,
+            :desc
+          )
 
         {"cairnloop_retrieval_gap_events", _module} ->
           Process.get(:retrieval_gap_events, [])
@@ -107,8 +110,18 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidateTest do
 
   test "list_gap_candidates returns persisted ordering by score then freshness" do
     Process.put(:gap_candidates, [
-      %GapCandidate{id: 1, title: "Older higher", score: 7.0, last_seen_at: ~U[2026-05-20 12:00:00Z]},
-      %GapCandidate{id: 2, title: "Newest same score", score: 7.0, last_seen_at: ~U[2026-05-21 12:00:00Z]},
+      %GapCandidate{
+        id: 1,
+        title: "Older higher",
+        score: 7.0,
+        last_seen_at: ~U[2026-05-20 12:00:00Z]
+      },
+      %GapCandidate{
+        id: 2,
+        title: "Newest same score",
+        score: 7.0,
+        last_seen_at: ~U[2026-05-21 12:00:00Z]
+      },
       %GapCandidate{id: 3, title: "Top score", score: 9.0, last_seen_at: ~U[2026-05-19 12:00:00Z]}
     ])
 

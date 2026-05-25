@@ -41,21 +41,24 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
     buckets
     |> Enum.map(fn {_bucket_key, entries} -> build_candidate(entries, now) end)
     |> Enum.reject(&is_nil/1)
-    |> Enum.sort_by(
-      fn candidate ->
-        {
-          -(candidate.candidate.score || 0.0),
-          DateTime.to_unix(candidate.candidate.last_seen_at, :microsecond) * -1,
-          candidate.candidate.stable_key
-        }
-      end
-    )
+    |> Enum.sort_by(fn candidate ->
+      {
+        -(candidate.candidate.score || 0.0),
+        DateTime.to_unix(candidate.candidate.last_seen_at, :microsecond) * -1,
+        candidate.candidate.stable_key
+      }
+    end)
   end
 
   def refresh(opts \\ []) do
     gap_events = Keyword.get_lazy(opts, :gap_events, &recent_gap_events/0)
-    manual_signals = Keyword.get_lazy(opts, :manual_signals, fn -> ManualHandlingSignal.list_recent(opts) end)
-    candidates = build(gap_events, manual_signals, now: Keyword.get(opts, :now, DateTime.utc_now()))
+
+    manual_signals =
+      Keyword.get_lazy(opts, :manual_signals, fn -> ManualHandlingSignal.list_recent(opts) end)
+
+    candidates =
+      build(gap_events, manual_signals, now: Keyword.get(opts, :now, DateTime.utc_now()))
+
     persist_fn = Keyword.get(opts, :persist_fn, &persist_candidates/1)
     persist_fn.(candidates)
   end
@@ -86,6 +89,7 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
 
   defp build_bucket_key(tenant_scope, host_user_id, topic_seed) do
     host_user_id = host_user_id || "all"
+
     [tenant_scope, host_user_id, topic_seed]
     |> Enum.join("|")
   end
@@ -138,7 +142,15 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
           true -> :no_hit
         end
 
-      score_components = score_components(evidence_count, manual_case_count, weak_grounding_count, no_hit_count, last_seen_at, now)
+      score_components =
+        score_components(
+          evidence_count,
+          manual_case_count,
+          weak_grounding_count,
+          no_hit_count,
+          last_seen_at,
+          now
+        )
 
       %{
         candidate: %{
@@ -211,7 +223,10 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
       end)
 
       GapCandidate
-      |> where([candidate], candidate.status == :open and candidate.stable_key not in ^stable_keys)
+      |> where(
+        [candidate],
+        candidate.status == :open and candidate.stable_key not in ^stable_keys
+      )
       |> repo().delete_all()
 
       :ok
@@ -232,7 +247,14 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
     |> Enum.max_by(&DateTime.to_unix(&1, :microsecond), fn -> fallback end)
   end
 
-  defp score_components(evidence_count, manual_case_count, weak_grounding_count, no_hit_count, last_seen_at, now) do
+  defp score_components(
+         evidence_count,
+         manual_case_count,
+         weak_grounding_count,
+         no_hit_count,
+         last_seen_at,
+         now
+       ) do
     age_days = max(DateTime.diff(now, last_seen_at, :day), 0)
     volume = Float.round(:math.log(evidence_count + 1) * 1.6, 3)
     manual = Float.round(manual_case_count * 2.5, 3)

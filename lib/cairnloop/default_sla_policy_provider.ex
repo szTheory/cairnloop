@@ -9,16 +9,26 @@ defmodule Cairnloop.DefaultSLAPolicyProvider do
 
   @impl true
   def get_active_policies do
-    {:ok, [
-      %{priority: :low, target_first_response_minutes: 24 * 60, target_resolution_minutes: 7 * 24 * 60},
-      %{priority: :normal, target_first_response_minutes: 4 * 60, target_resolution_minutes: 24 * 60},
-      %{priority: :high, target_first_response_minutes: 60, target_resolution_minutes: 4 * 60},
-      %{priority: :urgent, target_first_response_minutes: 15, target_resolution_minutes: 60}
-    ]}
+    {:ok,
+     [
+       %{
+         priority: :low,
+         target_first_response_minutes: 24 * 60,
+         target_resolution_minutes: 7 * 24 * 60
+       },
+       %{
+         priority: :normal,
+         target_first_response_minutes: 4 * 60,
+         target_resolution_minutes: 24 * 60
+       },
+       %{priority: :high, target_first_response_minutes: 60, target_resolution_minutes: 4 * 60},
+       %{priority: :urgent, target_first_response_minutes: 15, target_resolution_minutes: 60}
+     ]}
   end
 
   @impl true
   def set_policy(_priority, _attrs) do
-    {:error, "Default SLA policy provider is read-only. Configure a custom provider in your host application to modify policies."}
+    {:error,
+     "Default SLA policy provider is read-only. Configure a custom provider in your host application to modify policies."}
   end
 end

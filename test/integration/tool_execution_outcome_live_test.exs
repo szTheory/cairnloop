@@ -111,7 +111,11 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
 
   test "OBS-02: decided_by + policy_snapshot + event trail attribution reconstructable after execute" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     conversation = conversation_fixture(%{host_user_id: "operator_42"})
 
@@ -123,7 +127,11 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
         scope_snapshot: %{scopes: []},
         input_snapshot: %{conversation_id: to_string(conversation.id), content: "OBS-02 note"},
         # policy_snapshot populated by propose (non-empty for OBS-02 proof)
-        policy_snapshot: %{outcome: :proposed, policy_id: "policy_default", reviewed_at: "2026-05-25"}
+        policy_snapshot: %{
+          outcome: :proposed,
+          policy_id: "policy_default",
+          reviewed_at: "2026-05-25"
+        }
       })
 
     # REPO-UNAVAILABLE: assertions below only pass under mix test.integration
@@ -155,16 +163,21 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
 
     # ToolApproval.decided_by persists after execute
     executed_approval = Repo.get!(ToolApproval, approval.id)
+
     assert executed_approval.decided_by != nil,
            "ToolApproval.decided_by must remain set after execute (OBS-02)"
+
     assert executed_approval.decided_by == "operator_42",
            "decided_by must identify the approving operator"
+
     assert executed_approval.status == :executed
 
     # ToolProposal.policy_snapshot still present after execute (snapshotted at propose time)
     executed_proposal = Repo.get!(ToolProposal, proposal.id)
+
     assert executed_proposal.policy_snapshot != %{},
            "ToolProposal.policy_snapshot must be non-empty (OBS-02 — snapshotted at propose time)"
+
     assert executed_proposal.result_state == :succeeded
 
     # ToolActionEvent trail: one timeline per proposal
@@ -174,6 +187,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     # Approver attribution: the :approved event carries the approver actor_id
     approved_event = Enum.find(events, &(&1.event_type == :approved))
     assert approved_event != nil, "ToolActionEvent trail must contain :approved event"
+
     assert approved_event.actor_id == "operator_42",
            "The :approved event actor_id must identify the approving operator (OBS-02)"
 
@@ -184,8 +198,11 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     # Per-attempt metadata: execution_succeeded carries attempt number
     succeeded_event = Enum.find(events, &(&1.event_type == :execution_succeeded))
     assert succeeded_event != nil
-    attempt_in_meta = Map.get(succeeded_event.metadata || %{}, :attempt) ||
-                      Map.get(succeeded_event.metadata || %{}, "attempt")
+
+    attempt_in_meta =
+      Map.get(succeeded_event.metadata || %{}, :attempt) ||
+        Map.get(succeeded_event.metadata || %{}, "attempt")
+
     assert attempt_in_meta != nil,
            "execution_succeeded event metadata must carry attempt number for per-attempt attribution"
   end
@@ -196,7 +213,11 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
 
   test "OBS-02: full ToolActionEvent trail for success lane is reconstructable" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     conversation = conversation_fixture(%{host_user_id: "operator_obs02"})
 
@@ -215,6 +236,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     assert {:ok, _} = Governance.approve(approval.id, "operator_obs02", enqueue_fn: capture)
     assert_received {:enqueued, _}
     assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => approval.id}})
+
     assert :ok =
              ToolExecutionWorker.perform(%Oban.Job{
                attempt: 1,
@@ -243,9 +265,14 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
   # Shifts the former Manual-Only VALIDATION.md row to automated (D16-11).
   # ---------------------------------------------------------------------------
 
-  test "Done-group card renders success chip text + humanized result_summary for :executed lane", %{conn: conn} do
+  test "Done-group card renders success chip text + humanized result_summary for :executed lane",
+       %{conn: conn} do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     conversation = conversation_fixture(%{host_user_id: "render_operator"})
 
@@ -266,6 +293,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     assert {:ok, _} = Governance.approve(approval.id, "render_operator", enqueue_fn: capture)
     assert_received {:enqueued, _}
     assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => approval.id}})
+
     assert :ok =
              ToolExecutionWorker.perform(%Oban.Job{
                attempt: 1,
@@ -297,9 +325,14 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
   # Shifts the former Manual-Only VALIDATION.md row to automated (D16-11).
   # ---------------------------------------------------------------------------
 
-  test "Done-group card renders failure chip text for :execution_failed lane (re-validation failure)", %{conn: conn} do
+  test "Done-group card renders failure chip text for :execution_failed lane (re-validation failure)",
+       %{conn: conn} do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     conversation = conversation_fixture(%{host_user_id: "failure_operator"})
 
@@ -326,7 +359,8 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     # We simulate exhausted retries by setting attempt == max_attempts in the job struct.
     # The worker's transient failure path with attempt >= max_attempts records :execution_failed.
     # We need a tool that fails: swap the tool env to an unknown tool_ref
-    Application.put_env(:cairnloop, :tools, [])  # remove NoteWriteTool so re-validation fails
+    # remove NoteWriteTool so re-validation fails
+    Application.put_env(:cairnloop, :tools, [])
 
     result =
       ToolExecutionWorker.perform(%Oban.Job{
@@ -343,6 +377,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
 
     # The approval should now be :execution_failed (either invalidated or execution_failed)
     failed_approval = Repo.get!(ToolApproval, approval.id)
+
     assert failed_approval.status in [:execution_failed, :invalidated],
            "Approval must be in a terminal failure status after re-validation failure"
 
@@ -366,7 +401,11 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
 
   test "chip text in the governed action card names the state, not color-alone", %{conn: conn} do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     conversation = conversation_fixture(%{host_user_id: "chip_operator"})
 
@@ -386,6 +425,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     assert {:ok, _} = Governance.approve(approval.id, "chip_operator", enqueue_fn: capture)
     assert_received {:enqueued, _}
     assert :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => approval.id}})
+
     assert :ok =
              ToolExecutionWorker.perform(%Oban.Job{
                attempt: 1,

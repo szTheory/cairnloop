@@ -43,7 +43,10 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
                 end)
 
               Ecto.Multi.new()
-              |> Ecto.Multi.delete_all(:delete_old_chunks, from(c in Chunk, where: c.revision_id == ^revision_id))
+              |> Ecto.Multi.delete_all(
+                :delete_old_chunks,
+                from(c in Chunk, where: c.revision_id == ^revision_id)
+              )
               |> Ecto.Multi.insert_all(:insert_chunks, Chunk, chunk_records)
               |> repo().transaction()
 
@@ -54,7 +57,10 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
           end
       end
 
-    :telemetry.execute([:openinference, :span, :stop], %{}, %{name: "chunk_revision", status: result})
+    :telemetry.execute([:openinference, :span, :stop], %{}, %{
+      name: "chunk_revision",
+      status: result
+    })
 
     _ = knowledge_automation().record_review_task_reindex_outcome(revision_id, result)
 

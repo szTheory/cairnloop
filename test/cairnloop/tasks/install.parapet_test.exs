@@ -6,16 +6,16 @@ defmodule Mix.Tasks.Cairnloop.Install.ParapetTest do
     igniter = test_project() |> Igniter.compose_task("cairnloop.install.parapet")
 
     assert_creates(igniter, "lib/cairnloop_instrumenter.ex")
-    
+
     # We can inspect the igniter struct
     rewrite = igniter.rewrite
     source = Rewrite.source!(rewrite, "lib/cairnloop_instrumenter.ex")
     content = source.content
-    
+
     assert content =~ "defmodule CairnloopInstrumenter do"
     assert content =~ "import Telemetry.Metrics"
     assert content =~ "def metrics do"
-    
+
     assert content =~ "summary(\"cairnloop.support_resolution_time\""
     assert content =~ "summary(\"cairnloop.support_reply_time\""
     assert content =~ "summary(\"cairnloop.support_csat_score\""

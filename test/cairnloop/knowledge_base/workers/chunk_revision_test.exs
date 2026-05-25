@@ -20,11 +20,11 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
         Enum.reduce(operations, %{}, fn
           {name, {:delete_all, _query, _opts}}, acc ->
             Map.put(acc, name, {1, nil})
-            
-        {name, {:insert_all, _schema, records, _opts}}, acc ->
+
+          {name, {:insert_all, _schema, records, _opts}}, acc ->
             send(self(), {:inserted_chunk_records, records})
             Map.put(acc, name, {length(records), nil})
-            
+
           {name, {:run, run_fn}}, acc ->
             {:ok, result} = run_fn.(__MODULE__, acc)
             Map.put(acc, name, result)
@@ -54,15 +54,23 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
     Application.put_env(:cairnloop, :repo, MockRepo)
     original_knowledge_automation = Application.get_env(:cairnloop, :knowledge_automation)
     Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
-    
+
     # Temporarily set OPENAI_API_KEY to nil so we use mock embeddings
     original_api_key = System.get_env("OPENAI_API_KEY")
     System.delete_env("OPENAI_API_KEY")
 
     on_exit(fn ->
-      if original_repo, do: Application.put_env(:cairnloop, :repo, original_repo), else: Application.delete_env(:cairnloop, :repo)
-      if original_knowledge_automation, do: Application.put_env(:cairnloop, :knowledge_automation, original_knowledge_automation), else: Application.delete_env(:cairnloop, :knowledge_automation)
-      if original_api_key, do: System.put_env("OPENAI_API_KEY", original_api_key), else: System.delete_env("OPENAI_API_KEY")
+      if original_repo,
+        do: Application.put_env(:cairnloop, :repo, original_repo),
+        else: Application.delete_env(:cairnloop, :repo)
+
+      if original_knowledge_automation,
+        do: Application.put_env(:cairnloop, :knowledge_automation, original_knowledge_automation),
+        else: Application.delete_env(:cairnloop, :knowledge_automation)
+
+      if original_api_key,
+        do: System.put_env("OPENAI_API_KEY", original_api_key),
+        else: System.delete_env("OPENAI_API_KEY")
     end)
 
     :ok
@@ -76,7 +84,8 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
     assert_received {:transaction_results, results}
     assert_received {:inserted_chunk_records, records}
     assert {count, _} = results[:insert_chunks]
-    assert count == 2 # "Some text here." and "More text." chunks
+    # "Some text here." and "More text." chunks
+    assert count == 2
     assert Enum.map(records, & &1.chunk_index) == [0, 1]
     assert Enum.map(records, & &1.heading) == ["Header 1", "Subheader"]
     assert_received {:reindex_outcome_recorded, 42, :ok}

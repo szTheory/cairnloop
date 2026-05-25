@@ -11,11 +11,12 @@ defmodule Cairnloop.Workers.SlaCountdownWorker do
     case repo().get(SLA, sla_id) do
       nil ->
         :ok
-        
+
       %SLA{status: :active} = sla ->
         sla
         |> Ecto.Changeset.change(%{status: :breached, completed_at: DateTime.utc_now()})
         |> repo().update!()
+
         :ok
 
       _ ->

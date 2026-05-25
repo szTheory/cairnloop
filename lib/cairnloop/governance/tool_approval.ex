@@ -42,8 +42,10 @@ defmodule Cairnloop.Governance.ToolApproval do
     :expired,
     :invalidated,
     # Phase 16 terminal execution statuses (D16-08) — append only, no DDL needed (status is :string storage)
-    :executed,           # success terminal — run/3 returned {:ok, result} and was co-committed
-    :execution_failed    # failure terminal — exhausted retries or permanent re-validation failure
+    # success terminal — run/3 returned {:ok, result} and was co-committed
+    :executed,
+    # failure terminal — exhausted retries or permanent re-validation failure
+    :execution_failed
   ]
 
   schema "cairnloop_tool_approvals" do

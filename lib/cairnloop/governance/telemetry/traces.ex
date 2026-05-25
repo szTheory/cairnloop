@@ -121,8 +121,9 @@ defmodule Cairnloop.Governance.Telemetry.Traces do
 
   # span_kind_for/1 — maps event atom to OI span kind string.
   # Execution events are TOOL spans; all governed-action lifecycle events are GUARDRAIL spans.
-  defp span_kind_for(event) when event in [:execution_started, :execution_succeeded, :execution_failed],
-    do: @span_kind_tool
+  defp span_kind_for(event)
+       when event in [:execution_started, :execution_succeeded, :execution_failed],
+       do: @span_kind_tool
 
   defp span_kind_for(_event), do: @span_kind_guardrail
 end

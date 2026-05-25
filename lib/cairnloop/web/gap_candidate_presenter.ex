@@ -36,12 +36,23 @@ defmodule Cairnloop.Web.GapCandidatePresenter do
     end
   end
 
-  def dominant_source_label(%{manual_case_count: manual_case_count, weak_grounding_count: weak_grounding_count, no_hit_count: no_hit_count}) do
+  def dominant_source_label(%{
+        manual_case_count: manual_case_count,
+        weak_grounding_count: weak_grounding_count,
+        no_hit_count: no_hit_count
+      }) do
     cond do
-      manual_case_count > max(weak_grounding_count, no_hit_count) -> "Dominant source: similar resolved cases"
-      weak_grounding_count >= no_hit_count and weak_grounding_count > 0 -> "Dominant source: weak grounding"
-      no_hit_count > 0 -> "Dominant source: retrieval no-hits"
-      true -> "Dominant source: mixed evidence"
+      manual_case_count > max(weak_grounding_count, no_hit_count) ->
+        "Dominant source: similar resolved cases"
+
+      weak_grounding_count >= no_hit_count and weak_grounding_count > 0 ->
+        "Dominant source: weak grounding"
+
+      no_hit_count > 0 ->
+        "Dominant source: retrieval no-hits"
+
+      true ->
+        "Dominant source: mixed evidence"
     end
   end
 

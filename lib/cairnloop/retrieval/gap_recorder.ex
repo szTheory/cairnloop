@@ -59,7 +59,11 @@ defmodule Cairnloop.Retrieval.GapRecorder do
 
   defp maybe_schedule_gap_candidate_refresh(%GapEvent{} = gap_event, opts) do
     schedule_refresh_fn =
-      Keyword.get(opts, :schedule_gap_candidate_refresh_fn, &KnowledgeAutomation.schedule_gap_candidate_refresh/1)
+      Keyword.get(
+        opts,
+        :schedule_gap_candidate_refresh_fn,
+        &KnowledgeAutomation.schedule_gap_candidate_refresh/1
+      )
 
     schedule_refresh_fn.(%{
       "source_type" => "retrieval_gap_event",
@@ -284,7 +288,8 @@ defmodule Cairnloop.Retrieval.GapRecorder do
   end
 
   defp find_recent_assistive_search_gap(attrs) do
-    window_start = DateTime.add(attrs.occurred_at, -@assistive_search_dedupe_window_seconds, :second)
+    window_start =
+      DateTime.add(attrs.occurred_at, -@assistive_search_dedupe_window_seconds, :second)
 
     GapEvent
     |> where([gap_event], gap_event.occurred_at >= ^window_start)

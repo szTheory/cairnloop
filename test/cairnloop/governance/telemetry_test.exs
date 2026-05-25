@@ -53,7 +53,8 @@ defmodule Cairnloop.Governance.TelemetryTest do
         tool_ref: :unknown
       })
 
-      assert_receive {:telemetry_metadata, _meta}, 500,
+      assert_receive {:telemetry_metadata, _meta},
+                     500,
                      "expected [:cairnloop, :governance, :action_executed] to fire"
     end
 
@@ -68,7 +69,8 @@ defmodule Cairnloop.Governance.TelemetryTest do
         tool_ref: :unknown
       })
 
-      assert_receive {:telemetry_metadata, _meta}, 500,
+      assert_receive {:telemetry_metadata, _meta},
+                     500,
                      "expected [:cairnloop, :governance, :action_failed] to fire"
     end
 
@@ -90,7 +92,8 @@ defmodule Cairnloop.Governance.TelemetryTest do
       # We call emit; it returns nil/nothing (guard clause drops it)
       Telemetry.emit(:not_a_real_event, %{count: 1}, %{})
 
-      refute_receive {:telemetry_metadata, _}, 100,
+      refute_receive {:telemetry_metadata, _},
+                     100,
                      "unknown event must be silently dropped (guard clause)"
     end
   end
@@ -261,8 +264,7 @@ defmodule Cairnloop.Governance.TelemetryTest do
 
     Telemetry.emit(event, %{count: 1}, Map.merge(base, extra_meta))
 
-    assert_receive {:assert_metadata, meta}, 500,
-                   "telemetry handler did not fire for #{event}"
+    assert_receive {:assert_metadata, meta}, 500, "telemetry handler did not fire for #{event}"
 
     :telemetry.detach(handler_id)
     assertion_fn.(meta)

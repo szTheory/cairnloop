@@ -161,6 +161,7 @@ defmodule Cairnloop.Governance.Preview do
 
   # Extract and humanize the last module segment — never returns the raw "Elixir.X.Y" string
   defp humanize_tool_ref(nil), do: "Unknown tool"
+
   defp humanize_tool_ref(tool_ref) when is_binary(tool_ref) do
     tool_ref
     |> String.split(".")
@@ -171,6 +172,7 @@ defmodule Cairnloop.Governance.Preview do
   defp humanize_label(nil), do: "Unknown tool"
   # WR-06: guard empty string so a trailing-dot tool_ref never yields a blank headline
   defp humanize_label(""), do: "Unknown tool"
+
   defp humanize_label(label) do
     label
     |> String.replace(~r/(?<=[a-z])(?=[A-Z])/, " ")

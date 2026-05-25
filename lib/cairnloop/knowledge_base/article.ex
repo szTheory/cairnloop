@@ -3,10 +3,10 @@ defmodule Cairnloop.KnowledgeBase.Article do
   import Ecto.Changeset
 
   schema "cairnloop_articles" do
-    field :title, :string
-    field :status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft
+    field(:title, :string)
+    field(:status, Ecto.Enum, values: [:draft, :published, :archived], default: :draft)
 
-    has_many :revisions, Cairnloop.KnowledgeBase.Revision
+    has_many(:revisions, Cairnloop.KnowledgeBase.Revision)
 
     timestamps()
   end

@@ -3,12 +3,14 @@ defmodule Cairnloop.Workers.IngestScrypath do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"conversation_id" => id, "text" => text}}) do
-    api_url = Application.get_env(:cairnloop, :scrypath_api_url, "https://api.scrypath.local/v1/index")
+    api_url =
+      Application.get_env(:cairnloop, :scrypath_api_url, "https://api.scrypath.local/v1/index")
+
     api_key = Application.get_env(:cairnloop, :scrypath_api_key, "dummy")
-    
+
     req_options = Application.get_env(:cairnloop, :scrypath_req_options, [])
-    
-    req = 
+
+    req =
       Req.new(
         url: api_url,
         auth: {:bearer, api_key}

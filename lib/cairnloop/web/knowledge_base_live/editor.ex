@@ -19,22 +19,23 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
     review_context = load_review_context(params, scope_filters, article, suggestion)
     content = preload_content(suggestion, latest_revision)
 
-    socket = socket
-             |> assign(article: article)
-             |> assign(revision: latest_revision)
-             |> assign(content: content)
-             |> assign(preview_html: parse_markdown(content))
-             |> assign(review_context: review_context)
-             |> assign(review_origin?: review_context.review_task != nil)
+    socket =
+      socket
+      |> assign(article: article)
+      |> assign(revision: latest_revision)
+      |> assign(content: content)
+      |> assign(preview_html: parse_markdown(content))
+      |> assign(review_context: review_context)
+      |> assign(review_origin?: review_context.review_task != nil)
 
     {:ok, socket}
   end
 
   def handle_event("change", %{"content" => content}, socket) do
     {:noreply,
-      socket
-      |> assign(content: content)
-      |> assign(preview_html: parse_markdown(content))}
+     socket
+     |> assign(content: content)
+     |> assign(preview_html: parse_markdown(content))}
   end
 
   def handle_event("save_draft", _, socket) do
@@ -67,7 +68,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
           case KnowledgeBase.publish_revision(revision) do
             {:ok, published_rev} ->
               {:noreply,
-               assign(socket, revision: published_rev) |> put_flash(:info, "Published successfully")}
+               assign(socket, revision: published_rev)
+               |> put_flash(:info, "Published successfully")}
 
             {:error, _failed_value} ->
               {:noreply, put_flash(socket, :error, "Failed to publish revision")}
@@ -82,7 +84,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   defp parse_markdown(nil), do: ""
   defp parse_markdown(content), do: Earmark.as_html!(content)
 
-  defp preload_content(%{proposed_markdown: proposed_markdown}, _latest_revision), do: proposed_markdown
+  defp preload_content(%{proposed_markdown: proposed_markdown}, _latest_revision),
+    do: proposed_markdown
 
   defp preload_content(_params, latest_revision) do
     if latest_revision, do: latest_revision.content, else: ""
@@ -98,7 +101,12 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
   defp load_suggestion(_params, _scope_filters, _article_id), do: nil
 
-  defp load_review_context(%{"review_task_id" => review_task_id} = params, scope_filters, article, suggestion) do
+  defp load_review_context(
+         %{"review_task_id" => review_task_id} = params,
+         scope_filters,
+         article,
+         suggestion
+       ) do
     task =
       review_task_id
       |> normalize_id()
@@ -114,7 +122,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
       review_task: task,
       return_to: Map.get(params, "return_to", "/knowledge-base/suggestions?task=#{task.id}"),
       operator_summary: task.article_suggestion && task.article_suggestion.operator_summary,
-      evidence_count: task.article_suggestion |> Map.get(:evidence_snapshot, []) |> List.wrap() |> length()
+      evidence_count:
+        task.article_suggestion |> Map.get(:evidence_snapshot, []) |> List.wrap() |> length()
     }
   end
 
@@ -141,7 +150,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
         case knowledge_automation().mark_review_task_material_edit(review_task.id, attrs) do
           {:ok, updated_task} ->
-            assign(socket, review_context: %{socket.assigns.review_context | review_task: updated_task})
+            assign(socket,
+              review_context: %{socket.assigns.review_context | review_task: updated_task}
+            )
 
           {:error, _reason} ->
             socket

@@ -12,5 +12,6 @@ defmodule Cairnloop.Notifier do
   @doc """
   Called when a service level agreement (SLA) is breached.
   """
-  @callback on_sla_breach(conversation :: struct(), sla :: struct(), metadata :: map()) :: :ok | {:error, term()} | any()
+  @callback on_sla_breach(conversation :: struct(), sla :: struct(), metadata :: map()) ::
+              :ok | {:error, term()} | any()
 end

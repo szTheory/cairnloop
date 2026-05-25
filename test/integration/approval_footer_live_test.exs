@@ -65,7 +65,8 @@ defmodule Cairnloop.Integration.ApprovalFooterLiveTest do
     assert html =~ "This will refund $42.00 to the customer."
   end
 
-  test "rejecting with a blank reason persists nothing and keeps the lane :pending (FLOW-03)", ctx do
+  test "rejecting with a blank reason persists nothing and keeps the lane :pending (FLOW-03)",
+       ctx do
     {:ok, view, _html} = live(ctx.conn, "/governance/#{ctx.conversation.id}")
 
     view
@@ -76,7 +77,8 @@ defmodule Cairnloop.Integration.ApprovalFooterLiveTest do
     refute Enum.any?(Governance.list_events(ctx.proposal.id), &(&1.event_type == :rejected))
   end
 
-  test "deferring with a blank reason persists nothing and keeps the lane :pending (FLOW-03)", ctx do
+  test "deferring with a blank reason persists nothing and keeps the lane :pending (FLOW-03)",
+       ctx do
     {:ok, view, _html} = live(ctx.conn, "/governance/#{ctx.conversation.id}")
 
     view

@@ -34,6 +34,7 @@ defmodule Cairnloop.Automation.Workers.DraftWorker do
     latest_draft = Cairnloop.Automation.latest_draft_for_conversation(conversation_id)
     retrieval = Application.get_env(:cairnloop, :retrieval_module, Cairnloop.Retrieval)
     query_builder = Application.get_env(:cairnloop, :draft_query_builder, &default_query/1)
+
     conversation_lookup =
       Application.get_env(:cairnloop, :conversation_lookup, &Cairnloop.Chat.get_conversation!/1)
 

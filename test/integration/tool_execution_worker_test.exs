@@ -91,7 +91,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "happy path: :execution_pending → :executed writes exactly one internal_note row" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -141,7 +145,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "replaying an :executed approval is an idempotent no-op — no second message row" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -190,7 +198,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
       })
 
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: capture)
     # approval is still :pending — execution worker must be a no-op
@@ -290,7 +302,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "at-most-once: two perform/1 calls with same approval_id write exactly one message row" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -344,7 +360,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "terminal-guard no-op: :executed approval second perform/1 leaves status :executed and no new row" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -425,7 +445,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "transient failure: attempt < max_attempts increments attempt and emits :execution_attempt_failed" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -472,7 +496,8 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
     run_key = "test-run-key-idempotent-#{System.unique_integer([:positive])}"
     context = %{run_idempotency_key: run_key}
 
-    note_struct = struct(InternalNote, %{conversation_id: "conv-idem", content: "idempotent note"})
+    note_struct =
+      struct(InternalNote, %{conversation_id: "conv-idem", content: "idempotent note"})
 
     # REPO-UNAVAILABLE: assertions below only pass under mix test.integration
 
@@ -503,7 +528,11 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
   test "transient-then-success: retry succeeds after transient failure; per-attempt key does not block" do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     proposal =
       proposal_fixture(%{
@@ -535,7 +564,9 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
     # Reset approval status to :execution_pending to simulate Oban re-queuing the job
     # (In real Oban, the job would be retried and the approval stays :execution_pending)
     # We need to manually transition back to :execution_pending for the retry test
-    Repo.update!(Ecto.Changeset.change(Repo.get!(ToolApproval, approval.id), %{status: :execution_pending}))
+    Repo.update!(
+      Ecto.Changeset.change(Repo.get!(ToolApproval, approval.id), %{status: :execution_pending})
+    )
 
     # Second attempt (Oban retry) — FailOnceTool now returns {:ok, %{retried: true}}
     # The per-attempt key for attempt 2 differs from attempt 1 — retry is NOT blocked
