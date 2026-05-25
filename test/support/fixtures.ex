@@ -7,6 +7,7 @@ defmodule Cairnloop.Fixtures do
   alias Cairnloop.Repo
   alias Cairnloop.Conversation
   alias Cairnloop.Governance.{ToolApproval, ToolProposal}
+  alias Cairnloop.Message
 
   def conversation_fixture(attrs \\ %{}) do
     attrs = Map.new(attrs)
@@ -56,5 +57,31 @@ defmodule Cairnloop.Fixtures do
       |> Repo.insert()
 
     approval
+  end
+
+  @doc """
+  Inserts a `Cairnloop.Message` row directly via `Repo`.
+
+  Default role is `"internal_note"` (the governed-write role added in Phase 16).
+  Pass `run_key:` to set the idempotency key column (nil by default = no idempotency check).
+
+  # REPO-UNAVAILABLE — requires a Postgres round-trip; only runs under `mix test.integration`.
+  """
+  def message_fixture(attrs \\ %{}) do
+    attrs = Map.new(attrs)
+
+    defaults = %{
+      content: "Test internal note",
+      role: :internal_note,
+      run_key: nil,
+      metadata: %{}
+    }
+
+    {:ok, message} =
+      %Message{}
+      |> Message.changeset(Map.merge(defaults, attrs))
+      |> Repo.insert()
+
+    message
   end
 end
