@@ -31,10 +31,18 @@ findings:
   warning: 6
   info: 4
   total: 12
-status: issues_found
+status: resolved
 ---
 
 # Phase 16: Code Review Report
+
+> **Resolution (2026-05-25):** Both BLOCKERs (CR-01, CR-02) and warnings WR-02/03/04/05/06 plus
+> IN-02 fixed in commits `8ec82b1`, `60c014a`, `4e92c00`, `10e9364`, `1f5e235`, `33a56f2`; CR-01
+> proven by a strengthened headless presenter test. WR-01 and IN-01/IN-04 were intentionally NOT
+> changed: WR-01 (per-attempt run-key) is the planner's explicit design and the only shipped tool
+> (`InternalNote`) is an atomic single-insert — documented as an atomicity precondition (`f500b25`)
+> rather than churned, since changing it would contradict 16-02's locked tests. Build warnings-clean;
+> headless suite green except the known `DraftTest` baseline.
 
 **Reviewed:** 2026-05-25
 **Depth:** standard
