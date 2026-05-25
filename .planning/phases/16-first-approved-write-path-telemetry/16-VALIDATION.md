@@ -58,8 +58,8 @@ stays DB-free and covers worker branch logic with the mock repo.
 | ACT-01 | `InternalNote.run/3` idempotent: duplicate call w/ same run-key → `{:ok, %{idempotent: true}}` | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-02 InternalNote idempotency test) |
 | OBS-01 | Execution telemetry emitted with bounded enum labels; no high-cardinality keys | unit | `MIX_ENV=test mix test` | `:telemetry.attach` | ✅ green (16-02 Task 1 telemetry_test.exs) |
 | OBS-01 | `normalize_tool_ref/1` maps unknown ref → `:unknown` | unit | `MIX_ENV=test mix test` | pure function | ✅ green (16-02 Task 1 telemetry_test.exs) |
-| OBS-02 | `ToolApproval.decided_by` + `policy_snapshot` attributable after execute | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending (Phase 16 plan 03+) |
-| OBS-02 | `ToolActionEvent` trail carries attempt number + actor attribution (one timeline) | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending (Phase 16 plan 03+) |
+| OBS-02 | `ToolApproval.decided_by` + `policy_snapshot` attributable after execute | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-03 OBS-02 attribution test) |
+| OBS-02 | `ToolActionEvent` trail carries attempt number + actor attribution (one timeline) | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-03 OBS-02 attribution test) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -98,7 +98,7 @@ Existing infrastructure re-used without change:
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| `:executed` success chip + humanized `result_summary` renders in the Done group | ACT-01 / FLOW reflection (D16-11) | LiveView visual reflection (chip color + text, brand token, never color-alone) is asserted in integration via rendered HTML, but final brand/visual fidelity is eyeballed | Approve a proposal in dev, let the worker execute, confirm the Done-group card shows a success chip + humanized summary; force a re-validation failure and confirm a failure chip + humanized reason + attempt count |
+| `:executed` success chip + humanized `result_summary` renders in the Done group | ACT-01 / FLOW reflection (D16-11) | ✅ Shifted left to automated rendered-HTML assertion in `test/integration/tool_execution_outcome_live_test.exs` (16-03). Final brand/visual fidelity still requires eyeball in dev, but correctness (chip text present, brand token used, state named not color-alone) is automated. | Run `MIX_ENV=test mix test.integration` to verify. |
 
 *All worker/idempotency/telemetry/attribution behaviors have automated verification.*
 
