@@ -92,6 +92,37 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
     def authorize(_actor_id, _context), do: :ok
   end
 
+  # ContextCaptureTool: captures the run/3 context and sends it to the registered receiver.
+  # Used to assert that :run_idempotency_key is deterministically derived per-attempt.
+  defmodule ContextCaptureTool do
+    use Cairnloop.Tool,
+      risk_tier: :low_write,
+      title: "Context Capture",
+      description: "Sends the run/3 context to the registered test receiver."
+
+    embedded_schema do
+      field(:content, :string)
+    end
+
+    @impl Cairnloop.Tool
+    def changeset(struct, attrs), do: Ecto.Changeset.cast(struct, attrs, [:content])
+
+    @impl Cairnloop.Tool
+    def run(_tool, _actor, context) do
+      case :persistent_term.get(:context_capture_receiver, nil) do
+        nil -> :ok
+        pid -> send(pid, {:run_context, context})
+      end
+      {:ok, %{message_id: 999}}
+    end
+
+    @impl Cairnloop.Tool
+    def scope, do: []
+
+    @impl Cairnloop.Tool
+    def authorize(_actor_id, _context), do: :ok
+  end
+
   # ---------------------------------------------------------------------------
   # MockRepo
   # ---------------------------------------------------------------------------
@@ -132,6 +163,16 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
     # Approval id 16 → :execution_pending (FailRunTool — run/3 always {:error, _})
     def get(ToolApproval, 16) do
       struct(ToolApproval, %{id: 16, status: :execution_pending, tool_proposal_id: 120, expires_at: nil})
+    end
+
+    # Approval id 20 → :execution_pending (ContextCaptureTool, attempt 0 in proposal)
+    def get(ToolApproval, 20) do
+      struct(ToolApproval, %{id: 20, status: :execution_pending, tool_proposal_id: 200, expires_at: nil})
+    end
+
+    # Approval id 21 → :execution_pending (ContextCaptureTool, attempt 1 in proposal — different key expected)
+    def get(ToolApproval, 21) do
+      struct(ToolApproval, %{id: 21, status: :execution_pending, tool_proposal_id: 201, expires_at: nil})
     end
 
     # Fallback catch-all
@@ -197,6 +238,36 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
       })
     end
 
+    # Proposal id 200: ContextCaptureTool, attempt 0
+    def get!(ToolProposal, 200) do
+      struct(ToolProposal, %{
+        id: 200,
+        tool_ref: Atom.to_string(Cairnloop.Workers.ToolExecutionWorkerTest.ContextCaptureTool),
+        actor_id: "operator_1",
+        idempotency_key: "idem-200",
+        attempt: 0,
+        result_state: :not_executed,
+        input_snapshot: %{},
+        scope_snapshot: %{scopes: []},
+        policy_snapshot: %{}
+      })
+    end
+
+    # Proposal id 201: ContextCaptureTool, attempt 1 (different from 200)
+    def get!(ToolProposal, 201) do
+      struct(ToolProposal, %{
+        id: 201,
+        tool_ref: Atom.to_string(Cairnloop.Workers.ToolExecutionWorkerTest.ContextCaptureTool),
+        actor_id: "operator_1",
+        idempotency_key: "idem-200",
+        attempt: 1,
+        result_state: :not_executed,
+        input_snapshot: %{},
+        scope_snapshot: %{scopes: []},
+        policy_snapshot: %{}
+      })
+    end
+
     def update(changeset) do
       send(self(), {:repo_update, changeset})
       {:ok, Ecto.Changeset.apply_changes(changeset)}
@@ -210,7 +281,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
-    Application.put_env(:cairnloop, :tools, [OkRunTool, ScopeFailTool, FailRunTool])
+    Application.put_env(:cairnloop, :tools, [OkRunTool, ScopeFailTool, FailRunTool, ContextCaptureTool])
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :tools)
@@ -451,6 +522,108 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
         refute non_comment_lines =~ ~r/\w+\.run\s*\(/,
                "ApprovalResumeWorker must never call tool .run/3 (sealed contract, D15-10)"
       end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Run-level idempotency key derivation (D16-05, Task 2)
+  # Tests that the key passed into run/3 is:
+  #   (a) present in context under :run_idempotency_key
+  #   (b) a SHA-256 hex digest (64 hex chars) — NOT the raw proposal.idempotency_key
+  #   (c) deterministic per (proposal, attempt): same input → same output
+  #   (d) different across attempt numbers (so prior-attempt keys don't block retries)
+  # ---------------------------------------------------------------------------
+
+  describe "run-level idempotency key derivation (D16-05)" do
+    setup do
+      :persistent_term.put(:context_capture_receiver, self())
+      on_exit(fn -> :persistent_term.erase(:context_capture_receiver) end)
+      :ok
+    end
+
+    test "context passed to run/3 contains :run_idempotency_key" do
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 20}
+               })
+
+      assert_receive {:run_context, context}, 500
+      assert Map.has_key?(context, :run_idempotency_key),
+             "context must contain :run_idempotency_key (D16-05 layer 3)"
+    end
+
+    test "run key is a deterministic SHA-256 hex digest (not the raw idempotency_key)" do
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 20}
+               })
+
+      assert_receive {:run_context, context}, 500
+      run_key = context[:run_idempotency_key]
+
+      # Must NOT be the raw idempotency_key string
+      refute run_key == "idem-200",
+             "run key must be derived (SHA-256 hash), not the raw proposal.idempotency_key"
+
+      # Must be a 64-char lowercase hex string (SHA-256 output)
+      assert is_binary(run_key), "run_key must be a binary"
+      assert String.length(run_key) == 64, "SHA-256 hex should be 64 chars, got #{String.length(run_key || "")}"
+      assert run_key =~ ~r/\A[0-9a-f]{64}\z/,
+             "run_key must be lowercase hex, got #{inspect(run_key)}"
+    end
+
+    test "run key is deterministic: two performs with same proposal+attempt produce the same key" do
+      # First perform
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 20}
+               })
+
+      assert_receive {:run_context, context1}, 500
+
+      # MockRepo doesn't persist state, so perform again — same proposal (id 200, attempt 0)
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 20}
+               })
+
+      assert_receive {:run_context, context2}, 500
+
+      assert context1[:run_idempotency_key] == context2[:run_idempotency_key],
+             "run key must be deterministic for (proposal, attempt)"
+    end
+
+    test "run key differs across attempt numbers (D16-05: per-attempt key, not global)" do
+      # Proposal 200: attempt 0
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 20}
+               })
+
+      assert_receive {:run_context, context_attempt0}, 500
+
+      # Proposal 201: same idempotency_key "idem-200" but attempt 1
+      assert :ok =
+               ToolExecutionWorker.perform(%Oban.Job{
+                 attempt: 1,
+                 max_attempts: 3,
+                 args: %{"approval_id" => 21}
+               })
+
+      assert_receive {:run_context, context_attempt1}, 500
+
+      refute context_attempt0[:run_idempotency_key] == context_attempt1[:run_idempotency_key],
+             "run key must differ across attempt numbers so prior-attempt keys don't block retries"
     end
   end
 
