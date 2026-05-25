@@ -2,28 +2,16 @@
 gsd_state_version: 1.0
 milestone: vM012
 milestone_name: Public Release & MCP Write Surface
-status: planning
-last_updated: "2026-05-25T15:25:53.835Z"
-last_activity: 2026-05-25
+status: "Roadmap created; next step is `/gsd:plan-phase 18`"
+stopped_at: Phase 18 context gathered
+last_updated: "2026-05-25T16:14:15.712Z"
+last_activity: "2026-05-25 — Roadmap created for vM012 (4 phases: 18–21)"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
-phases:
-  - id: 18
-    name: Release Gate & Hex.pm Publish
-    status: not_started
-  - id: 19
-    name: Example Phoenix App
-    status: not_started
-  - id: 20
-    name: MCP OAuth Seam
-    status: not_started
-  - id: 21
-    name: MCP Write Tools
-    status: not_started
 ---
 
 # Project State
@@ -112,6 +100,6 @@ Package status as of 2026-05-25: **unpublished** (hex.pm returns 404 for `cairnl
 
 ## Session Continuity
 
-Last session: 2026-05-25
-Stopped at: Roadmap created for vM012 (Phases 18–21); 14/14 requirements mapped; files written
+Last session: 2026-05-25T16:14:15.704Z
+Stopped at: Phase 18 context gathered
 Next step: `/gsd:plan-phase 18` — Phase 18: Release Gate & Hex.pm Publish
