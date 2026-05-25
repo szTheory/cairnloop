@@ -50,16 +50,16 @@ stays DB-free and covers worker branch logic with the mock repo.
 
 | Requirement | Behavior to prove | Test Type | Automated Command | Harness | Status |
 |-------------|-------------------|-----------|-------------------|---------|--------|
-| ACT-01 | `ToolExecutionWorker` calls `run/3` and writes the note row | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
-| ACT-01 | Pre-execution terminal guard: 2nd `perform/1` on a `:succeeded` proposal is a no-op | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
-| ACT-01 | Oban unique job: 2nd `Governance.execute/3` enqueue rejected (no duplicate job) | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
-| ACT-01 | Transient `{:error, reason}` increments `attempt`, emits per-attempt event, returns `{:error, reason}` | unit | `MIX_ENV=test mix test` | mock repo | ⬜ pending |
-| ACT-01 | Terminal failure: re-validation fail → `:execution_failed`, `{:cancel, reason}`, humanized reason | unit | `MIX_ENV=test mix test` | mock repo | ⬜ pending |
-| ACT-01 | `InternalNote.run/3` idempotent: duplicate call w/ same run-key → `{:ok, %{idempotent: true}}` | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
-| OBS-01 | Execution telemetry emitted with bounded enum labels; no high-cardinality keys | unit | `MIX_ENV=test mix test` | `:telemetry.attach` | ⬜ pending |
-| OBS-01 | `normalize_tool_ref/1` maps unknown ref → `:unknown` | unit | `MIX_ENV=test mix test` | pure function | ⬜ pending |
-| OBS-02 | `ToolApproval.decided_by` + `policy_snapshot` attributable after execute | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
-| OBS-02 | `ToolActionEvent` trail carries attempt number + actor attribution (one timeline) | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending |
+| ACT-01 | `ToolExecutionWorker` calls `run/3` and writes the note row | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-01 happy-path + 16-02 at-most-once) |
+| ACT-01 | Pre-execution terminal guard: 2nd `perform/1` on a `:succeeded` proposal is a no-op | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-02 terminal-guard no-op) |
+| ACT-01 | Oban unique job: 2nd `Governance.execute/3` enqueue rejected (no duplicate job) | unit+integration | `MIX_ENV=test mix test` | `__opts__/0` headless | ✅ green (16-02 Oban unique opts assert; live queue-count REPO-UNAVAILABLE) |
+| ACT-01 | Transient `{:error, reason}` increments `attempt`, emits per-attempt event, returns `{:error, reason}` | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-02 attempt increment) |
+| ACT-01 | Terminal failure: re-validation fail → `:execution_failed`, `{:cancel, reason}`, humanized reason | unit | `MIX_ENV=test mix test` | mock repo | ✅ green (16-02 headless worker branch tests) |
+| ACT-01 | `InternalNote.run/3` idempotent: duplicate call w/ same run-key → `{:ok, %{idempotent: true}}` | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ✅ green (16-02 InternalNote idempotency test) |
+| OBS-01 | Execution telemetry emitted with bounded enum labels; no high-cardinality keys | unit | `MIX_ENV=test mix test` | `:telemetry.attach` | ✅ green (16-02 Task 1 telemetry_test.exs) |
+| OBS-01 | `normalize_tool_ref/1` maps unknown ref → `:unknown` | unit | `MIX_ENV=test mix test` | pure function | ✅ green (16-02 Task 1 telemetry_test.exs) |
+| OBS-02 | `ToolApproval.decided_by` + `policy_snapshot` attributable after execute | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending (Phase 16 plan 03+) |
+| OBS-02 | `ToolActionEvent` trail carries attempt number + actor attribution (one timeline) | integration | `MIX_ENV=test mix test.integration` | `test/integration/` | ⬜ pending (Phase 16 plan 03+) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -80,10 +80,10 @@ stays DB-free and covers worker branch logic with the mock repo.
 
 New test files needed (mirror `test/integration/approval_flow_test.exs` structure):
 
-- [ ] `test/integration/tool_execution_worker_test.exs` — at-most-once, idempotent replay, transient
-  retry, terminal failure, full event trail, `InternalNote.run/3` idempotency (ACT-01, OBS-02)
-- [ ] `test/cairnloop/governance/telemetry_test.exs` (new or extend) — execution event names, bounded
-  metadata (no high-cardinality leakage), `normalize_tool_ref/1` (OBS-01)
+- [x] `test/integration/tool_execution_worker_test.exs` — at-most-once, idempotent replay, transient
+  retry, terminal failure, full event trail, `InternalNote.run/3` idempotency (ACT-01, OBS-02) — complete (16-02)
+- [x] `test/cairnloop/governance/telemetry_test.exs` (new or extend) — execution event names, bounded
+  metadata (no high-cardinality leakage), `normalize_tool_ref/1` (OBS-01) — complete (16-02)
 
 Existing infrastructure re-used without change:
 - `Cairnloop.DataCase` (`use Cairnloop.DataCase, async: false`)

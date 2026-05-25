@@ -4,13 +4,13 @@ milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
 status: executing
 stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-05-25T06:02:39.274Z"
+last_updated: "2026-05-25T06:37:37.747Z"
 last_activity: 2026-05-25
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 60
 ---
 
@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-23)
 ## Current Position
 
 Phase: 16 (first-approved-write-path-telemetry) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-05-25
 
@@ -97,6 +97,10 @@ Progress: [----------] 0%
 - [Phase 15 CARRIED DECISION — Phase 16 must honor]: approval lane lifecycle is `:pending → :approved → :execution_pending`. `ApprovalResumeWorker` acts on `:approved` only (never `:pending` — re-validation must not bypass the approval gate). **Phase 16 execution resumes from `:execution_pending`.**
 - [Phase ?]: Phase 16 P01: ToolExecutionWorker — sole run/3 caller, at-most-once via Oban unique + LAYER-1/LAYER-2 guards, max_attempts 3
 - [Phase ?]: Phase 16 P01: Code.ensure_loaded!/1 added to ToolRegistry.validate_configured_tools!/0 — function_exported?/3 returns false for unloaded modules (Rule 1 fix)
+- [Phase 16]: [Phase 16 P02]: derive_run_key: SHA-256(idempotency_key::attempt::N) — deterministic per (proposal, attempt), fresh per retry (D16-05 layer 3)
+- [Phase 16]: [Phase 16 P02]: transient {error} with attempt < max_attempts -> {:error, reason} (Oban backoff); exhausted -> {:cancel, reason} terminal (D16-07)
+- [Phase 16]: [Phase 16 P02]: telemetry emitted AFTER co-commit with pipeline, never inside clause list (D-29); no actor_id/conversation_id/reason in labels (OBS-01)
+- [Phase 16]: [Phase 16 P02]: Oban unique opts asserted headless via __opts__/0; live queue-count leg marked REPO-UNAVAILABLE
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ Progress: [----------] 0%
 
 ## Session Continuity
 
-Last session: 2026-05-25T06:02:39.270Z
+Last session: 2026-05-25T06:37:37.743Z
 Stopped at: Completed 16-01-PLAN.md
 Resume file: None

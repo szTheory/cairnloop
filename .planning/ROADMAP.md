@@ -120,7 +120,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion; 16-02 and 16-03 run in parallel — disjoint files)*
 
-- [ ] 16-02-PLAN.md (M011-S04-03 + OBS-01, ACT-01/OBS-01) — three-layer at-most-once hardening (Oban unique + terminal guard + deterministic run-level idempotency key), transient/terminal retry semantics with per-attempt events, bounded `Cairnloop.Governance.Telemetry` execution events (enum-only labels), DB-backed at-most-once/retry/idempotency proof + headless telemetry-bounding proof.
+- [x] 16-02-PLAN.md (M011-S04-03 + OBS-01, ACT-01/OBS-01) — three-layer at-most-once hardening (Oban unique + terminal guard + deterministic run-level idempotency key), transient/terminal retry semantics with per-attempt events, bounded `Cairnloop.Governance.Telemetry` execution events (enum-only labels), DB-backed at-most-once/retry/idempotency proof + headless telemetry-bounding proof.
 - [ ] 16-03-PLAN.md (M011-S04-02 + OBS-02) — operator-surface reflection: presenter `:executed`/`:execution_failed` chips (humanized, brand-token, never color-alone) into the existing four groups, ConversationLive thin-PubSub plain-assign reload (no streams), DB-backed OBS-02 attribution-reconstructable-from-durable-records proof + automated rendered-outcome (chip) proof.
 
 **Details:**
