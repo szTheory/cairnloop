@@ -20,6 +20,10 @@ defmodule Cairnloop.ToolRegistry do
     configured_tools = Application.get_env(:cairnloop, :tools, []) || []
 
     Enum.each(configured_tools, fn tool_module ->
+      # Ensure the module is loaded before checking — `function_exported?/3` returns false
+      # for unloaded modules even when the beam file exists (D-07, Rule 1 fix).
+      Code.ensure_loaded!(tool_module)
+
       unless function_exported?(tool_module, :__tool_spec__, 0) do
         raise ArgumentError,
               "Tool #{inspect(tool_module)} does not implement Cairnloop.Tool behaviour or is missing __tool_spec__/0"

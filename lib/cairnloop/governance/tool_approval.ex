@@ -14,16 +14,18 @@ defmodule Cairnloop.Governance.ToolApproval do
   written via `decision_changeset/6` which updates the denormalized fields. There is no
   `update/1` or `delete/1` function — the `ToolActionEvent` trail is the immutable audit log.
 
-  ## Status Axis (D15-02)
+  ## Status Axis (D15-02, D16-08)
 
   The approval status axis is separate from `ToolProposal.status`:
   - `:pending` — awaiting operator decision (one active lane enforced by partial unique index)
   - `:approved` — operator approved; resume worker will re-validate and transition to `:execution_pending`
-  - `:execution_pending` — re-validation passed; Phase 16 seam state (execution deferred)
+  - `:execution_pending` — re-validation passed; `ToolExecutionWorker` enqueued (Phase 16)
   - `:rejected` — operator rejected with reason (FLOW-03)
   - `:deferred` — operator deferred with reason (FLOW-03)
   - `:expired` — TTL elapsed; dual mechanism (scheduled Oban job + lazy guard at resume time)
   - `:invalidated` — re-validation failed; policy/scope changed since approval
+  - `:executed` — Phase 16 success terminal; `run/3` returned `{:ok, result}` and outcome co-committed
+  - `:execution_failed` — Phase 16 failure terminal; exhausted retries or permanent re-validation failure
   """
 
   use Ecto.Schema
@@ -31,7 +33,18 @@ defmodule Cairnloop.Governance.ToolApproval do
 
   alias Cairnloop.Governance.ToolProposal
 
-  @status_values [:pending, :approved, :execution_pending, :rejected, :deferred, :expired, :invalidated]
+  @status_values [
+    :pending,
+    :approved,
+    :execution_pending,
+    :rejected,
+    :deferred,
+    :expired,
+    :invalidated,
+    # Phase 16 terminal execution statuses (D16-08) — append only, no DDL needed (status is :string storage)
+    :executed,           # success terminal — run/3 returned {:ok, result} and was co-committed
+    :execution_failed    # failure terminal — exhausted retries or permanent re-validation failure
+  ]
 
   schema "cairnloop_tool_approvals" do
     field(:status, Ecto.Enum, values: @status_values, default: :pending)
