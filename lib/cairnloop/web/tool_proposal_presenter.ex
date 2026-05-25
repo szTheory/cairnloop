@@ -273,10 +273,13 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
   """
   def policy_explanation(snapshot) when is_map(snapshot) do
     outcome = metadata_value(snapshot, :outcome)
-    reason = metadata_value(snapshot, :reason)
 
     cond do
-      outcome in [:policy_denied, "policy_denied"] and is_binary(reason) and reason != "" ->
+      # WR-06: outcome alone recognizes the denial — reason must not gate recognition.
+      # A policy_denied proposal with an empty reason is still denied; showing
+      # "Policy details are not available." was misleading. Reason is used only to
+      # enrich the sentence, not to decide whether the denial is recognized.
+      outcome in [:policy_denied, "policy_denied"] ->
         "This action was blocked by a policy gate."
 
       outcome in [:scope_invalid, "scope_invalid"] ->
