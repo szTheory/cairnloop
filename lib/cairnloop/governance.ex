@@ -42,11 +42,13 @@ defmodule Cairnloop.Governance do
   - Happy path: proposal + `:proposal_created` event co-committed in one `with` (D-26).
   - Duplicate idempotency key: returns existing proposal, no second insert (D-25).
 
-  ## No Execution
+  ## No Execution (from propose/approve)
 
   `propose/3` never calls `run/3`. `approve/3` persists the decision + enqueues the resume
-  worker asynchronously — it never executes inline (APRV-01, D15-10). Execution lands in
-  Phase 16.
+  worker asynchronously — it never executes inline (APRV-01, D15-10). Execution is performed
+  by `ToolExecutionWorker` (the ONLY place `run/3` is called), which is enqueued by the resume
+  worker after transitioning to `:execution_pending`. `execute_approved/2` is the facade-level
+  API for that enqueue step.
 
   ## Approval TTL
 
@@ -58,7 +60,7 @@ defmodule Cairnloop.Governance do
   import Ecto.Query
 
   alias Cairnloop.Governance.{Policy, Preview, Telemetry, ToolActionEvent, ToolApproval, ToolProposal}
-  alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker}
+  alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker, ToolExecutionWorker}
 
   # ---------------------------------------------------------------------------
   # Private helpers
@@ -783,6 +785,51 @@ defmodule Cairnloop.Governance do
 
       %ToolApproval{} ->
         {:error, :not_pending}
+    end
+  end
+
+  @doc """
+  Transitions a `:execution_pending` governed tool approval to signal that execution has
+  been enqueued. Enqueues `ToolExecutionWorker` after the record is persisted
+  (record-before-enqueue ordering mirrors `approve/3`, APRV-01).
+
+  This is a facade-level API primarily for caller ergonomics; the resume worker calls
+  `safe_enqueue(ToolExecutionWorker.new(...))` directly. This API is useful when
+  callers need the injectable `enqueue_fn` for testing.
+
+  Returns `{:ok, approval}` on success.
+  Returns `{:error, :not_found}` if the approval does not exist.
+  Returns `{:error, :not_execution_pending}` if the approval is not in `:execution_pending` status.
+
+  ## Options
+
+    - `:enqueue_fn` — injectable enqueue callback for testing (default: `&safe_enqueue/1`)
+  """
+  def execute_approved(approval_id, opts \\ []) do
+    enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)
+
+    case repo().get(ToolApproval, approval_id) do
+      nil ->
+        {:error, :not_found}
+
+      %ToolApproval{status: :execution_pending} = approval ->
+        event_attrs = %{
+          event_type: :execution_started,
+          from_status: nil,
+          to_status: nil,
+          actor_id: "system",
+          reason: nil,
+          metadata: %{approval_status: :execution_pending}
+        }
+
+        # Co-commit event then enqueue (record-before-enqueue ordering)
+        with {:ok, updated} <- update_approval_with_event(approval, Ecto.Changeset.change(approval, %{}), event_attrs) do
+          enqueue_fn.(ToolExecutionWorker.new(%{"approval_id" => updated.id}))
+          {:ok, updated}
+        end
+
+      %ToolApproval{} ->
+        {:error, :not_execution_pending}
     end
   end
 

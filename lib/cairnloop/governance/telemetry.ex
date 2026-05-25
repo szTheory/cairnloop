@@ -18,7 +18,14 @@ defmodule Cairnloop.Governance.Telemetry do
 
   alias Cairnloop.Telemetry
 
-  @events [:proposal_created, :proposal_blocked, :proposal_duplicate]
+  @events [
+    :proposal_created,
+    :proposal_blocked,
+    :proposal_duplicate,
+    # Phase 16 execution events (D16-10)
+    :action_executed,
+    :action_failed
+  ]
 
   @allowed_outcomes [
     :proposed,
@@ -31,6 +38,7 @@ defmodule Cairnloop.Governance.Telemetry do
 
   @allowed_risk_tiers [:read_only, :low_write, :high_write, :destructive, :unknown]
   @allowed_approval_modes [:auto, :requires_approval, :always_block, :unknown]
+  @allowed_result_states [:not_executed, :succeeded, :failed, :unknown]
 
   @doc """
   Emits a governance telemetry event.
@@ -48,6 +56,19 @@ defmodule Cairnloop.Governance.Telemetry do
   end
 
   @doc false
+  # Phase 16 execution events: bounded labels for action_executed/action_failed (D16-10).
+  # NEVER put actor_id, conversation_id, account_id, or reason strings in labels.
+  # tool_ref validated against configured registry to bound cardinality (D16-10).
+  def metadata(event, metadata)
+      when event in [:action_executed, :action_failed] and is_map(metadata) do
+    %{
+      risk_tier: normalize_risk_tier(Map.get(metadata, :risk_tier)),
+      approval_mode: normalize_approval_mode(Map.get(metadata, :approval_mode)),
+      result_state: normalize_result_state(Map.get(metadata, :result_state)),
+      tool_ref: normalize_tool_ref(Map.get(metadata, :tool_ref))
+    }
+  end
+
   def metadata(_event, metadata) when is_map(metadata) do
     %{
       outcome: normalize_outcome(Map.get(metadata, :outcome)),
@@ -78,4 +99,16 @@ defmodule Cairnloop.Governance.Telemetry do
 
   defp normalize_count(value) when is_integer(value) and value >= 0, do: min(value, 99)
   defp normalize_count(_), do: 0
+
+  defp normalize_result_state(value) when value in @allowed_result_states, do: value
+  defp normalize_result_state(_), do: :unknown
+
+  # tool_ref: validated against configured registry to bound cardinality (D16-10).
+  # Anything not in the registry normalizes to :unknown.
+  defp normalize_tool_ref(value) when is_binary(value) do
+    configured = Application.get_env(:cairnloop, :tools, []) || []
+    if Enum.any?(configured, fn mod -> Atom.to_string(mod) == value end), do: value, else: :unknown
+  end
+
+  defp normalize_tool_ref(_), do: :unknown
 end

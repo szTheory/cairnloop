@@ -35,7 +35,10 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
     queue: :default,
     unique: [period: :infinity, fields: [:worker, :args], keys: [:approval_id]]
 
+  require Logger
+
   alias Cairnloop.Governance.{ToolApproval, ToolProposal, ToolActionEvent}
+  alias Cairnloop.Workers.ToolExecutionWorker
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
@@ -78,9 +81,12 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
 
     case Cairnloop.Governance.validate(proposal.tool_ref, proposal.actor_id, context) do
       {:ok, _validated} ->
-        # Phase 16 seam: transition to :execution_pending and STOP.
-        # DO NOT call run/3 — execution is deferred to Phase 16 (D15-10, Pitfall 2).
+        # Phase 16 additive (D16-04): transition to :execution_pending, then enqueue
+        # ToolExecutionWorker. Still NEVER calls run/3 — execution is the worker's job.
         transition_approval(approval, :execution_pending, :revalidation_passed, nil, "system")
+        # Phase 16 additive: enqueue execution worker (record-before-enqueue ordering preserved).
+        # safe_enqueue wraps Oban.insert in try/rescue — host may have no Oban runtime.
+        safe_enqueue(ToolExecutionWorker.new(%{"approval_id" => approval.id}))
 
       {:blocked, _outcome, reason} ->
         # Fail-closed: invalidate with humanized operator-visible reason (APRV-03, D15-11)
@@ -172,6 +178,18 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
       )
 
       {:ok, updated}
+    end
+  end
+
+  # NOTE: mirrors Governance.safe_enqueue/1 — host may have no Oban runtime
+  defp safe_enqueue(job) do
+    try do
+      Oban.insert(job)
+    rescue
+      e ->
+        require Logger
+        Logger.warning("Oban enqueue failed: #{inspect(e)}")
+        :ok
     end
   end
 
