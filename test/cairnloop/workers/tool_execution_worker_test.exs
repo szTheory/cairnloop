@@ -416,6 +416,9 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
 
   describe "Governance.execute_approved/2 facade" do
     test "execute_approved/2 function is exported on Cairnloop.Governance" do
+      # function_exported?/3 returns false for not-yet-loaded modules; ensure the
+      # facade module is loaded so this assertion is deterministic across seeds.
+      Code.ensure_loaded!(Cairnloop.Governance)
       assert function_exported?(Cairnloop.Governance, :execute_approved, 2)
     end
   end
