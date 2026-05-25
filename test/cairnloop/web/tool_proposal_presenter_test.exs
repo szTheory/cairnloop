@@ -629,7 +629,9 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
 
   describe "approval_outlook_for_approval/1 — execution terminals (D16-11)" do
     test "returns humanized 'Action completed' copy for :executed approval" do
-      approval = %{status: :executed, result_summary: "Internal note appended."}
+      # The worker stores result_summary in approval.reason (via decision_changeset arg4).
+      # Use :reason key — the correct durable column (CR-01 regression guard).
+      approval = %{status: :executed, reason: "Internal note appended."}
       outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
       assert is_binary(outlook)
       assert String.contains?(outlook, "Action completed") or
@@ -638,15 +640,28 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "approval_outlook_for_approval for :executed must contain 'completed' or 'Done'"
     end
 
-    test ":executed outlook includes result_summary when present" do
-      approval = %{status: :executed, result_summary: "Note appended to conv-001."}
+    # CR-01 regression guard (IN-03): the worker stores the humanized result in
+    # approval.reason, NOT approval.result_summary (ToolApproval has no such field).
+    # This test proves the fix and prevents regression.
+    test ":executed outlook reads from :reason field (not :result_summary) — CR-01 fix" do
+      approval = %{status: :executed, reason: "Note written (id: 42)."}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      # Must include the actual summary text from :reason — not just "Done." fallback
+      assert String.contains?(outlook, "Note written (id: 42)."),
+             "approval_outlook must include the actual reason text from approval.reason, got: #{inspect(outlook)}"
+    end
+
+    test ":executed outlook includes actual summary when passed as :reason" do
+      # approval.reason holds the worker's humanized result_summary (see record_success/6)
+      approval = %{status: :executed, reason: "Note appended to conv-001."}
       outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
       assert is_binary(outlook)
       assert String.contains?(outlook, "Note appended to conv-001.")
     end
 
-    test ":executed outlook falls back gracefully when result_summary is nil" do
-      approval = %{status: :executed, result_summary: nil}
+    test ":executed outlook falls back gracefully when reason is nil" do
+      approval = %{status: :executed, reason: nil}
       outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
       assert is_binary(outlook)
       assert String.length(outlook) > 0
@@ -680,7 +695,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
 
     test ":executed and :execution_failed outlook contain no raw Elixir terms (T-16-10)" do
       for {status, extra} <- [
-            {:executed, %{result_summary: "Done."}},
+            {:executed, %{reason: "Done."}},
             {:execution_failed, %{reason: "Exhausted."}}
           ] do
         approval = Map.put(extra, :status, status)
