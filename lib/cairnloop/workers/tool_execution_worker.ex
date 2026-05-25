@@ -224,6 +224,9 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
           result_state: :failed,
           tool_ref: tool_ref
         })
+
+        # PubSub broadcast — terminal failure; LiveView reloads to reflect :execution_failed (D16-11)
+        broadcast_execution_failed(approval.id, proposal)
       end
 
       {:cancel, humanized}
@@ -395,6 +398,16 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
 
     try do
       Phoenix.PubSub.broadcast(Cairnloop.PubSub, topic, {:tool_executed, approval_id})
+    rescue
+      _ -> :ok
+    end
+  end
+
+  defp broadcast_execution_failed(approval_id, proposal) do
+    topic = "conversation:#{proposal.conversation_id}"
+
+    try do
+      Phoenix.PubSub.broadcast(Cairnloop.PubSub, topic, {:tool_execution_failed, approval_id})
     rescue
       _ -> :ok
     end
