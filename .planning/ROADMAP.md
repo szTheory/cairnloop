@@ -116,7 +116,7 @@ Plans:
 
 **Wave 1**
 
-- [ ] 16-01-PLAN.md (M011-S04-01, ACT-01) — first approved write path: `ToolExecutionWorker` (only place `run/3` is called), example `Cairnloop.Tools.InternalNote` low-write tool, terminal statuses `:executed`/`:execution_failed` + execution event types + reserved-column population, `Governance.execute_approved/2` facade transition, additive resume-worker enqueue, Wave 0 integration scaffold.
+- [x] 16-01-PLAN.md (M011-S04-01, ACT-01) — first approved write path: `ToolExecutionWorker` (only place `run/3` is called), example `Cairnloop.Tools.InternalNote` low-write tool, terminal statuses `:executed`/`:execution_failed` + execution event types + reserved-column population, `Governance.execute_approved/2` facade transition, additive resume-worker enqueue, Wave 0 integration scaffold.
 
 **Wave 2** *(blocked on Wave 1 completion; 16-02 and 16-03 run in parallel — disjoint files)*
 

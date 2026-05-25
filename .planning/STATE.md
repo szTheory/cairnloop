@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
 status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-05-25T05:25:51.416Z"
-last_activity: 2026-05-25 -- Phase 16 planning complete
+stopped_at: Completed 16-01-PLAN.md
+last_updated: "2026-05-25T06:02:39.274Z"
+last_activity: 2026-05-25
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
   percent: 60
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 16 — first-approved-write-path-&-telemetry
+**Current focus:** Phase 16 — first-approved-write-path-telemetry
 
 ## Current Position
 
-Phase: 16
-Plan: Not started
+Phase: 16 (first-approved-write-path-telemetry) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-05-25 -- Phase 16 planning complete
+Last activity: 2026-05-25
 
 Progress: [----------] 0%
 
@@ -67,6 +67,7 @@ Progress: [----------] 0%
 | Phase 15-approval-state-machine-oban-resume P01 | 8 | 2 tasks | 10 files |
 | Phase 15 P02 | 4 | 2 tasks | 5 files |
 | Phase 15 P04 | 8 | 2 tasks | 5 files |
+| Phase 16 P01 | 24 | 3 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Progress: [----------] 0%
 - [Phase 15 → 2026-05-25, INTEGRATION HARNESS]: Added a DB-backed integration test host under `test/support` (test-only `Cairnloop.Repo` + `Cairnloop.Web.Endpoint`/router + `DataCase`/`ConnCase`/`Fixtures`, `elixirc_paths(:test)` only) + `priv/test_host/migrations` for host-owned tables (conversations/messages/drafts) + `docker-compose.yml` (pgvector) + a CI `integration` job. 12 tests in `test/integration/` shift-left all 4 former Manual-Only/UAT items → **0 human verification**. Run: `MIX_ENV=test mix test.integration`. Fast headless `mix test` stays DB-free (`:integration` excluded; gated in `test_helper.exs`).
 - [Phase 15 → 2026-05-25, DEFECTS FOUND & FIXED by integration tests (masked by MockRepo)]: (1) `cairnloop_tool_action_events.to_status` was NOT NULL but approval events insert nil → additive migration `20260524120200_relax_action_event_to_status_null`; (2) `ApprovalResumeWorker.perform/1` matched `:pending` while `approve/3` sets `:approved` → real approve→resume handoff no-op'd; fixed to match `:approved` (owner-approved). Headless worker-test fixtures updated `:pending`→`:approved`.
 - [Phase 15 CARRIED DECISION — Phase 16 must honor]: approval lane lifecycle is `:pending → :approved → :execution_pending`. `ApprovalResumeWorker` acts on `:approved` only (never `:pending` — re-validation must not bypass the approval gate). **Phase 16 execution resumes from `:execution_pending`.**
+- [Phase ?]: Phase 16 P01: ToolExecutionWorker — sole run/3 caller, at-most-once via Oban unique + LAYER-1/LAYER-2 guards, max_attempts 3
+- [Phase ?]: Phase 16 P01: Code.ensure_loaded!/1 added to ToolRegistry.validate_configured_tools!/0 — function_exported?/3 returns false for unloaded modules (Rule 1 fix)
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ Progress: [----------] 0%
 
 ## Session Continuity
 
-Last session: 2026-05-25T04:54:29.142Z
-Stopped at: Phase 16 context gathered
-Resume file: .planning/phases/16-first-approved-write-path-telemetry/16-CONTEXT.md
+Last session: 2026-05-25T06:02:39.270Z
+Stopped at: Completed 16-01-PLAN.md
+Resume file: None

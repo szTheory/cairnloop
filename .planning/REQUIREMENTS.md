@@ -70,7 +70,7 @@
 
 ### First Action Path & Observability
 
-- [ ] **ACT-01**: System ships at least one narrow low-blast-radius write workflow after approval, such as adding an internal note, assigning a thread, or creating a follow-up task.
+- [x] **ACT-01**: System ships at least one narrow low-blast-radius write workflow after approval, such as adding an internal note, assigning a thread, or creating a follow-up task.
 - [ ] **OBS-01**: System emits bounded telemetry for governed action proposal, approval, execution, and failure outcomes without leaking high-cardinality payload data into metric labels.
 - [ ] **OBS-02**: Optional audit/evidence integrations can attribute who approved or denied a governed action and which policy snapshot applied.
 - [ ] **MCP-01**: Core governed-tool metadata can map cleanly to an optional read-only MCP seam without changing the internal approval and execution model.
@@ -109,7 +109,7 @@
 | APRV-02 | Phase 15 | Complete |
 | APRV-03 | Phase 15 | Complete |
 | APRV-04 | Phase 15 | Complete |
-| ACT-01 | Phase 16 | Pending |
+| ACT-01 | Phase 16 | Complete |
 | OBS-01 | Phase 16 | Pending |
 | OBS-02 | Phase 16 | Pending |
 | MCP-01 | Phase 17 | Pending |
