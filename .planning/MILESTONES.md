@@ -1,5 +1,24 @@
 # Milestones
 
+## vM011 — AI Tool Governance & MCP Integration
+**Shipped:** 2026-05-25
+
+**Key accomplishments:**
+- Established a host-owned compile-time-validated governed-tool contract (`use Cairnloop.Tool`) with durable `ToolProposal` + append-only `ToolActionEvent` records; proposals are fail-closed on unsupported tools, missing input, invalid scope, or denied policy — never execute inline.
+- Built a humanized in-thread operator timeline with hybrid preview cards (snapshotted trust facts + best-effort live prose fallback); raw Elixir terms and color-alone state kept off the operator surface.
+- Added a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with one-active-lane invariant; resume re-validates via a new Oban job before execution — never inline `run/3`.
+- Shipped the first narrow approved write path: `ToolExecutionWorker` (sole `run/3` caller) with three-layer at-most-once idempotency (Oban unique + terminal guard + SHA-256 per-attempt run key) and bounded telemetry.
+- Added an optional OpenInference-conformant evidence lane (`Cairnloop.Governance.Telemetry.Traces`, 7 call sites across governance + workers) with payload-content exclusion and zero Scoria dependency.
+- Delivered a read-only MCP seam (`Cairnloop.Web.MCP.Router` + `ToolProjector`): `tools/list` + `initialize` only, `-32601` for all write methods — core approval and execution truth unchanged.
+
+**Stats:**
+- Phases: 5 (13–17)
+- Plans: 17
+- Timeline: 2026-05-23 → 2026-05-25 (3 days)
+- Git commits: 146
+- Codebase at close: ~15,389 LOC Elixir
+- Known deferred items at close: 2 (root SECURITY.md carries 5 pre-existing open threats from vM010; AR-14-02 governed-actions rail lacks pagination)
+
 ## vM010 - KB AI Maintenance
 **Shipped:** 2026-05-23
 

@@ -73,7 +73,7 @@
 - [x] **ACT-01**: System ships at least one narrow low-blast-radius write workflow after approval, such as adding an internal note, assigning a thread, or creating a follow-up task.
 - [x] **OBS-01**: System emits bounded telemetry for governed action proposal, approval, execution, and failure outcomes without leaking high-cardinality payload data into metric labels.
 - [x] **OBS-02**: Optional audit/evidence integrations can attribute who approved or denied a governed action and which policy snapshot applied.
-- [ ] **MCP-01**: Core governed-tool metadata can map cleanly to an optional read-only MCP seam without changing the internal approval and execution model.
+- [x] **MCP-01**: Core governed-tool metadata can map cleanly to an optional read-only MCP seam without changing the internal approval and execution model.
 
 ## v2 Requirements
 
@@ -112,7 +112,7 @@
 | ACT-01 | Phase 16 | Complete |
 | OBS-01 | Phase 16 | Complete |
 | OBS-02 | Phase 16 | Complete |
-| MCP-01 | Phase 17 | Pending |
+| MCP-01 | Phase 17 | Complete |
 
 **Coverage:**
 
@@ -122,4 +122,4 @@
 
 ---
 *Requirements defined: 2026-05-23*
-*Last updated: 2026-05-23 after initial milestone definition*
+*Last updated: 2026-05-25 — MCP-01 marked complete after Phase 17 delivered read-only MCP seam*

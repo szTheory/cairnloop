@@ -8,7 +8,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 ## Current State
 
-**Latest shipped milestone:** `vM010 KB AI Maintenance` on 2026-05-23.
+**Latest shipped milestone:** `vM011 AI Tool Governance & MCP Integration` on 2026-05-25.
 
 **What is now true:**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence.
@@ -17,24 +17,16 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed when evidence or grounding is insufficient.
 - KB review now runs through durable review tasks with explicit approve, reject, defer, publish, and reindex follow-through states.
 - Operators can launch maintenance directly from conversation context without creating a second workflow surface outside the shared review lane.
-- Maintenance telemetry is bounded and emitted from durable workflow seams rather than transient UI state.
+- Cairnloop has a host-owned governed-tool contract (`use Cairnloop.Tool`) with compile-time validation, risk tiers, approval modes, and durable `ToolProposal` + append-only `ToolActionEvent` records.
+- Governed action proposals are fail-closed on unsupported tools, missing input, invalid scope, or denied policy — never execute inline.
+- Operators see humanized in-thread governed action cards with snapshotted trust facts, risk/approval-mode chips, and a hybrid preview surface; raw Elixir terms and color-alone state are kept off the operator surface.
+- Risky actions move through a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with one-active-lane invariant and append-only decision history; resume re-validates via Oban before execution.
+- First narrow approved write path is proven: `ToolExecutionWorker` (sole `run/3` caller) with three-layer at-most-once idempotency and bounded `[:cairnloop, :governance, ...]` telemetry.
+- An optional OpenInference-conformant evidence lane and read-only MCP seam (`tools/list` + `initialize`) exist as additive adapters; core approval and execution truth is unchanged.
 
-**Current milestone:** `vM011 AI Tool Governance & MCP Integration`
+**Next milestone:** To be defined via `/gsd:new-milestone`.
 
-**Why now:** Retrieval is now trustworthy and KB maintenance is operator-reviewed. The next leverage point is to let Cairnloop propose and govern support actions without weakening host-owned trust, approval, or audit boundaries.
-
-**Target features:**
-- Introduce a durable governed-action workflow for typed host-owned tools, starting with internal read-only and low-blast-radius support actions.
-- Add policy-gated approval and resume mechanics using Ecto and Oban instead of synchronous LiveView execution.
-- Reuse retrieval, review, telemetry, and audit primitives so tool actions stay grounded, fail closed, and inspectable in-thread.
-- Define MCP as an optional edge adapter over the governed-tool contract, with read-only/user-scoped integration first and broad remote write surfaces deferred.
-
-**Milestone progress:**
-- ✓ Phase 13 (Governed Tool Contract & Proposal Records) complete on 2026-05-24 — the single native governed-tool contract (compile-time-validated `Tool.Spec` + behaviour), durable `ToolProposal` + append-only `ToolActionEvent` records, and the fail-closed `Cairnloop.Governance` propose/validate facade (with a `Policy.resolve/3` approval seam) now exist; Cairnloop creates proposals without executing tools inline.
-- ✓ Phase 14 (Operator Timeline & Preview Surface) complete on 2026-05-24 — governed actions render in-thread with a humanized timeline, risk/approval-mode chips, and a hybrid preview surface (snapshotted trust facts + best-effort interpretive prose behind a total fallback); raw Elixir terms and color-alone state are kept off the operator surface.
-- ✓ Phase 15 (Approval State Machine & Oban Resume) complete on 2026-05-24 — risky governed actions now move through a durable `ToolApproval` lane with approve / reject / defer / expiry / resume paths and an append-only decision trail; resume re-validates against current context via Oban and fails closed (never inline `run/3`), with operator approve/reject/defer affordances reflected in-thread. Actual write execution is deferred to Phase 16.
-- ✓ Phase 16 (First Approved Write Path & Telemetry) — first real tool execution path: approved proposals flow through Oban re-validate → `run/3` → atomic outcome record + bounded telemetry; operator sees outcome in-thread.
-- ✓ Phase 17 (Optional Evidence Lane & Read-Only MCP Seam) complete on 2026-05-25 — the governed-action contract now projects into an optional OpenInference-conformant `:telemetry` evidence lane (`Cairnloop.Governance.Telemetry.Traces`) and a read-only MCP JSON-RPC seam (`Cairnloop.Web.MCP.Router` + `ToolProjector`) without touching core approval or execution truth. MCP-01 requirement fully satisfied.
+**Why now:** The governed-action contract, durable approval workflow, and MCP seam are all proven. Next opportunities: broader tool types, remote MCP write surfaces with OAuth, multi-step runbook orchestration, or deeper observability/eval instrumentation.
 
 ## Requirements
 
@@ -49,31 +41,63 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ Knowledge Base Engine — vM008
 - ✓ Retrieval-First Support Answers & Search Ops — vM009
 - ✓ KB AI Maintenance — vM010
+- ✓ Governed tool contract with risk tiers, approval modes, idempotency, and fail-closed proposal pipeline — vM011 (TOOL-01 through TOOL-04)
+- ✓ Durable in-thread operator action timeline with humanized preview cards and snapshotted trust facts — vM011 (FLOW-01, FLOW-02)
+- ✓ Approval state machine (approve/reject/defer/expiry/resume) with append-only decision history and Oban re-validate-before-execute resume — vM011 (FLOW-03, APRV-01 through APRV-04)
+- ✓ First narrow approved write path with three-layer at-most-once idempotency and bounded telemetry — vM011 (ACT-01, OBS-01, OBS-02)
+- ✓ Optional read-only MCP seam over governed-tool contract — vM011 (MCP-01)
 
 ### Active
-- [x] Define the governed-tool contract, policy seam, and durable execution records for host-owned support actions. — validated in Phase 13 (vM011)
-- [x] Replace synchronous in-LiveView tool execution with fail-closed proposal, approval, and Oban resume flow. — proposal (Phase 13) + durable approval state machine and Oban re-validate-before-execute resume (Phase 15) now exist; first write execution lands Phase 16 (vM011)
-- [x] Keep tool actions grounded, reviewable, and visible in the existing operator workflow rather than introducing a parallel truth source. — in-thread timeline/preview (Phase 14) + approval affordances and outcome reflection (Phase 15), zero parallel surface (vM011)
-- [x] Expose MCP compatibility only through the governed-tool seam, starting with optional read-only and user-scoped integration. — validated in Phase 17 (vM011)
-
-## Validated Requirements
-
-- vM010 validated `GAP-01` through `GAP-03`: retrieval and manual-handling evidence now converge into ranked, inspectable KB gap candidates.
-- vM010 validated `DRAFT-01` through `DRAFT-03`: article and revision suggestions are citation-backed and fail closed when grounding is weak.
-- vM010 validated `REVIEW-01` through `REVIEW-03`: review tasks now own decision, publish, and follow-through workflow state.
-- vM010 validated `OPS-01` through `OPS-03`: operators can launch quick fixes from threads and maintenance telemetry remains bounded across publish and reindex follow-through.
-- vM011 Phase 13 validated `M011-S01-01` through `M011-S01-03`: one native governed-tool contract, durable proposal + append-only action-event records, and the fail-closed `Cairnloop.Governance` facade — proposals are created and fail closed on unsupported tools, missing input, invalid scope, or denied policy, with no inline execution.
-- vM011 Phase 15 validated `APRV-01` through `APRV-04` and `FLOW-03`: a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with a one-active-lane invariant, append-only decision history, fail-closed Oban re-validate-before-execute resume (never inline `run/3`, lazy `expires_at` guard), reason-required rejection/deferral, and in-thread operator affordances that read snapshotted trust prose. (4 live-environment UAT items — Oban runtime, browser visual/brand, repo-backed divergence — deferred to a host app; see `15-HUMAN-UAT.md`.)
-- vM011 Phase 17 validated `MCP-01`: the governed-tool contract projects into an optional OpenInference-conformant evidence lane (`:telemetry` events at `[:cairnloop, :governance, :trace, ...]` with payload-content exclusion enforced) and a read-only MCP JSON-RPC seam (`tools/list`, `initialize`; `tools/call` returns `-32601`). Core approval and execution truth is unchanged — additive only.
+_(To be defined for next milestone via `/gsd:new-milestone`)_
 
 ### Out of Scope
-- Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven.
+- Broad external MCP server surface for third-party clients before the internal governed-tool contract is proven. _(MCP-02 now a candidate for next milestone — internal contract is proven.)_
 - High-risk financial or destructive mutations as the first governed-action path.
 - Autonomous customer-visible replies or side effects based only on retrieval confidence.
 - Treating raw tool output as canonical truth over reviewed Knowledge Base and support evidence.
 - Replacing host-owned Phoenix/Ecto/Oban workflow truth with an MCP- or Scoria-owned runtime.
 
+## Key Decisions
+
+| Decision | Milestone | Outcome |
+|----------|-----------|---------|
+| Workflow truth in Phoenix/Ecto/Oban; LiveView reflects state, never owns execution | vM011 | ✓ Good — consistently delivered across 5 phases |
+| Sequence: contract → timeline → approvals → narrow write → optional MCP seam | vM011 | ✓ Good — late phases were additive without reopening earlier work |
+| Hybrid preview: snapshot trust facts at propose time; interpretive prose best-effort live behind total fallback | vM011 | ✓ Good — D15-14 discharged cleanly in Phase 15 |
+| Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key | vM011 | ✓ Good — DB-backed proof added to integration harness |
+| DB-backed integration test harness added (docker-compose + pgvector + DataCase/ConnCase) | vM011 | ✓ Good — shifted 4 former Manual-Only items to automated proof |
+| MCP as read-only edge adapter, not internal execution model | vM011 | ✓ Good — additive, zero core truth changes |
+| Keep MCP write surfaces and remote OAuth for next milestone | vM011 | — Pending — next milestone decision |
+
+## Context
+
+**Codebase at vM011:** ~15,389 LOC Elixir / Phoenix / LiveView / Ecto / Oban.
+**Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, OpenInference telemetry.
+**Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free.
+
+**Known tech debt:**
+- Root `SECURITY.md` carries 5 open threats (T-10-09..T-10-13) from vM010 — pre-existing, untouched by vM011.
+- AR-14-02: governed-actions rail has no pagination — re-evaluate when write-action volume grows.
+- Centralize duplicated fail-closed search guards (pre-existing from vM009).
+
 ## Previous Milestone Brief
+
+<details>
+<summary>Archived vM011 brief</summary>
+
+### vM011 AI Tool Governance & MCP Integration
+
+**Goal:** Extend the M009-M010 trust model with a host-owned governed-action lane.
+
+**Target features:**
+- Introduce a durable governed-action workflow for typed host-owned tools.
+- Add policy-gated approval and resume mechanics using Ecto and Oban instead of synchronous LiveView execution.
+- Reuse retrieval, review, telemetry, and audit primitives so tool actions stay grounded and fail closed.
+- Define MCP as an optional edge adapter with read-only/user-scoped integration first.
+
+**Shipped 2026-05-25 — all 15 v1 requirements satisfied across Phases 13–17.**
+
+</details>
 
 <details>
 <summary>Archived vM010 brief</summary>
@@ -83,17 +107,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 **Goal:** Turn retrieval misses, weak grounding, and repeated manual handling into a safe
 Knowledge Base maintenance workflow.
 
-**Target features:**
-- Gap detection and clustering from retrieval no-hits, weak grounding, and repeated support
-  handling.
-- AI-assisted draft article creation and suggested revisions for existing KB content.
-- Operator review workflow with evidence, citations, diff/review actions, and publish gated by
-  the existing KB review path.
-- In-thread quick-fix flow so operators can start a KB draft directly from conversation evidence.
-
-**Why now:** `vM009` already emits retrieval telemetry and durable gap signals. The
-highest-leverage next step was to turn those signals into operator-reviewed KB improvements before
-expanding AI agency or external integration surface area.
+**Shipped 2026-05-23.**
 
 </details>
 
@@ -105,17 +119,7 @@ expanding AI agency or external integration surface area.
 **Goal:** Turn the Knowledge Base substrate into visible operator and AI value through grounded
 retrieval, trustworthy search, and measurable answer quality.
 
-**Target features:**
-- Hybrid retrieval over published Knowledge Base revisions and resolved conversation summaries
-  using `pgvector` plus PostgreSQL full-text search.
-- Operator `cmd+k` search and similar-case assist inside the LiveView dashboard.
-- Grounded AI draft flow with citations, retrieval telemetry, and policy-aware escalation when
-  retrieval confidence is weak.
-- Failed-search and no-hit analytics that feed the future knowledge-gap workflow.
-
-**Why now:** M008 shipped the durable RAG substrate on 2026-05-17. The highest-leverage next step
-is to make retrieval the trust layer before expanding into broader tool autonomy or outbound
-workflows.
+**Shipped 2026-05-21.**
 
 </details>
 
@@ -137,4 +141,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-25 after completing Phase 17 (vM011)*
+*Last updated: 2026-05-25 after vM011 milestone completion*
