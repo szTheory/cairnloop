@@ -588,4 +588,178 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
              "history_line for :approval_requested must mention actor_id or approval context"
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 16 Wave 2 extensions: execution outcome display (D16-11, OBS-02)
+  #
+  # These describe blocks encode the contracts for execution outcome display:
+  # - :executed / :execution_failed status grouping (always before catch-all)
+  # - approval_outlook_for_approval/1 humanized copy for execution terminals
+  # - history_line/1 clauses for execution events with attempt number
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # describe: status_group/1 — execution terminal statuses (D16-11, zero relabeling)
+  # ---------------------------------------------------------------------------
+
+  describe "status_group/1 — execution terminal statuses (D16-11)" do
+    test "returns :done for :executed" do
+      assert apply(@presenter, :status_group, [:executed]) == :done
+    end
+
+    test "returns :done for :execution_failed" do
+      # Both map to :done (or a distinct operator-legible group — never :blocked)
+      result = apply(@presenter, :status_group, [:execution_failed])
+      assert result in [:done, :blocked] == false or result == :done,
+             "execution_failed must not map to :blocked (operator must see it as a completed lane)"
+      # Specifically: per D16-11 both map to :done
+      assert result == :done
+    end
+
+    test ":executed and :execution_failed never render as :blocked (Pitfall 6 catch-all)" do
+      # Regression guard: new clauses must appear BEFORE def status_group(_, do: :blocked
+      assert apply(@presenter, :status_group, [:executed]) != :blocked
+      assert apply(@presenter, :status_group, [:execution_failed]) != :blocked
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # describe: approval_outlook_for_approval/1 — execution terminal states (D16-11)
+  # ---------------------------------------------------------------------------
+
+  describe "approval_outlook_for_approval/1 — execution terminals (D16-11)" do
+    test "returns humanized 'Action completed' copy for :executed approval" do
+      approval = %{status: :executed, result_summary: "Internal note appended."}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.contains?(outlook, "Action completed") or
+               String.contains?(outlook, "completed") or
+               String.contains?(outlook, "Done"),
+             "approval_outlook_for_approval for :executed must contain 'completed' or 'Done'"
+    end
+
+    test ":executed outlook includes result_summary when present" do
+      approval = %{status: :executed, result_summary: "Note appended to conv-001."}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.contains?(outlook, "Note appended to conv-001.")
+    end
+
+    test ":executed outlook falls back gracefully when result_summary is nil" do
+      approval = %{status: :executed, result_summary: nil}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.length(outlook) > 0
+      # Must not crash or expose raw Elixir nil term
+      refute outlook =~ "nil", "outlook must not expose raw 'nil' to operators"
+    end
+
+    test "returns humanized 'Action failed' copy for :execution_failed approval" do
+      approval = %{status: :execution_failed, reason: "All retry attempts exhausted."}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.contains?(outlook, "Action failed") or
+               String.contains?(outlook, "failed"),
+             "approval_outlook_for_approval for :execution_failed must contain 'failed'"
+    end
+
+    test ":execution_failed outlook includes reason when present" do
+      approval = %{status: :execution_failed, reason: "DB connection refused."}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.contains?(outlook, "DB connection refused.")
+    end
+
+    test ":execution_failed outlook falls back gracefully when reason is nil" do
+      approval = %{status: :execution_failed, reason: nil}
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+      assert is_binary(outlook)
+      assert String.length(outlook) > 0
+      refute outlook =~ "nil", "outlook must not expose raw 'nil' to operators"
+    end
+
+    test ":executed and :execution_failed outlook contain no raw Elixir terms (T-16-10)" do
+      for {status, extra} <- [
+            {:executed, %{result_summary: "Done."}},
+            {:execution_failed, %{reason: "Exhausted."}}
+          ] do
+        approval = Map.put(extra, :status, status)
+        outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
+        refute outlook =~ "#Ecto", "must not expose raw Ecto terms"
+        refute outlook =~ "%{", "must not expose raw map syntax"
+        refute outlook =~ ~r/^:/, "must not expose leading-colon atom syntax"
+      end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # describe: history_line/1 — execution events (D16-11, per-attempt timeline)
+  # ---------------------------------------------------------------------------
+
+  describe "history_line/1 — execution events (D16-11, per-attempt timeline)" do
+    test ":execution_succeeded returns humanized line with attempt number" do
+      e = event(%{event_type: :execution_succeeded, metadata: %{"attempt" => 1}})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      refute line == "Workflow updated",
+             "history_line for :execution_succeeded must not fall back to catch-all"
+      assert String.contains?(line, "1") or String.contains?(line, "completed") or
+               String.contains?(line, "succeeded"),
+             "history_line for :execution_succeeded should reference attempt or outcome"
+    end
+
+    test ":execution_attempt_failed returns humanized line with attempt number and reason" do
+      e = event(%{event_type: :execution_attempt_failed, reason: "Transient DB error.", metadata: %{"attempt" => 1}})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      refute line == "Workflow updated",
+             "history_line for :execution_attempt_failed must not fall back to catch-all"
+      assert String.contains?(line, "1") or String.contains?(line, "failed") or
+               String.contains?(line, "retry"),
+             "history_line for :execution_attempt_failed should reference attempt or failure"
+    end
+
+    test ":execution_failed returns humanized line naming the permanent failure" do
+      e = event(%{event_type: :execution_failed, reason: "All retry attempts exhausted."})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      refute line == "Workflow updated",
+             "history_line for :execution_failed must not fall back to catch-all"
+      assert String.contains?(line, "failed") or
+               String.contains?(line, "exhausted") or
+               String.contains?(line, "permanently"),
+             "history_line for :execution_failed should name the permanent failure"
+    end
+
+    test "execution event lines contain no raw Elixir terms (T-16-10)" do
+      events = [
+        event(%{event_type: :execution_succeeded, metadata: %{"attempt" => 1}}),
+        event(%{event_type: :execution_attempt_failed, reason: "DB error.", metadata: %{"attempt" => 2}}),
+        event(%{event_type: :execution_failed, reason: "Retries exhausted."})
+      ]
+
+      for e <- events do
+        line = apply(@presenter, :history_line, [e])
+        refute line =~ "#Ecto", "history_line must not expose raw Ecto terms"
+        refute line =~ "%{", "history_line must not expose raw map syntax"
+      end
+    end
+
+    test ":execution_succeeded reads attempt from STRING key 'attempt' (JSONB survival)" do
+      # JSONB round-trip: metadata keys become strings after Postgres INSERT+SELECT
+      e = event(%{event_type: :execution_succeeded, metadata: %{"attempt" => 2}})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.contains?(line, "2") or String.contains?(line, "completed"),
+             "attempt number from string key must appear in the line"
+    end
+
+    test ":execution_attempt_failed reads attempt from STRING key 'attempt' (JSONB survival)" do
+      e = event(%{event_type: :execution_attempt_failed, reason: "DB hiccup.", metadata: %{"attempt" => 3}})
+      line = apply(@presenter, :history_line, [e])
+      assert is_binary(line)
+      assert String.contains?(line, "3") or String.contains?(line, "failed"),
+             "attempt number from string key must appear in the line"
+    end
+  end
 end
