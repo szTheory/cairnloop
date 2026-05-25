@@ -4,8 +4,8 @@ milestone: vM011
 milestone_name: AI Tool Governance & MCP Integration
 status: executing
 stopped_at: Phase 17 context gathered
-last_updated: "2026-05-25T14:04:24.836Z"
-last_activity: 2026-05-25 -- Phase 17 planning complete
+last_updated: "2026-05-25T14:07:20.714Z"
+last_activity: 2026-05-25 -- Phase 17 execution started
 progress:
   total_phases: 5
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-23)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 16 — first-approved-write-path-telemetry
+**Current focus:** Phase 17 — optional-evidence-lane-read-only-mcp-seam
 
 ## Current Position
 
-Phase: 17
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-25 -- Phase 17 planning complete
+Phase: 17 (optional-evidence-lane-read-only-mcp-seam) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 17
+Last activity: 2026-05-25 -- Phase 17 execution started
 
 Progress: [----------] 0%
 

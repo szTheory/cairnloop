@@ -140,8 +140,8 @@ Plans:
 
 **Wave 1** *(both plans are independent — disjoint files, run in parallel)*
 
-- [ ] M011-S05-01-PLAN.md — Evidence lane: `Cairnloop.Governance.Telemetry.Traces` OI-conformant trace module + 7 additive emit call sites in governance.ex, tool_execution_worker.ex, approval_resume_worker.ex.
-- [ ] M011-S05-02-PLAN.md — Read-only MCP seam: `ToolRegistry.list_all_tools/0` + `Cairnloop.Web.MCP.ToolProjector` (pure Spec→MCP transform) + `Cairnloop.Web.MCP.Router` optional Plug (tools/list + initialize only, -32601 for all other methods).
+- [x] M011-S05-01-PLAN.md — Evidence lane: `Cairnloop.Governance.Telemetry.Traces` OI-conformant trace module + 7 additive emit call sites in governance.ex, tool_execution_worker.ex, approval_resume_worker.ex.
+- [x] M011-S05-02-PLAN.md — Read-only MCP seam: `ToolRegistry.list_all_tools/0` + `Cairnloop.Web.MCP.ToolProjector` (pure Spec→MCP transform) + `Cairnloop.Web.MCP.Router` optional Plug (tools/list + initialize only, -32601 for all other methods).
 
 **Details:**
 
