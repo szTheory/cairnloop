@@ -55,6 +55,9 @@ defmodule Cairnloop.Governance.Telemetry do
     )
   end
 
+  # Unknown events are silently dropped — guard clause (plan requirement, OBS-01).
+  def emit(_event, _measurements, _metadata), do: :ok
+
   @doc false
   # Phase 16 execution events: bounded labels for action_executed/action_failed (D16-10).
   # NEVER put actor_id, conversation_id, account_id, or reason strings in labels.
