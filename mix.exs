@@ -9,7 +9,28 @@ defmodule Cairnloop.MixProject do
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
-      deps: deps()
+      deps: deps(),
+      description: "Host-owned customer support automation for Phoenix apps — governed drafting, retrieval-backed answers, and durable workflow tools.",
+      source_url: "https://github.com/szTheory/cairnloop",
+      homepage_url: "https://github.com/szTheory/cairnloop",
+      package: [
+        name: "cairnloop",
+        licenses: ["MIT"],
+        links: %{"GitHub" => "https://github.com/szTheory/cairnloop", "Changelog" => "https://hexdocs.pm/cairnloop/changelog.html"},
+        maintainers: ["szTheory"]
+      ],
+      docs: [
+        main: "readme",
+        extras: ["README.md", "CHANGELOG.md"],
+        groups_for_modules: [
+          "Governance": [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
+          "Knowledge Base": [~r/^Cairnloop\.KnowledgeBase/, ~r/^Cairnloop\.KnowledgeAutomation/],
+          "Retrieval": [~r/^Cairnloop\.Retrieval/],
+          "MCP": [~r/^Cairnloop\.Web\.MCP/],
+          "Web": [~r/^Cairnloop\.Web/],
+          "Core": [~r/^Cairnloop/]
+        ]
+      ]
     ]
   end
 
@@ -72,7 +93,8 @@ defmodule Cairnloop.MixProject do
       {:scrypath, ">= 0.0.0", optional: true},
       # phoenix_live_view 1.1 uses lazy_html (not floki) as its test-time HTML parser
       # for Phoenix.LiveViewTest element/form helpers.
-      {:lazy_html, ">= 0.1.0", only: :test}
+      {:lazy_html, ">= 0.1.0", only: :test},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end
 end
