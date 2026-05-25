@@ -53,6 +53,21 @@ defmodule Cairnloop.ToolRegistry do
   end
 
   @doc """
+  Returns all configured tools as `{module, spec}` tuples without any scope or authorization
+  filtering. Used by the optional MCP seam (D17-08) to project the full tool registry for
+  `tools/list` responses.
+
+  Unlike `get_available_tools/2` — which applies advisory scope/authorize filtering — this
+  function returns every tool registered in `:cairnloop, :tools` config regardless of actor
+  context. This is correct for MCP listing: the MCP client decides which tools to surface.
+  """
+  @spec list_all_tools() :: [{module(), Cairnloop.Tool.Spec.t()}]
+  def list_all_tools do
+    configured_tools = Application.get_env(:cairnloop, :tools, []) || []
+    Enum.map(configured_tools, fn mod -> {mod, mod.__tool_spec__()} end)
+  end
+
+  @doc """
   Resolves a string `tool_ref` to a module without using `String.to_existing_atom/1` (D-19).
 
   `inspect(MyTool)` and `Atom.to_string(MyTool)` both produce `"Elixir.MyTool"` — the
