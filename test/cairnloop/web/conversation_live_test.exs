@@ -73,6 +73,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
     def all(_query), do: []
 
+    # CR-02 fix: get_latest_approval/1 uses Ecto.Query |> repo().one().
+    # In unit tests, return nil (no active approval) by default.
+    def one(_query), do: nil
+
     def preload(record, _), do: record
 
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}

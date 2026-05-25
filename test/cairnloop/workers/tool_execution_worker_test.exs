@@ -277,6 +277,23 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
       send(self(), {:repo_insert, changeset})
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
+
+    # WR-03 fix: co-commits are now wrapped in repo().transaction/1.
+    # Run the function synchronously; catch {:rollback, reason} thrown by rollback/1
+    # and return {:error, reason} to simulate a transaction abort.
+    def transaction(fun) when is_function(fun, 0) do
+      try do
+        {:ok, fun.()}
+      catch
+        {:rollback, reason} -> {:error, reason}
+      end
+    end
+
+    # rollback/1 is called inside a transaction on failure to signal abort.
+    # Throw a tagged tuple that transaction/1 catches and converts to {:error, reason}.
+    def rollback(reason) do
+      throw({:rollback, reason})
+    end
   end
 
   setup do
