@@ -5,16 +5,16 @@
 - ✅ **vM009 Retrieval-First Support Answers & Search Ops** — Phases 1–8 (shipped 2026-05-21)
 - ✅ **vM010 KB AI Maintenance** — Phases 9–12 (shipped 2026-05-23)
 - ✅ **vM011 AI Tool Governance & MCP Integration** — Phases 13–17 (shipped 2026-05-25)
-- 🔄 **vM012 Public Release & MCP Write Surface** — Phases 18–21 (started 2026-05-25)
+- ✅ **vM012 Public Release & MCP Write Surface** — Phases 18–21 (shipped 2026-05-26)
 
 ## Phases
 
 ### vM012 Public Release & MCP Write Surface (Phases 18–21)
 
-- [ ] **Phase 18: Release Gate & Hex.pm Publish** — CI-clean codebase, CHANGELOG, v0.1.0 tag, metadata, hex.pm publish, hexdocs ⚠️ hard June 2 CI deadline
-- [ ] **Phase 19: Example Phoenix App** — Runnable `mix setup` demo app at `examples/cairnloop_example/` showing draft/approval/KB flow end-to-end
-- [ ] **Phase 20: MCP OAuth Seam** — OAuth 2.1 Bearer token validation, Ecto-backed token lifecycle, RFC 9728 `/.well-known/oauth-protected-resource` endpoint
-- [ ] **Phase 21: MCP Write Tools** — `tools/call` handler routing write-capable governed tools through `Governance.propose/3`; MCP write responses include `proposal_id` + `pending_approval`
+- [x] **Phase 18: Release Gate & Hex.pm Publish** — CI-clean codebase, CHANGELOG, v0.1.0 tag, metadata, hex.pm publish, hexdocs ⚠️ hard June 2 CI deadline
+- [x] **Phase 19: Example Phoenix App** — Runnable `mix setup` demo app at `examples/cairnloop_example/` showing draft/approval/KB flow end-to-end
+- [x] **Phase 20: MCP OAuth Seam** — OAuth 2.1 Bearer token validation, Ecto-backed token lifecycle, RFC 9728 `/.well-known/oauth-protected-resource` endpoint
+- [x] **Phase 21: MCP Write Tools** — `tools/call` handler routing write-capable governed tools through `Governance.propose/3`; MCP write responses include `proposal_id` + `pending_approval`
 
 <details>
 <summary>✅ vM011 AI Tool Governance & MCP Integration (Phases 13–17) — SHIPPED 2026-05-25</summary>

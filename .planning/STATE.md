@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: vM012
 milestone_name: Public Release & MCP Write Surface
-status: "Roadmap created; next step is `/gsd:plan-phase 18`"
-stopped_at: Phase 18 context gathered
-last_updated: "2026-05-25T16:45:56.397Z"
-last_activity: "2026-05-25 — Roadmap created for vM012 (4 phases: 18–21)"
+status: "vM012 complete; package published at v0.1.0; next step is vM013 planning"
+stopped_at: vM012 closeout
+last_updated: "2026-05-26T10:00:00.000Z"
+last_activity: "2026-05-26 — Milestone vM012 completed (Phases 18–21); package published to Hex.pm"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 4
   total_plans: 3
   completed_plans: 3
-  percent: 25
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-25)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** vM012 — Public Release & MCP Write Surface (started 2026-05-25)
+**Current focus:** vM012 — Public Release & MCP Write Surface (Completed 2026-05-26)
 
 ## Current Position
 
-Phase: 19
-Plan: 19-PLAN.md
-Status: Planning complete; next step is `/gsd-execute-phase 19`
-Last activity: 2026-05-25 — Phase 19 (Example Phoenix App) planning completed and verified.
+Phase: 21
+Plan: 21-01-PLAN.md
+Status: Milestone vM012 complete.
+Last activity: 2026-05-26 — Phase 21 (MCP Write Tools) completed and verified; Hygiene gate complete; Legacy phases archived.
 
-Progress bar: `░░░░░░░░░░ 0%` (0/4 phases)
+Progress bar: `██████████ 100%` (4/4 phases)
 
 ## Accumulated Context
 
