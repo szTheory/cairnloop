@@ -21,46 +21,26 @@ This document records the current strategic milestone ordering so future milesto
 
 ## Latest Shipped Milestone
 
-### M010 - KB AI Maintenance
+### M012 - Public Release & MCP Write Surface
 **Status:** shipped
-**Why now:** Retrieval telemetry and no-hit evidence from M009 needed to become a safe,
-operator-reviewed Knowledge Base maintenance loop before broader AI agency could expand.
-**Scope center of gravity:** ranked gap candidates, citation-backed article and revision
-suggestions, durable review tasks, in-thread quick fixes, and bounded maintenance telemetry.
-**Non-goals:** autonomous publishing, external search/vector infrastructure by default, required
-Scoria runtime integration, raw live-thread canonical truth.
-**Shipped:** 2026-05-23
-**Closeout note:** Archived as an audit-complete `tech_debt` milestone. All 12 v1 requirements are
-verified; deferred debt remains limited to split planning-layout traceability and unrelated
-workspace boot noise during focused tests.
-
-## Active Milestone
-
-### M011 - AI Tool Governance & MCP Integration
-**Status:** active
-**Priority:** high
-**Activated:** 2026-05-23
-**Why after M010:** retrieval is now trustworthy and KB maintenance is operator-reviewed, so the
-next leverage point is governed support action with explicit approval boundaries and host-owned
-workflow truth.
-**Scope center of gravity:** typed governed tools, policy evaluation, durable approvals, Oban
-pause/resume execution, in-thread operator review, and optional read-only MCP seams over the same
-contract.
-**Scope guard:** build the internal governed-action framework first; broad remote MCP surfaces,
-high-risk write tools, and protocol-led expansion stay deferred until the core path is proven.
-**Non-goals:** broad third-party MCP server marketplace support, high-risk financial mutations as
-the first shipped action lane, AI-superuser identities, confidence-score-based mutation approval,
-and replacing KB/review truth with tool output.
+**Why now:** The governed-action contract, durable approval workflow, and MCP seam were proven in M011. Adopter-first assessment identified two critical gaps: no runnable example app, and the package was unpublished. M012 closed both and added the first MCP write surface.
+**Scope center of gravity:** v0.1.0 Hex.pm release, Example Phoenix App demo, MCP OAuth seam, and MCP write tools (`tools/call` via Governance).
+**Shipped:** 2026-05-26
 
 ## Recommended Next Milestones
 
-### M012 - Support-Triggered Outbound Lifecycle
+### M013 - Support-Triggered Outbound Lifecycle
+**Status:** active
+**Priority:** high
+**Why now:** Now that the package is public and the example app demonstrates the core loop, the next leverage point is closing the recovery loop — using support events to trigger proactive outbound actions (incident recovery, bug-fix notifications) through the proven governed-action and notification primitives.
+**Scope center of gravity:** `Cairnloop.Outbound`, Chimeway-backed lifecycle templates, conversation-linked recovery messages, and bulk outbound affordances for resolved incidents.
+**Scope guard:** keep it transactional and support-triggered; never let it turn into a generic marketing automation layer.
+
+### M014 - Advanced Routing & Team Collaboration
 **Status:** candidate
 **Priority:** medium
-**Why later:** transactional outbound is valuable, but it benefits from better retrieval, governed
-actions, and policy/audit primitives before it becomes a core adoption story.
-**Scope guard:** keep it transactional and support-triggered; never let it turn into a generic
-marketing automation layer.
+**Why later:** As adoption grows, single-operator lanes become bottlenecks. Departmental routing and handoff primitives are needed for scale.
+**Scope center of gravity:** Team/Queue schemas, manual/auto assignment logic, and cross-operator handoff cues.
 
 ## Deferred Bets
 - Broad external MCP server surface for third-party clients.

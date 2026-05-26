@@ -66,29 +66,78 @@ This document outlines the comprehensive roadmap, epics, and architectural trade
 
 ---
 
-## Epic 5: Durable Auditing & SRE Observability (Threadline & Parapet)
+## Epic 5: Durable Auditing & SRE Observability (Completed)
 **Goal:** Ensure enterprise-grade compliance and reliability for the support operations.
 
-* **Idiomatic Elixir Approach:** 
-  * Integrate with **Threadline** for immutable audit logging of critical operator actions (e.g., "Agent manually approved AI draft", "Agent redacted PII").
-  * Integrate with **Parapet** to consume Cairnloop's SLIs (e.g., Time to First Response) into SLO alerts.
-* **Pros/Cons & Tradeoffs:** 
-  * Avoids reinventing audit trails and alerting within Cairnloop.
-* **Lessons Learned:** Enterprise deals are often blocked by a lack of auditability in support software.
+* **Shipped:** 2026-05-13 (vM005)
+* **Built:** `Cairnloop.Auditor` behavior, Parapet SLI integration, and basic telemetry trace lane (vM011).
 
 ---
 
-## Epic 6: Omnichannel SLA Escalation (Chimeway) (Planned)
+## Epic 6: Omnichannel SLA Escalation (Chimeway) (Completed)
 **Goal:** Route critical support events (SLA breaches, VIP tickets) to the Host's internal channels (Slack, PagerDuty, Email) without hardcoding integrations.
 
+* **Shipped:** 2026-05-15 (vM006)
+
+---
+
+## Epic 11: Support-Triggered Outbound Lifecycle (Planned)
+**Goal:** Trigger proactive, support-related outbound campaigns (e.g. incident recovery, bug-fix notifications) without building a generic marketing CRM.
+
+* **Priority:** High
 * **Idiomatic Elixir Approach:** 
-  * Integrate with **Chimeway** for durable, template-driven async notification delivery.
-  * Use Oban for SLA countdowns (e.g., schedule a `CheckSLA` job 4 hours after a ticket is opened).
+  * Use **Oban** to schedule high-context outbound actions (e.g., `schedule_in: {2, :hours}`).
+  * Define a `Cairnloop.Notifier` behaviour wired to Chimeway (routing) and Mailglass (templates) for delivery.
+  * Treat outbound messages as Ecto `system_outbound` records appended to the `Conversation`.
 * **Pros/Cons & Tradeoffs:** 
-  * *Pros:* Support agents live in Slack/Discord; they need push alerts when a user has been waiting too long. Chimeway handles the delivery abstractions.
-  * *Cons:* Requires managing scheduled jobs for SLAs, which can clutter the Oban queues if not partitioned correctly.
-* **Lessons Learned:** Zendesk's trigger system is extremely powerful but complex. Cairnloop will provide simple, out-of-the-box Oban jobs and Chimeway templates for the most common SLA scenarios (First Response, Resolution Time).
-* **UX/DX:** Operators can configure SLA thresholds in the LiveView dashboard. Host developers just provide the Chimeway adapter for their preferred chat tool.
+  * *Pros:* Strictly scoped to support events. Maintains the "SaaS in a Box" DNA.
+  * *Cons:* Requires the host to wire up Mailglass templates for delivery.
+* **Lessons Learned:** Mixing support lifecycle with marketing (Intercom Series) leads to message collisions and bloat. Plain correctly treats support outbound as transactional events linked to ticket resolutions.
+* **UX/DX:** "Bulk Incident Recovery" allows fanning out a resolution message to 50 tagged conversations seamlessly. Outbound is clearly differentiated in the LiveView timeline using distinct design tokens.
+
+---
+
+## Epic 12: Advanced Routing & Team Collaboration
+**Goal:** Scale support operations from a single-operator "Inbox" to departmental teams and queues.
+
+* **Priority:** Medium
+* **Idiomatic Elixir Approach:** 
+  * Schema-backed `Team` and `Queue` models with `belongs_to` relationships on `Conversation`.
+  * Use **Phoenix PubSub** for real-time routing events (e.g., "Conversation moved to Engineering").
+  * Implement "Team Presence" indicators to prevent double-replies.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Necessary for enterprise adoption. Prevents collisions in busy inboxes.
+  * *Cons:* Increases UI complexity. Requires more robust permissions logic.
+* **Lessons Learned (Zendesk):** Over-complex routing rules are a common pain point. Cairnloop should default to "Simple Handoff" and allow custom `RoutingPlug` extensions.
+
+---
+
+## Epic 13: Privacy-First Local AI (Nx/Bumblebee)
+**Goal:** Reduce dependency on remote LLMs by enabling local inference for classification and summarization.
+
+* **Priority:** Medium
+* **Idiomatic Elixir Approach:** 
+  * Use **`Nx` and `Bumblebee`** for local BERT/Llama inference.
+  * Wrap in `Nx.Serving` to handle batching and GPU/CPU partitioning.
+  * Maintain the existing `Cairnloop.Intent` behavior so local vs remote is a config switch.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Zero data egress. Significant cost reduction for high-volume classification.
+  * *Cons:* Host hardware requirements (RAM/GPU) increase. Model management adds complexity.
+* **Lessons Learned:** Privacy is a top-tier blocker for many internal-tool adopters. Local classification ("Is this PII?") is often the first step in a "Dark AI" strategy.
+
+---
+
+## Epic 14: Mobile SDK Surface
+**Goal:** Bring the real-time support experience to mobile applications (React Native, Flutter, Native) via a simplified protocol and headless SDK.
+
+* **Priority:** Low
+* **Idiomatic Elixir Approach:** 
+  * Build a specialized **JSON-API or gRPC ingress** optimized for mobile latency.
+  * Provide a headless Elixir-backed SDK (or JS bridge) that wraps the `WidgetChannel` logic.
+* **Pros/Cons & Tradeoffs:** 
+  * *Pros:* Opens up mobile SaaS markets.
+  * *Cons:* High maintenance surface for client libraries.
+* **UX/DX:** Developers shouldn't need to rebuild the UI; Cairnloop should provide "Unstyled Primitives" for mobile so it fits the host app's design system perfectly.
 
 ---
 
