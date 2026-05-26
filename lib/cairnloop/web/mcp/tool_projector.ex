@@ -8,7 +8,7 @@ defmodule Cairnloop.Web.MCP.ToolProjector do
 
   ## MCP tool definition shape
 
-  Produces a plain map with string keys matching the MCP 2025-03-26 `Tool` object:
+  Produces a plain map with string keys matching the MCP 2025-11-05 `Tool` object:
 
       %{
         "name"        => "Elixir.Cairnloop.Tools.InternalNote",
