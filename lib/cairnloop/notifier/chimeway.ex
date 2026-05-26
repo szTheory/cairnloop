@@ -21,4 +21,19 @@ defmodule Cairnloop.Notifier.Chimeway do
 
     Chimeway.trigger(SLABreachNotifier, payload, idempotency_key: idempotency_key)
   end
+
+  @impl true
+  def on_outbound_triggered(message, conversation) do
+    payload = %{
+      conversation_id: conversation.id,
+      message_id: message.id,
+      template_id: message.metadata["template_id"],
+      content: message.content,
+      recipient: conversation.host_user_id
+    }
+
+    idempotency_key = "outbound_message_#{message.id}"
+
+    Chimeway.trigger(Cairnloop.Chimeway.OutboundNotifier, payload, idempotency_key: idempotency_key)
+  end
 end

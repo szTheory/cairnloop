@@ -4,6 +4,7 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Chat
   alias Cairnloop.Automation.Draft
   alias Cairnloop.KnowledgeAutomation
+  alias Cairnloop.Outbound
   alias Cairnloop.Retrieval.Result
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
@@ -186,6 +187,44 @@ defmodule Cairnloop.Web.ConversationLive do
 
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, "Manual draft could not be opened right now.")}
+        end
+    end
+  end
+
+  def handle_event("trigger_recovery_follow_up", _params, socket) do
+    conversation = socket.assigns.conversation
+
+    cond do
+      conversation.status != :resolved ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Recovery follow-up is only available for resolved conversations."
+         )}
+
+      is_nil(recovery_follow_up_template_id()) ->
+        {:noreply, put_flash(socket, :error, "Recovery follow-up template is not configured.")}
+
+      true ->
+        case outbound_module().trigger(
+               conversation.id,
+               template_id: recovery_follow_up_template_id(),
+               actor: conversation.host_user_id
+             ) do
+          {:ok, _results} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, "Recovery follow-up queued.")
+             |> reload_conversation_with_context(conversation.id)}
+
+          {:error, _step, _reason, _changes} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               "Recovery follow-up could not be queued right now. Please try again."
+             )}
         end
     end
   end
@@ -460,6 +499,99 @@ defmodule Cairnloop.Web.ConversationLive do
         border-color: #a94f30;
         background: #f4e6d4;
       }
+      .outbound-action-card {
+        background: #f7efe5;
+        border-color: #d2baa1;
+      }
+      .outbound-action-eyebrow {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #8a5933;
+      }
+      .outbound-action-summary {
+        margin: 8px 0 16px;
+        color: #4f3a28;
+      }
+      .outbound-action-button {
+        min-height: 44px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--cl-primary, #A94F30);
+        background: var(--cl-primary, #A94F30);
+        color: #fffdf8;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .outbound-action-hint {
+        margin-top: 12px;
+        color: #6b523d;
+        font-size: 0.9rem;
+      }
+      .message-card {
+        margin-bottom: 16px;
+        padding: 16px;
+        border: 1px solid #e8dfd0;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+      .message-card.role-user {
+        border-color: #d7e3f2;
+        background: #f6faff;
+      }
+      .message-card.role-agent {
+        border-color: #d9e8d3;
+        background: #f7fcf4;
+      }
+      .message-card.role-system {
+        border-color: #eadfcb;
+        background: #fbf8f1;
+      }
+      .message-card.role-system_outbound {
+        border-color: #c38f57;
+        background: #f9efe2;
+      }
+      .message-card-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .message-role-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6a4b33;
+      }
+      .message-status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .message-status-chip.status-pending {
+        color: #7a5c00;
+        background: #fef9e5;
+      }
+      .message-status-chip.status-sent {
+        color: #1f6a46;
+        background: #eaf7ef;
+      }
+      .message-status-chip.status-failed {
+        color: #8b1a1a;
+        background: #fdecea;
+      }
+      .message-content {
+        margin: 0;
+        color: #31261d;
+      }
       .context-field {
         margin-bottom: 16px;
       }
@@ -633,9 +765,16 @@ defmodule Cairnloop.Web.ConversationLive do
         <div class="message-timeline">
           <div class="messages">
             <%= for msg <- @conversation.messages do %>
-              <div class={"message role-#{msg.role}"}>
-                <strong><%= msg.role %>:</strong>
-                <p><%= msg.content %></p>
+              <div class={["message-card", "role-#{msg.role}"]}>
+                <div class="message-card-header">
+                  <span class="message-role-label"><%= message_role_label(msg.role) %></span>
+                  <%= if outbound_status = outbound_status_label(msg) do %>
+                    <span class={["message-status-chip", outbound_status_class(msg)]}>
+                      <%= outbound_status %>
+                    </span>
+                  <% end %>
+                </div>
+                <p class="message-content"><%= msg.content %></p>
               </div>
             <% end %>
           </div>
@@ -650,6 +789,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
         <div class="evidence-rail">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
+          <.outbound_recovery_card conversation={@conversation} />
           <.quick_fix_card card={@quick_fix_card} />
 
           <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
@@ -677,6 +817,32 @@ defmodule Cairnloop.Web.ConversationLive do
         </div>
       </div>
     </div>
+    """
+  end
+
+  attr(:conversation, :map, required: true)
+
+  def outbound_recovery_card(assigns) do
+    ~H"""
+    <%= if @conversation.status == :resolved do %>
+      <section class="rail-card outbound-action-card" aria-label="Outbound recovery">
+        <div class="outbound-action-eyebrow">Outbound recovery</div>
+        <h3>Send Recovery Follow-up</h3>
+        <p class="outbound-action-summary">
+          Queue a support follow-up tied to this resolved conversation and keep the send outcome in the thread.
+        </p>
+        <button
+          type="button"
+          class="outbound-action-button"
+          phx-click="trigger_recovery_follow_up"
+        >
+          Send Recovery Follow-up
+        </button>
+        <p class="outbound-action-hint">
+          Uses the configured recovery template and appends a `system_outbound` message to the timeline.
+        </p>
+      </section>
+    <% end %>
     """
   end
 
@@ -816,6 +982,36 @@ defmodule Cairnloop.Web.ConversationLive do
   defp last_module_part(module) do
     module |> Module.split() |> List.last()
   end
+
+  defp message_role_label(:user), do: "Customer"
+  defp message_role_label(:agent), do: "Agent"
+  defp message_role_label(:system), do: "System"
+  defp message_role_label(:internal_note), do: "Internal note"
+  defp message_role_label(:system_outbound), do: "Outbound recovery"
+  defp message_role_label(role), do: humanize_context_label(role)
+
+  defp outbound_status_label(%{role: :system_outbound, metadata: metadata})
+       when is_map(metadata) do
+    case Map.get(metadata, "status") do
+      "pending" -> "Pending"
+      "sent" -> "Sent"
+      "failed" -> "Failed"
+      _ -> nil
+    end
+  end
+
+  defp outbound_status_label(_message), do: nil
+
+  defp outbound_status_class(%{role: :system_outbound, metadata: metadata})
+       when is_map(metadata) do
+    case Map.get(metadata, "status") do
+      "sent" -> "status-sent"
+      "failed" -> "status-failed"
+      _ -> "status-pending"
+    end
+  end
+
+  defp outbound_status_class(_message), do: "status-pending"
 
   def context_section(assigns) do
     ~H"""
@@ -1538,5 +1734,13 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+  end
+
+  defp outbound_module do
+    Application.get_env(:cairnloop, :outbound_module, Outbound)
+  end
+
+  defp recovery_follow_up_template_id do
+    Application.get_env(:cairnloop, :outbound_recovery_template_id)
   end
 end

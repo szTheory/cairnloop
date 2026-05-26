@@ -1,76 +1,85 @@
-# Requirements — vM012 Public Release & MCP Write Surface
+# Cairnloop: Requirements
 
-**Milestone:** vM012
-**Status:** Active
-**Created:** 2026-05-25
+## Validated
+- ✓ Multi-Channel Ingress Engine — vM001
+- ✓ AI Triage, Drafting, & Governance — vM002
+- ✓ Deep Context Enrichment — vM003
+- ✓ Customer Voice Activation — vM004
+- ✓ Durable Auditing & SRE Observability — vM005
+- ✓ Omnichannel SLA Escalation — vM006
+- ✓ Semantic Search UI Foundations — vM007
+- ✓ Knowledge Base Engine — vM008
+- ✓ Retrieval-First Support Answers & Search Ops — vM009
+- ✓ KB AI Maintenance — vM010
+- ✓ Governed tool contract with risk tiers, approval modes, idempotency, and fail-closed pipeline — vM011
+- ✓ Durable in-thread operator action timeline with humanized preview cards — vM011
+- ✓ Approval state machine with append-only decision history — vM011
+- ✓ First narrow approved write path with three-layer idempotency — vM011
+- ✓ Optional read-only MCP seam over governed-tool contract — vM011
+- ✓ CI passes on main and CHANGELOG covers releases — vM012 (REL-01, REL-02)
+- ✓ v0.1.0 semver tag pushed and package published to Hex.pm — vM012 (REL-03, REL-05)
+- ✓ mix.exs metadata complete and ExDoc configured — vM012 (REL-04, REL-06)
+- ✓ Example Phoenix app boots with `mix setup` and demonstrates core loop — vM012 (DEMO-01, DEMO-02)
+- ✓ Example app documentation complete and references published hex dep — vM012 (DEMO-03, DEMO-04)
+- ✓ MCP server validates OAuth Bearer tokens and serves resource-metadata — vM012 (MCP-02)
+- ✓ Ecto-backed OAuth token lifecycle with SHA-256 hashing — vM012 (MCP-03)
+- ✓ MCP clients invoke write-capable tools via Governance.propose/3 — vM012 (ACT-02)
+- ✓ MCP write responses include proposal_id and support idempotency — vM012 (ACT-03)
 
-## v1 Requirements
+## Active (vM013: Support-Triggered Outbound Lifecycle)
 
-### Release (REL)
-
-- [ ] **REL-01** — CI passes on main branch (both integration and standard jobs green before tagging)
-- [x] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
-- [ ] **REL-03** — v0.1.0 semver tag created and pushed to origin
-- [x] **REL-04** — mix.exs package metadata complete: `:description`, `:package` block with `:licenses`, `:links`, `:maintainers`; `:source_url`; `:homepage_url`; `:docs` block pointing at ExDoc
-- [ ] **REL-05** — Package published to hex.pm and available at hex.pm/packages/cairnloop
-- [x] **REL-06** — ExDoc configured; API docs published to hexdocs.pm alongside the hex release
-
-### Example App (DEMO)
-
-- [ ] **DEMO-01** — Example Phoenix app at `examples/cairnloop_example/` boots with a single `mix setup` + seed command
-- [ ] **DEMO-02** — Example app demonstrates draft/approval/KB flow end-to-end in the browser
-- [ ] **DEMO-03** — Example app README documents how to add cairnloop to a host app and configure it
-- [ ] **DEMO-04** — Example app references `{:cairnloop, "~> 0.1"}` published hex dependency (not path dep); verified by CI `mix deps.tree`
-
-### MCP OAuth Seam (MCP)
-
-- [ ] **MCP-02** — MCP server validates OAuth 2.1 Bearer tokens; unauthenticated write requests return 401 + `WWW-Authenticate` header with RFC 9728 resource-metadata pointer
-- [ ] **MCP-03** — OAuth token lifecycle (issue, validate, revoke) is Ecto-backed (SHA-256 hash stored, never raw); `/.well-known/oauth-protected-resource` endpoint served per RFC 9728
-
-### MCP Write Tools (ACT)
-
-- [ ] **ACT-02** — MCP clients invoke write-capable governed tools via `tools/call`; every call creates a `ToolProposal` via `Governance.propose/3` (never calls `Tool.run/3` directly)
-- [ ] **ACT-03** — MCP write responses include `proposal_id` + `"pending_approval"` status; duplicate calls within the approval window return the existing proposal (one-active-lane idempotency extended to MCP origination)
-
-## Future Requirements
-
-*(Deferred to vM013 or later, pending adoption signals)*
-
-- Broad external MCP server surface for third-party public clients (Dynamic Client Registration open to untrusted clients)
-- MCP async polling / webhook callbacks for long-running approval workflows
-- OIDC full-stack or external IDP federation for MCP OAuth
-- Additional governed-tool types beyond `InternalNote` (FLOW-04; deferred until vM012 adoption signals)
-- Pagination for the governed-actions rail (AR-14-02; re-evaluate at scale)
+- [ ] **OUT-01** — `Cairnloop.Outbound` facade for programmatically triggering support lifecycle events.
+- [ ] **OUT-02** — `system_outbound` message type added to `Cairnloop.Message` schema with distinct metadata.
+- [ ] **OUT-03** — Durable scheduling of outbound messages via Oban.
+- [ ] **OUT-04** — Chimeway integration for routing outbound messages to delivery channels.
+- [ ] **OUT-05** — Outbound messages are immutably linked to a parent `Conversation`.
+- [ ] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations.
+- [ ] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients".
+- [ ] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency.
+- [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`.
+- [x] **UI-02** — Outbound delivery status indicators visible in the message bubble.
+- [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations.
+- [ ] **OBS-01** — Telemetry events for outbound triggers and delivery (OpenInference).
+- [ ] **OBS-02** — Audit log entries for bulk outbound actions.
 
 ## Out of Scope
-
-| Excluded | Reason |
-|---------|--------|
-| Calling `Tool.run/3` directly from MCP handlers | Violates governed-action contract; bypasses idempotency, approval state machine, policy, and audit trail |
-| MCP server acting as OAuth authorization server | Cairnloop is resource server only; host app or external IDP issues tokens |
-| High-risk financial or destructive mutations via MCP write | Trust is not yet established with external MCP clients |
-| Autonomous customer-visible replies from MCP write | Operator approval required for all write actions |
-| Replacing Phoenix/Ecto/Oban workflow truth with MCP-owned runtime | Core execution model is sealed and unchanging |
-| Example app in a separate repo | Increases sync burden; `examples/` subdirectory is the idiomatic pattern |
+- Marketing/Newsletter drip campaigns.
+- In-browser Rich Text Editor for templates.
+- Broad external MCP server surface for untrusted third-party public clients.
+- High-risk financial or destructive mutations as the first governed-action path.
+- Autonomous customer-visible replies or side effects based only on retrieval confidence.
 
 ## Traceability
 
 | Req ID | Phase | Status |
 |--------|-------|--------|
-| REL-01 | Phase 18 | Pending |
-| REL-02 | Phase 18 | Complete |
-| REL-03 | Phase 18 | Pending |
-| REL-04 | Phase 18 | Complete |
-| REL-05 | Phase 18 | Pending |
-| REL-06 | Phase 18 | Complete |
-| DEMO-01 | Phase 19 | Pending |
-| DEMO-02 | Phase 19 | Pending |
-| DEMO-03 | Phase 19 | Pending |
-| DEMO-04 | Phase 19 | Pending |
-| MCP-02 | Phase 20 | Pending |
-| MCP-03 | Phase 20 | Pending |
-| ACT-02 | Phase 21 | Pending |
-| ACT-03 | Phase 21 | Pending |
+| REL-01 | Phase 18 | Validated |
+| REL-02 | Phase 18 | Validated |
+| REL-03 | Phase 18 | Validated |
+| REL-04 | Phase 18 | Validated |
+| REL-05 | Phase 18 | Validated |
+| REL-06 | Phase 18 | Validated |
+| DEMO-01 | Phase 19 | Validated |
+| DEMO-02 | Phase 19 | Validated |
+| DEMO-03 | Phase 19 | Validated |
+| DEMO-04 | Phase 19 | Validated |
+| MCP-02 | Phase 20 | Validated |
+| MCP-03 | Phase 20 | Validated |
+| ACT-02 | Phase 21 | Validated |
+| ACT-03 | Phase 21 | Validated |
+| OUT-01 | Phase 1 | Pending |
+| OUT-02 | Phase 1 | Pending |
+| OUT-03 | Phase 2 | Pending |
+| OUT-04 | Phase 2 | Pending |
+| OUT-05 | Phase 1 | Pending |
+| BULK-01 | Phase 4 | Pending |
+| BULK-02 | Phase 4 | Pending |
+| BULK-03 | Phase 4 | Pending |
+| UI-01 | Phase 3 | Validated |
+| UI-02 | Phase 3 | Validated |
+| UI-03 | Phase 4 | Pending |
+| OBS-01 | Phase 5 | Pending |
+| OBS-02 | Phase 5 | Pending |
 
 ---
-*Last updated: 2026-05-25 — vM012 roadmap created; traceability table updated with phase assignments and Pending status*
+*Last updated: 2026-05-26 — vM013 Active; vM012 Validated.*

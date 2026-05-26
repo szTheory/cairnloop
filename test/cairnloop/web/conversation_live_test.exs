@@ -259,6 +259,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  defmodule MockOutbound do
+    def trigger(conversation_id, opts) do
+      Process.put(:outbound_trigger_called_with, {conversation_id, opts})
+      Process.get(:outbound_trigger_result, {:ok, %{message: %{id: 999}}})
+    end
+  end
+
   # Governed tool fixtures (new contract: scope/0, run/3, authorize/2 — no can_execute?/execute)
 
   defmodule SimpleTool do
@@ -384,9 +391,16 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   setup do
+    Process.delete(:outbound_trigger_called_with)
+    Process.delete(:outbound_trigger_result)
     Application.put_env(:cairnloop, :repo, MockRepo)
     original_tools = Application.get_env(:cairnloop, :tools, [])
     original_knowledge_automation = Application.get_env(:cairnloop, :knowledge_automation)
+    original_outbound_module = Application.get_env(:cairnloop, :outbound_module)
+
+    original_outbound_recovery_template_id =
+      Application.get_env(:cairnloop, :outbound_recovery_template_id)
+
     Application.put_env(:cairnloop, :tools, [SimpleTool, InputTool])
 
     on_exit(fn ->
@@ -398,6 +412,22 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         Application.put_env(:cairnloop, :knowledge_automation, original_knowledge_automation)
       else
         Application.delete_env(:cairnloop, :knowledge_automation)
+      end
+
+      if original_outbound_module do
+        Application.put_env(:cairnloop, :outbound_module, original_outbound_module)
+      else
+        Application.delete_env(:cairnloop, :outbound_module)
+      end
+
+      if is_nil(original_outbound_recovery_template_id) do
+        Application.delete_env(:cairnloop, :outbound_recovery_template_id)
+      else
+        Application.put_env(
+          :cairnloop,
+          :outbound_recovery_template_id,
+          original_outbound_recovery_template_id
+        )
       end
     end)
 
@@ -562,10 +592,77 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   describe "render/1 draft shell and inline actions" do
+    test "renders outbound recovery card only for resolved conversations" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "Outbound recovery"
+      assert html =~ "Send Recovery Follow-up"
+      assert html =~ "configured recovery template"
+
+      unresolved_html =
+        assigns
+        |> Map.put(
+          :conversation,
+          %{assigns.conversation | status: :open}
+        )
+        |> render_html()
+
+      refute unresolved_html =~ "Send Recovery Follow-up"
+    end
+
+    test "renders system_outbound messages with distinct label and delivery status chip" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "Test",
+          messages: [
+            %Cairnloop.Message{
+              id: 10,
+              role: :system_outbound,
+              content: "We wanted to confirm the fix stuck.",
+              metadata: %{"template_id" => "recovery_v1", "status" => "sent"}
+            }
+          ],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "Outbound recovery"
+      assert html =~ "We wanted to confirm the fix stuck."
+      assert html =~ "message-status-chip status-sent"
+      assert html =~ "Sent"
+    end
+
     test "renders the idle quick-fix card between context and draft audit cards" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
           id: 321,
+          status: :open,
           subject: "Weekend export fails",
           messages: [],
           drafts: [
@@ -1259,6 +1356,108 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  describe "outbound recovery trigger" do
+    test "queues a recovery follow-up for resolved conversations" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
+
+      socket =
+        quick_fix_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            host_user_id: "user_42",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert Process.get(:outbound_trigger_called_with) ==
+               {321, [template_id: "recovery_v1", actor: "user_42"]}
+
+      assert updated_socket.assigns.flash["info"] == "Recovery follow-up queued."
+    end
+
+    test "fails closed when the recovery template is not configured" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.delete_env(:cairnloop, :outbound_recovery_template_id)
+
+      socket =
+        quick_fix_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            host_user_id: "user_42",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] ==
+               "Recovery follow-up template is not configured."
+
+      assert Process.get(:outbound_trigger_called_with) == nil
+    end
+
+    test "rejects forced trigger attempts for unresolved conversations" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
+
+      socket =
+        quick_fix_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :open,
+            host_user_id: "user_42",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] ==
+               "Recovery follow-up is only available for resolved conversations."
+
+      assert Process.get(:outbound_trigger_called_with) == nil
+    end
+
+    test "surfaces a bounded error when outbound trigger fails" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
+
+      Process.put(:outbound_trigger_result, {:error, :delivery_job, :boom, %{}})
+
+      socket =
+        quick_fix_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            host_user_id: "user_42",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] ==
+               "Recovery follow-up could not be queued right now. Please try again."
+    end
+  end
+
   defp render_html(assigns) do
     render_component(&ConversationLive.render/1, assigns)
   end
@@ -1267,6 +1466,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     base_assigns = %{
       conversation: %Cairnloop.Conversation{
         id: 321,
+        status: :open,
         host_user_id: "user_42",
         subject: "Weekend export fails",
         drafts: [],

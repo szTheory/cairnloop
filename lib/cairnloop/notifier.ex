@@ -14,4 +14,10 @@ defmodule Cairnloop.Notifier do
   """
   @callback on_sla_breach(conversation :: struct(), sla :: struct(), metadata :: map()) ::
               :ok | {:error, term()} | any()
+
+  @doc """
+  Called when an outbound message is triggered.
+  """
+  @callback on_outbound_triggered(message :: struct(), conversation :: struct()) ::
+              :ok | {:error, term()} | any()
 end

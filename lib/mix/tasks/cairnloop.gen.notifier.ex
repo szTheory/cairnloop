@@ -98,6 +98,12 @@ defmodule Mix.Tasks.Cairnloop.Gen.Notifier do
       Logger.info("SLA breach for conversation \#{conversation.id}. SLA: \#{inspect(sla)}")
       :ok
     end
+
+    @impl true
+    def on_outbound_triggered(message, conversation) do
+      Logger.info("Outbound message triggered for conversation \#{conversation.id}. Template: \#{message.metadata["template_id"]}")
+      :ok
+    end
   end
   """)
 end

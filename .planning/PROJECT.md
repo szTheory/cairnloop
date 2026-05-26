@@ -6,15 +6,16 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
-## Current Milestone: vM012 Public Release & MCP Write Surface
+## Current Milestone: vM013 Support-Triggered Outbound Lifecycle
 
-**Goal:** Ship Cairnloop's first public Hex.pm release, close the adopter demo gap with a runnable example app, then extend the proven governed-tool contract with MCP write surfaces and OAuth.
+**Goal:** Enable support-led outbound follow-ups that stay attached to the conversation timeline, route durably through Oban + Chimeway, and remain visible to operators as part of the shared support truth.
 
 **Target features:**
-- Release gate + Hex.pm publish — CI-clean v0.1.0 tag, CHANGELOG, and first hex.pm publish (⚠️ hard June 2, 2026 CI deadline)
-- Example Phoenix app — Runnable `mix setup` → seed → draft/approval/KB flow demo (biggest adopter gap)
-- MCP OAuth seam (MCP-02) — Remote OAuth over MCP, host-controlled token delegation
-- MCP write tools (MCP-03 / ACT-02) — Write-capable MCP tools with full governed-action approval flow
+- Core outbound facade + persistence — `Cairnloop.Outbound`, `system_outbound` messages, and immutable conversation linkage
+- Durable delivery engine — Oban-backed scheduling plus Chimeway routing and persisted status transitions
+- Individual outbound UI — distinct outbound timeline cards plus a resolved-only manual "Send Recovery Follow-up" action in `ConversationLive`
+- Bulk fan-out workflow — multi-select inbox targeting with confirmation preview and batch-size safety rails
+- Observability + audit polish — outbound telemetry, bulk audit records, and final UI pass
 
 ## Current State
 
@@ -34,9 +35,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - First narrow approved write path is proven: `ToolExecutionWorker` (sole `run/3` caller) with three-layer at-most-once idempotency and bounded `[:cairnloop, :governance, ...]` telemetry.
 - An optional OpenInference-conformant evidence lane and read-only MCP seam (`tools/list` + `initialize`) exist as additive adapters; core approval and execution truth is unchanged.
 
-**Current milestone:** vM012 — "Public Release & MCP Write Surface" — started 2026-05-25.
+**Current milestone:** vM013 — "Support-Triggered Outbound Lifecycle" — started 2026-05-26.
 
-**Why now:** The governed-action contract, durable approval workflow, and MCP seam are all proven. Adopter-first assessment (2026-05-25) identified two critical gaps: no runnable example app, and the package is unpublished (hex.pm 404). vM012 closes both, then adds MCP write surfaces (the one meaningful new feature wedge). After that: diminishing returns — assess real adoption signals before expanding further.
+**Why now:** vM012 closed the adopter and packaging gap. The next narrow wedge is proactive support follow-up: let operators trigger recovery and resolution-linked outreach without leaving the conversation lane, while keeping scheduling, delivery, and status durable inside the existing Phoenix/Ecto/Oban truth model.
 
 ## Requirements
 
@@ -57,28 +58,27 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ First narrow approved write path with three-layer at-most-once idempotency and bounded telemetry — vM011 (ACT-01, OBS-01, OBS-02)
 - ✓ Optional read-only MCP seam over governed-tool contract — vM011 (MCP-01)
 
-### Active (vM012)
-- [ ] **REL-01** — CI passes on main (integration + standard jobs green before tagging)
-- [ ] **REL-02** — CHANGELOG.md covers vM009–vM012 with dates and feature summaries
-- [ ] **REL-03** — v0.1.0 semver tag created and pushed to origin
-- [ ] **REL-04** — mix.exs package metadata complete (description, package block with licenses/links/maintainers, source_url, homepage_url, docs block)
-- [ ] **REL-05** — Package published to hex.pm and available at hex.pm/packages/cairnloop
-- [ ] **REL-06** — ExDoc configured; API docs published to hexdocs.pm alongside the release
-- [ ] **DEMO-01** — Example Phoenix app at `examples/cairnloop_example/` boots with single `mix setup` + seed command
-- [ ] **DEMO-02** — Example app demonstrates draft/approval/KB flow end-to-end in the browser
-- [ ] **DEMO-03** — Example app README documents how to add cairnloop to a host app and configure it
-- [ ] **DEMO-04** — Example app references `{:cairnloop, "~> 0.1"}` published hex dep (not path dep); verified by CI
-- [ ] **MCP-02** — MCP server validates OAuth 2.1 Bearer tokens; unauthenticated write requests return 401 + WWW-Authenticate header with RFC 9728 resource-metadata pointer
-- [ ] **MCP-03** — OAuth token lifecycle (issue, validate, revoke) Ecto-backed (SHA-256 hash stored); `/.well-known/oauth-protected-resource` endpoint served
-- [ ] **ACT-02** — MCP clients invoke write-capable governed tools via `tools/call`; every call creates a `ToolProposal` via `Governance.propose/3` (never calls `Tool.run/3` directly)
-- [ ] **ACT-03** — MCP write responses include `proposal_id` + `"pending_approval"` status; one-active-lane idempotency extended to MCP origination
+### Active (vM013)
+- [x] **OUT-01** — `Cairnloop.Outbound` facade for programmatically triggering support lifecycle events
+- [x] **OUT-02** — `system_outbound` message type added to `Cairnloop.Message` schema with distinct metadata
+- [x] **OUT-03** — Durable scheduling of outbound messages via Oban
+- [x] **OUT-04** — Chimeway integration for routing outbound messages to delivery channels
+- [x] **OUT-05** — Outbound messages are immutably linked to a parent `Conversation`
+- [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`
+- [x] **UI-02** — Outbound delivery status indicators visible in the message bubble
+- [ ] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations
+- [ ] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients"
+- [ ] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency
+- [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations
+- [ ] **OBS-01** — Telemetry events for outbound triggers and delivery
+- [ ] **OBS-02** — Audit log entries for bulk outbound actions
 
 ### Out of Scope
-- Broad external MCP server surface open to untrusted third-party public clients (Dynamic Client Registration open; external IDP federation). _(MCP-02/03 are being added as host-controlled OAuth, not public open access.)_
-- High-risk financial or destructive mutations as the first governed-action path.
-- Autonomous customer-visible replies or side effects based only on retrieval confidence.
-- Treating raw tool output as canonical truth over reviewed Knowledge Base and support evidence.
-- Replacing host-owned Phoenix/Ecto/Oban workflow truth with an MCP- or Scoria-owned runtime.
+- Marketing/newsletter drip campaigns
+- In-browser rich text template editing
+- SMS or WhatsApp delivery as part of the v1 outbound lane
+- Broad external MCP server surface open to untrusted third-party public clients
+- High-risk financial or destructive mutations as the first governed-action path
 
 ## Key Decisions
 
@@ -90,11 +90,12 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 | Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key | vM011 | ✓ Good — DB-backed proof added to integration harness |
 | DB-backed integration test harness added (docker-compose + pgvector + DataCase/ConnCase) | vM011 | ✓ Good — shifted 4 former Manual-Only items to automated proof |
 | MCP as read-only edge adapter, not internal execution model | vM011 | ✓ Good — additive, zero core truth changes |
-| Keep MCP write surfaces and remote OAuth for next milestone | vM011 | — Pending — next milestone decision |
+| Keep workflow truth in Phoenix/Ecto/Oban; outbound UI reflects persisted status and never owns delivery | vM013 | ✓ Good — Phase 24 stayed additive to the delivery substrate |
+| Treat support outbound as `system_outbound` messages appended to the thread, not a separate CRM lane | vM013 | ✓ Good — preserves operator context continuity |
 
 ## Context
 
-**Codebase at vM011:** ~15,389 LOC Elixir / Phoenix / LiveView / Ecto / Oban.
+**Codebase at vM013:** Elixir / Phoenix / LiveView / Ecto / Oban with support outbound delivery now added to the same host-owned workflow lane.
 **Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, OpenInference telemetry.
 **Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free.
 
@@ -150,7 +151,7 @@ retrieval, trustworthy search, and measurable answer quality.
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd-transition`):
+**After each phase transition**:
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
@@ -164,4 +165,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-25 — vM012 milestone started*
+*Last updated: 2026-05-26 — vM013 Phase 24 implemented in code; bulk + observability phases remain*
