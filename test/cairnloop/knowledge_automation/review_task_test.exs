@@ -1330,7 +1330,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert {:error, updated_task} =
              KnowledgeAutomation.record_review_task_reindex_outcome(
                902,
-               {:error, :embedding_timeout}, host_user_id: "host-1")
+               {:error, :embedding_timeout},
+               host_user_id: "host-1"
+             )
 
     assert updated_task.id == linked_task.id
     assert updated_task.status == :published
@@ -1456,7 +1458,9 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     assert {:error, _updated_task} =
              KnowledgeAutomation.record_review_task_reindex_outcome(
                903,
-               {:error, :embedding_timeout}, host_user_id: "host-1")
+               {:error, :embedding_timeout},
+               host_user_id: "host-1"
+             )
 
     assert_receive {:telemetry_event, [:cairnloop, :knowledge_automation, :reindex_outcome],
                     measurements, metadata}

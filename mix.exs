@@ -10,25 +10,29 @@ defmodule Cairnloop.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       aliases: aliases(),
       deps: deps(),
-      description: "Host-owned customer support automation for Phoenix apps — governed drafting, retrieval-backed answers, and durable workflow tools.",
+      description:
+        "Host-owned customer support automation for Phoenix apps — governed drafting, retrieval-backed answers, and durable workflow tools.",
       source_url: "https://github.com/szTheory/cairnloop",
       homepage_url: "https://github.com/szTheory/cairnloop",
       package: [
         name: "cairnloop",
         licenses: ["MIT"],
-        links: %{"GitHub" => "https://github.com/szTheory/cairnloop", "Changelog" => "https://hexdocs.pm/cairnloop/changelog.html"},
+        links: %{
+          "GitHub" => "https://github.com/szTheory/cairnloop",
+          "Changelog" => "https://hexdocs.pm/cairnloop/changelog.html"
+        },
         maintainers: ["szTheory"]
       ],
       docs: [
         main: "readme",
         extras: ["README.md", "CHANGELOG.md"],
         groups_for_modules: [
-          "Governance": [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
+          Governance: [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
           "Knowledge Base": [~r/^Cairnloop\.KnowledgeBase/, ~r/^Cairnloop\.KnowledgeAutomation/],
-          "Retrieval": [~r/^Cairnloop\.Retrieval/],
-          "MCP": [~r/^Cairnloop\.Web\.MCP/],
-          "Web": [~r/^Cairnloop\.Web/],
-          "Core": [~r/^Cairnloop/]
+          Retrieval: [~r/^Cairnloop\.Retrieval/],
+          MCP: [~r/^Cairnloop\.Web\.MCP/],
+          Web: [~r/^Cairnloop\.Web/],
+          Core: [~r/^Cairnloop/]
         ]
       ]
     ]

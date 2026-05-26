@@ -1778,7 +1778,8 @@ defmodule Cairnloop.KnowledgeAutomation do
          %ReviewTask{},
          %ArticleSuggestion{suggestion_type: :article},
          _opts
-       ), do: :ok
+       ),
+       do: :ok
 
   defp ensure_publish_freshness(%ReviewTask{}, %ArticleSuggestion{} = suggestion, opts) do
     latest_active_revision_fn =
