@@ -88,7 +88,8 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
   2. An MCP client with an absent or invalid Bearer token on a write-capable route receives 401 with a `WWW-Authenticate` header containing an RFC 9728 resource-metadata pointer
   3. The `/.well-known/oauth-protected-resource` endpoint is served and returns the resource metadata document per RFC 9728
   4. Token issue, validation, and revocation operate against Ecto records storing the SHA-256 hash — the raw token is never persisted
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 20-01-PLAN.md — MCP Token Data Layer, Plugs, and Router Integration
 **Constraints**: Cairnloop is a resource server only — it validates tokens, never issues them as an authorization server. Never call `Tool.run/3` from MCP handler code. MCP protocol version must be bumped from "2025-03-26" to "2025-11-05" in this phase.
 
 ---
@@ -102,7 +103,8 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
   2. Every `tools/call` invocation creates a `ToolProposal` via `Governance.propose/3` — no direct call to `Tool.run/3` occurs anywhere in the MCP handler path
   3. A duplicate `tools/call` within the approval window (same tool, same idempotency key, same actor) returns the existing proposal rather than creating a new one
   4. An unauthenticated or unauthorized `tools/call` request is rejected at the Auth Plug before reaching `Governance.propose/3`
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 21-01-PLAN.md — Implement MCP `tools/call` JSON-RPC handler mapping to Governance
 **Constraints**: `Tool.run/3` must NEVER be called from the MCP handler — this is a hard architectural constraint from the governed-action contract. One-active-lane idempotency must be extended to MCP origination.
 
 ---
@@ -112,9 +114,9 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 18. Release Gate & Hex.pm Publish | vM012 | 1/3 | In Progress|  |
-| 19. Example Phoenix App | vM012 | 0/? | Not started | - |
+| 19. Example Phoenix App | vM012 | 1/1 | Ready for execution | - |
 | 20. MCP OAuth Seam | vM012 | 0/? | Not started | - |
-| 21. MCP Write Tools | vM012 | 0/? | Not started | - |
+| 21. MCP Write Tools | vM012 | 0/1 | Planned | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
 | 15. Approval State Machine & Oban Resume | vM011 | 5/5 | Complete | 2026-05-25 |
