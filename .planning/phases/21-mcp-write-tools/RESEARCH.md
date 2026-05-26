@@ -194,7 +194,7 @@ end
 |---|-------|---------|---------------|
 | A1 | `Governance.propose/3` returns `{:error, _changeset}` for database failures | Code Examples | Minimal; Ecto standard pattern, handler catches it and returns internal error. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 None. The `Governance` facade is fully featured and handles the requirements precisely.
 
