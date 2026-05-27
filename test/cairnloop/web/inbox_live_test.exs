@@ -33,12 +33,32 @@ defmodule Cairnloop.Web.InboxLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "mount/3 (Task 1 — D-04 selection assign)" do
+    defmodule EmptyRepo do
+      # Stub Repo for the mount/3 test — `Chat.list_conversations/0` calls
+      # `repo().all/1`; we return [] so the LiveView mount completes without
+      # needing a real Postgres connection (D-16 REPO-UNAVAILABLE).
+      def all(_query), do: []
+    end
+
     test "Test 1: mount populates selected_ids with an empty MapSet" do
-      {:ok, socket} = InboxLive.mount(%{}, %{"host_user_id" => "u1"}, build_socket())
-      assert socket.assigns.selected_ids == MapSet.new()
-      assert socket.assigns.bulk_modal_open == false
-      assert socket.assigns.bulk_preview == nil
-      assert socket.assigns.bulk_refusal == nil
+      prior = Application.get_env(:cairnloop, :repo)
+      Application.put_env(:cairnloop, :repo, EmptyRepo)
+
+      try do
+        {:ok, socket} = InboxLive.mount(%{}, %{"host_user_id" => "u1"}, build_socket())
+        assert socket.assigns.selected_ids == MapSet.new()
+        assert socket.assigns.bulk_modal_open == false
+        assert socket.assigns.bulk_preview == nil
+        assert socket.assigns.bulk_refusal == nil
+        assert socket.assigns.host_user_id == "u1"
+        assert socket.assigns.conversations == []
+      after
+        if prior do
+          Application.put_env(:cairnloop, :repo, prior)
+        else
+          Application.delete_env(:cairnloop, :repo)
+        end
+      end
     end
   end
 
