@@ -2006,7 +2006,23 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         context_error: nil,
         form: Phoenix.Component.to_form(%{"content" => ""}),
         pending_discard_draft_id: nil,
-        socket: %Phoenix.LiveView.Socket{}
+        socket: %Phoenix.LiveView.Socket{},
+        # WR-07: ConversationLive.render/1 references @quick_fix_card and
+        # @governed_actions (lines 802 + 818-823 of conversation_live.ex),
+        # both populated by reload_conversation_with_context/2. Tests passed
+        # by accident before because Phoenix yields `nil` for unbound
+        # assigns — but if quick_fix_card/1 ever pattern-matched on a
+        # non-nil card map, or if the `<%= for proposal <- @governed_actions
+        # do %>` was reached without the empty-list guard at line 818, the
+        # failed-bubble tests would crash for an unrelated reason. Seed the
+        # assigns explicitly: idle quick-fix card (status :idle is the
+        # neutral resting state) and an empty governed_actions list (D-01
+        # right-rail rendering accepts [] gracefully via the line 818
+        # guard). Mirrors the established `quick_fix_card: %{status: :idle},
+        # governed_actions: []` pattern used elsewhere in this file
+        # (search "quick_fix_card: %{status: :idle}").
+        quick_fix_card: %{status: :idle},
+        governed_actions: []
       }
     end
 
