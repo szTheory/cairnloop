@@ -6,27 +6,32 @@
 - ✅ **vM010 KB AI Maintenance** — Phases 9–12 (shipped 2026-05-23)
 - ✅ **vM011 AI Tool Governance & MCP Integration** — Phases 13–17 (shipped 2026-05-25)
 - ✅ **vM012 Public Release & MCP Write Surface** — Phases 18–21 (shipped 2026-05-26)
-- 🚧 **vM013 Support-Triggered Outbound Lifecycle** — Phases 22–26 (in progress)
+- ✅ **vM013 Support-Triggered Outbound Lifecycle** — Phases 22–26 (shipped 2026-05-27)
 
 ## Phases
 
-### vM013 Support-Triggered Outbound Lifecycle (Phases 22–26)
+<details>
+<summary>✅ vM013 Support-Triggered Outbound Lifecycle (Phases 22–26) — SHIPPED 2026-05-27</summary>
 
-- [x] **Phase 22: Outbound Foundation & Persistence** — `Cairnloop.Outbound`, `system_outbound`, immutable conversation linkage
-- [x] **Phase 23: Delivery & Scheduling Engine** — Oban-backed `OutboundWorker` plus Chimeway routing and persisted status transitions
-- [x] **Phase 24: Individual Outbound UI** — `ConversationLive` timeline rendering for outbound messages and resolved-only manual recovery trigger
-- [x] **Phase 25: Bulk Selection & Fan-out** — multi-select inbox outbound with preview and safety rails (completed 2026-05-27)
-- [x] **Phase 26: Observability & Polish** — telemetry, audit logging, and final operator-surface polish (completed 2026-05-27)
+- [x] Phase 22: Outbound Foundation & Persistence (1/1 plan) — completed 2026-05-26
+- [x] Phase 23: Delivery & Scheduling Engine (1/1 plan) — completed 2026-05-26
+- [x] Phase 24: Individual Outbound UI (1/1 plan) — completed 2026-05-26
+- [x] Phase 25: Bulk Selection & Fan-out (3/3 plans) — completed 2026-05-27
+- [x] Phase 26: Observability & Polish (3/3 plans) — completed 2026-05-27
 
-Archive: `.planning/vM013-ROADMAP.md`
+Archive: `.planning/milestones/vM013-ROADMAP.md`
+
+</details>
 
 <details>
 <summary>✅ vM012 Public Release & MCP Write Surface (Phases 18–21) — SHIPPED 2026-05-26</summary>
 
-- [x] Phase 18: Release Gate & Hex.pm Publish
-- [x] Phase 19: Example Phoenix App
-- [x] Phase 20: MCP OAuth Seam
-- [x] Phase 21: MCP Write Tools
+- [x] Phase 18: Release Gate & Hex.pm Publish (3/3 plans) — completed 2026-05-25
+- [x] Phase 19: Example Phoenix App (1/1 plan) — completed 2026-05-26
+- [x] Phase 20: MCP OAuth Seam (2/2 plans) — completed 2026-05-26
+- [x] Phase 21: MCP Write Tools (1/1 plan) — completed 2026-05-26
+
+Archive: `.planning/milestones/vM012-ROADMAP.md`
 
 </details>
 
@@ -62,112 +67,6 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 </details>
 
-## Phase Details
-
-### Phase 22: Outbound Foundation & Persistence
-
-**Goal**: Establish the outbound contract and persistence substrate for support-triggered follow-up.
-**Depends on**: Nothing
-**Requirements**: OUT-01, OUT-02, OUT-05
-**Success Criteria** (what must be TRUE):
-
-  1. `Cairnloop.Outbound.trigger/2` can initiate an outbound intent for an existing conversation
-  2. `system_outbound` messages persist with required `template_id`
-  3. Outbound messages are linked to the parent `Conversation`
-
-**Plans**: completed
-
----
-
-### Phase 23: Delivery & Scheduling Engine
-
-**Goal**: Route outbound intents through durable scheduling and Chimeway delivery.
-**Depends on**: Phase 22
-**Requirements**: OUT-03, OUT-04
-**Success Criteria** (what must be TRUE):
-
-  1. `schedule_in` creates a pending Oban job
-  2. `OutboundWorker` hands delivery to the notifier path
-  3. Delivery failures resolve into persisted `failed` status
-
-**Plans**: completed
-
----
-
-### Phase 24: Individual Outbound UI
-
-**Goal**: Let operators see and manually trigger outbound recovery from the conversation thread.
-**Depends on**: Phase 23
-**Requirements**: UI-01, UI-02
-**Success Criteria** (what must be TRUE):
-
-  1. `system_outbound` messages appear in `ConversationLive` with distinct visual treatment
-  2. The outbound bubble renders `Pending`, `Sent`, or `Failed` chips from persisted metadata
-  3. A resolved-only "Send Recovery Follow-up" action exists in the conversation sidebar
-
-**Plans**: completed
-**UI hint**: yes
-
----
-
-### Phase 25: Bulk Selection & Fan-out
-
-**Goal**: Enable multi-conversation outbound recovery while keeping operator review and safety explicit.
-**Depends on**: Phase 24
-**Requirements**: BULK-01, BULK-02, BULK-03, UI-03
-**Success Criteria** (what must be TRUE):
-
-  1. Operators can multi-select conversations in `InboxLive`
-  2. A bulk outbound action exposes cohort preview before execution
-  3. Large batches are bounded to protect host resources
-
-**Plans**: 3 plans
-Plans:
-**Wave 1**
-
-- [x] 25-01-PLAN.md — BulkEnvelope schema + migration + Governance cohort reads (BULK-01, BULK-03 substrate) — completed 2026-05-27 (Tasks 1-3; Task 4 `mix ecto.migrate` awaiting operator)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 25-02-PLAN.md — Outbound.bulk_trigger/2 + sealed-primitive additive opt + Oban uniqueness (BULK-02, BULK-03) — completed 2026-05-27
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 25-03-PLAN.md — InboxLive selection, sticky bar, confirmation modal, refusal banner (BULK-01, BULK-02, BULK-03, UI-03)
-
-**UI hint**: yes
-
----
-
-### Phase 26: Observability & Polish
-
-**Goal**: Finish the outbound lane with telemetry, auditability, and final UI polish.
-**Depends on**: Phase 25
-**Requirements**: OBS-01, OBS-02
-**Success Criteria** (what must be TRUE):
-
-  1. Telemetry emits for outbound attempt, success, and failure
-  2. Bulk outbound actions write audit records with actor and cohort size
-  3. Final UI pass tightens empty/error states and outbound affordance polish
-
-**Plans**: 3 plans
-Plans:
-**Wave 1**
-
-- [x] 26-01-PLAN.md — `Cairnloop.Outbound.Telemetry.Traces` module + delivery telemetry on `OutboundWorker.perform/1` (4 arms) + OI trace emissions alongside sealed bounded-metrics spans in `Outbound.trigger/2` + `bulk_trigger/2` + `Cairnloop.Telemetry` moduledoc block (OBS-01)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 26-02-PLAN.md — `Cairnloop.Governance.list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` narrow audit READ facade + D-05 auditor metadata shape regression (OBS-02)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 26-03-PLAN.md — InboxLive empty-state + modal `×` close button + `has_visible_eligible` regression + ConversationLive failed-bubble subhead + `outbound_recovery_card` a11y verification (polish — D-08 / D-09)
-
-**UI hint**: yes
-
----
-
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -175,8 +74,12 @@ Plans:
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
-| 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete    | 2026-05-27 |
-| 26. Observability & Polish | vM013 | 3/3 | Complete    | 2026-05-27 |
+| 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete | 2026-05-27 |
+| 26. Observability & Polish | vM013 | 3/3 | Complete | 2026-05-27 |
+| 18. Release Gate & Hex.pm Publish | vM012 | 3/3 | Complete | 2026-05-25 |
+| 19. Example Phoenix App | vM012 | 1/1 | Complete | 2026-05-26 |
+| 20. MCP OAuth Seam | vM012 | 2/2 | Complete | 2026-05-26 |
+| 21. MCP Write Tools | vM012 | 1/1 | Complete | 2026-05-26 |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
 | 15. Approval State Machine & Oban Resume | vM011 | 5/5 | Complete | 2026-05-25 |
@@ -186,4 +89,4 @@ Plans:
 ---
 
 _For current project status, see `.planning/STATE.md`_
-_vM011 archived: 2026-05-25_
+_vM013 archived: 2026-05-27_

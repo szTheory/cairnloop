@@ -4,6 +4,8 @@
 
 | Milestone | Date | Phases | Plans |
 |-----------|------|--------|-------|
+| vM013     | 2026-05-27 | 5 | 9 |
+| vM012     | 2026-05-26 | 4 | 7 |
 | vM011     | 2026-05-25 | 5 | 17 |
 | vM010     | 2026-05-23 | 4 | 15 |
 | vM009     | 2026-05-21 | 8 | 14 |
@@ -12,6 +14,88 @@
 | M001      | -    | -      | -     |
 | M002      | -    | -      | -     |
 | M003      | 2024-05-11 | 3      | 3     |
+
+## Milestone: vM013 — Support-Triggered Outbound Lifecycle
+
+**Shipped:** 2026-05-27
+**Phases:** 5 (22–26) | **Plans:** 9
+
+### What Was Built
+- Sealed `Cairnloop.Outbound.trigger/2` single-conversation facade + `system_outbound` Message type with required `template_id` metadata, immutable `Conversation` linkage, and persisted status transitions.
+- Oban-backed `OutboundWorker` routing through a host-pluggable `Cairnloop.Notifier` behaviour (Chimeway-backed in v1); delivery failures resolve into a persisted `failed` status.
+- Distinct outbound timeline bubble in `ConversationLive` with Pending/Sent/Failed chips + resolved-only sidebar "Send Recovery Follow-up" action.
+- `Cairnloop.Outbound.bulk_trigger/2` envelope with durable `BulkEnvelope` audit row (`:submitted | :refused_cap_exceeded`), `max_batch_size = 25` fail-closed cap, per-recipient Oban `unique:` keys for at-most-once delivery, and a private `build_trigger_multi/2` shared with the sealed `trigger/2`.
+- `InboxLive` checkbox-driven multi-select cockpit with sticky bottom action bar, `<.focus_wrap>` confirmation modal (snapshotted body + first-5 recipient sample + `+ N more` tail), and calm fail-closed refusal banner for oversized cohorts.
+- OpenInference-conformant `Cairnloop.Outbound.Telemetry.Traces` on the disjoint `[:cairnloop, :outbound, :trace, …]` namespace + delivery-side bounded metrics on every terminal arm of `OutboundWorker.perform/1`, `trigger/2`, and `bulk_trigger/2`.
+- Narrow `Cairnloop.Governance` audit READ facade for `BulkEnvelope`: `list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` routed through `repo()` indirection with `:status` filter and hard cap; D-05 regression block pins auditor metadata key set.
+
+### What Worked
+- "Sealed `trigger/2`; new `bulk_trigger/2` envelope" pattern kept Phase 24 callers untouched and let Phase 25 add strictly additively — no churn to shipped contracts.
+- D-14 negative-grep gate ("no direct `Conversation \|> where` in `inbox_live.ex`") forced cohort eligibility through the `Cairnloop.Governance` facade from day one; held cleanly through close.
+- Persisting `:submitted` + `:refused_cap_exceeded` lanes on the same `BulkEnvelope` table meant the Phase 26 OBS-02 audit READ facade was a single-query read — both lanes visible from one place.
+- Mirroring vM011 Phase 17 verbatim for the OI trace module (disjoint 4-segment namespace, 12-atom event registry) made Phase 26-01 essentially copy-shape-paste — zero design churn.
+- Per-recipient Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` with `nil` envelope id for single-conversation callers let Phase 24 and Phase 25 callers share the same dedup lane without special-casing.
+- CI shift-left on Phase 25 human-UAT items (commits `5bad851` → `23e700b`) closed the integration-test gap retroactively in the same milestone.
+
+### What Was Inefficient
+- REQUIREMENTS.md OUT-01..OUT-05 checkboxes were never flipped after Phase 22–24 shipped; only caught at vM013 close. Same staleness pattern flagged in vM011 retrospective — discipline gap is recurring.
+- vM012 was originally "closed" by doc-flipping ROADMAP + STATE only (no archive files, no MILESTONES.md entry, no `vM012` git tag); had to backfill on 2026-05-27 during vM013 close. The lightweight close was untracked tech debt.
+- Phases 22, 23, 24 didn't get standard phase directories under `.planning/phases/` (no CONTEXT.md / RESEARCH.md / SUMMARY.md per-phase folder); they shipped via inline plan + commits. Phase 25–26 went back to the full pattern. The inconsistency made the SDK `milestone.complete` think vM013 only had 2 phases.
+- Code review WR-01..WR-07 surfaced a real failure-path observability honesty gap in bulk + trigger telemetry (unconditional `:stop` emission regardless of transaction outcome); the remediation was clean but the gap should have been caught at the spec stage.
+- STATE.md frontmatter `progress.percent` stayed at 40% after Phase 26 verified — milestone-completion didn't reconcile it (manual SDK update needed at close).
+
+### Patterns Established
+- **Sealed-public + additive-opt:** when a sealed contract needs to support a new caller (bulk fan-out), keep the original signature byte-for-byte stable and add an optional opt (`:bulk_envelope_id`). Phase 24 callers pass `nil` and participate in the same dedup lane as Phase 25.
+- **Both-lanes-one-table audit:** record both successful submissions and fail-closed refusals on the same `BulkEnvelope` table with a `status` enum, so OBS-02 reads see both lanes from one query.
+- **Envelope-boundary enforcement:** fail-closed safety caps (`max_batch_size`) live at the envelope function boundary, not at the operator surface — defense-in-depth that applies to LiveView, MCP, console, and future tool callers uniformly.
+- **D-14 narrow facade gate:** any web-layer read from a domain table goes through `Cairnloop.Governance.<purpose>_<read>/1`; a negative grep on the LiveView file is the test that pins this architecturally.
+- **OI traces alongside, never replacing:** emit OpenInference traces in parallel with the sealed `:telemetry.span/3` bounded-metrics; disjoint 4-segment namespace prevents collisions. Mirrors vM011 Phase 17.
+- **CI shift-left after the fact:** former human-UAT items that needed a real Postgres host can be backfilled into the integration test lane within the milestone close window — don't carry them as deferred forever.
+
+### Key Lessons
+- Document hygiene rule: when a phase completes, the corresponding REQUIREMENTS.md checkboxes flip immediately. The same drift pattern surfaced in vM011 (MCP-01) and vM013 (OUT-01..05) — set a phase-completion gate that fails on unchecked req boxes.
+- Don't "lightweight close" a milestone by doc-flipping ROADMAP + STATE only; the missing archive files become untracked debt that surfaces at the next close. Always run `/gsd-complete-milestone` end-to-end.
+- Phase-directory discipline: even fast phases benefit from a CONTEXT.md + SUMMARY.md per plan — without them, the SDK can't reconstruct phase stats at close, and the rationale at decision-time is lost.
+- Failure-path observability needs to be specced at design time, not patched in code review. WR-01..WR-03 were a real bug class, not a code-style nit — the bulk + trigger telemetry was unconditionally claiming success on a failed transaction.
+- "Sealed public contracts + additive opts" is a reusable pattern across milestones — vM011 used it for `Governance.propose/3`, vM012 used it for the MCP write route, vM013 used it for `Outbound.trigger/2`. Lock it in as a project norm.
+
+### Cost Observations
+- Model mix: ~95% opus (4.7 / 1M context), ~5% sonnet/haiku spot-checks
+- Sessions: ~12 across 2026-05-26 → 2026-05-27
+- Notable: Phase 25 ran a meaningful research → discuss → plan → execute cycle for each of the 3 plans (heavier than vM012's per-plan budget), which was justified by the architectural seam (sealed trigger + new envelope) but a useful baseline for future bulk-action phases.
+
+## Milestone: vM012 — Public Release & MCP Write Surface
+
+**Shipped:** 2026-05-26 (retrospective backfilled 2026-05-27)
+**Phases:** 4 (18–21) | **Plans:** 7
+
+### What Was Built
+- v0.1.0 published to Hex.pm via automated `.github/workflows/release.yml` on `v*` tag push (MIT-licensed; HEX_API_KEY in GitHub Secrets).
+- Runnable example host at `examples/cairnloop_example`: pgvector + host + library migrations + seed data + dashboard at `/support` + mock customer `ChatLive` at `/chat`.
+- Ecto-backed OAuth Bearer seam: `cairnloop_mcp_tokens` (SHA-256 hashed), `Cairnloop.MCP` context (`issue_token` / `validate_token` / `revoke_token`), `AuthPlug` + `WellKnownPlug` (RFC 9728), protocol version `2025-11-05`.
+- MCP `tools/call` routed through `Cairnloop.Governance.propose/3` with `origin: :mcp`, `mcp_token_id`, and `tool_params`; JSON-RPC outcomes mapped to standard codes; idempotency-key reuse returns the same proposal; integration tests pass against real pgvector.
+
+### What Worked
+- Automating the initial publish via CI (rather than a manual `mix hex.publish`) made the release reproducible from day one.
+- MCP write surface staying inside the `Governance.propose/3` proposal-first contract preserved vM011's three-layer at-most-once idempotency for free — no MCP-specific execution semantics.
+- Documenting the `cairnloop_dashboard` macro `live/3` import caveat in the example app's README turned a potential adopter footgun into an explicit, copy-pasteable workaround.
+
+### What Was Inefficient
+- vM012 was closed by doc-flipping ROADMAP + STATE only — no archive files, no MILESTONES.md entry, no `vM012` git tag. This created untracked debt that surfaced at vM013 close and required a backfill operation.
+- No retrospective written at close; this entry is reconstructed from commits + phase SUMMARYs after the fact.
+
+### Patterns Established
+- **Tag-driven release pipeline:** any `v*` tag push triggers package + docs publish via GitHub Actions. Reusable for all future minor/major releases.
+- **`actor_id` prefix convention for MCP-originated proposals:** `mcp_token:<id>` keeps audit reconstruction unambiguous.
+- **Example app as integration documentation:** a runnable host app is more honest documentation than prose — adopters can `mix setup` and see the integration work end-to-end.
+
+### Key Lessons
+- Always run `/gsd-complete-milestone` end-to-end; doc-flipping is a recipe for hidden debt that compounds at the next close.
+- The published Hex package + example app together form a much stronger adopter story than either alone — keep both as a coordinated release artifact for future versions.
+
+### Cost Observations
+- Sessions: ~5 across 2026-05-25 → 2026-05-26
+- Notable: Phase 19 (example app) had real Phoenix 1.7 dependency caveats (heroicons, dashboard macro) that consumed more cycles than expected; the documented workarounds were the actual deliverable.
 
 ## Milestone: vM011 — AI Tool Governance & MCP Integration
 

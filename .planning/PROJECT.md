@@ -1,47 +1,35 @@
 # Cairnloop Project
 
 ## What This Is
-An embedded, Phoenix-native customer support automation layer that turns support conversations into answers, product signals, knowledge-base improvements, and safe governed actions inside the host app.
+An embedded, Phoenix-native customer support automation layer that turns support conversations into answers, product signals, knowledge-base improvements, safe governed actions, and durable support-triggered outbound follow-up — all inside the host app.
 
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
-## Current Milestone: vM013 Support-Triggered Outbound Lifecycle
-
-**Goal:** Enable support-led outbound follow-ups that stay attached to the conversation timeline, route durably through Oban + Chimeway, and remain visible to operators as part of the shared support truth.
-
-**Target features:**
-- Core outbound facade + persistence — `Cairnloop.Outbound`, `system_outbound` messages, and immutable conversation linkage
-- Durable delivery engine — Oban-backed scheduling plus Chimeway routing and persisted status transitions
-- Individual outbound UI — distinct outbound timeline cards plus a resolved-only manual "Send Recovery Follow-up" action in `ConversationLive`
-- Bulk fan-out workflow — multi-select inbox targeting with confirmation preview and batch-size safety rails
-- Observability + audit polish — outbound telemetry, bulk audit records, and final UI pass
-
 ## Current State
 
-**Latest shipped milestone:** `vM011 AI Tool Governance & MCP Integration` on 2026-05-25.
+**Latest shipped milestone:** `vM013 Support-Triggered Outbound Lifecycle` on 2026-05-27.
 
-**What is now true:**
-- Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence.
-- Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues.
-- Durable gap signals now project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity.
-- AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed when evidence or grounding is insufficient.
-- KB review now runs through durable review tasks with explicit approve, reject, defer, publish, and reindex follow-through states.
-- Operators can launch maintenance directly from conversation context without creating a second workflow surface outside the shared review lane.
-- Cairnloop has a host-owned governed-tool contract (`use Cairnloop.Tool`) with compile-time validation, risk tiers, approval modes, and durable `ToolProposal` + append-only `ToolActionEvent` records.
-- Governed action proposals are fail-closed on unsupported tools, missing input, invalid scope, or denied policy — never execute inline.
-- Operators see humanized in-thread governed action cards with snapshotted trust facts, risk/approval-mode chips, and a hybrid preview surface; raw Elixir terms and color-alone state are kept off the operator surface.
-- Risky actions move through a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with one-active-lane invariant and append-only decision history; resume re-validates via Oban before execution.
-- First narrow approved write path is proven: `ToolExecutionWorker` (sole `run/3` caller) with three-layer at-most-once idempotency and bounded `[:cairnloop, :governance, ...]` telemetry.
-- An optional OpenInference-conformant evidence lane and read-only MCP seam (`tools/list` + `initialize`) exist as additive adapters; core approval and execution truth is unchanged.
+**What is now true (cumulative through vM013):**
+- Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence (vM008–vM009).
+- Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues (vM009).
+- Durable gap signals project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity (vM010).
+- AI-prepared article and revision suggestions are citation-backed, inspectable, and fail closed when evidence or grounding is insufficient (vM010).
+- KB review runs through durable review tasks with explicit approve, reject, defer, publish, and reindex follow-through states (vM010).
+- Operators can launch maintenance directly from conversation context without creating a second workflow surface (vM010).
+- Cairnloop has a host-owned governed-tool contract (`use Cairnloop.Tool`) with compile-time validation, risk tiers, approval modes, and durable `ToolProposal` + append-only `ToolActionEvent` records (vM011).
+- Governed action proposals fail closed on unsupported tools, missing input, invalid scope, or denied policy — never execute inline (vM011).
+- Operators see humanized in-thread governed action cards with snapshotted trust facts, risk/approval-mode chips, and a hybrid preview surface (vM011).
+- Risky actions move through a durable `ToolApproval` state machine (approve / reject / defer / expiry / resume) with one-active-lane invariant and append-only decision history (vM011).
+- First narrow approved write path is proven: `ToolExecutionWorker` with three-layer at-most-once idempotency (Oban unique + terminal guard + SHA-256 per-attempt run key) and bounded telemetry (vM011).
+- An optional OpenInference-conformant evidence lane and read-only MCP seam (`tools/list` + `initialize`) exist as additive adapters (vM011).
+- Cairnloop is publicly consumable: published as `cairnloop` v0.1.0 on Hex.pm via automated CI on `v*` tag push (MIT-licensed); ExDoc with semantic module groups; runnable example Phoenix host app at `examples/cairnloop_example` (vM012).
+- MCP write surface is open: `tools/call` routes through `Cairnloop.Governance.propose/3` with Ecto-backed OAuth Bearer auth (SHA-256 hashed tokens) and RFC 9728 metadata at the well-known endpoint — never inline `run/3` (vM012).
+- Cairnloop has a sealed support-triggered outbound lane: `Cairnloop.Outbound.trigger/2` (single-conversation) + `bulk_trigger/2` (multi-conversation fan-out with `BulkEnvelope` audit row, `max_batch_size = 25` cap, Oban `unique:` at-most-once delivery), `system_outbound` messages appended to the `Conversation` timeline, `OutboundWorker` durably routing through `Cairnloop.Notifier` (Chimeway-backed) (vM013).
+- Operators see distinct outbound timeline bubbles with Pending/Sent/Failed chips in `ConversationLive`, can trigger resolved-only recovery from the sidebar, and can multi-select resolved conversations in `InboxLive` for bulk fan-out via a `<.focus_wrap>` confirmation modal with snapshotted body + first-5 recipient sample + fail-closed refusal banner for oversized cohorts (vM013).
+- Outbound observability is OpenInference-conformant: `Cairnloop.Outbound.Telemetry.Traces` on the disjoint `[:cairnloop, :outbound, :trace, …]` namespace; bounded-metrics spans on every terminal arm of `OutboundWorker.perform/1`, `trigger/2`, and `bulk_trigger/2`; narrow `Cairnloop.Governance` audit READ facade (`list_recent_bulk_outbound_envelopes/1`, `get_bulk_outbound_envelope/1`) (vM013).
 
-**Current milestone:** vM013 — "Support-Triggered Outbound Lifecycle" — started 2026-05-26.
-
-**Phase 25 (Bulk Selection & Fan-out) complete (2026-05-27):** operators can multi-select resolved conversations in `InboxLive`, preview the cohort + snapshotted body in a `<.focus_wrap>` confirmation modal, and submit through `Cairnloop.Outbound.bulk_trigger/2` — which writes one durable `BulkEnvelope` (audit row per D-13) + N per-recipient `system_outbound` Messages under a single `Ecto.Multi`. Large batches are bounded at both the UI and envelope layers with a fail-closed refusal lane (icon + brand-token color, never color-alone). `OutboundWorker` carries Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` for at-most-once delivery (D-11). Phase 22/23 sealed primitives untouched. Operator-deferred handoff: `mix ecto.migrate` + REPO-UNAVAILABLE integration tests + in-browser UAT tracked in `25-HUMAN-UAT.md`.
-
-**Phase 26 (Observability & Polish) complete (2026-05-27):** OBS-01 substrate landed — new `Cairnloop.Outbound.Telemetry.Traces` module emits OpenInference-conformant trace events on the disjoint `[:cairnloop, :outbound, :trace, …]` 4-segment namespace (mirroring the Phase 17 Governance pattern); delivery-side bounded-metrics + OI traces emit on every terminal arm of `OutboundWorker.perform/1`; OI trace emissions wired alongside (never replacing) the sealed bounded-metrics spans in `Outbound.trigger/2` + `bulk_trigger/2`. OBS-02 narrow `Cairnloop.Governance` READ facade landed: `list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` route through `repo()` indirection (D-14 clean, default limit 50, hard cap 500, `:status` filter); D-05 regression block pins exact auditor metadata key sets on both `:outbound_trigger` and `:bulk_outbound_trigger`. Final UI polish: InboxLive empty-state calm sentence + modal `×` close button (44px tap, `aria-label`); ConversationLive failed-bubble reason-forward subhead + `outbound_recovery_card` a11y verified. Sealed Phase 22–25 public contracts untouched. `mix compile --warnings-as-errors` clean; full suite 676/677 (1 documented baseline). Code review flagged WR-01/02/03 — bulk + trigger telemetry unconditionally emits success even on transaction failure (failure-path observability gap); deferred as additive future work (would extend `@events` whitelist + wrap submit in `case`).
-
-**Why now:** vM012 closed the adopter and packaging gap. The next narrow wedge is proactive support follow-up: let operators trigger recovery and resolution-linked outreach without leaving the conversation lane, while keeping scheduling, delivery, and status durable inside the existing Phoenix/Ecto/Oban truth model.
+**Current milestone:** None — vM013 closed 2026-05-27. Awaiting next milestone selection.
 
 ## Requirements
 
@@ -61,54 +49,95 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ Approval state machine (approve/reject/defer/expiry/resume) with append-only decision history and Oban re-validate-before-execute resume — vM011 (FLOW-03, APRV-01 through APRV-04)
 - ✓ First narrow approved write path with three-layer at-most-once idempotency and bounded telemetry — vM011 (ACT-01, OBS-01, OBS-02)
 - ✓ Optional read-only MCP seam over governed-tool contract — vM011 (MCP-01)
+- ✓ CI passes on main; CHANGELOG covers v0.1.0; semver tag pushed; package + docs live on Hex.pm — vM012 (REL-01 through REL-06)
+- ✓ Example Phoenix host app boots end-to-end via `mix setup` and documents the integration — vM012 (DEMO-01 through DEMO-04)
+- ✓ MCP OAuth Bearer seam with SHA-256 hashed tokens and RFC 9728 metadata — vM012 (MCP-02, MCP-03)
+- ✓ MCP write surface routed through `Governance.propose/3` with `proposal_id` + idempotency-key reuse — vM012 (ACT-02, ACT-03)
+- ✓ `Cairnloop.Outbound` facade for programmatic support lifecycle triggers — vM013 (OUT-01)
+- ✓ `system_outbound` message type with `template_id` metadata and immutable `Conversation` linkage — vM013 (OUT-02, OUT-05)
+- ✓ Durable Oban scheduling + Chimeway routing for outbound delivery with persisted status transitions — vM013 (OUT-03, OUT-04)
+- ✓ Distinct outbound timeline rendering with delivery status chips in `ConversationLive` — vM013 (UI-01, UI-02)
+- ✓ Bulk selection + bulk fan-out trigger workflow with cohort preview, batch cap, and at-most-once Oban semantics — vM013 (BULK-01, BULK-02, BULK-03, UI-03)
+- ✓ OpenInference-conformant outbound telemetry + bulk audit READ facade with auditor metadata shape regression — vM013 (OBS-01, OBS-02)
 
-### Active (vM013)
-- [x] **OUT-01** — `Cairnloop.Outbound` facade for programmatically triggering support lifecycle events
-- [x] **OUT-02** — `system_outbound` message type added to `Cairnloop.Message` schema with distinct metadata
-- [x] **OUT-03** — Durable scheduling of outbound messages via Oban
-- [x] **OUT-04** — Chimeway integration for routing outbound messages to delivery channels
-- [x] **OUT-05** — Outbound messages are immutably linked to a parent `Conversation`
-- [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`
-- [x] **UI-02** — Outbound delivery status indicators visible in the message bubble
-- [ ] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations
-- [ ] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients"
-- [ ] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency
-- [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations
-- [x] **OBS-01** — Telemetry events for outbound triggers and delivery
-- [x] **OBS-02** — Audit log entries for bulk outbound actions
+### Active
+(none — awaiting next milestone)
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
 - In-browser rich text template editing
-- SMS or WhatsApp delivery as part of the v1 outbound lane
+- SMS or WhatsApp delivery as part of the outbound lane (host can add via Chimeway)
 - Broad external MCP server surface open to untrusted third-party public clients
 - High-risk financial or destructive mutations as the first governed-action path
+- Autonomous customer-visible replies or side effects based only on retrieval confidence
 
 ## Key Decisions
 
 | Decision | Milestone | Outcome |
 |----------|-----------|---------|
-| Workflow truth in Phoenix/Ecto/Oban; LiveView reflects state, never owns execution | vM011 | ✓ Good — consistently delivered across 5 phases |
+| Workflow truth in Phoenix/Ecto/Oban; LiveView reflects state, never owns execution | vM011 | ✓ Good — consistently delivered across vM011, vM012, and vM013 |
 | Sequence: contract → timeline → approvals → narrow write → optional MCP seam | vM011 | ✓ Good — late phases were additive without reopening earlier work |
 | Hybrid preview: snapshot trust facts at propose time; interpretive prose best-effort live behind total fallback | vM011 | ✓ Good — D15-14 discharged cleanly in Phase 15 |
-| Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key | vM011 | ✓ Good — DB-backed proof added to integration harness |
-| DB-backed integration test harness added (docker-compose + pgvector + DataCase/ConnCase) | vM011 | ✓ Good — shifted 4 former Manual-Only items to automated proof |
+| Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key | vM011 | ✓ Good — DB-backed proof added to integration harness; pattern reused for vM013 outbound delivery |
+| DB-backed integration test harness added (docker-compose + pgvector + DataCase/ConnCase) | vM011 | ✓ Good — shifted 4 former Manual-Only items to automated proof in vM011; same harness proved Phase 25 in vM013 |
 | MCP as read-only edge adapter, not internal execution model | vM011 | ✓ Good — additive, zero core truth changes |
-| Keep workflow truth in Phoenix/Ecto/Oban; outbound UI reflects persisted status and never owns delivery | vM013 | ✓ Good — Phase 24 stayed additive to the delivery substrate |
+| Automated initial Hex.pm publish via CI; tag-driven release on `v*` push | vM012 | ✓ Good — v0.1.0 published cleanly; pattern reusable for all future releases |
+| MCP `tools/call` routes through `Governance.propose/3` with `origin: :mcp` | vM012 | ✓ Good — preserves vM011's three-layer at-most-once idempotency; integration tests pin behavior against real pgvector |
 | Treat support outbound as `system_outbound` messages appended to the thread, not a separate CRM lane | vM013 | ✓ Good — preserves operator context continuity |
+| Sealed `Outbound.trigger/2`; new `bulk_trigger/2` envelope for fan-out, not a redefined `trigger` | vM013 | ✓ Good — Phase 24 callers untouched; Phase 25 added strictly additively |
+| `BulkEnvelope` records `:submitted` + `:refused_cap_exceeded` lanes on the same table | vM013 | ✓ Good — OBS-02 sees both lanes from one query; Phase 26 audit READ facade landed cleanly |
+| Hard fail-closed at `max_batch_size = 25` enforced at the envelope boundary, not only in InboxLive | vM013 | ✓ Good — defense-in-depth; cap applies regardless of caller (LiveView, MCP, console, future tools) |
+| Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` for at-most-once delivery — `nil` envelope id for single-conversation callers | vM013 | ✓ Good — Phase 24 + Phase 25 callers share the same dedup lane |
+| Cohort eligibility reads from the web layer go through narrow `Cairnloop.Governance` facade; D-14 negative-grep gate pins this | vM013 | ✓ Good — no direct `Conversation \|> where(...)` queries in `InboxLive`; gate held through close |
+| OpenInference traces emitted alongside (never replacing) sealed bounded-metrics spans; disjoint 4-segment namespace | vM013 | ✓ Good — mirrors vM011 Phase 17 pattern verbatim; zero churn to existing telemetry |
 
 ## Context
 
-**Codebase at vM013:** Elixir / Phoenix / LiveView / Ecto / Oban with support outbound delivery now added to the same host-owned workflow lane.
-**Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, OpenInference telemetry.
-**Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free.
+**Codebase at vM013 close:** ~42.4k LOC Elixir / Phoenix / LiveView / Ecto / Oban / OpenInference telemetry / pgvector. Tests: 676/677 (1 documented baseline failure — `Automation.DraftTest` M005 drift).
+
+**Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, Chimeway, OpenInference telemetry, ExDoc, Hex.pm.
+
+**Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free. Phase 25 CI shift-left tests landed 2026-05-27 — former Phase 25 human-UAT items now run in `mix test` + the integration lane.
 
 **Known tech debt:**
-- Root `SECURITY.md` carries 5 open threats (T-10-09..T-10-13) from vM010 — pre-existing, untouched by vM011.
-- AR-14-02: governed-actions rail has no pagination — re-evaluate when write-action volume grows.
+- Root `SECURITY.md` carries 5 open threats (T-10-09..T-10-13) from vM010 — pre-existing, untouched.
+- AR-14-02: governed-actions rail has no pagination — re-evaluate when outbound + action volume grows.
 - Centralize duplicated fail-closed search guards (pre-existing from vM009).
+- D-10 brand-token CSS extraction deferred in vM013 Phase 26 — inline `var(--cl-<token>, <hex>)` strings remain the headless-test contract for v1.
 
-## Previous Milestone Brief
+## Previous Milestone Briefs
+
+<details>
+<summary>Archived vM013 brief</summary>
+
+### vM013 Support-Triggered Outbound Lifecycle
+
+**Goal:** Enable support-led outbound follow-ups that stay attached to the conversation timeline,
+route durably through Oban + Chimeway, and remain visible to operators as part of the shared
+support truth.
+
+**Target features:**
+- Core outbound facade + persistence — `Cairnloop.Outbound`, `system_outbound` messages, immutable conversation linkage.
+- Durable delivery engine — Oban-backed scheduling plus Chimeway routing and persisted status transitions.
+- Individual outbound UI — distinct outbound timeline cards plus a resolved-only manual "Send Recovery Follow-up" action.
+- Bulk fan-out workflow — multi-select inbox targeting with confirmation preview and batch-size safety rails.
+- Observability + audit polish — outbound OI telemetry, bulk audit READ facade, and final UI polish.
+
+**Shipped 2026-05-27 — all 13 v1 requirements satisfied across Phases 22-26.**
+
+</details>
+
+<details>
+<summary>Archived vM012 brief</summary>
+
+### vM012 Public Release & MCP Write Surface
+
+**Goal:** Package Cairnloop for public consumption and open the first MCP write surface that
+preserves the vM011 trust model.
+
+**Shipped 2026-05-26 — all 14 v1 requirements satisfied across Phases 18–21.**
+
+</details>
 
 <details>
 <summary>Archived vM011 brief</summary>
@@ -116,12 +145,6 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 ### vM011 AI Tool Governance & MCP Integration
 
 **Goal:** Extend the M009-M010 trust model with a host-owned governed-action lane.
-
-**Target features:**
-- Introduce a durable governed-action workflow for typed host-owned tools.
-- Add policy-gated approval and resume mechanics using Ecto and Oban instead of synchronous LiveView execution.
-- Reuse retrieval, review, telemetry, and audit primitives so tool actions stay grounded and fail closed.
-- Define MCP as an optional edge adapter with read-only/user-scoped integration first.
 
 **Shipped 2026-05-25 — all 15 v1 requirements satisfied across Phases 13–17.**
 
@@ -169,4 +192,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — vM013 Phase 26 (Observability & Polish) complete; vM013 milestone done at the headless layer pending Phase 25 operator handoff*
+*Last updated: 2026-05-27 after vM013 milestone close*
