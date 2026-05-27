@@ -15,6 +15,15 @@ defmodule CairnloopExampleWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
+  # Phase 28 D-15: mount the widget channel transport at /widget.
+  # WebSocket-only (longpoll: false) — the widget is a single-tab browser UI;
+  # longpoll fallback adds latency and is not needed for demo mode.
+  # WidgetSocket reads its token from params["token"], NOT from the Plug session,
+  # so connect_info is omitted here (see widget_socket.ex:10-13).
+  socket "/widget", Cairnloop.Channels.WidgetSocket,
+    websocket: true,
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),
