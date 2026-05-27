@@ -354,46 +354,65 @@ defmodule Cairnloop.Web.InboxLive do
     ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.sort()
     cap = max_batch_size()
     count = length(ids)
+    template_id = recovery_follow_up_template_id()
 
-    if count > cap do
-      # D-10 — calm refusal banner, no bulk_trigger/2 call.
-      {:noreply,
-       socket
-       |> assign(:bulk_modal_open, true)
-       |> assign(:bulk_refusal, %{count: count, max: cap})
-       |> assign(:bulk_preview, nil)}
-    else
-      preview = governance_module().preview_bulk_recovery_cohort(ids)
-      template_id = recovery_follow_up_template_id()
-      # T-25-03 mitigation — snapshot the body once at confirm-open time. v1
-      # uses a pure function of template_id (no per-recipient personalization,
-      # D-07) that mirrors `lib/cairnloop/outbound.ex` default content.
-      rendered_body = render_bulk_body(template_id)
+    cond do
+      count > cap ->
+        # D-10 — calm refusal banner, no bulk_trigger/2 call.
+        {:noreply,
+         socket
+         |> assign(:bulk_modal_open, true)
+         |> assign(:bulk_refusal, %{count: count, max: cap})
+         |> assign(:bulk_preview, nil)}
 
-      # WR-06: persist the snapshot's `eligible_ids` (D-01 filtered cohort)
-      # so `do_confirm_bulk_send/1` sends exactly what the operator was
-      # shown — never the raw `selected_ids` set (which can drift in a
-      # multi-tab scenario between modal-open and confirm). Also derive the
-      # displayed count from the filtered eligible_ids so the count shown
-      # equals the count actually sent (CLAUDE.md "snapshot trust facts at
-      # decision time").
-      eligible_ids = Map.get(preview, :eligible_ids, ids)
-      eligible_count = length(eligible_ids)
+      not is_binary(template_id) ->
+        # WR-06: fail-closed at the open-modal boundary when the recovery
+        # template is misconfigured (nil, an atom, or any non-string).
+        # Without this guard `render_bulk_body/1` silently returned an
+        # empty string and the operator could confirm a bulk send with
+        # rendered_body = "" — that empty string would then land on
+        # BulkEnvelope.rendered_body as a durable record of "we sent an
+        # empty message to N customers." Mirrors the calm operator copy
+        # used in `confirm_bulk_send/2`'s nil-template branch (the
+        # defense-in-depth check there remains as belt-and-suspenders).
+        {:noreply,
+         socket
+         |> put_flash(:error, "Recovery follow-up template is not configured.")
+         |> assign(:bulk_modal_open, false)
+         |> assign(:bulk_preview, nil)
+         |> assign(:bulk_refusal, nil)}
 
-      bulk_preview = %{
-        count: eligible_count,
-        eligible_ids: eligible_ids,
-        sample: preview.sample,
-        more: preview.more,
-        rendered_body: rendered_body,
-        template_id: template_id
-      }
+      true ->
+        preview = governance_module().preview_bulk_recovery_cohort(ids)
+        # T-25-03 mitigation — snapshot the body once at confirm-open time. v1
+        # uses a pure function of template_id (no per-recipient personalization,
+        # D-07) that mirrors `lib/cairnloop/outbound.ex` default content.
+        rendered_body = render_bulk_body(template_id)
 
-      {:noreply,
-       socket
-       |> assign(:bulk_modal_open, true)
-       |> assign(:bulk_preview, bulk_preview)
-       |> assign(:bulk_refusal, nil)}
+        # WR-06: persist the snapshot's `eligible_ids` (D-01 filtered cohort)
+        # so `do_confirm_bulk_send/1` sends exactly what the operator was
+        # shown — never the raw `selected_ids` set (which can drift in a
+        # multi-tab scenario between modal-open and confirm). Also derive the
+        # displayed count from the filtered eligible_ids so the count shown
+        # equals the count actually sent (CLAUDE.md "snapshot trust facts at
+        # decision time").
+        eligible_ids = Map.get(preview, :eligible_ids, ids)
+        eligible_count = length(eligible_ids)
+
+        bulk_preview = %{
+          count: eligible_count,
+          eligible_ids: eligible_ids,
+          sample: preview.sample,
+          more: preview.more,
+          rendered_body: rendered_body,
+          template_id: template_id
+        }
+
+        {:noreply,
+         socket
+         |> assign(:bulk_modal_open, true)
+         |> assign(:bulk_preview, bulk_preview)
+         |> assign(:bulk_refusal, nil)}
     end
   end
 

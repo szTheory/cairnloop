@@ -535,8 +535,11 @@ defmodule Cairnloop.Web.InboxLiveTest do
           conversations: resolved_conversations([1, 2])
         )
 
-      # open_bulk_confirm should still succeed (preview is independent of template config)
-      # but confirm_bulk_send should refuse cleanly.
+      # WR-06: as of the WR-06 fix, open_bulk_confirm now fail-closes at the
+      # boundary when the recovery template is misconfigured (nil counts as
+      # not-a-binary). The confirm_bulk_send defense-in-depth nil-check
+      # below STILL fires too (belt-and-suspenders). Both lanes refuse with
+      # the same calm operator copy and never reach bulk_trigger/2.
       {:noreply, socket} = InboxLive.handle_event("open_bulk_confirm", %{}, socket)
       {:noreply, socket} = InboxLive.handle_event("confirm_bulk_send", %{}, socket)
 
@@ -544,6 +547,37 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assert flash_value(socket, :error) =~ "Recovery follow-up template is not configured"
       # selected_ids preserved (operator can fix config and retry).
       assert socket.assigns.selected_ids == MapSet.new([1, 2])
+    end
+
+    test "Test 10: WR-06 open_bulk_confirm refuses non-binary template_id (atom) before render_bulk_body" do
+      # Configure an atom — the exact misconfiguration class WR-06 protects
+      # against. Without the fail-closed guard, render_bulk_body/1 would have
+      # silently returned "" and the operator could have confirmed a bulk
+      # send with an empty rendered_body landing on the durable envelope row.
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, :recovery_v1_atom)
+
+      on_exit(fn ->
+        Application.delete_env(:cairnloop, :outbound_recovery_template_id)
+      end)
+
+      socket =
+        base_socket(
+          selected_ids: MapSet.new([1, 2]),
+          conversations: resolved_conversations([1, 2])
+        )
+
+      {:noreply, socket} = InboxLive.handle_event("open_bulk_confirm", %{}, socket)
+
+      # Modal must NOT be open; preview must NOT have been built; flash must
+      # carry the calm operator copy.
+      refute socket.assigns.bulk_modal_open
+      assert socket.assigns.bulk_preview == nil
+      assert flash_value(socket, :error) =~ "Recovery follow-up template is not configured"
+      # Selection preserved so the operator can fix the config and retry.
+      assert socket.assigns.selected_ids == MapSet.new([1, 2])
+      # bulk_trigger never called for an open_bulk_confirm event regardless,
+      # but assert it explicitly for completeness.
+      refute_received {:bulk_trigger, _, _}
     end
   end
 
