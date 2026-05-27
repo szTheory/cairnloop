@@ -65,67 +65,91 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 ## Phase Details
 
 ### Phase 22: Outbound Foundation & Persistence
+
 **Goal**: Establish the outbound contract and persistence substrate for support-triggered follow-up.
 **Depends on**: Nothing
 **Requirements**: OUT-01, OUT-02, OUT-05
 **Success Criteria** (what must be TRUE):
+
   1. `Cairnloop.Outbound.trigger/2` can initiate an outbound intent for an existing conversation
   2. `system_outbound` messages persist with required `template_id`
   3. Outbound messages are linked to the parent `Conversation`
+
 **Plans**: completed
 
 ---
 
 ### Phase 23: Delivery & Scheduling Engine
+
 **Goal**: Route outbound intents through durable scheduling and Chimeway delivery.
 **Depends on**: Phase 22
 **Requirements**: OUT-03, OUT-04
 **Success Criteria** (what must be TRUE):
+
   1. `schedule_in` creates a pending Oban job
   2. `OutboundWorker` hands delivery to the notifier path
   3. Delivery failures resolve into persisted `failed` status
+
 **Plans**: completed
 
 ---
 
 ### Phase 24: Individual Outbound UI
+
 **Goal**: Let operators see and manually trigger outbound recovery from the conversation thread.
 **Depends on**: Phase 23
 **Requirements**: UI-01, UI-02
 **Success Criteria** (what must be TRUE):
+
   1. `system_outbound` messages appear in `ConversationLive` with distinct visual treatment
   2. The outbound bubble renders `Pending`, `Sent`, or `Failed` chips from persisted metadata
   3. A resolved-only "Send Recovery Follow-up" action exists in the conversation sidebar
+
 **Plans**: completed
 **UI hint**: yes
 
 ---
 
 ### Phase 25: Bulk Selection & Fan-out
+
 **Goal**: Enable multi-conversation outbound recovery while keeping operator review and safety explicit.
 **Depends on**: Phase 24
 **Requirements**: BULK-01, BULK-02, BULK-03, UI-03
 **Success Criteria** (what must be TRUE):
+
   1. Operators can multi-select conversations in `InboxLive`
   2. A bulk outbound action exposes cohort preview before execution
   3. Large batches are bounded to protect host resources
+
 **Plans**: 3 plans
 Plans:
+**Wave 1**
+
 - [ ] 25-01-PLAN.md — BulkEnvelope schema + migration + Governance cohort reads (BULK-01, BULK-03 substrate)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 25-02-PLAN.md — Outbound.bulk_trigger/2 + sealed-primitive additive opt + Oban uniqueness (BULK-02, BULK-03)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 25-03-PLAN.md — InboxLive selection, sticky bar, confirmation modal, refusal banner (BULK-01, BULK-02, BULK-03, UI-03)
+
 **UI hint**: yes
 
 ---
 
 ### Phase 26: Observability & Polish
+
 **Goal**: Finish the outbound lane with telemetry, auditability, and final UI polish.
 **Depends on**: Phase 25
 **Requirements**: OBS-01, OBS-02
 **Success Criteria** (what must be TRUE):
+
   1. Telemetry emits for outbound attempt, success, and failure
   2. Bulk outbound actions write audit records with actor and cohort size
   3. Final UI pass tightens empty/error states and outbound affordance polish
+
 **Plans**: pending
 **UI hint**: yes
 
