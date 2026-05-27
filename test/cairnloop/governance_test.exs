@@ -4,6 +4,7 @@ defmodule Cairnloop.GovernanceTest do
   alias Cairnloop.Governance
   alias Cairnloop.Governance.ToolProposal
   alias Cairnloop.Governance.ToolActionEvent
+  alias Cairnloop.Conversation
 
   # ---------------------------------------------------------------------------
   # MockRepo — process-dictionary-backed repo (no real DB required)
@@ -52,12 +53,48 @@ defmodule Cairnloop.GovernanceTest do
     end
 
     # ---------------------------------------------------------------------------
-    # all/1 — handles Ecto.Query structs for list_proposals_for_conversation/1
+    # all/1 — handles Ecto.Query structs for:
+    #   * list_proposals_for_conversation/1 (ToolProposal — pre-existing)
+    #   * list_eligible_conversation_ids_for_bulk_recovery/1 (Conversation — Phase 25 plan 01)
+    #   * preview_bulk_recovery_cohort/1 (Conversation — Phase 25 plan 01)
     #
-    # Parses the query's where clause to extract conversation_id, filters the
-    # process-stored proposals, applies order_by desc: inserted_at, and
-    # populates the events preload from the process-stored events list.
+    # Dispatch by inspecting the query's `from` source. ToolProposal queries follow
+    # the pre-existing behavior; Conversation queries read from Process.get(:conversations).
     # ---------------------------------------------------------------------------
+    def all(%Ecto.Query{from: %{source: {"cairnloop_conversations", _}}} = query) do
+      # Phase 25 plan 01 (D-14): cohort-eligibility reads against the Conversation
+      # schema. We extract the candidate_ids list from the query's params and apply
+      # the `status == :resolved` invariant (D-01) here in Elixir, then apply
+      # `order_by desc: updated_at` (Phase 25 research Open Question 6 — locked).
+      candidate_ids = extract_candidate_ids(query)
+
+      rows =
+        Process.get(:conversations, [])
+        |> Enum.filter(fn c -> c.id in candidate_ids and c.status == :resolved end)
+        |> Enum.sort_by(& &1.updated_at, {:desc, DateTime})
+
+      # Two select shapes are produced by Governance: a bare `c.id` (id list) and a
+      # map projection `%{id:, subject:, host_user_id:, updated_at:}`. Detect via
+      # query.select.expr — bare-id case is a field access; map case is a map literal.
+      case query.select do
+        %{expr: {{:., _, [_, :id]}, _, _}} ->
+          Enum.map(rows, & &1.id)
+
+        _ ->
+          # Map projection — return the columns the caller asked for. The MockRepo
+          # returns full structs and lets the caller pattern-match the keys it needs
+          # (no real Postgres projection here).
+          Enum.map(rows, fn c ->
+            %{
+              id: c.id,
+              subject: c.subject,
+              host_user_id: c.host_user_id,
+              updated_at: c.updated_at
+            }
+          end)
+      end
+    end
+
     def all(%Ecto.Query{} = query) do
       # Extract conversation_id from the first where clause param
       conversation_id =
@@ -81,6 +118,21 @@ defmodule Cairnloop.GovernanceTest do
           |> Enum.sort_by(& &1.inserted_at, :asc)
 
         %{proposal | events: events}
+      end)
+    end
+
+    # Conversation queries use `where([c], c.id in ^candidate_ids and ...)`. The
+    # `candidate_ids` list is interpolated as the first parameter on the wheres
+    # list. We extract it by walking query.wheres and finding the params binding
+    # that is a list of integers (the candidate_ids).
+    defp extract_candidate_ids(%Ecto.Query{wheres: wheres}) do
+      wheres
+      |> Enum.flat_map(fn %{params: params} -> params end)
+      |> Enum.find_value([], fn
+        {value, {:in, _}} when is_list(value) -> value
+        {value, {:in, :id}} when is_list(value) -> value
+        {value, _} when is_list(value) -> value
+        _ -> nil
       end)
     end
 
@@ -311,6 +363,9 @@ defmodule Cairnloop.GovernanceTest do
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :tools)
+      # Phase 25 plan 01: clean per-test conversation seed so state never leaks
+      # between describes (async: false).
+      Process.delete(:conversations)
     end)
 
     :ok
@@ -1309,6 +1364,154 @@ defmodule Cairnloop.GovernanceTest do
 
       assert source =~ "172_800",
              "governance.ex must document 172_800s (48h) finite TTL default (D15-13)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 25 plan 01 — cohort-eligibility reads on the Governance facade (D-14)
+  #
+  # All tests are headless: they seed Process.get(:conversations) via the MockRepo
+  # all/1 clause for the Conversation source and assert on the function return
+  # shape. No Postgres needed (D-16).
+  # ---------------------------------------------------------------------------
+
+  describe "list_eligible_conversation_ids_for_bulk_recovery/1 (Phase 25, D-14)" do
+    test "returns [] for an empty candidate list" do
+      Process.put(:conversations, [
+        %Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "x",
+          updated_at: ~U[2026-05-27 12:00:00.000000Z]
+        }
+      ])
+
+      assert Governance.list_eligible_conversation_ids_for_bulk_recovery([]) == []
+    end
+
+    test "returns only the resolved subset of candidate ids (D-01 invariant)" do
+      Process.put(:conversations, [
+        %Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "first",
+          updated_at: ~U[2026-05-27 12:00:00.000000Z]
+        },
+        %Conversation{
+          id: 2,
+          status: :open,
+          subject: "second",
+          updated_at: ~U[2026-05-27 13:00:00.000000Z]
+        },
+        %Conversation{
+          id: 3,
+          status: :resolved,
+          subject: nil,
+          updated_at: ~U[2026-05-27 14:00:00.000000Z]
+        }
+      ])
+
+      result = Governance.list_eligible_conversation_ids_for_bulk_recovery([1, 2, 3])
+      assert Enum.sort(result) == [1, 3]
+    end
+
+    test "an :open conversation is NEVER returned even if its id is in the candidate set (D-14)" do
+      Process.put(:conversations, [
+        %Conversation{
+          id: 10,
+          status: :open,
+          subject: "open one",
+          updated_at: ~U[2026-05-27 12:00:00.000000Z]
+        }
+      ])
+
+      assert Governance.list_eligible_conversation_ids_for_bulk_recovery([10]) == []
+    end
+  end
+
+  describe "preview_bulk_recovery_cohort/1 (Phase 25, D-07 / D-14)" do
+    test "returns the eligible cohort with sample formatted from subject+id" do
+      Process.put(:conversations, [
+        %Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "Refund request",
+          host_user_id: "u1",
+          updated_at: ~U[2026-05-27 12:00:00.000000Z]
+        },
+        %Conversation{
+          id: 2,
+          status: :open,
+          subject: "still open",
+          host_user_id: "u2",
+          updated_at: ~U[2026-05-27 13:00:00.000000Z]
+        },
+        %Conversation{
+          id: 3,
+          status: :resolved,
+          subject: nil,
+          host_user_id: "u3",
+          updated_at: ~U[2026-05-27 14:00:00.000000Z]
+        }
+      ])
+
+      result = Governance.preview_bulk_recovery_cohort([1, 2, 3])
+      assert is_map(result)
+      assert result.total == 2
+      assert result.more == 0
+      # Sample ordered desc by updated_at: id 3 (14:00) then id 1 (12:00).
+      assert result.sample == ["Conversation #3", "Refund request (#1)"]
+      # eligible_ids is the resolved subset (order is desc by updated_at since the
+      # underlying query orders that way; tests assert membership not order).
+      assert Enum.sort(result.eligible_ids) == [1, 3]
+    end
+
+    test "with 7 resolved conversations, returns total: 7, more: 2, and sample of 5 most-recent" do
+      seeds =
+        for i <- 1..7 do
+          %Conversation{
+            id: i,
+            status: :resolved,
+            subject: "subj#{i}",
+            host_user_id: "u#{i}",
+            # Spread updated_at so id 7 is newest, id 1 is oldest.
+            updated_at: DateTime.add(~U[2026-05-27 12:00:00.000000Z], i, :hour)
+          }
+        end
+
+      Process.put(:conversations, seeds)
+
+      result = Governance.preview_bulk_recovery_cohort(Enum.to_list(1..7))
+      assert result.total == 7
+      assert result.more == 2
+      assert length(result.sample) == 5
+
+      # Sample is desc by updated_at — newest first.
+      assert result.sample == [
+               "subj7 (#7)",
+               "subj6 (#6)",
+               "subj5 (#5)",
+               "subj4 (#4)",
+               "subj3 (#3)"
+             ]
+    end
+
+    test "a candidate id with :open status is excluded from the preview (D-01 / D-14)" do
+      Process.put(:conversations, [
+        %Conversation{
+          id: 100,
+          status: :open,
+          subject: "open one",
+          host_user_id: "u",
+          updated_at: ~U[2026-05-27 12:00:00.000000Z]
+        }
+      ])
+
+      result = Governance.preview_bulk_recovery_cohort([100])
+      assert result.total == 0
+      assert result.more == 0
+      assert result.sample == []
+      assert result.eligible_ids == []
     end
   end
 end

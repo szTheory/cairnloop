@@ -71,6 +71,9 @@ defmodule Cairnloop.Governance do
   alias Cairnloop.Governance.Telemetry.Traces
   alias Cairnloop.Workers.{ApprovalExpiryWorker, ApprovalResumeWorker, ToolExecutionWorker}
 
+  # Phase 25 plan 01 (D-14): cohort-eligibility reads target the Conversation schema.
+  alias Cairnloop.Conversation
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -985,4 +988,95 @@ defmodule Cairnloop.Governance do
     |> preload(events: ^events_query, approval: [])
     |> repo().all()
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 25 plan 01 — cohort-eligibility reads for bulk outbound recovery
+  #
+  # These two functions are the ONLY way the web layer (InboxLive in plan 03)
+  # is permitted to read cohort eligibility — direct Ecto queries from the web
+  # layer are forbidden (D-14, CLAUDE.md narrow-facade posture).
+  #
+  # v1 eligibility: `status == :resolved` (D-01). Callers MUST pass the
+  # currently-visible filtered cohort (D-02) — these functions DO NOT scan the
+  # full conversations table. The candidate set is filtered down to the resolved
+  # subset and (for preview) projected with a +N tail sample.
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns the subset of `candidate_ids` whose conversations are currently eligible
+  to be targets of a bulk recovery follow-up.
+
+  v1 eligibility is `status == :resolved` (D-01). The caller MUST pre-filter
+  `candidate_ids` to the currently-visible cohort (D-02 forbids "select across all
+  pages"); this function does NOT scan the full table.
+
+  Order of the returned ids is not guaranteed (the caller cares about set
+  membership, not ordering — see `preview_bulk_recovery_cohort/1` for the
+  display-ordered variant).
+
+  Reads through the narrow facade per D-14: the web layer (InboxLive) is forbidden
+  from running a direct `Cairnloop.Conversation` query. Goes through `repo().all/1`
+  — never `Cairnloop.Repo` directly.
+  """
+  def list_eligible_conversation_ids_for_bulk_recovery(candidate_ids)
+      when is_list(candidate_ids) do
+    Conversation
+    |> where([c], c.id in ^candidate_ids and c.status == :resolved)
+    |> select([c], c.id)
+    |> repo().all()
+  end
+
+  @doc """
+  Returns a cohort preview map for the bulk-recovery confirmation modal (D-07).
+
+  The cohort is the subset of `candidate_ids` whose conversations are `:resolved`
+  (D-01). The sample is the first 5 labels by `updated_at desc` (research Open
+  Question 6 — locked rationale: most-recently-resolved is the cohort an operator
+  most likely had in mind when they selected).
+
+  Return shape:
+
+      %{
+        eligible_ids: [123, 124, ...],        # all resolved ids in the cohort
+        sample:       ["Refund (#123)", ...],  # first 5 labels, updated_at desc
+        more:         12,                       # max(total - 5, 0)
+        total:        17                        # full eligible cohort size
+      }
+
+  Reads through the narrow facade per D-14. Goes through `repo().all/1` — never
+  `Cairnloop.Repo` directly.
+  """
+  def preview_bulk_recovery_cohort(candidate_ids) when is_list(candidate_ids) do
+    rows =
+      Conversation
+      |> where([c], c.id in ^candidate_ids and c.status == :resolved)
+      |> order_by([c], desc: c.updated_at)
+      |> select([c], %{
+        id: c.id,
+        subject: c.subject,
+        host_user_id: c.host_user_id,
+        updated_at: c.updated_at
+      })
+      |> repo().all()
+
+    total = length(rows)
+    sample = rows |> Enum.take(5) |> Enum.map(&bulk_recovery_label_for/1)
+    more = max(total - 5, 0)
+
+    %{
+      eligible_ids: Enum.map(rows, & &1.id),
+      sample: sample,
+      more: more,
+      total: total
+    }
+  end
+
+  # Format a single cohort row into an operator-visible label. A bound subject
+  # yields "<subject> (#<id>)"; a missing subject yields "Conversation #<id>".
+  # Brand-aligned: calm, honest, never raw Elixir terms (CLAUDE.md).
+  defp bulk_recovery_label_for(%{subject: subject, id: id}) when is_binary(subject) do
+    "#{subject} (##{id})"
+  end
+
+  defp bulk_recovery_label_for(%{id: id}), do: "Conversation ##{id}"
 end
