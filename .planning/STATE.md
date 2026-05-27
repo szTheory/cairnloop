@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: vM013
 milestone_name: Support-Triggered Outbound Lifecycle
 status: verifying
-stopped_at: "Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired: `@selected_ids :: MapSet.t/0` + sticky bottom bulk-action bar + `<.focus_wrap>` confirmation modal + calm fail-closed refusal banner + `confirm_bulk_send` handler that calls `outbound_module().bulk_trigger/2` with body snapshotted at confirm-open time. 22/22 plan-touched headless tests green; `mix compile --warnings-as-errors` clean; all acceptance grep gates pass. Two BLOCKING checkpoints remain (both REPO-UNAVAILABLE in this workspace per D-16): Plan 25-01 Task 4 (`mix ecto.migrate`) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host) — both await operator."
-last_updated: "2026-05-27T08:01:06.626Z"
+stopped_at: Phase 26 context gathered
+last_updated: "2026-05-27T08:23:26.257Z"
 last_activity: 2026-05-27
 progress:
   total_phases: 5
@@ -84,7 +84,7 @@ Progress bar: `████████░░ 80%` (4/5 vM013 phases — Phases 
 
 ## Session Continuity
 
-Last session: 2026-05-27T07:25:02Z
-Stopped at: Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired: `@selected_ids :: MapSet.t/0` + sticky bottom bulk-action bar + `<.focus_wrap>` confirmation modal + calm fail-closed refusal banner + `confirm_bulk_send` handler that calls `outbound_module().bulk_trigger/2` with body snapshotted at confirm-open time. 22/22 plan-touched headless tests green; `mix compile --warnings-as-errors` clean; all acceptance grep gates pass. Two BLOCKING checkpoints remain (both REPO-UNAVAILABLE in this workspace per D-16): Plan 25-01 Task 4 (`mix ecto.migrate`) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host) — both await operator.
+Last session: 2026-05-27T08:23:26.255Z
+Stopped at: Phase 26 context gathered
 Next step: Operator runs Plan 25-01 Task 4 (`mix ecto.migrate`) on a Postgres-available host, then Plan 25-03 Task 3's in-browser checks per the plan's `<how-to-verify>` block. Once both return "migrated" / "verified", Phase 25 is fully done and Phase 26 (Observability & Polish — OBS-01 telemetry attach + OBS-02 audit reads) can begin.
-Resume file: `.planning/phases/25-bulk-selection-fan-out/25-03-SUMMARY.md`
+Resume file: .planning/phases/26-observability-polish/26-CONTEXT.md
