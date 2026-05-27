@@ -109,7 +109,11 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
   1. Operators can multi-select conversations in `InboxLive`
   2. A bulk outbound action exposes cohort preview before execution
   3. Large batches are bounded to protect host resources
-**Plans**: pending
+**Plans**: 3 plans
+Plans:
+- [ ] 25-01-PLAN.md — BulkEnvelope schema + migration + Governance cohort reads (BULK-01, BULK-03 substrate)
+- [ ] 25-02-PLAN.md — Outbound.bulk_trigger/2 + sealed-primitive additive opt + Oban uniqueness (BULK-02, BULK-03)
+- [ ] 25-03-PLAN.md — InboxLive selection, sticky bar, confirmation modal, refusal banner (BULK-01, BULK-02, BULK-03, UI-03)
 **UI hint**: yes
 
 ---
@@ -134,7 +138,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
-| 25. Bulk Selection & Fan-out | vM013 | 0/1 | Not started | - |
+| 25. Bulk Selection & Fan-out | vM013 | 0/3 | Planned | - |
 | 26. Observability & Polish | vM013 | 0/1 | Not started | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
