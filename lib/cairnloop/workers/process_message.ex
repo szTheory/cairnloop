@@ -37,9 +37,13 @@ defmodule Cairnloop.Workers.ProcessMessage do
     # the Message row and fires two PubSub broadcasts post-commit).
     # Does NOT call reply_to_conversation/4 — D-06 explicit prohibition (that function
     # triggers DraftWorker for :user role, which is wrong for raw customer ingress).
+    # WR-02 fix: return {:cancel, reason} for permanent Ecto changeset failures.
+    # Returning :error signals Oban to retry (up to 20x) — wrong for deterministic
+    # changeset errors that will never succeed on retry. {:cancel, reason} marks
+    # the job discarded immediately without exhausting retry budget.
     case Cairnloop.Chat.ingest_widget_message(id, content) do
       {:ok, _message} -> :ok
-      {:error, _changeset} -> :error
+      {:error, changeset} -> {:cancel, "changeset error: #{inspect(changeset.errors)}"}
     end
   end
 
