@@ -214,18 +214,25 @@ defmodule Cairnloop.Web.InboxLiveTest do
     @moduledoc """
     Deterministic Governance stub for Task 2 tests. Builds a preview map shaped
     exactly like Cairnloop.Governance.preview_bulk_recovery_cohort/1 returns.
+
+    WR-06 regression hook: tests can pin `Process.put(:stub_governance_eligible_ids, ids)`
+    to force `eligible_ids` to a filtered subset distinct from the raw input
+    (simulating D-01 "resolved only" filtering removing a now-ineligible id
+    between modal-open and confirm).
     """
     def preview_bulk_recovery_cohort(ids) when is_list(ids) do
+      eligible_ids = Process.get(:stub_governance_eligible_ids, ids)
+
       sample =
-        ids
+        eligible_ids
         |> Enum.take(5)
         |> Enum.map(fn id -> "Conversation ##{id}" end)
 
-      total = length(ids)
+      total = length(eligible_ids)
       more = max(total - 5, 0)
 
       %{
-        eligible_ids: ids,
+        eligible_ids: eligible_ids,
         sample: sample,
         more: more,
         total: total
@@ -273,6 +280,8 @@ defmodule Cairnloop.Web.InboxLiveTest do
         Application.delete_env(:cairnloop, :max_batch_size)
         Process.delete(:stub_outbound_test_pid)
         Process.delete(:stub_outbound_response)
+        # WR-06 regression hook: never leak the filtered eligible_ids override.
+        Process.delete(:stub_governance_eligible_ids)
       end)
 
       :ok
@@ -407,6 +416,47 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assert Keyword.fetch!(opts, :template_id) == "recovery_v1"
       assert Keyword.fetch!(opts, :rendered_body) == snapshotted_body
       assert Keyword.fetch!(opts, :actor) == "operator_u1"
+    end
+
+    test "Test 6b: confirm_bulk_send sends snapshot's eligible_ids, NOT raw selected_ids (WR-06)" do
+      # Reproduces the WR-06 regression: previously the confirm handler did
+      # `socket.assigns.selected_ids |> MapSet.to_list() |> Enum.sort()` and
+      # passed those raw selection ids to bulk_trigger/2. But
+      # `open_bulk_confirm` calls `preview_bulk_recovery_cohort/1` which
+      # filters to D-01 eligible ids only. If the cohort drifts between
+      # modal-open and confirm (peer LiveView resolved/unresolved a
+      # conversation, or D-01 filtering removed an ineligible id), the
+      # operator saw count N in the modal but the system sent count M to
+      # bulk_trigger/2 — silent divergence between what was shown and what
+      # was sent.
+      #
+      # The fix: persist `preview.eligible_ids` on `bulk_preview` and feed
+      # THAT to bulk_trigger/2. Below we pin `eligible_ids = [1, 3]` while
+      # the raw selection is `MapSet.new([1, 2, 3])` to simulate id 2
+      # becoming ineligible between modal-open and confirm.
+      Process.put(:stub_governance_eligible_ids, [1, 3])
+
+      socket =
+        base_socket(
+          selected_ids: MapSet.new([1, 2, 3]),
+          host_user_id: "operator_u1",
+          conversations: resolved_conversations([1, 2, 3])
+        )
+
+      {:noreply, socket} = InboxLive.handle_event("open_bulk_confirm", %{}, socket)
+
+      # Modal-displayed count matches the filtered count, not the raw selection.
+      assert socket.assigns.bulk_preview.count == 2
+      assert socket.assigns.bulk_preview.eligible_ids == [1, 3]
+
+      {:noreply, socket} = InboxLive.handle_event("confirm_bulk_send", %{}, socket)
+
+      # bulk_trigger/2 was called with the snapshot's eligible_ids, not [1, 2, 3].
+      assert_received {:bulk_trigger, sent_ids, _opts}
+      assert sent_ids == [1, 3]
+
+      # Success flash count matches what was actually sent (and what was shown).
+      assert flash_value(socket, :info) =~ "Bulk recovery queued for 2 conversations"
     end
 
     test "Test 7: confirm with {:ok, _} sets info flash and resets selected_ids" do

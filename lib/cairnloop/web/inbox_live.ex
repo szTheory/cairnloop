@@ -350,8 +350,19 @@ defmodule Cairnloop.Web.InboxLive do
       # D-07) that mirrors `lib/cairnloop/outbound.ex` default content.
       rendered_body = render_bulk_body(template_id)
 
+      # WR-06: persist the snapshot's `eligible_ids` (D-01 filtered cohort)
+      # so `do_confirm_bulk_send/1` sends exactly what the operator was
+      # shown — never the raw `selected_ids` set (which can drift in a
+      # multi-tab scenario between modal-open and confirm). Also derive the
+      # displayed count from the filtered eligible_ids so the count shown
+      # equals the count actually sent (CLAUDE.md "snapshot trust facts at
+      # decision time").
+      eligible_ids = Map.get(preview, :eligible_ids, ids)
+      eligible_count = length(eligible_ids)
+
       bulk_preview = %{
-        count: count,
+        count: eligible_count,
+        eligible_ids: eligible_ids,
         sample: preview.sample,
         more: preview.more,
         rendered_body: rendered_body,
@@ -401,9 +412,30 @@ defmodule Cairnloop.Web.InboxLive do
   end
 
   defp do_confirm_bulk_send(socket) do
-    ids = socket.assigns.selected_ids |> MapSet.to_list() |> Enum.sort()
     preview = socket.assigns.bulk_preview
     actor = socket.assigns.host_user_id
+
+    # WR-06: send the snapshot's `eligible_ids` (what the operator was shown
+    # in the modal), NOT the raw `selected_ids` MapSet. Between modal-open
+    # and modal-confirm two things can drift the cohort:
+    #   1. A peer LiveView in another tab could resolve/unresolve a
+    #      conversation, leaving this tab's `@conversations` and
+    #      `@selected_ids` referring to a now-ineligible id.
+    #   2. The preview's `eligible_ids` (which honors D-01 "resolved only")
+    #      was previously captured into `bulk_preview.count` but never fed
+    #      back as the ground-truth `ids` to send.
+    # Using `preview.eligible_ids` makes the snapshot guarantee explicit:
+    # what was shown is what is sent (CLAUDE.md "snapshot trust facts at
+    # decision time"). Fall back to selected_ids only if a (pre-WR-06)
+    # preview struct lacks the key — defense-in-depth for stale assigns.
+    ids =
+      case preview do
+        %{eligible_ids: eligible} when is_list(eligible) ->
+          eligible
+
+        _ ->
+          socket.assigns.selected_ids |> MapSet.to_list() |> Enum.sort()
+      end
 
     opts = [
       template_id: preview.template_id,
