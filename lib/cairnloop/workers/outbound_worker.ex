@@ -3,6 +3,30 @@ defmodule Cairnloop.Workers.OutboundWorker do
   Oban worker that performs the per-recipient outbound delivery for a `system_outbound`
   message previously inserted by `Cairnloop.Outbound.trigger/2` (sealed, Phase 22/23).
 
+  ## Job args shape (Phase 25 expanded — sealed-additive, WR-01)
+
+  As of Phase 25, EVERY job enqueued by `Cairnloop.Outbound.trigger/2` (including
+  Phase 24 single-recipient callers) carries the following args map:
+
+      %{
+        "message_id"       => integer(),       # carried over from Phase 22/23
+        "conversation_id"  => integer(),       # ADDED in Phase 25 for dedup
+        "template_id"      => binary(),        # ADDED in Phase 25 for dedup
+        "bulk_envelope_id" => binary() | nil   # ADDED in Phase 25; `nil` for Phase 24 callers
+      }
+
+  This shape is **additively required** by D-11 — the three new keys form the Oban
+  `unique:` dedup tuple (see "Idempotency" below). Pre-Phase-25 callers enqueued
+  jobs with `args: %{"message_id" => id}` only; the new keys are now ALWAYS present,
+  even on the Phase 24 single-conversation lane (`bulk_envelope_id` is `nil` there).
+
+  **Host-side compatibility note.** A host with a custom Oban consumer (e.g., a
+  bespoke retry policy, an `Oban.Telemetry` handler that introspects args, or a
+  notifier that pattern-matches `args` strictly) will OBSERVE the new keys.
+  Subset-matching patterns like `%{"message_id" => id} = args` still succeed (map
+  pattern matching is subset-based). Hosts that treat the job args as an opaque
+  pass-through are unaffected.
+
   ## Idempotency (Phase 25 D-11)
 
   Per-recipient at-most-once delivery is enforced at the Oban job-uniqueness layer:
