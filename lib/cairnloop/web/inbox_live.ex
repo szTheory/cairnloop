@@ -115,6 +115,16 @@ defmodule Cairnloop.Web.InboxLive do
     <div class="cairnloop-inbox">
       <h1>Inbox</h1>
 
+      <%= if @conversations == [] do %>
+        <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
+        <p
+          class="inbox-empty-state"
+          style="margin-top: 12px; font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));"
+        >
+          No conversations yet.
+        </p>
+      <% end %>
+
       <%= if has_visible_eligible?(@conversations) do %>
         <div class="cairnloop-inbox-bulk-header" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
           <input
@@ -187,8 +197,18 @@ defmodule Cairnloop.Web.InboxLive do
           <.focus_wrap id="bulk-confirm-wrap">
             <div
               class="bulk-confirm-dialog"
-              style="background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
+              style="position: relative; background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
             >
+              <%!-- Phase 26 D-08: visible close affordance. Escape already works via phx-window-keydown. Anchored by position:relative on the dialog div. --%>
+              <button
+                type="button"
+                phx-click="cancel_bulk_confirm"
+                aria-label="Close"
+                style="position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62)); font-size: 24px; line-height: 1; cursor: pointer; padding: 0;"
+              >
+                ×
+              </button>
+
               <%= if @bulk_refusal do %>
                 <%!-- D-10 + brand §7.5 — refusal banner: icon + text + danger token. --%>
                 <div

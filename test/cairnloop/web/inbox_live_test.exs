@@ -685,19 +685,22 @@ defmodule Cairnloop.Web.InboxLiveTest do
       html = render_html(assigns)
 
       close_match = :binary.match(html, "aria-label=\"Close\"")
-      title_match = :binary.match(html, "bulk-confirm-title")
+      # The actual <h2 id="bulk-confirm-title"> heading element, NOT the
+      # aria-labelledby attribute reference on the dialog root (which appears
+      # earlier in the HTML simply because the root element wraps everything).
+      title_match = :binary.match(html, "id=\"bulk-confirm-title\"")
 
       assert close_match != :nomatch,
              "expected aria-label=\"Close\" in rendered HTML (close button missing)"
 
       assert title_match != :nomatch,
-             "expected bulk-confirm-title in rendered HTML (title missing)"
+             "expected id=\"bulk-confirm-title\" heading in rendered HTML (title missing)"
 
       {close_offset, _} = close_match
       {title_offset, _} = title_match
 
       assert close_offset < title_offset,
-             "close button (offset #{close_offset}) must appear BEFORE the dialog title (offset #{title_offset}) — Pitfall 6 ordering for focus_wrap"
+             "close button (offset #{close_offset}) must appear BEFORE the dialog title heading (offset #{title_offset}) — Pitfall 6 ordering for focus_wrap"
     end
 
     test "Test 6: refusal banner copy review (brand §7.5 — text + SVG icon + danger token)" do
