@@ -1,11 +1,43 @@
 defmodule Cairnloop.Outbound do
   @moduledoc """
   Facade for programmatically triggering support lifecycle events (outbound messages).
+
+  ## Sealing posture (D-12)
+
+  `trigger/2`'s **public signature** `trigger(conversation_id, opts)` is sealed at the
+  Phase 22 / 23 / 24 contract. Phase 25 adds the additive optional key
+  `:bulk_envelope_id` (default `nil`); Phase 24 callers that do not pass it continue
+  to observe identical behavior.
+
+  ## Bulk fan-out (Phase 25, D-13)
+
+  `bulk_trigger/2` is the new envelope entry point that lets `InboxLive` (plan 03)
+  fan out the same per-recipient `trigger/2` primitive across N conversations under
+  a single durable `Cairnloop.Outbound.BulkEnvelope` row. Both `trigger/2` and
+  `bulk_trigger/2` share a private `build_trigger_multi/2` helper that returns an
+  `Ecto.Multi` WITHOUT running it — research Open Question 1 — so the bulk path
+  composes per-recipient multis into one merged transaction without nesting.
+
+  ## Cap (D-09)
+
+  `bulk_trigger/2` enforces `length(conversation_ids) <= max_batch_size()` at the
+  envelope boundary regardless of caller (defense-in-depth — research Pitfall 4).
+  `max_batch_size/0` reads the `:cairnloop, :max_batch_size` application env (default
+  `25`) — research Open Question 3.
   """
   alias Cairnloop.Message
+  alias Cairnloop.Outbound.BulkEnvelope
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
+  end
+
+  # D-09 / Pitfall 4: cap is read fresh on each call so ops can tune via env without
+  # restart. Direct Application.get_env per research Open Question 3 (no Config module).
+  defp max_batch_size, do: Application.get_env(:cairnloop, :max_batch_size, 25)
+
+  defp default_auditor do
+    Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
   end
 
   @doc """
@@ -17,13 +49,17 @@ defmodule Cairnloop.Outbound do
     * `:schedule_in` (optional) - Delay in seconds before sending the message.
     * `:actor` (optional) - The entity triggering the outbound action for auditing.
     * `:auditor` (optional) - Custom auditor implementation.
+    * `:bulk_envelope_id` (optional, Phase 25 additive — D-12) - When set, this
+      correlation key is threaded into `Message.metadata["bulk_envelope_id"]` and
+      into the `OutboundWorker` job args so the per-recipient delivery participates
+      in the bulk audit envelope and the Oban `unique:` dedup tuple
+      `(conversation_id, template_id, bulk_envelope_id)` (D-11).
   """
   def trigger(conversation_id, opts) do
     template_id = Keyword.fetch!(opts, :template_id)
-    content = Keyword.get(opts, :content, "Outbound message using template: #{template_id}")
     schedule_in = Keyword.get(opts, :schedule_in)
     actor = Keyword.get(opts, :actor)
-    auditor = Keyword.get(opts, :auditor, Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp))
+    auditor = Keyword.get(opts, :auditor, default_auditor())
 
     meta = %{
       conversation_id: conversation_id,
@@ -34,32 +70,212 @@ defmodule Cairnloop.Outbound do
 
     Cairnloop.Telemetry.span([:outbound, :triggered], meta, fn ->
       multi =
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(
-          :message,
-          Message.changeset(%Message{}, %{
-            conversation_id: conversation_id,
-            content: content,
-            role: :system_outbound,
-            metadata: %{
-              "template_id" => template_id,
-              "status" => "pending"
-            }
-          })
-        )
-        |> Ecto.Multi.merge(fn %{message: message} ->
-          job_opts = if schedule_in, do: [schedule_in: schedule_in], else: []
-          
-          Ecto.Multi.insert(
-            Ecto.Multi.new(),
-            :delivery_job,
-            Cairnloop.Workers.OutboundWorker.new(%{"message_id" => message.id}, job_opts)
-          )
-        end)
-        |> auditor.audit(:outbound_trigger, actor, %{conversation_id: conversation_id, template_id: template_id})
+        conversation_id
+        |> build_trigger_multi(opts)
+        |> auditor.audit(:outbound_trigger, actor, %{
+          conversation_id: conversation_id,
+          template_id: template_id
+        })
 
       result = repo().transaction(multi)
       {result, meta}
     end)
+  end
+
+  # Shared per-recipient multi-builder (research Open Question 1). Returns an
+  # `Ecto.Multi` WITHOUT executing it so both `trigger/2` and `bulk_trigger/2` can
+  # compose it without nesting transactions and without breaking `trigger/2`'s
+  # sealed public contract (D-12).
+  #
+  # When `:multi_key_prefix` is `nil` (single-recipient `trigger/2` path), the
+  # per-step keys remain `:message` and `:delivery_job` exactly as the Phase 22/23
+  # regression tests expect. When set (bulk fan-out), the keys become
+  # `:"message_#{prefix}"` and `:"delivery_job_#{prefix}"` so the merged multi has
+  # unique keys per recipient.
+  defp build_trigger_multi(conversation_id, opts) do
+    template_id = Keyword.fetch!(opts, :template_id)
+    content = Keyword.get(opts, :content, "Outbound message using template: #{template_id}")
+    schedule_in = Keyword.get(opts, :schedule_in)
+    bulk_envelope_id = Keyword.get(opts, :bulk_envelope_id)
+    key_prefix = Keyword.get(opts, :multi_key_prefix)
+
+    {message_key, job_key} =
+      case key_prefix do
+        nil -> {:message, :delivery_job}
+        p -> {:"message_#{p}", :"delivery_job_#{p}"}
+      end
+
+    Ecto.Multi.new()
+    |> Ecto.Multi.insert(
+      message_key,
+      Message.changeset(%Message{}, %{
+        conversation_id: conversation_id,
+        content: content,
+        role: :system_outbound,
+        metadata: %{
+          "template_id" => template_id,
+          "status" => "pending",
+          "bulk_envelope_id" => bulk_envelope_id
+        }
+      })
+    )
+    |> Ecto.Multi.merge(fn changes ->
+      message = Map.fetch!(changes, message_key)
+      job_opts = if schedule_in, do: [schedule_in: schedule_in], else: []
+
+      job_args = %{
+        "message_id" => message.id,
+        "conversation_id" => conversation_id,
+        "template_id" => template_id,
+        "bulk_envelope_id" => bulk_envelope_id
+      }
+
+      Ecto.Multi.insert(
+        Ecto.Multi.new(),
+        job_key,
+        Cairnloop.Workers.OutboundWorker.new(job_args, job_opts)
+      )
+    end)
+  end
+
+  @doc """
+  Bulk-triggers outbound messages across N conversations under a single durable
+  `Cairnloop.Outbound.BulkEnvelope` row (D-13). Per-recipient delivery flows through
+  the sealed `Outbound.trigger/2` lane via the shared private `build_trigger_multi/2`
+  helper (research Open Question 1).
+
+  **The caller is responsible for rendering** the template body and passing it as
+  `:rendered_body`. `bulk_trigger/2` NEVER re-resolves the template — the envelope
+  persists exactly the string the caller passed (CLAUDE.md "snapshot trust facts at
+  decision time"; T-25-03 mitigation).
+
+  ## Options
+
+    * `:template_id` (required) - The template id that was rendered into `:rendered_body`.
+      Persisted on the envelope for audit; NEVER used to re-render.
+    * `:rendered_body` (required) - The pre-rendered message body, snapshotted on the
+      envelope row at confirmation time.
+    * `:actor` (optional) - Actor string (operator, system, etc.); recorded as
+      `requested_by` on the envelope.
+    * `:auditor` (optional) - Custom auditor implementation. Defaults to the configured
+      `:cairnloop, :auditor`.
+
+  ## Cap (D-09, defense-in-depth — research Pitfall 4)
+
+  If `length(conversation_ids) > max_batch_size()`, a `BulkEnvelope` row is still
+  inserted with `status: :refused_cap_exceeded` and a humanized `:refused_reason`
+  (research Open Question 5 — mirrors `Governance.propose_blocked` posture so OBS-02
+  reads see both lanes from one table). The function then returns
+  `{:error, :batch_too_large}` and emits a telemetry event with
+  `outcome: :refused_cap_exceeded`.
+
+  ## Telemetry (D-B enum-only labels)
+
+  `[:cairnloop, :outbound, :bulk, :triggered]` is emitted with metadata containing
+  ONLY `outcome :: :submitted | :refused_cap_exceeded` and `count` — `template_id`,
+  recipient identifiers, and actor are NEVER in telemetry labels (research Pitfall 5).
+  Those live in the durable envelope row and the auditor metadata.
+  """
+  def bulk_trigger(conversation_ids, opts) when is_list(conversation_ids) do
+    template_id = Keyword.fetch!(opts, :template_id)
+    rendered_body = Keyword.fetch!(opts, :rendered_body)
+    actor = Keyword.get(opts, :actor)
+    auditor = Keyword.get(opts, :auditor, default_auditor())
+
+    count = length(conversation_ids)
+    cap = max_batch_size()
+
+    if count > cap do
+      bulk_trigger_refused(conversation_ids, template_id, rendered_body, actor, count, cap)
+    else
+      bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, opts)
+    end
+  end
+
+  # D-09 fail-closed refusal. Persists a durable `:refused_cap_exceeded` envelope row
+  # so OBS-02 can audit oversized-cohort attempts (research Open Question 5). Emits
+  # telemetry with enum-only labels per D-B; returns `{:error, :batch_too_large}`.
+  defp bulk_trigger_refused(conversation_ids, template_id, rendered_body, actor, count, cap) do
+    envelope_id = Ecto.UUID.generate()
+
+    envelope_attrs = %{
+      id: envelope_id,
+      template_id: template_id,
+      rendered_body: rendered_body,
+      recipient_conversation_ids: conversation_ids,
+      count: count,
+      requested_by: actor,
+      requested_at: DateTime.utc_now(),
+      status: :refused_cap_exceeded,
+      refused_reason: "batch_size #{count} exceeds cap #{cap}"
+    }
+
+    # Insert the refusal envelope OUTSIDE the telemetry span so the audit row lands
+    # even if the caller has no telemetry handler attached.
+    _ = repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+
+    Cairnloop.Telemetry.execute(
+      [:outbound, :bulk, :triggered],
+      %{count: count},
+      %{outcome: :refused_cap_exceeded, count: count}
+    )
+
+    {:error, :batch_too_large}
+  end
+
+  # D-13 happy path. Single `Ecto.Multi`: envelope insert + per-recipient
+  # `build_trigger_multi/2` merge + auditor step. Wrapped in a telemetry span with
+  # enum-only labels (D-B / Pitfall 5).
+  defp bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, opts) do
+    envelope_id = Ecto.UUID.generate()
+    count = length(conversation_ids)
+
+    envelope_attrs = %{
+      id: envelope_id,
+      template_id: template_id,
+      rendered_body: rendered_body,
+      recipient_conversation_ids: conversation_ids,
+      count: count,
+      requested_by: actor,
+      requested_at: DateTime.utc_now(),
+      status: :submitted
+    }
+
+    # Strip caller-provided :bulk_envelope_id / :multi_key_prefix; we own those here.
+    per_recipient_opts =
+      opts
+      |> Keyword.delete(:bulk_envelope_id)
+      |> Keyword.delete(:multi_key_prefix)
+
+    # D-B / Pitfall 5: telemetry metadata is enum-only — no template_id, no actor,
+    # no recipient identifiers in labels.
+    Cairnloop.Telemetry.span(
+      [:outbound, :bulk, :triggered],
+      %{outcome: :submitted, count: count},
+      fn ->
+        multi =
+          Ecto.Multi.new()
+          |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+          |> Ecto.Multi.merge(fn %{envelope: env} ->
+            Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
+              recipient_opts =
+                per_recipient_opts
+                |> Keyword.put(:bulk_envelope_id, env.id)
+                |> Keyword.put(:multi_key_prefix, cid)
+
+              Ecto.Multi.append(acc, build_trigger_multi(cid, recipient_opts))
+            end)
+          end)
+          |> auditor.audit(:bulk_outbound_trigger, actor, %{
+            bulk_envelope_id: envelope_id,
+            count: count,
+            template_id: template_id
+          })
+
+        result = repo().transaction(multi)
+        # Telemetry metadata for the :stop event stays enum-only (D-B).
+        {result, %{outcome: :submitted, count: count}}
+      end
+    )
   end
 end

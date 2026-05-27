@@ -60,7 +60,14 @@ defmodule Cairnloop.OutboundTest do
 
       assert job = results.delivery_job
       assert job.worker == "Cairnloop.Workers.OutboundWorker"
-      assert job.args == %{"message_id" => 999}
+      # Phase 25 (D-11) additively requires `conversation_id` + `template_id` in args
+      # so the Oban `unique:` dedup tuple is well-formed. Phase 24 callers do not pass
+      # `:bulk_envelope_id`, so its arg value is `nil` (Oban treats nil as a valid
+      # dedup key value — research Open Question 2).
+      assert job.args["message_id"] == 999
+      assert job.args["conversation_id"] == 1
+      assert job.args["template_id"] == "recovery_v1"
+      assert Map.get(job.args, "bulk_envelope_id") == nil
     end
 
     test "supports schedule_in option" do
@@ -111,6 +118,61 @@ defmodule Cairnloop.OutboundTest do
       assert results.audit.action == :outbound_trigger
       assert results.audit.actor == "system"
       assert results.audit.metadata == %{conversation_id: 1, template_id: "test"}
+    end
+  end
+
+  describe "trigger/2 with :bulk_envelope_id (Phase 25 additive opt)" do
+    test "without :bulk_envelope_id, Phase 24 behavior is unchanged (additive-opt seal — D-12)" do
+      assert {:ok, results} = Outbound.trigger(1, template_id: "recovery_v1")
+
+      # Public observable shape is unchanged: :message + :delivery_job keys still emerge.
+      assert results.message.role == :system_outbound
+      assert results.message.conversation_id == 1
+      assert results.message.metadata["template_id"] == "recovery_v1"
+      assert results.delivery_job.worker == "Cairnloop.Workers.OutboundWorker"
+
+      # Worker args now carry the Task 1 dedup keys (conversation_id + template_id);
+      # bulk_envelope_id is either absent OR nil — both are acceptable Phase 24 shapes.
+      args = results.delivery_job.args
+      assert args["message_id"] == 999
+      assert args["conversation_id"] == 1
+      assert args["template_id"] == "recovery_v1"
+      assert Map.get(args, "bulk_envelope_id") == nil
+    end
+
+    test "with :bulk_envelope_id, worker args carry all three dedup keys" do
+      assert {:ok, results} =
+               Outbound.trigger(1,
+                 template_id: "recovery_v1",
+                 bulk_envelope_id: "envelope-uuid"
+               )
+
+      args = results.delivery_job.args
+      assert args["message_id"] == 999
+      assert args["conversation_id"] == 1
+      assert args["template_id"] == "recovery_v1"
+      assert args["bulk_envelope_id"] == "envelope-uuid"
+    end
+
+    test "with :bulk_envelope_id, Message.metadata records the envelope correlation key" do
+      assert {:ok, results} =
+               Outbound.trigger(1,
+                 template_id: "recovery_v1",
+                 bulk_envelope_id: "envelope-uuid"
+               )
+
+      # Conversation timeline can correlate per-recipient cards back to the envelope row.
+      assert results.message.metadata["bulk_envelope_id"] == "envelope-uuid"
+      assert results.message.metadata["template_id"] == "recovery_v1"
+      assert results.message.metadata["status"] == "pending"
+    end
+
+    test "without :bulk_envelope_id, Message.metadata does not assert a specific bulk_envelope_id" do
+      assert {:ok, results} = Outbound.trigger(1, template_id: "recovery_v1")
+
+      # Accept either absent OR nil — both shapes are acceptable per the plan.
+      bulk_id = Map.get(results.message.metadata, "bulk_envelope_id")
+      assert is_nil(bulk_id)
     end
   end
 end
