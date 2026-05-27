@@ -993,13 +993,217 @@ defmodule CairnloopExample.SeedRun do
     end
   end
 
-  # Builds 1 ArticleSuggestion with status :ready (spec: :ready_for_review) + evidence rows
-  # + a ReviewTask so SuggestionReview LiveView renders without waiting for the LLM worker.
+  # Stable identity key for the seeded suggestion (idempotency — D-02).
+  @demo_suggestion_stable_key "demo:article_suggestion:billing_export:v1"
+
+  # Builds 1 ArticleSuggestion with:
+  #   - status: :ready       (sealed enum — spec language :ready_for_review)
+  #   - suggestion_type: :article  (sealed enum — spec language :new_article)
+  #   - entrypoint_type: :gap_candidate targeting demo_gap_billing_export
+  #   - tenant_scope: :host_user_scoped + host_user_id: "demo_operator" (Pitfall 3 — operator-scope)
+  #   - 2 KB-chunk-grounded ArticleSuggestionEvidence rows (D-16 minimum)
+  #     Both rows cite the api_key article's published revision (chunk_index 0 and 1).
+  #     validate_citation_target requires article_id/revision_id/chunk_index on every row.
+  #     validate_metadata_destination requires metadata.destination map on every row.
+  #   - deterministic evidence_digest matching the production algorithm (D-16 / RESEARCH §evidence_digest_for)
+  #   - hand-authored proposed_markdown with [1]/[2] footnote anchors (D-15)
+  #
+  # After the suggestion insert, KnowledgeAutomation.ensure_review_task_for_suggestion/2 is
+  # called so a ReviewTask + :task_created ReviewTaskEvent are created (Critical Finding 2 /
+  # Pitfall 1 — without this, SuggestionReview LiveView shows an empty queue for FIX-04).
+  #
+  # _conversations arg is underscore-prefixed: evidence rows are exclusively KB-chunk-grounded.
+  # Conversation context surfaces in the demo via plan 27-04's seeded conversations; the schema
+  # has no direct ArticleSuggestion→Conversation anchor field, and validate_citation_target
+  # requires article_id/revision_id/chunk_index on every evidence row — conversation-only
+  # citation_targets are fundamentally incompatible with that validator.
+  #
   # Returns {%ArticleSuggestion{}, %ReviewTask{}}.
-  # (nil, nil at skeleton stage — the real plan returns real structs)
-  # TODO: filled by 27-06-PLAN.md (FIX-04 1 ArticleSuggestion :ready + evidence + ReviewTask)
-  defp build_suggestion(_articles, _conversations) do
-    {nil, nil}
+  defp build_suggestion(articles, _conversations) do
+    import Ecto.Query
+
+    # Look up the entrypoint gap (first @demo_gaps spec — demo_gap_billing_export)
+    gap = Repo.get_by!(GapCandidate, stable_key: "demo_gap_billing_export")
+
+    # Look up the canonical article whose chunks provide the KB-grounded evidence
+    api_key_article = Map.fetch!(articles, :api_key)
+
+    # Look up the api_key article's published revision (chunk_index 0 and 1 are guaranteed
+    # to exist because the article body has ≥2 ## h2 sections — Pitfall 4 mitigation from plan 27-03)
+    api_key_revision =
+      Repo.one!(
+        from r in Revision,
+          where: r.article_id == ^api_key_article.id and r.state == :published,
+          limit: 1
+      )
+
+    # -------------------------------------------------------------------------
+    # 2 KB-chunk-grounded evidence rows (D-16: ≥2 rows required)
+    #
+    # Both rows are source_type: :knowledge_base, trust_level: :canonical (sealed enums
+    # verified at ArticleSuggestionEvidence lines 7-8).
+    #
+    # validate_citation_target REQUIRES: article_id, revision_id, chunk_index.
+    # validate_metadata_destination REQUIRES: metadata.destination as a map.
+    #
+    # Both rows reference DISTINCT chunks of api_key_article's published revision:
+    #   Row 1 → chunk_index: 0  (## Reset steps section — API key revoke flow)
+    #   Row 2 → chunk_index: 1  (## When to contact support section — audit-log adjacency
+    #                             + bulk-export pathway that anchors the [2] footnote)
+    # -------------------------------------------------------------------------
+    evidence_row_1 = %{
+      source_type: :knowledge_base,
+      trust_level: :canonical,
+      title: api_key_article.title,
+      excerpt:
+        "Trailmark API keys are reset under Settings → API Keys; the reset flow surfaces the same audit log that backs billing-receipt traceability.",
+      citation_target: %{
+        article_id: api_key_article.id,
+        revision_id: api_key_revision.id,
+        chunk_index: 0
+      },
+      metadata: %{
+        destination: %{
+          article_id: api_key_article.id,
+          revision_id: api_key_revision.id
+        },
+        origin: "demo_seed"
+      },
+      match_reasons: [
+        "matched canonical API-key reset adjacency",
+        "shares audit-log surface with billing receipts"
+      ]
+    }
+
+    evidence_row_2 = %{
+      source_type: :knowledge_base,
+      trust_level: :canonical,
+      title: api_key_article.title,
+      excerpt:
+        "Multi-month bulk export of receipts is available via the API-key-authenticated export endpoint; CFO/billing-email changes do not invalidate prior receipts.",
+      citation_target: %{
+        article_id: api_key_article.id,
+        revision_id: api_key_revision.id,
+        chunk_index: 1
+      },
+      metadata: %{
+        destination: %{
+          article_id: api_key_article.id,
+          revision_id: api_key_revision.id
+        },
+        origin: "demo_seed"
+      },
+      match_reasons: [
+        "matched canonical API-key bulk-export pathway"
+      ]
+    }
+
+    evidence_snapshot = [evidence_row_1, evidence_row_2]
+
+    # -------------------------------------------------------------------------
+    # Proposed markdown with [1]/[2] footnote anchors (D-15)
+    # Brand voice: calm, fail-closed, reason-forward (§5.5).
+    # -------------------------------------------------------------------------
+    proposed_markdown = """
+    ## Exporting your billing receipts
+
+    Trailmark stores monthly receipts under Settings → Billing → Receipts [1].
+    Each receipt is downloadable as a PDF; multi-month bulk export is available via the API-key authenticated export flow [2].
+
+    ## When to contact support
+
+    If a receipt is missing or shows the wrong billing email, contact support with the receipt date and your account email.
+    """
+
+    # -------------------------------------------------------------------------
+    # Suggestion attrs
+    # NOTE: article_id and base_revision_id are intentionally NOT set.
+    # validate_anchor_rules rejects them for {:article, :gap_candidate} pairs
+    # (ArticleSuggestion lines 144-148). The article reference lives exclusively
+    # on the evidence rows' citation_target + metadata.destination.
+    # -------------------------------------------------------------------------
+    suggestion_attrs = %{
+      stable_key: @demo_suggestion_stable_key,
+      # sealed enum — spec language :new_article maps to :article (Sealed-enum reconciliation table)
+      suggestion_type: :article,
+      # sealed enum — spec language :ready_for_review maps to :ready
+      status: :ready,
+      tenant_scope: :host_user_scoped,
+      # operator-scope (Pitfall 3 — must match router.ex live_session host_user_id "demo_operator")
+      host_user_id: "demo_operator",
+      entrypoint_type: :gap_candidate,
+      entrypoint_id: gap.id,
+      title: "Exporting Trailmark billing receipts",
+      operator_summary:
+        "Repeated customer requests for a billing-export flow surfaced through the demo_gap_billing_export gap. Hand-authored draft grounded in the canonical API-key article's published revision.",
+      proposed_markdown: proposed_markdown,
+      # non-empty map required by validate_grounding_metadata/1
+      grounding_metadata: %{"status" => "strong", "evidence_count" => length(evidence_snapshot)},
+      evidence_snapshot: evidence_snapshot,
+      evidence_digest: compute_evidence_digest(evidence_snapshot),
+      generated_at: DateTime.utc_now()
+    }
+
+    # -------------------------------------------------------------------------
+    # Idempotent insert (manual get_by keyed on stable_key — embeds_many is cast
+    # at insert time so the generic get_or_insert!/3 helper is not used here)
+    # -------------------------------------------------------------------------
+    suggestion =
+      case Repo.get_by(ArticleSuggestion, stable_key: @demo_suggestion_stable_key) do
+        nil ->
+          %ArticleSuggestion{}
+          |> ArticleSuggestion.changeset(suggestion_attrs)
+          |> Repo.insert!()
+
+        existing ->
+          existing
+      end
+
+    # -------------------------------------------------------------------------
+    # Companion ReviewTask via the library facade (Critical Finding 2 / Pitfall 1)
+    #
+    # SuggestionReview LiveView reads list_review_tasks/1 (NOT list_article_suggestions/1).
+    # Without this call, the suggestion is invisible in /support/knowledge-base/suggestions.
+    #
+    # Only :actor_id is read from opts — tenant_scope and host_user_id are sourced
+    # from the loaded suggestion automatically (lib/cairnloop/knowledge_automation.ex:137-138).
+    # Do NOT pass :tenant_scope or :host_user_id here.
+    #
+    # ensure_review_task_for_suggestion/2 is idempotent (returns existing active task
+    # if one is already linked — lib/cairnloop/knowledge_automation.ex:128-129).
+    # -------------------------------------------------------------------------
+    {:ok, review_task} =
+      KnowledgeAutomation.ensure_review_task_for_suggestion(
+        suggestion.id,
+        actor_id: "system"
+      )
+
+    {suggestion, review_task}
+  end
+
+  # ---------------------------------------------------------------------------
+  # Evidence digest helper — mirrors production algorithm at
+  # lib/cairnloop/knowledge_automation.ex:961-976 verbatim.
+  #
+  # Field order is LOAD-BEARING: [source_type, trust_level, title, excerpt,
+  # citation_target, match_reasons]. :metadata is deliberately EXCLUDED.
+  # Future CandidateBuilder re-computation must match this hash (D-16 / T-27-19).
+  # ---------------------------------------------------------------------------
+  defp compute_evidence_digest(evidence_snapshot) do
+    evidence_snapshot
+    |> Enum.map(fn e ->
+      %{
+        source_type: e.source_type,
+        trust_level: e.trust_level,
+        title: e.title,
+        excerpt: e.excerpt,
+        citation_target: e.citation_target,
+        match_reasons: e.match_reasons
+      }
+    end)
+    |> Jason.encode!()
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.encode16(case: :lower)
   end
 
   # Synchronously drains the :default Oban queue after all builders complete.
