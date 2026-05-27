@@ -870,6 +870,66 @@ defmodule Cairnloop.Web.InboxLiveTest do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Phase 28 D-09/D-10: handle_info({:conversations_changed}) — inbox PubSub refresh.
+  #
+  # UAT-4 automation: replaces the two-tab "operator inbox auto-refresh on new
+  # customer join" manual check. Proves:
+  #   (a) the conversation list is reloaded from the Chat facade on receipt, and
+  #   (b) selected_ids are pruned for conversations that disappear from the list.
+  # ---------------------------------------------------------------------------
+
+  describe "handle_info({:conversations_changed}) — Phase 28 D-10" do
+    defmodule ConversationsReloadRepo do
+      # Process-dictionary-backed: tests seed the desired list via
+      # `Process.put(:conversations_reload_list, [...])`. Defaults to [].
+      def all(_query), do: Process.get(:conversations_reload_list, [])
+    end
+
+    setup do
+      Application.put_env(:cairnloop, :repo, ConversationsReloadRepo)
+
+      on_exit(fn ->
+        Application.delete_env(:cairnloop, :repo)
+        Process.delete(:conversations_reload_list)
+      end)
+
+      :ok
+    end
+
+    test "reloads conversation list from Chat facade when {:conversations_changed} is received" do
+      new_conversations = [
+        %Cairnloop.Conversation{id: 10, status: :open, subject: "New convo"},
+        %Cairnloop.Conversation{id: 11, status: :resolved, subject: "Another"}
+      ]
+
+      Process.put(:conversations_reload_list, new_conversations)
+
+      socket = base_socket(conversations: [], selected_ids: MapSet.new())
+
+      {:noreply, updated_socket} = InboxLive.handle_info({:conversations_changed}, socket)
+
+      assert length(updated_socket.assigns.conversations) == 2
+      assert Enum.map(updated_socket.assigns.conversations, & &1.id) == [10, 11]
+    end
+
+    test "prunes selected_ids that are no longer in the reloaded conversation list" do
+      # ids 1 and 2 survive reload; id 99 disappears — prune_selected_ids/2 must drop it.
+      new_conversations = [
+        %Cairnloop.Conversation{id: 1, status: :resolved, subject: "A"},
+        %Cairnloop.Conversation{id: 2, status: :resolved, subject: "B"}
+      ]
+
+      Process.put(:conversations_reload_list, new_conversations)
+
+      socket = base_socket(selected_ids: MapSet.new([1, 2, 99]))
+
+      {:noreply, updated_socket} = InboxLive.handle_info({:conversations_changed}, socket)
+
+      assert updated_socket.assigns.selected_ids == MapSet.new([1, 2])
+    end
+  end
+
   # WR-05: shared comment-stripping helper used by the D-14 grep gates above
   # (so a `# import Ecto.Query` reference inside a comment doesn't trip the
   # narrow-facade test) and the operator-copy `inspect(` gate. Drops Elixir

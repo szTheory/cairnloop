@@ -473,6 +473,26 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert hd(new_socket.assigns.conversation.drafts).id == 202
       assert hd(new_socket.assigns.conversation.drafts).content == "Newly loaded AI draft"
     end
+
+    # Phase 28 D-17: operator view refreshes when a customer message arrives via PubSub.
+    # UAT-1 operator side: proves the ConversationLive reacts to {:message_created} broadcasts
+    # without requiring a live browser tab — the message_id arg is intentionally ignored
+    # (reload always fetches the current DB state).
+    test "reloads conversation on :message_created (Phase 28 D-17 operator view refresh)" do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          conversation: %Cairnloop.Conversation{id: 1},
+          __changed__: %{}
+        }
+      }
+
+      # Any message_id triggers a reload — the value is unused by the handler.
+      assert {:noreply, new_socket} = ConversationLive.handle_info({:message_created, 42}, socket)
+
+      # MockRepo.get!(Cairnloop.Conversation, 1) returns the conversation with draft id 202.
+      # A changed conversation proves reload_conversation_with_context/2 was invoked.
+      assert hd(new_socket.assigns.conversation.drafts).id == 202
+    end
   end
 
   describe "render/1 normalizes context and shell" do

@@ -248,6 +248,61 @@ defmodule CairnloopExampleWeb.ChatLiveTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Test 8 (UAT-1 automation — PubSub subscription wiring + round-trip)
+  #
+  # Replaces the two-tab manual "customer → operator" round-trip UAT check.
+  # Proves:
+  #   (a) handle_event("conversation_id") on a connected socket subscribes
+  #       the LiveView process to the per-conversation PubSub topic (D-02), and
+  #   (b) a {:message_created, id} broadcast on that topic reaches handle_info/2
+  #       and appends the operator reply, clearing the pending indicator.
+  #
+  # In the unit-test harness the socket runs in the test process (transport_pid
+  # = self()), so Phoenix.PubSub.subscribe/2 registers the test process as the
+  # subscriber — broadcast + assert_receive proves the wiring end-to-end without
+  # a browser or live WebSocket.
+  # ---------------------------------------------------------------------------
+
+  test "PubSub subscription wiring: conversation_id event subscribes to topic; broadcast → receive → handle_info appends operator reply" do
+    # (a) Mount a connected socket (transport_pid = self() → connected?(socket) == true).
+    socket = build_connected_socket()
+    {:ok, socket} = ChatLive.mount(%{}, %{}, socket)
+
+    # (b) Deliver conversation_id event — triggers PubSub.subscribe on the test process
+    #     for "conversation:pubsub-round-trip" (gated on connected?/1 per D-02).
+    {:noreply, socket} =
+      ChatLive.handle_event("conversation_id", %{"id" => "pubsub-round-trip"}, socket)
+
+    assert socket.assigns.conversation_id == "pubsub-round-trip"
+
+    # (c) Simulate an operator reply broadcast, as Chat.reply_to_conversation/4 does.
+    Phoenix.PubSub.broadcast(
+      Cairnloop.PubSub,
+      "conversation:pubsub-round-trip",
+      {:message_created, 1}
+    )
+
+    # (d) Prove the subscription is live — the broadcast lands in the test process.
+    assert_receive {:message_created, 1}, 200
+
+    # (e) Pass the message to handle_info/2 as the LV runtime would.
+    socket_pre_reply =
+      socket
+      |> Phoenix.Component.assign(:pending, true)
+      |> Phoenix.Component.assign(:messages, [
+        %{role: :customer, content: "help", inserted_at: DateTime.utc_now()}
+      ])
+
+    {:noreply, updated_socket} = ChatLive.handle_info({:message_created, 1}, socket_pre_reply)
+
+    # (f) MockRepo.get(Cairnloop.Message, 1) → :agent / "operator reply"; pending cleared.
+    operator_msgs = Enum.filter(updated_socket.assigns.messages, &(&1.role == :operator))
+    assert length(operator_msgs) == 1
+    assert hd(operator_msgs).content == "operator reply"
+    assert updated_socket.assigns.pending == false
+  end
+
+  # ---------------------------------------------------------------------------
   # Test 7 (negative grep — path resolution LOCKED via Application.app_dir/2)
   # chat_live.ex no longer references Process.send_after or :bot_reply
   # ---------------------------------------------------------------------------
