@@ -51,6 +51,13 @@ defmodule Cairnloop.ChatTest do
       end)
     end
 
+    # Phase 28: top-level insert/1 for new single-row facade functions (create_customer_conversation/1
+    # and ingest_widget_message/2). These do NOT go through Multi, so the Multi reducer above
+    # doesn't cover them. Shape mirrors the inside-Multi :insert case.
+    def insert(changeset) do
+      {:ok, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)}
+    end
+
     def update(changeset) do
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
@@ -72,6 +79,18 @@ defmodule Cairnloop.ChatTest do
 
       %{conversation | messages: messages}
     end
+  end
+
+  # Phase 28: ensure Cairnloop.PubSub is available for the new broadcast tests.
+  # test_helper.exs only starts Cairnloop.PubSub under :integration; the headless suite
+  # needs a per-suite instance via start_supervised! (tolerates already_started gracefully).
+  setup_all do
+    case start_supervised({Phoenix.PubSub, name: Cairnloop.PubSub}) do
+      {:ok, _} -> :ok
+      {:error, {:already_started, _}} -> :ok
+    end
+
+    :ok
   end
 
   setup do
@@ -275,6 +294,95 @@ defmodule Cairnloop.ChatTest do
                actor: "agent_smith",
                metadata: %{conversation_id: 1}
              } = results.audit
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 28 D-05: create_customer_conversation/1
+  # ---------------------------------------------------------------------------
+
+  describe "create_customer_conversation/1" do
+    test "inserts conversation with status :open, subject default \"Customer chat\", and host_user_id from attrs" do
+      assert {:ok, %Cairnloop.Conversation{status: :open, subject: "Customer chat", host_user_id: "demo_customer"}} =
+               Chat.create_customer_conversation(%{host_user_id: "demo_customer"})
+    end
+
+    test "broadcasts {:conversations_changed} on \"conversations\" topic" do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
+      {:ok, _conversation} = Chat.create_customer_conversation(%{host_user_id: "demo_customer"})
+      assert_receive {:conversations_changed}, 200
+    end
+
+    test "accepts a custom subject when provided" do
+      assert {:ok, %Cairnloop.Conversation{subject: "Help me"}} =
+               Chat.create_customer_conversation(%{host_user_id: "demo_customer", subject: "Help me"})
+    end
+
+    # Test 3 (error branch) not implemented in headless suite: would require
+    # MockRepo.insert/1 to return {:error, changeset} on demand, which requires
+    # significant process-dictionary plumbing. The error branch is identical in
+    # shape to existing facade functions — omitted per plan guidance.
+    # # REPO-UNAVAILABLE: error path not exercised in headless suite
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 28 D-06: ingest_widget_message/2
+  # ---------------------------------------------------------------------------
+
+  describe "ingest_widget_message/2" do
+    test "inserts :user-role message via the Message changeset (NOT reply_to_conversation)" do
+      assert {:ok, result} = Chat.ingest_widget_message(1, "hi")
+      assert %Cairnloop.Message{role: :user, content: "hi", conversation_id: 1} = result
+      # Negative assertion: the return value does NOT contain a :draft_job key —
+      # proves we are NOT on the reply_to_conversation/4 :user path (which enqueues DraftWorker).
+      refute Map.has_key?(result, :draft_job)
+    end
+
+    test "broadcasts {:message_created, id} on conversation topic" do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:1")
+      {:ok, _message} = Chat.ingest_widget_message(1, "hi")
+      assert_receive {:message_created, _msg_id}, 200
+    end
+
+    test "also broadcasts {:conversations_changed} on conversations topic" do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
+      {:ok, _message} = Chat.ingest_widget_message(1, "hi")
+      assert_receive {:conversations_changed}, 200
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 28 OQ-1: reply_to_conversation/4 additive broadcast
+  # ---------------------------------------------------------------------------
+
+  describe "reply_to_conversation/4 broadcast (OQ-1)" do
+    test "post-commit broadcasts {:message_created, msg_id} on conversation topic" do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:1")
+      {:ok, _results} = Chat.reply_to_conversation(1, "operator reply", :agent)
+      assert_receive {:message_created, msg_id}, 200
+      # MockRepo.insert/1 (inside Multi) always sets id: 999
+      assert msg_id == 999
+    end
+
+    test "does not change the sealed :user role + DraftWorker insertion semantics" do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:1")
+      assert {:ok, results} = Chat.reply_to_conversation(1, "user message", :user)
+
+      # Sealed contract: DraftWorker is still enqueued for :user branch
+      assert results.draft_job.worker == "Cairnloop.Automation.Workers.DraftWorker"
+      assert results.message.role == :user
+
+      # OQ-1 broadcast fires for :user branch too (broadcast is outside the if role == :user block)
+      assert_receive {:message_created, _msg_id}, 200
+    end
+
+    test "the additive broadcast does NOT change the function's return shape" do
+      # Trailing-expression invariant guard: if the OQ-1 case accidentally became the
+      # Telemetry.span lambda's last expression, the function would return :ok (from
+      # broadcast_safely/2) instead of the {:ok, results} tuple. This test locks it.
+      assert {:ok, results} = Chat.reply_to_conversation(1, "operator reply", :agent)
+      assert %Cairnloop.Message{} = results.message
+      # Return is {:ok, map_with_message}, NOT :ok from the broadcast helper
     end
   end
 end

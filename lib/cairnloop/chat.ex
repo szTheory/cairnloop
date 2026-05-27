@@ -22,6 +22,55 @@ defmodule Cairnloop.Chat do
     )
   end
 
+  # Phase 28 D-05: create a bare conversation for an inbound widget customer.
+  # Does NOT go through reply_to_conversation/4 — this is a simple single-row insert.
+  # On success broadcasts {:conversations_changed} on "conversations" so InboxLive refreshes.
+  # Returns {:ok, conversation} on success, {:error, changeset} on failure.
+  def create_customer_conversation(attrs) when is_map(attrs) do
+    changeset =
+      Cairnloop.Conversation.changeset(%Cairnloop.Conversation{}, %{
+        status: :open,
+        subject: Map.get(attrs, :subject, "Customer chat"),
+        host_user_id: Map.fetch!(attrs, :host_user_id)
+      })
+
+    case repo().insert(changeset) do
+      {:ok, conversation} ->
+        broadcast_safely("conversations", {:conversations_changed})
+        {:ok, conversation}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  # Phase 28 D-06: ingest a raw customer widget message as a :user-role Message.
+  # Does NOT call reply_to_conversation/4 — that path triggers DraftWorker for :user
+  # and is wrong for raw customer ingress (the widget message itself is the customer input;
+  # DraftWorker would draft a reply to it, which is a separate concern handled by Plan 02+).
+  # On success broadcasts TWO messages:
+  #   1. {:message_created, message.id} on "conversation:#{conversation_id}" (D-17 trigger)
+  #   2. {:conversations_changed} on "conversations" (D-09 InboxLive trigger)
+  # Returns {:ok, message} on success, {:error, changeset} on failure.
+  def ingest_widget_message(conversation_id, content) when is_binary(content) do
+    changeset =
+      Cairnloop.Message.changeset(%Cairnloop.Message{}, %{
+        conversation_id: conversation_id,
+        content: content,
+        role: :user
+      })
+
+    case repo().insert(changeset) do
+      {:ok, message} ->
+        broadcast_safely("conversation:#{conversation_id}", {:message_created, message.id})
+        broadcast_safely("conversations", {:conversations_changed})
+        {:ok, message}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
   def reply_to_conversation(conversation_id, content, role \\ :agent, opts \\ []) do
     conversation = repo().get!(Conversation, conversation_id)
     actor = Keyword.get(opts, :actor)
@@ -142,6 +191,25 @@ defmodule Cairnloop.Chat do
         end
 
       result = repo().transaction(multi)
+
+      # Phase 28 OQ-1 (additive, sealed contract preserved): post-commit broadcast so
+      # the customer's ChatLive can render operator replies in real time (D-17).
+      # Rationale: the insert has already committed — a missing PubSub registry must NOT
+      # roll back committed data. Defensive try/rescue via broadcast_safely/2 (see Pitfall 3).
+      # CRITICAL trailing-expression invariant: this case-statement is a SIDE-EFFECTING
+      # STATEMENT only — its return value is intentionally ignored. {result, meta} MUST
+      # remain the trailing expression of this Telemetry.span lambda so the span callback
+      # receives the correct {result, meta} tuple. If you move the case below {result, meta}
+      # the lambda returns :ok (from broadcast_safely/2) and silently corrupts the caller's
+      # return value (locked by OQ-1 Test 3 in chat_test.exs).
+      case result do
+        {:ok, %{message: %{id: msg_id}}} ->
+          broadcast_safely("conversation:#{conversation.id}", {:message_created, msg_id})
+
+        _ ->
+          :ok
+      end
+
       {result, meta}
     end)
   end
@@ -246,5 +314,17 @@ defmodule Cairnloop.Chat do
           {error, meta}
       end
     end)
+  end
+
+  # Phase 28: defensive PubSub broadcast helper.
+  # Wraps Phoenix.PubSub.broadcast/3 in try/rescue so a missing registry (dev, test,
+  # headless test environments) can never propagate an error back into an already-committed
+  # :ok branch. Pattern mirrors tool_execution_worker.ex:580-588 (defensive variant).
+  defp broadcast_safely(topic, message) do
+    try do
+      Phoenix.PubSub.broadcast(Cairnloop.PubSub, topic, message)
+    rescue
+      _ -> :ok
+    end
   end
 end
