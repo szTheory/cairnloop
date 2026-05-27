@@ -45,11 +45,17 @@ defmodule Cairnloop.Channels.WidgetChannel do
   def handle_in("new_message", %{"content" => content}, socket) do
     conversation_id = socket.assigns[:conversation_id]
 
-    %{channel: "widget", conversation_id: conversation_id, content: content}
-    |> Cairnloop.Workers.ProcessMessage.new()
-    |> Oban.insert()
+    job_attrs = %{channel: "widget", conversation_id: conversation_id, content: content}
 
-    {:reply, :ok, socket}
+    # WR-01 fix: match on Oban.insert/1 result so failures return an error reply
+    # instead of silently dropping the message while acknowledging :ok to the client.
+    case job_attrs |> Cairnloop.Workers.ProcessMessage.new() |> Oban.insert() do
+      {:ok, _job} ->
+        {:reply, :ok, socket}
+
+      {:error, _changeset} ->
+        {:reply, {:error, %{reason: "could_not_queue_message"}}, socket}
+    end
   end
 
   @impl true
