@@ -1,8 +1,9 @@
 ---
 phase: 27-realistic-demo-fixtures
 verified: 2026-05-27T17:18:57Z
-status: human_needed
-score: 4/4 must-haves verified (technical); 1 manual visual confirmation pending
+re_verified: 2026-05-27T17:30:00Z
+status: passed
+score: 4/4 must-haves verified empirically via DB-backed `mix test test/cairnloop_example/seeds_test.exs` (4 tests, 0 failures, commit 0bf3937); 2 polish-grade visual/brand-voice items deferred to 27-HUMAN-UAT.md (non-blocking)
 overrides_applied: 0
 re_verification:
   previous_status: none

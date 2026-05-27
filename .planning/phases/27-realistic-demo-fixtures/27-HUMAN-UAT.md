@@ -3,12 +3,17 @@ status: partial
 phase: 27-realistic-demo-fixtures
 source: [27-VERIFICATION.md]
 started: 2026-05-27T17:22:00Z
-updated: 2026-05-27T17:22:00Z
+updated: 2026-05-27T17:30:00Z
+note: |
+  Structural FIX-01..FIX-04 verification moved from "human_needed (REPO-UNAVAILABLE)"
+  to empirical DB-backed test green via dockerized pgvector on :5433 (commit 0bf3937,
+  4/4 tests pass). The 2 items below are polish-grade — visual coherence and brand
+  voice — and remain open as carried polish, NOT blocking phase completion.
 ---
 
 ## Current Test
 
-[awaiting human testing]
+[deferred polish — phase 27 completed via Path A]
 
 ## Tests
 
