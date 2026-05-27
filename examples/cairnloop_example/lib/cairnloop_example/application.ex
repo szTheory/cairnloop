@@ -11,13 +11,15 @@ defmodule CairnloopExample.Application do
       CairnloopExampleWeb.Telemetry,
       CairnloopExample.Repo,
       {DNSCluster, query: Application.get_env(:cairnloop_example, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: CairnloopExample.PubSub},
+      Supervisor.child_spec({Phoenix.PubSub, name: CairnloopExample.PubSub}, id: :cairnloop_example_pubsub),
       # Phase 28 D-08 / Pitfall 1: start the library's named PubSub registry so that
       # Cairnloop.Chat and worker broadcasts (e.g. ingest_widget_message/2, reply_to_conversation/4)
       # have a live registry to land in. Independent from CairnloopExample.PubSub — each is a
       # separately named process with zero shared state; the example endpoint continues to use
       # CairnloopExample.PubSub as its pubsub_server.
-      {Phoenix.PubSub, name: Cairnloop.PubSub},
+      # Rule 1 fix: use unique child_spec ids to prevent duplicate supervisor id error when
+      # two Phoenix.PubSub children are in the same supervisor (#supervisorid-conflict).
+      Supervisor.child_spec({Phoenix.PubSub, name: Cairnloop.PubSub}, id: :cairnloop_pubsub),
       {Oban, Application.fetch_env!(:cairnloop_example, Oban)},
       # Start a worker by calling: CairnloopExample.Worker.start_link(arg)
       # {CairnloopExample.Worker, arg},
