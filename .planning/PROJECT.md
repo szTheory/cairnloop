@@ -39,6 +39,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 **Phase 25 (Bulk Selection & Fan-out) complete (2026-05-27):** operators can multi-select resolved conversations in `InboxLive`, preview the cohort + snapshotted body in a `<.focus_wrap>` confirmation modal, and submit through `Cairnloop.Outbound.bulk_trigger/2` — which writes one durable `BulkEnvelope` (audit row per D-13) + N per-recipient `system_outbound` Messages under a single `Ecto.Multi`. Large batches are bounded at both the UI and envelope layers with a fail-closed refusal lane (icon + brand-token color, never color-alone). `OutboundWorker` carries Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` for at-most-once delivery (D-11). Phase 22/23 sealed primitives untouched. Operator-deferred handoff: `mix ecto.migrate` + REPO-UNAVAILABLE integration tests + in-browser UAT tracked in `25-HUMAN-UAT.md`.
 
+**Phase 26 (Observability & Polish) complete (2026-05-27):** OBS-01 substrate landed — new `Cairnloop.Outbound.Telemetry.Traces` module emits OpenInference-conformant trace events on the disjoint `[:cairnloop, :outbound, :trace, …]` 4-segment namespace (mirroring the Phase 17 Governance pattern); delivery-side bounded-metrics + OI traces emit on every terminal arm of `OutboundWorker.perform/1`; OI trace emissions wired alongside (never replacing) the sealed bounded-metrics spans in `Outbound.trigger/2` + `bulk_trigger/2`. OBS-02 narrow `Cairnloop.Governance` READ facade landed: `list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` route through `repo()` indirection (D-14 clean, default limit 50, hard cap 500, `:status` filter); D-05 regression block pins exact auditor metadata key sets on both `:outbound_trigger` and `:bulk_outbound_trigger`. Final UI polish: InboxLive empty-state calm sentence + modal `×` close button (44px tap, `aria-label`); ConversationLive failed-bubble reason-forward subhead + `outbound_recovery_card` a11y verified. Sealed Phase 22–25 public contracts untouched. `mix compile --warnings-as-errors` clean; full suite 676/677 (1 documented baseline). Code review flagged WR-01/02/03 — bulk + trigger telemetry unconditionally emits success even on transaction failure (failure-path observability gap); deferred as additive future work (would extend `@events` whitelist + wrap submit in `case`).
+
 **Why now:** vM012 closed the adopter and packaging gap. The next narrow wedge is proactive support follow-up: let operators trigger recovery and resolution-linked outreach without leaving the conversation lane, while keeping scheduling, delivery, and status durable inside the existing Phoenix/Ecto/Oban truth model.
 
 ## Requirements
@@ -72,8 +74,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - [ ] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients"
 - [ ] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency
 - [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations
-- [ ] **OBS-01** — Telemetry events for outbound triggers and delivery
-- [ ] **OBS-02** — Audit log entries for bulk outbound actions
+- [x] **OBS-01** — Telemetry events for outbound triggers and delivery
+- [x] **OBS-02** — Audit log entries for bulk outbound actions
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -167,4 +169,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-27 — vM013 Phase 25 (Bulk Selection & Fan-out) complete; observability + polish remain*
+*Last updated: 2026-05-27 — vM013 Phase 26 (Observability & Polish) complete; vM013 milestone done at the headless layer pending Phase 25 operator handoff*
