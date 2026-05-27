@@ -29,7 +29,34 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Operators see distinct outbound timeline bubbles with Pending/Sent/Failed chips in `ConversationLive`, can trigger resolved-only recovery from the sidebar, and can multi-select resolved conversations in `InboxLive` for bulk fan-out via a `<.focus_wrap>` confirmation modal with snapshotted body + first-5 recipient sample + fail-closed refusal banner for oversized cohorts (vM013).
 - Outbound observability is OpenInference-conformant: `Cairnloop.Outbound.Telemetry.Traces` on the disjoint `[:cairnloop, :outbound, :trace, …]` namespace; bounded-metrics spans on every terminal arm of `OutboundWorker.perform/1`, `trigger/2`, and `bulk_trigger/2`; narrow `Cairnloop.Governance` audit READ facade (`list_recent_bulk_outbound_envelopes/1`, `get_bulk_outbound_envelope/1`) (vM013).
 
-**Current milestone:** None — vM013 closed 2026-05-27. Awaiting next milestone selection.
+**Current milestone:** **vM014 Adoption Proof** — kicked off 2026-05-27 (see `.planning/threads/vM014-adoption-proof-assessment.md` for the canonical scope decision and `/Users/jon/.claude/plans/can-u-decide-this-greedy-balloon.md` for the multi-phase plan). Diminishing-returns line: end of vM015. vM016+ strategic optionality (Epic 12/13/14) is opt-in only when an adopter pulls.
+
+## Current Milestone: vM014 Adoption Proof
+
+**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI — closing the 15% adopter-surface gap that remains after vM013, with zero churn to sealed primitives.
+
+**Target features (6 phases, 27–32; additive-only):**
+- **FIX — Realistic demo fixtures.** 12–16 conversations spanning all JTBD states; 5+ KB articles with multiple revisions (one deprecated); 3+ GapCandidates with evidence; 1 ArticleSuggestion `:ready_for_review`. Embeddings drive through the live `ChunkRevision` Oban worker (self-test of M008 substrate).
+- **CHAT — Customer `/chat` wired to real ingress.** Mount `Cairnloop.Channels.WidgetSocket` in the example endpoint; Phoenix Channel JS hook; rewrite `chat_live.ex` to push through `WidgetChannel` and receive operator replies via PubSub; two-tab demo doc snippet.
+- **BRAND — D-10 brand-token CSS extraction.** Copy `prompts/cairnloop.css` `:root` block into example app + extend `@theme`. Drop the inline hex fallback (`var(--cl-token, #hex)` → `var(--cl-token)`). Re-pin 5 headless-token assertions to hex-free form. Add negative-grep gate.
+- **KB + SEC — Editorial polish + T-10-09/T-10-11 closure.** Shared editorial nav shell across 4 KB routes; "Create new article" affordance in Index; "View source gap" sidebar in Editor; calm copy on `SuggestionReview` "Open for manual edit". `EditorHandoff.verify!/2` requires `manual_edit_opened_at` timestamp marker; Editor preload of `proposed_markdown` requires that handoff marker.
+- **E2E — Golden-path JTBD smoke test in CI.** `test/integration/golden_path_test.exs` using `Phoenix.LiveViewTest` covers seed customer message → operator inbox → ConversationLive + cmd+k search + citation chip → approve AI draft → tool proposal approve → ToolExecutionWorker `:success` → resolve → `Outbound.trigger/2` → multi-select bulk recovery → `BulkEnvelope` row + per-recipient OutboundWorker jobs. Plus `widget_channel_test.exs` via `Phoenix.ChannelTest`. NOT Wallaby. NOT PhoenixTest dep.
+- **DOC — README + ExDoc guides + JTBD walkthrough.** README leads with `mix cairnloop.install`. Four guides under `guides/`: quickstart, JTBD walkthrough with PNG screenshots from the Phase-27-seeded example, host integration, troubleshooting. `mix.exs` package ships `guides/`. CHANGELOG vM014 entry.
+
+**Carried decisions for this milestone (informational; full list in `.planning/STATE.md`):**
+- Test harness: `Phoenix.LiveViewTest` + `Phoenix.ChannelTest` only — NOT Wallaby, NOT PhoenixTest dep.
+- D-10 closure: drop the hex fallback (Option B) — NOT migrate to named CSS classes (Option A).
+- Security split: T-10-09 + T-10-11 bundle with Phase 30 (same files); T-10-10 + T-10-12 + T-10-13 defer to vM015 (domain layer).
+
+## Architectural Invariants
+
+These patterns have proven across vM011/vM012/vM013 close audits and are now project-level invariants. New milestones MUST honor them; subagents MUST NOT re-litigate them.
+
+1. **Sealed-contract + additive-opts.** Once a public function ships (e.g. `Cairnloop.Outbound.trigger/2`, `Cairnloop.Governance.propose/3`, MCP `tools/call`), its signature is sealed byte-for-byte. New behavior arrives only via new functions (e.g. `bulk_trigger/2`) or optional opts (e.g. `:bulk_envelope_id`). Negative-grep gate enforces no public-signature churn.
+2. **Snapshot-at-decision.** Trust facts (template body, cohort recipient list, governance risk tier, approval-surface prose) snapshot at the point of operator decision and never re-read at render time. Shared across `BulkEnvelope`, `ToolProposal` snapshotted columns, and any future decision-surface schema. Interpretive display prose is a separate category (best-effort live behind total fallback).
+3. **Fail-closed envelope-boundary cap.** Hard caps (e.g. `Cairnloop.Outbound.max_batch_size = 25`, `@bulk_envelope_hard_cap 500` on the audit READ facade) enforced at the envelope function boundary, never at any single caller (LiveView, MCP, console, future tools). Defense-in-depth.
+4. **Three-layer at-most-once for any new durable write action.** Oban `unique:` keys + terminal guard on the worker + SHA-256 per-attempt run key. Proven in `ToolExecutionWorker` (vM011) and `OutboundWorker` (vM013). Standard pattern — do not re-debate.
+5. **Governance-facade reads from the web layer.** Web LiveViews and channels never run direct `Cairnloop.Repo` queries against domain tables; all reads route through narrow `Cairnloop.Governance.<purpose>_<read>/1` functions (e.g. `list_eligible_conversation_ids_for_bulk_recovery/1`, `preview_bulk_recovery_cohort/1`, `list_recent_bulk_outbound_envelopes/1`). D-14 negative-grep gate pins it.
 
 ## Requirements
 
@@ -61,7 +88,16 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - ✓ OpenInference-conformant outbound telemetry + bulk audit READ facade with auditor metadata shape regression — vM013 (OBS-01, OBS-02)
 
 ### Active
-(none — awaiting next milestone)
+
+**Milestone vM014 — Adoption Proof** (full list in `.planning/REQUIREMENTS.md`):
+
+- [ ] **FIX-01..FIX-04** — Realistic seeded fixtures spanning JTBD lifecycle (conversations, KB articles + revisions, gap candidates, ready-for-review suggestion)
+- [ ] **CHAT-01..CHAT-03** — Customer `/chat` wired to real `WidgetChannel` ingress (socket mount, JS hook, two-tab demo)
+- [ ] **BRAND-01..BRAND-04** — D-10 brand-token CSS extraction, drop inline hex fallbacks, re-pin headless-token assertions, negative-grep gate
+- [ ] **KB-01..KB-04** — Shared editorial nav shell, "Create new article" affordance, "View source gap" sidebar, calm `SuggestionReview` copy
+- [ ] **SEC-01..SEC-02** — `EditorHandoff.verify!/2` requires `manual_edit_opened_at` marker; Editor preload requires that marker (closes T-10-09 + T-10-11)
+- [ ] **E2E-01..E2E-03** — Golden-path JTBD smoke test + WidgetChannel test in `mix test.integration`
+- [ ] **DOC-01..DOC-04** — README leads with `mix cairnloop.install`; ExDoc `guides/` (quickstart, JTBD walkthrough, host integration, troubleshooting); CHANGELOG entry
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -191,5 +227,11 @@ This document evolves at phase transitions and milestone boundaries.
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
+## Diminishing-Returns Posture
+
+**Cairnloop hits "done enough for stated scope" at the close of vM015.** Stated scope = host-owned Phoenix-native customer-support automation library (deflect / draft / summarize / escalate / outbound recovery + KB substrate + governed actions + MCP seam + operator-grade health signal). After vM015 the library covers Help Scout's "AI quality is downstream of grounded retrieval" lesson, Plain's "API-first + embedded" lesson, Pylon's "runbook-shaped HITL" lesson, and Papercups' "embedded is the defensible wedge" lesson — no obvious sixth lesson remains without leaving stated scope.
+
+**Post-done mode (vM016+)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
+
 ---
-*Last updated: 2026-05-27 after vM013 milestone close*
+*Last updated: 2026-05-27 — vM014 Adoption Proof kicked off (Phases 27–32 scoped from `.planning/threads/vM014-adoption-proof-assessment.md`); Active requirements populated with FIX/CHAT/BRAND/KB/SEC/E2E/DOC groups.*
