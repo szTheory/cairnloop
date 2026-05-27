@@ -9,30 +9,41 @@ defmodule Cairnloop.OutboundTest do
     # We also record the inserted row in the process dictionary so tests can
     # assert on the refused envelope shape without needing a real DB.
     def insert(changeset_or_struct) do
-      result =
-        case changeset_or_struct do
-          %Ecto.Changeset{} = cs ->
-            if cs.valid? do
-              applied = Ecto.Changeset.apply_changes(cs)
-              # BulkEnvelope :id is caller-supplied (binary_id, autogenerate: false)
-              # so we don't synthesize one here.
-              {:ok, applied}
-            else
-              {:error, cs}
+      # CR-02 regression hook: tests can force the next `insert/1` call to
+      # fail with a synthetic `{:error, %Ecto.Changeset{}}` to exercise the
+      # refusal-audit-failure observability lane (telemetry outcome
+      # `:refused_cap_exceeded_audit_failed` + Logger.error).
+      case Process.get(:mock_repo_force_insert_failure) do
+        %Ecto.Changeset{} = forced ->
+          Process.delete(:mock_repo_force_insert_failure)
+          {:error, forced}
+
+        _ ->
+          result =
+            case changeset_or_struct do
+              %Ecto.Changeset{} = cs ->
+                if cs.valid? do
+                  applied = Ecto.Changeset.apply_changes(cs)
+                  # BulkEnvelope :id is caller-supplied (binary_id,
+                  # autogenerate: false) so we don't synthesize one here.
+                  {:ok, applied}
+                else
+                  {:error, cs}
+                end
+
+              struct ->
+                {:ok, struct}
             end
 
-          struct ->
-            {:ok, struct}
-        end
+          case result do
+            {:ok, applied} ->
+              existing = Process.get(:mock_repo_inserts, [])
+              Process.put(:mock_repo_inserts, existing ++ [applied])
+              {:ok, applied}
 
-      case result do
-        {:ok, applied} ->
-          existing = Process.get(:mock_repo_inserts, [])
-          Process.put(:mock_repo_inserts, existing ++ [applied])
-          {:ok, applied}
-
-        other ->
-          other
+            other ->
+              other
+          end
       end
     end
 
@@ -93,6 +104,8 @@ defmodule Cairnloop.OutboundTest do
       # Pitfall 7: max_batch_size env tweaks must not leak across tests.
       Application.delete_env(:cairnloop, :max_batch_size)
       Process.delete(:mock_repo_inserts)
+      # CR-02 regression hook: never leak the forced-failure stub across tests.
+      Process.delete(:mock_repo_force_insert_failure)
     end)
 
     :ok
@@ -418,6 +431,57 @@ defmodule Cairnloop.OutboundTest do
       refute Map.has_key?(metadata, :actor)
 
       :telemetry.detach("test-bulk-refused")
+    end
+
+    test "CR-02: refusal-envelope insert failure surfaces as :refused_cap_exceeded_audit_failed telemetry, still returns {:error, :batch_too_large}" do
+      # Reproduces the CR-02 regression: previously
+      # `_ = repo().insert(...)` in the refusal lane silently discarded the
+      # insert result, so a Postgres outage or changeset error broke the
+      # OBS-02 "refused attempts persist" guarantee with no observable
+      # signal. Now the failure must:
+      #   1. still return {:error, :batch_too_large} (operator copy unchanged),
+      #   2. emit telemetry with outcome :refused_cap_exceeded_audit_failed
+      #      so attached handlers can alert.
+      :telemetry.attach(
+        "test-bulk-refused-audit-failed",
+        [:cairnloop, :outbound, :bulk, :triggered],
+        fn _event, _measurements, metadata, _config ->
+          send(self(), {:bulk_refused_audit_failed_telemetry, metadata})
+        end,
+        nil
+      )
+
+      # Force the next `repo().insert/1` (the refusal envelope) to fail.
+      forced_changeset =
+        BulkEnvelope.changeset(%BulkEnvelope{}, %{})
+        |> Ecto.Changeset.add_error(:base, "forced failure for CR-02 test")
+
+      Process.put(:mock_repo_force_insert_failure, forced_changeset)
+
+      # cap+1 trips the refusal lane.
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger(Enum.to_list(1..26),
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      assert_receive {:bulk_refused_audit_failed_telemetry, metadata}
+      # Audit-failure path: distinct outcome so attached handlers can alert
+      # on a broken OBS-02 invariant.
+      assert metadata.outcome == :refused_cap_exceeded_audit_failed
+      assert metadata.count == 26
+      # Enum-only invariant still holds for the failure path (D-B).
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :actor)
+
+      # No BulkEnvelope row landed (the insert failed); the MockRepo records
+      # nothing because the forced-failure short-circuits before the inserts
+      # list mutation.
+      inserts = Process.get(:mock_repo_inserts, [])
+      assert Enum.all?(inserts, fn x -> not match?(%BulkEnvelope{}, x) end)
+
+      :telemetry.detach("test-bulk-refused-audit-failed")
     end
   end
 

@@ -212,13 +212,56 @@ defmodule Cairnloop.Outbound do
 
     # Insert the refusal envelope OUTSIDE the telemetry span so the audit row lands
     # even if the caller has no telemetry handler attached.
-    _ = repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+    #
+    # CR-02: the audit-write result MUST be observed. If the insert fails
+    # (Postgres outage, changeset error, unique-constraint collision, etc.),
+    # silently swallowing it would defeat the OBS-02 "refused attempts persist"
+    # guarantee the moduledoc + `BulkEnvelope` @moduledoc both advertise. We
+    # still return `{:error, :batch_too_large}` so the LiveView's calm refusal
+    # copy fires (the operator-visible behavior is unchanged), but we surface
+    # the audit failure through a structured log line AND a distinct telemetry
+    # outcome (`:refused_cap_exceeded_audit_failed`) so attached handlers can
+    # alert. Mirrors `Governance.propose_blocked/5` which also surfaces (rather
+    # than swallows) insert failures.
+    case repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs)) do
+      {:ok, _envelope} ->
+        Cairnloop.Telemetry.execute(
+          [:outbound, :bulk, :triggered],
+          %{count: count},
+          %{outcome: :refused_cap_exceeded, count: count}
+        )
 
-    Cairnloop.Telemetry.execute(
-      [:outbound, :bulk, :triggered],
-      %{count: count},
-      %{outcome: :refused_cap_exceeded, count: count}
-    )
+      {:error, %Ecto.Changeset{} = changeset} ->
+        # `inspect/1` on the changeset's `.errors` keyword list is acceptable
+        # in a Logger line — T-15-13 forbids it for durable operator-visible
+        # columns; this is a structured diagnostic for ops, not operator copy.
+        require Logger
+
+        Logger.error(
+          "BulkEnvelope refusal insert failed: #{inspect(changeset.errors)}"
+        )
+
+        Cairnloop.Telemetry.execute(
+          [:outbound, :bulk, :triggered],
+          %{count: count},
+          %{outcome: :refused_cap_exceeded_audit_failed, count: count}
+        )
+
+      other ->
+        # Non-changeset error path (exotic repo() shapes). Keep observability
+        # symmetric so OBS-02 can detect the gap regardless of failure mode.
+        require Logger
+
+        Logger.error(
+          "BulkEnvelope refusal insert returned unexpected shape: #{inspect(other)}"
+        )
+
+        Cairnloop.Telemetry.execute(
+          [:outbound, :bulk, :triggered],
+          %{count: count},
+          %{outcome: :refused_cap_exceeded_audit_failed, count: count}
+        )
+    end
 
     {:error, :batch_too_large}
   end
