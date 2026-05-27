@@ -775,6 +775,15 @@ defmodule Cairnloop.Web.ConversationLive do
                   <% end %>
                 </div>
                 <p class="message-content"><%= msg.content %></p>
+                <%!-- Phase 26 D-09: calm reason-forward subhead on :failed delivery only. Additive — chip stays untouched (Pitfall 7). --%>
+                <%= if outbound_status_label(msg) == "Failed" do %>
+                  <p
+                    class="outbound-failed-subhead"
+                    style="margin: 6px 0 0; font-size: 14px; line-height: 1.4; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));"
+                  >
+                    Delivery did not complete. Try again from the Outbound recovery card.
+                  </p>
+                <% end %>
               </div>
             <% end %>
           </div>
