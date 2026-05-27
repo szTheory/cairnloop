@@ -146,7 +146,7 @@ defmodule Cairnloop.OutboundTest do
       end
     end
 
-    test "emits telemetry on trigger" do
+    test "emits telemetry on trigger with enum-only labels (WR-04 / D-B)" do
       :telemetry.attach(
         "test-outbound-handler",
         [:cairnloop, :outbound, :triggered, :stop],
@@ -156,12 +156,20 @@ defmodule Cairnloop.OutboundTest do
         nil
       )
 
-      Outbound.trigger(1, template_id: "test")
+      Outbound.trigger(1, template_id: "test", actor: "operator_42")
 
       assert_receive {:telemetry_event, measurements, metadata}
       assert Map.has_key?(measurements, :duration)
-      assert metadata.conversation_id == 1
-      assert metadata.template_id == "test"
+      # WR-04: telemetry metadata is enum-only — `conversation_id`, `template_id`,
+      # `actor`, and `schedule_in` MUST NOT leak into telemetry labels (those
+      # are PII / high-cardinality and would explode Prometheus/Datadog labels).
+      # The per-recipient durable Message row, the OutboundWorker job args, and
+      # the auditor metadata carry those facts instead.
+      assert metadata.outcome == :triggered
+      refute Map.has_key?(metadata, :conversation_id)
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :schedule_in)
 
       :telemetry.detach("test-outbound-handler")
     end

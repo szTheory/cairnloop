@@ -54,21 +54,41 @@ defmodule Cairnloop.Outbound do
       into the `OutboundWorker` job args so the per-recipient delivery participates
       in the bulk audit envelope and the Oban `unique:` dedup tuple
       `(conversation_id, template_id, bulk_envelope_id)` (D-11).
+
+  ## Telemetry (D-B enum-only labels — WR-04)
+
+  `[:cairnloop, :outbound, :triggered, :start | :stop | :exception]` is emitted
+  with metadata containing ONLY `outcome :: :triggered` (enum-only). The
+  per-recipient `conversation_id`, `template_id`, `actor`, and `schedule_in`
+  facts live in the durable `Message` row, the `OutboundWorker` job args, and
+  the auditor metadata — NEVER in telemetry labels. This protects attached
+  Prometheus / StatsD / Datadog handlers from cardinality explosion and PII
+  leakage; Phase 25 bulk fan-out routes through this lane per-recipient, so a
+  25-recipient bulk emits 25 enum-only events. A host that genuinely needs
+  per-recipient audit by actor should attach to the auditor's
+  `:outbound_trigger` event instead.
   """
   def trigger(conversation_id, opts) do
     template_id = Keyword.fetch!(opts, :template_id)
-    schedule_in = Keyword.get(opts, :schedule_in)
+    _schedule_in = Keyword.get(opts, :schedule_in)
     actor = Keyword.get(opts, :actor)
     auditor = Keyword.get(opts, :auditor, default_auditor())
 
-    meta = %{
-      conversation_id: conversation_id,
-      template_id: template_id,
-      schedule_in: schedule_in,
-      actor: actor
-    }
+    # WR-04 / D-B: telemetry metadata is enum-only — NO `actor`,
+    # `conversation_id`, `template_id`, or `schedule_in` in labels (those would
+    # explode cardinality on Prometheus / StatsD / Datadog and leak PII to any
+    # attached telemetry handler). Phase 25 bulk fan-out routes through this
+    # `trigger/2` lane per-recipient, so a 25-recipient bulk previously emitted
+    # 25 events EACH carrying conversation_id + actor — fixed here at the
+    # source. The high-cardinality + PII facts still live in the durable
+    # `Message` row, the per-recipient `OutboundWorker` job args, and the
+    # auditor metadata below; a host that genuinely needs per-recipient audit
+    # by actor should attach to the auditor's `:outbound_trigger` event, not
+    # to `:telemetry`. See `Cairnloop.Outbound.bulk_trigger/2`'s telemetry
+    # which has always been enum-only.
+    telemetry_meta = %{outcome: :triggered}
 
-    Cairnloop.Telemetry.span([:outbound, :triggered], meta, fn ->
+    Cairnloop.Telemetry.span([:outbound, :triggered], telemetry_meta, fn ->
       multi =
         conversation_id
         |> build_trigger_multi(opts)
@@ -78,7 +98,7 @@ defmodule Cairnloop.Outbound do
         })
 
       result = repo().transaction(multi)
-      {result, meta}
+      {result, telemetry_meta}
     end)
   end
 
