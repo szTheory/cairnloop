@@ -248,6 +248,12 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
         {:error, reason} ->
           {:error, reason}
+
+        # CR-01 regression coverage: Ecto.Multi failure 4-tuple — what
+        # `repo().transaction(multi)` returns when a per-recipient changeset
+        # fails. The LiveView MUST match this without a FunctionClauseError.
+        {:error, failed_op, failed_value, changes} ->
+          {:error, failed_op, failed_value, changes}
       end
     end
   end
@@ -439,6 +445,35 @@ defmodule Cairnloop.Web.InboxLiveTest do
       # No raw Elixir term leakage.
       refute msg =~ ":batch_too_large"
       refute msg =~ "{:error"
+    end
+
+    test "Test 8b: confirm with Ecto.Multi 4-tuple failure surfaces calm copy, does NOT crash (CR-01)" do
+      # Reproduces the CR-01 regression: `Outbound.bulk_trigger/2`'s happy path
+      # returns `repo().transaction(multi)` directly, which on `Ecto.Multi`
+      # failure returns `{:error, failed_operation, failed_value, changes}` —
+      # NOT a 2-tuple. The LiveView MUST match this without raising.
+      Process.put(:stub_outbound_response, {:error, :message_3, %{stub: :changeset}, %{}})
+
+      socket =
+        base_socket(
+          selected_ids: MapSet.new([1, 2, 3]),
+          conversations: resolved_conversations([1, 2, 3])
+        )
+
+      {:noreply, socket} = InboxLive.handle_event("open_bulk_confirm", %{}, socket)
+
+      assert {:noreply, socket} =
+               InboxLive.handle_event("confirm_bulk_send", %{}, socket)
+
+      # Modal closed, calm copy shown (no FunctionClauseError, no raw Elixir terms).
+      assert socket.assigns.bulk_modal_open == false
+      msg = flash_value(socket, :error)
+      assert msg =~ "Recovery follow-up could not be queued right now"
+      refute msg =~ "FunctionClauseError"
+      refute msg =~ ":message_3"
+      refute msg =~ "{:error"
+      # Selection preserved so the operator can retry / adjust.
+      assert socket.assigns.selected_ids == MapSet.new([1, 2, 3])
     end
 
     test "Test 9: confirm with template missing shows calm operator copy and does NOT call bulk_trigger/2" do

@@ -407,6 +407,26 @@ defmodule Cairnloop.Web.InboxLive do
          |> assign(:bulk_preview, nil)
          |> assign(:bulk_refusal, nil)}
 
+      # CR-01: `Outbound.bulk_trigger/2`'s happy path returns
+      # `repo().transaction(multi)` directly from inside its telemetry span.
+      # `Ecto.Multi` failure is the 4-tuple
+      # `{:error, failed_operation, failed_value, changes_so_far}`. Match it
+      # BEFORE the 2-tuple catch-all so a per-recipient `Message` changeset
+      # error (FK violation, metadata size limit, etc.) does NOT crash the
+      # LiveView with `FunctionClauseError` and surface the generic Phoenix
+      # overlay instead of the planned calm operator copy. Selection is
+      # preserved so the operator can adjust the cohort and retry.
+      {:error, _failed_op, _failed_value, _changes} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Recovery follow-up could not be queued right now. Please try again."
+         )
+         |> assign(:bulk_modal_open, false)
+         |> assign(:bulk_preview, nil)
+         |> assign(:bulk_refusal, nil)}
+
       {:error, _other} ->
         # Generic calm copy (mirrors conversation_live.ex:225). Selection preserved.
         {:noreply,
