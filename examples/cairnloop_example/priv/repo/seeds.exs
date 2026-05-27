@@ -85,11 +85,17 @@ defmodule CairnloopExample.SeedRun do
   # --------------------------------------------------------------------------
 
   def run do
-    articles = build_articles()
+    IO.puts("Seeding Cairnloop example app demo data...")
+
+    articles      = build_articles()
     conversations = build_conversations(articles)
-    _gaps = build_gaps(conversations)
-    {_sugg, _task} = build_suggestion(articles, conversations)
-    drain_embedding_pipeline()
+    gaps          = build_gaps(conversations)
+    {suggestion, _review_task} = build_suggestion(articles, conversations)
+
+    drain_summary = drain_embedding_pipeline()
+
+    emit_seed_summary(articles, conversations, gaps, suggestion, drain_summary)
+    :ok
   end
 
   # --------------------------------------------------------------------------
@@ -1209,8 +1215,11 @@ defmodule CairnloopExample.SeedRun do
   # Synchronously drains the :default Oban queue after all builders complete.
   # This is the M008 substrate self-test — ChunkRevision jobs enqueued by
   # KnowledgeBase.publish_revision/1 write chunks to pgvector via the live worker.
+  # Returns the drain result map so the caller can include counts in the summary.
   defp drain_embedding_pipeline do
-    %{success: success, failure: failure, snoozed: _, cancelled: _, discard: _} =
+    IO.puts("Draining embedding pipeline (Oban :default queue)...")
+
+    %{success: success, failure: failure} = result =
       Oban.drain_queue(queue: :default, with_recursion: true)
 
     if failure > 0 do
@@ -1220,7 +1229,25 @@ defmodule CairnloopExample.SeedRun do
       )
     end
 
-    IO.puts("Drained #{success} embedding jobs.")
+    IO.puts("Drained #{success} embedding job(s).")
+    result
+  end
+
+  # Prints a single adopter-facing summary line summarising what was seeded.
+  # Gives concrete evidence of what `mix setup` produced (T-27-22 mitigation).
+  defp emit_seed_summary(articles, conversations, gaps, suggestion, drain_summary) do
+    article_count      = map_size(articles)
+    conversation_count = length(conversations)
+    gap_count          = length(gaps)
+    suggestion_count   = if suggestion, do: 1, else: 0
+    drained            = drain_summary.success
+    failures           = drain_summary.failure
+
+    IO.puts(
+      "Seeded #{conversation_count} conversation(s), #{article_count} article(s), " <>
+        "#{gap_count} gap candidate(s), #{suggestion_count} article suggestion(s); " <>
+        "drained #{drained} embedding job(s) (#{failures} failure(s))."
+    )
   end
 
   # --------------------------------------------------------------------------
