@@ -29,6 +29,18 @@ To start the demo app:
    mix phx.server
    ```
 
+## Two-Tab Demo
+
+Open two browser tabs after running `mix setup && mix phx.server` in the
+`examples/cairnloop_example/` directory.
+
+- **Tab 1 — Operator inbox:** http://localhost:4000/support
+- **Tab 2 — Customer chat:** http://localhost:4000/chat
+
+Type a message in the customer chat tab. The message lands in the operator
+inbox as a new conversation. Open the conversation and reply. The reply
+appears in the customer chat tab.
+
 ## Included Integrations
 
 This example app includes:
@@ -37,7 +49,7 @@ This example app includes:
 2. **pgvector**: A migration exists to add the `vector` extension, enabling Cairnloop's Knowledge Base embeddings.
 3. **Cairnloop Core**: `mix cairnloop.install` and `mix cairnloop.add_draft_table` have been run.
 4. **Cairnloop Dashboard**: Mounted at `/support` for Operator access.
-5. **ChatLive Demo**: A mock customer chat interface at `/chat`.
+5. **Customer Chat (real ingress):** A `/chat` LiveView wired to `Cairnloop.Channels.WidgetSocket` so customer messages flow into the operator inbox in real time.
 
 ## Routing
 
