@@ -2,5 +2,12 @@
   "workflow": {
     "_auto_chain_active": false,
     "assessment_lens": "adopter-first: measure done-% by adopter JTBD coverage and real ships, not phase count"
+  },
+  "model_profile": "balanced",
+  "model_overrides": {
+    "gsd-verifier": "opus",
+    "gsd-code-reviewer": "opus",
+    "gsd-plan-checker": "opus",
+    "gsd-phase-researcher": "opus"
   }
 }
