@@ -58,7 +58,8 @@ config :cairnloop_example, Oban,
 
 config :cairnloop,
   repo: CairnloopExample.Repo,
-  tools: [Cairnloop.Tools.InternalNote]
+  tools: [Cairnloop.Tools.InternalNote],
+  context_provider: CairnloopExample.DemoContextProvider
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
