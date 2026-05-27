@@ -114,7 +114,21 @@ defmodule Cairnloop.Outbound do
             })
 
           result = repo().transaction(multi)
-          {result, telemetry_meta}
+
+          # WR-03: derive the :stop metadata outcome from the transaction
+          # result so the bounded-metrics lane stops reporting
+          # outcome: :triggered for Ecto.Multi failures. Previously the
+          # span's metadata override unconditionally said `:triggered`,
+          # making the bounded-metrics lane disagree with the OI lane
+          # (which correctly distinguishes :trigger_completed from
+          # :trigger_failed). Stays enum-only per D-B / Pitfall 5.
+          stop_outcome =
+            case result do
+              {:ok, _} -> :triggered
+              _ -> :failed
+            end
+
+          {result, %{outcome: stop_outcome}}
         end)
 
       case span_result do
