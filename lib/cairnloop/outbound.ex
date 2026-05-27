@@ -27,6 +27,7 @@ defmodule Cairnloop.Outbound do
   """
   alias Cairnloop.Message
   alias Cairnloop.Outbound.BulkEnvelope
+  alias Cairnloop.Outbound.Telemetry.Traces
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
@@ -88,18 +89,53 @@ defmodule Cairnloop.Outbound do
     # which has always been enum-only.
     telemetry_meta = %{outcome: :triggered}
 
-    Cairnloop.Telemetry.span([:outbound, :triggered], telemetry_meta, fn ->
-      multi =
-        conversation_id
-        |> build_trigger_multi(opts)
-        |> auditor.audit(:outbound_trigger, actor, %{
-          conversation_id: conversation_id,
-          template_id: template_id
-        })
+    # Phase 26 D-03: OI trace lane — additive, fire-and-forget, around the sealed
+    # bounded-metrics span. Rescue path emits :trigger_failed with outcome: :exception
+    # then reraises (mirrors :telemetry.span/3 :exception semantics; never swallows).
+    trace_attrs = %{
+      conversation_id: conversation_id,
+      template_id: template_id,
+      actor_id: actor,
+      outcome: :triggered,
+      bulk_envelope_id: Keyword.get(opts, :bulk_envelope_id)
+    }
 
-      result = repo().transaction(multi)
-      {result, telemetry_meta}
-    end)
+    Traces.emit(:trigger_started, trace_attrs)
+
+    try do
+      span_result =
+        Cairnloop.Telemetry.span([:outbound, :triggered], telemetry_meta, fn ->
+          multi =
+            conversation_id
+            |> build_trigger_multi(opts)
+            |> auditor.audit(:outbound_trigger, actor, %{
+              conversation_id: conversation_id,
+              template_id: template_id
+            })
+
+          result = repo().transaction(multi)
+          {result, telemetry_meta}
+        end)
+
+      case span_result do
+        {:ok, _} ->
+          Traces.emit(:trigger_completed, %{trace_attrs | outcome: :triggered})
+
+        # Both {:error, reason} and Ecto.Multi's {:error, name, value, changes} are
+        # observed — they all map to the OI :trigger_failed outcome.
+        {:error, _} ->
+          Traces.emit(:trigger_failed, %{trace_attrs | outcome: :failed})
+
+        {:error, _name, _value, _changes} ->
+          Traces.emit(:trigger_failed, %{trace_attrs | outcome: :failed})
+      end
+
+      span_result
+    rescue
+      e ->
+        Traces.emit(:trigger_failed, %{trace_attrs | outcome: :exception})
+        reraise(e, __STACKTRACE__)
+    end
   end
 
   # Shared per-recipient multi-builder (research Open Question 1). Returns an
@@ -249,6 +285,18 @@ defmodule Cairnloop.Outbound do
     # outcome (`:refused_cap_exceeded_audit_failed`) so attached handlers can
     # alert. Mirrors `Governance.propose_blocked/5` which also surfaces (rather
     # than swallows) insert failures.
+    # Phase 26 D-03: per RESEARCH OQ3 the OI lane carries :effective_cap on
+    # :bulk_refused events; on each refusal arm the OI trace fires AFTER the
+    # bounded-metrics execute call, matching the canonical "Telemetry then Traces"
+    # pattern (lib/cairnloop/governance.ex:380-392).
+    refused_trace_attrs = %{
+      bulk_envelope_id: envelope_id,
+      template_id: template_id,
+      actor_id: actor,
+      conversation_id: nil,
+      effective_cap: cap
+    }
+
     case repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs)) do
       {:ok, _envelope} ->
         Cairnloop.Telemetry.execute(
@@ -256,6 +304,8 @@ defmodule Cairnloop.Outbound do
           %{count: count},
           %{outcome: :refused_cap_exceeded, count: count}
         )
+
+        Traces.emit(:bulk_refused, Map.put(refused_trace_attrs, :outcome, :refused_cap_exceeded))
 
       {:error, %Ecto.Changeset{} = changeset} ->
         # `inspect/1` on the changeset's `.errors` keyword list is acceptable
@@ -273,6 +323,11 @@ defmodule Cairnloop.Outbound do
           %{outcome: :refused_cap_exceeded_audit_failed, count: count}
         )
 
+        Traces.emit(
+          :bulk_refused,
+          Map.put(refused_trace_attrs, :outcome, :refused_cap_exceeded_audit_failed)
+        )
+
       other ->
         # Non-changeset error path (exotic repo() shapes). Keep observability
         # symmetric so OBS-02 can detect the gap regardless of failure mode.
@@ -286,6 +341,11 @@ defmodule Cairnloop.Outbound do
           [:outbound, :bulk, :triggered],
           %{count: count},
           %{outcome: :refused_cap_exceeded_audit_failed, count: count}
+        )
+
+        Traces.emit(
+          :bulk_refused,
+          Map.put(refused_trace_attrs, :outcome, :refused_cap_exceeded_audit_failed)
         )
     end
 
@@ -343,6 +403,18 @@ defmodule Cairnloop.Outbound do
         })
 
       result = repo().transaction(multi)
+
+      # Phase 26 D-03: OI trace lane — bulk envelope is the unit of work; per-recipient
+      # traces fire from OutboundWorker.perform/1. Emitted inside the sealed span's `fn`
+      # so the OI trace ships AFTER the transaction result is known.
+      Traces.emit(:bulk_submitted, %{
+        bulk_envelope_id: envelope_id,
+        template_id: template_id,
+        actor_id: actor,
+        outcome: :submitted,
+        conversation_id: nil
+      })
+
       # Telemetry metadata for the :stop event stays enum-only (D-B).
       {result, %{outcome: :submitted, count: count}}
     end)

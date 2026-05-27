@@ -43,6 +43,55 @@ defmodule Cairnloop.Telemetry do
   Knowledge-maintenance metadata is bounded to coarse workflow fields such as
   `:surface`, `:entrypoint_type`, `:outcome`, `:reason`, `:publish_status`,
   `:reindex_status`, `:canonical_evidence_count`, and `:assistive_evidence_count`.
+
+  ## Outbound Events
+
+  The outbound lane emits TWO disjoint vocabularies — bounded-metrics events on
+  the `[:cairnloop, :outbound, ...]` namespace (low-cardinality, cardinality- and
+  PII-safe — attach Prometheus / StatsD / Datadog here) AND OpenInference-conformant
+  trace events on the disjoint `[:cairnloop, :outbound, :trace, ...]` namespace
+  (sampled span-tree observability with attribution refs — attach Scoria /
+  Phoenix.Tracer / OpenTelemetry exporters here).
+
+  Bounded-metrics events (D-B / Phase 26 D-01 — enum-only labels):
+
+  * `[:cairnloop, :outbound, :triggered, :start | :stop | :exception]` — single-recipient
+    trigger lifecycle via `:telemetry.span/3`. Metadata: `:outcome` only.
+  * `[:cairnloop, :outbound, :bulk, :triggered, :start | :stop | :exception]` —
+    bulk-fan-out submit lifecycle via `:telemetry.span/3`. Metadata: `:outcome` and `:count`.
+  * `[:cairnloop, :outbound, :bulk, :triggered]` — point-in-time refusal event from
+    the cap-exceedance lane (`bulk_trigger_refused/6`). Metadata: `:outcome`
+    (`:refused_cap_exceeded` | `:refused_cap_exceeded_audit_failed`) and `:count`.
+  * `[:cairnloop, :outbound, :delivery, :sent | :failed]` — point-in-time delivery
+    outcome from `Cairnloop.Workers.OutboundWorker.perform/1` (Phase 26 D-02).
+    Metadata: `:outcome` (`:sent | :failed`) and `:reason` (`:notifier_ok |
+    :notifier_returned_error | :no_notifier_configured`).
+
+  OI trace lane events (Phase 26 D-03 — emitted by
+  `Cairnloop.Outbound.Telemetry.Traces`):
+
+  * `[:cairnloop, :outbound, :trace, :trigger_started]` — GUARDRAIL span around
+    `Outbound.trigger/2` start.
+  * `[:cairnloop, :outbound, :trace, :trigger_completed]` — GUARDRAIL span after
+    the sealed `:telemetry.span/3` returns `{:ok, _}`.
+  * `[:cairnloop, :outbound, :trace, :trigger_failed]` — GUARDRAIL span after the
+    sealed span returns `{:error, _}`; also fires from the rescue path with
+    `outcome: :exception` before reraising.
+  * `[:cairnloop, :outbound, :trace, :bulk_submitted]` — GUARDRAIL span inside
+    `bulk_trigger_submit/6`'s sealed span after `repo().transaction/1`.
+  * `[:cairnloop, :outbound, :trace, :bulk_refused]` — GUARDRAIL span on all three
+    arms of `bulk_trigger_refused/6`'s `case repo().insert(...)` block; carries
+    `:effective_cap` (the cap-of-the-moment).
+  * `[:cairnloop, :outbound, :trace, :delivery_sent | :delivery_failed]` — TOOL
+    spans (delivery IS the execution of an outbound) from `OutboundWorker.perform/1`'s
+    four delivery arms.
+
+  Cardinality note: outbound bounded-metrics metadata is enum-only (`:outcome`,
+  `:count`, optional `:reason`) per Phase 25 D-B / Phase 26 D-01. Attribution refs
+  (`:bulk_envelope_id`, `:conversation_id`, `:template_id`, `:actor_id`) live in
+  the OI trace lane (sampled span-tree observability) and in the durable
+  `BulkEnvelope` / `Message` rows + host auditor metadata — never in the
+  bounded-metrics aggregator labels.
   """
 
   @doc """
