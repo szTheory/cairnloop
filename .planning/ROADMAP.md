@@ -57,7 +57,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   - [x] 27-02-PLAN.md — `CairnloopExample.DemoContextProvider` module + headless test + config.exs wire (FIX-01 ContextProvider snippets; runs parallel to 27-01 in Wave 1).
   - [x] 27-03-PLAN.md — `build_articles/0`: 5 articles via KnowledgeBase facade + article-5 multi-revision progression v1→archived→v2 (FIX-02 articles).
   - [x] 27-04-PLAN.md — `build_conversations/1`: 16 conversations × 4 JTBD-derived cohorts with 3–6 messages each, brand-voice bodies (FIX-01 conversations).
-  - [ ] 27-05-PLAN.md — `build_gaps/1`: 3 GapCandidates + RetrievalGapEvents + memberships, all operator-scoped (FIX-03).
+  - [x] 27-05-PLAN.md — `build_gaps/1`: 3 GapCandidates + RetrievalGapEvents + memberships, all operator-scoped (FIX-03).
   - [ ] 27-06-PLAN.md — `build_suggestion/2`: 1 ArticleSuggestion :ready + 2 evidence rows + companion ReviewTask via `ensure_review_task_for_suggestion/2` (FIX-04).
   - [ ] 27-07-PLAN.md — Final wiring of `SeedRun.run/0` orchestrator + adopter-facing IO summary (FIX-02 substrate self-test driven by drain).
   - [ ] 27-08-PLAN.md — Integration test `seeds_test.exs` pinning FIX-01..FIX-04 row counts + Oban drain non-empty chunks + idempotency (tagged `:requires_postgres`).
@@ -199,7 +199,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. Realistic Demo Fixtures | vM014 | 4/8 | In Progress|  |
+| 27. Realistic Demo Fixtures | vM014 | 5/8 | In Progress|  |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 0/0 | Not started | — |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 0/0 | Not started | — |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
