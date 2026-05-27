@@ -763,6 +763,66 @@ defmodule Cairnloop.Web.InboxLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "D-14 invariants (no direct Ecto from web layer)" do
+    # WR-05: the original substring grep ("Conversation |> where") only caught
+    # one exact pipe form. A regression that used any of these equivalent
+    # constructions would silently bypass the gate:
+    #   - from(c in Conversation, where: ...)
+    #   - Conversation\n|> where(...)          (newline between)
+    #   - query = Conversation; query |> where(...)
+    #   - Cairnloop.Conversation |> where(...) (fully qualified)
+    #   - import Ecto.Query; Conversation |> where(...) on separate lines
+    # The D-14 mitigation is "narrow Cairnloop.Governance facade as the only
+    # read surface for the web layer." The strongest structural assertion of
+    # that posture is: InboxLive does not import Ecto.Query AND does not
+    # alias the schemas the facade owns. Those are the prerequisites for
+    # ANY direct query construction, regardless of syntax.
+    test "InboxLive does not import Ecto.Query (WR-05 — broader D-14 gate)" do
+      source = File.read!("lib/cairnloop/web/inbox_live.ex")
+      non_comment = strip_comments(source)
+
+      refute non_comment =~ ~r/\bimport\s+Ecto\.Query\b/,
+             "InboxLive must not import Ecto.Query — all reads go through Cairnloop.Governance (D-14)."
+
+      refute non_comment =~ ~r/\brequire\s+Ecto\.Query\b/,
+             "InboxLive must not require Ecto.Query either (D-14)."
+    end
+
+    test "InboxLive does not alias schemas owned by the Governance facade (WR-05)" do
+      source = File.read!("lib/cairnloop/web/inbox_live.ex")
+      non_comment = strip_comments(source)
+
+      # Conversation + BulkEnvelope are the two facade-owned schemas the
+      # web layer could conceivably want to query directly. Both should
+      # be invisible at the alias / fully-qualified level inside the
+      # LiveView module (the facade returns plain values, not structs
+      # the web layer needs to name).
+      refute non_comment =~ ~r/\balias\s+Cairnloop\.Conversation\b/,
+             "InboxLive must not alias Cairnloop.Conversation directly (D-14)."
+
+      refute non_comment =~ ~r/\balias\s+Cairnloop\.Outbound\.BulkEnvelope\b/,
+             "InboxLive must not alias Cairnloop.Outbound.BulkEnvelope directly (D-14)."
+    end
+
+    test "InboxLive source contains no Ecto query construction syntax (WR-05)" do
+      source = File.read!("lib/cairnloop/web/inbox_live.ex")
+      non_comment = strip_comments(source)
+
+      # Catch ALL common query construction forms — pipe, from/in keyword,
+      # macro keyword. Each refute carries its own message so a regression
+      # tells the operator exactly which form leaked.
+      refute non_comment =~ ~r/\|>\s*where\b/,
+             "InboxLive must not pipe into where/2 (D-14)."
+
+      refute non_comment =~ ~r/\bfrom\s*\(/,
+             "InboxLive must not call Ecto.Query.from/1,2 (D-14)."
+
+      # Keyword query macros that Ecto.Query exports under `import`.
+      refute non_comment =~ ~r/\|>\s*(?:join|select|order_by|group_by|having|preload|distinct|limit|offset)\b/,
+             "InboxLive must not pipe into Ecto.Query macros (D-14)."
+    end
+
+    # Retain the original test verbatim so the historical regression remains
+    # explicitly gated (belt-and-suspenders alongside the broader gates above).
     test "no `Conversation |> where` substring exists in lib/cairnloop/web/inbox_live.ex" do
       source = File.read!("lib/cairnloop/web/inbox_live.ex")
       refute source =~ "Conversation |> where"
@@ -770,15 +830,23 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
     test "no `inspect(` exists in InboxLive operator-visible strings" do
       source = File.read!("lib/cairnloop/web/inbox_live.ex")
-      # Filter out comment lines before checking.
-      non_comment =
-        source
-        |> String.split("\n")
-        |> Enum.reject(&String.starts_with?(String.trim_leading(&1), "#"))
-        |> Enum.join("\n")
+      non_comment = strip_comments(source)
 
       refute non_comment =~ "inspect("
     end
+  end
+
+  # WR-05: shared comment-stripping helper used by the D-14 grep gates above
+  # (so a `# import Ecto.Query` reference inside a comment doesn't trip the
+  # narrow-facade test) and the operator-copy `inspect(` gate. Drops Elixir
+  # line comments (`#`-prefixed lines); does NOT attempt to drop `#` inside
+  # string literals — the InboxLive source has none of those, and false
+  # positives would be louder than false negatives for these gates anyway.
+  defp strip_comments(source) do
+    source
+    |> String.split("\n")
+    |> Enum.reject(&String.starts_with?(String.trim_leading(&1), "#"))
+    |> Enum.join("\n")
   end
 
   # ---------------------------------------------------------------------------
