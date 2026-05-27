@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: vM013
 milestone_name: Support-Triggered Outbound Lifecycle
-status: "Phase 24 implemented; next step is Phase 25 planning/execution"
-stopped_at: Phase 24: Individual Outbound UI
-last_updated: "2026-05-26T16:30:00.000Z"
-last_activity: "2026-05-26 — Phase 24 implemented: outbound timeline cards and resolved-only recovery follow-up trigger added to ConversationLive."
+status: "Phase 25 context gathered (auto-ratified); ready for plan-phase"
+stopped_at: Phase 25: Bulk Selection & Fan-out — CONTEXT.md written
+last_updated: "2026-05-27T00:00:00.000Z"
+last_activity: "2026-05-27 — Phase 25 CONTEXT.md auto-ratified per CLAUDE.md shift-left posture; four discussion areas (cohort, selection model, preview, batch safety) resolved without re-asking after prior session crash."
 progress:
   total_phases: 5
   completed_phases: 3
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 24
-Plan: 24-01
-Status: Phase 24 completed in code.
-Last activity: 2026-05-26 — Phase 24 implemented (Individual Outbound UI).
+Phase: 25
+Plan: pending
+Status: Phase 25 CONTEXT.md auto-ratified per shift-left posture (owner-approved 2026-05-27 after prior session crash). Ready for plan-phase.
+Last activity: 2026-05-27 — Phase 25 context written: cohort eligibility, selection model, preview/contract, batch safety rails — all four areas ratified without re-running Q&A.
 
 Progress bar: `██████░░░░ 60%` (3/5 phases)
 
@@ -48,6 +48,12 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 - **[2026-05-26 Phase 22]** `system_outbound` messages require `template_id` in metadata and default to `status: "pending"`.
 - **[2026-05-26 Phase 23]** All outbound triggers go through `OutboundWorker` for durability and status tracking.
 - **[2026-05-26 Phase 24]** The first manual operator affordance is a resolved-only fixed sidebar action that uses a configured recovery template and appends a `system_outbound` card to the thread.
+- **[2026-05-27 Phase 25 D-01/D-02]** Bulk selection in `InboxLive` is restricted to resolved conversations and to currently-rendered/filtered rows only — no cross-page selection in v1.
+- **[2026-05-27 Phase 25 D-03/D-04/D-05]** Selection model is explicit checkbox multi-select + sticky bulk action bar + "select all visible". State is a LiveView-local `MapSet`, cleared on filter change / navigate; no persistence across reloads.
+- **[2026-05-27 Phase 25 D-06/D-07/D-08]** Bulk send reuses the configured recovery template (no free-form composition in v1). A mandatory confirmation modal must show recipient count, first-5 recipient sample, and the rendered template body before sending.
+- **[2026-05-27 Phase 25 D-09/D-10/D-11]** Hard fail-closed at `max_batch_size = 25` (env-configurable). No silent chunking or partial sends. Per-recipient `OutboundWorker` jobs carry a bulk-envelope-keyed idempotency token for at-most-once delivery.
+- **[2026-05-27 Phase 25 D-12/D-13]** `Cairnloop.Outbound.trigger/2` stays sealed; a new `bulk_trigger/2`-shaped envelope wraps the fan-out, snapshots template + cohort at confirmation time, and emits a single OBS-02-shaped audit row per bulk action.
+- **[2026-05-27 Phase 25 D-14]** Cohort eligibility reads from the web layer go through the narrow `Cairnloop.Governance` facade — no direct `Ecto` queries from `InboxLive`.
 
 ### Pending Todos
 
@@ -68,6 +74,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 
 ## Session Continuity
 
-Last session: 2026-05-26T16:30:00.000Z
-Stopped at: Phase 24: Individual Outbound UI completed.
-Next step: Phase 25 — Bulk Selection & Fan-out
+Last session: 2026-05-27T00:00:00.000Z
+Stopped at: Phase 25 — Bulk Selection & Fan-out: CONTEXT.md written; awaiting plan-phase trigger.
+Next step: `/gsd:plan-phase 25` (owner will trigger; do NOT auto-route).
+Resume file: `.planning/phases/25-bulk-selection-fan-out/25-CONTEXT.md`
