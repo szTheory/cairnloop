@@ -125,7 +125,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 Plans:
 **Wave 1**
 
-- [ ] 25-01-PLAN.md — BulkEnvelope schema + migration + Governance cohort reads (BULK-01, BULK-03 substrate)
+- [x] 25-01-PLAN.md — BulkEnvelope schema + migration + Governance cohort reads (BULK-01, BULK-03 substrate) — completed 2026-05-27 (Tasks 1-3; Task 4 `mix ecto.migrate` awaiting operator)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -162,7 +162,7 @@ Plans:
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
-| 25. Bulk Selection & Fan-out | vM013 | 0/3 | Planned | - |
+| 25. Bulk Selection & Fan-out | vM013 | 1/3 | In Progress | - |
 | 26. Observability & Polish | vM013 | 0/1 | Not started | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: vM013
 milestone_name: Support-Triggered Outbound Lifecycle
 status: executing
-stopped_at: "Phase 25 — Bulk Selection & Fan-out: CONTEXT.md written; awaiting plan-phase trigger."
-last_updated: "2026-05-27T06:42:24.779Z"
-last_activity: 2026-05-27 -- Phase 25 planning complete
+stopped_at: "Phase 25 plan 01 — Tasks 1-3 committed; Task 4 (mix ecto.migrate) AWAITING human action on a Postgres-available host (REPO-UNAVAILABLE here, D-16)."
+last_updated: "2026-05-27T06:53:28Z"
+last_activity: 2026-05-27 -- Phase 25 plan 01 Tasks 1-3 complete; Task 4 awaiting operator
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md`
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** vM013 — Support-Triggered Outbound Lifecycle
+**Current focus:** Phase 25 — bulk-selection-fan-out
 
 ## Current Position
 
-Phase: 25
-Plan: pending
-Status: Ready to execute
-Last activity: 2026-05-27 -- Phase 25 planning complete
+Phase: 25 (bulk-selection-fan-out) — EXECUTING
+Plan: 1 of 3 — Tasks 1-3 complete; Task 4 (mix ecto.migrate) AWAITING human action
+Status: Plan 25-01 awaiting operator "migrated" resume signal before declaring plan FULLY done
+Last activity: 2026-05-27 -- Plan 25-01 Tasks 1-3 committed (5b49eaf, 83ea233, edf0aae)
 
 Progress bar: `██████░░░░ 60%` (3/5 phases)
 
@@ -54,6 +54,9 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 - **[2026-05-27 Phase 25 D-09/D-10/D-11]** Hard fail-closed at `max_batch_size = 25` (env-configurable). No silent chunking or partial sends. Per-recipient `OutboundWorker` jobs carry a bulk-envelope-keyed idempotency token for at-most-once delivery.
 - **[2026-05-27 Phase 25 D-12/D-13]** `Cairnloop.Outbound.trigger/2` stays sealed; a new `bulk_trigger/2`-shaped envelope wraps the fan-out, snapshots template + cohort at confirmation time, and emits a single OBS-02-shaped audit row per bulk action.
 - **[2026-05-27 Phase 25 D-14]** Cohort eligibility reads from the web layer go through the narrow `Cairnloop.Governance` facade — no direct `Ecto` queries from `InboxLive`.
+- **[2026-05-27 Phase 25 plan 01]** `Cairnloop.Outbound.BulkEnvelope` is the durable audit row per bulk action (D-13). PK is `binary_id` (caller-supplied UUID at confirm time); `status :: :submitted | :refused_cap_exceeded`. Refused attempts persist on the same table so OBS-02 (Phase 26) reads see both lanes from one query.
+- **[2026-05-27 Phase 25 plan 01]** Migration `priv/repo/migrations/20260527063000_add_outbound_bulk_envelopes.exs` creates `cairnloop_outbound_bulk_envelopes` with `recipient_conversation_ids :: {:array, :bigint}` (no FK — array FKs are awkward; join is audit-time only, research A6) plus indexes on `:requested_at` and `:template_id`. Must be applied via `mix ecto.migrate` on the project's Postgres-available host.
+- **[2026-05-27 Phase 25 plan 01]** `Cairnloop.Governance.list_eligible_conversation_ids_for_bulk_recovery/1` and `Cairnloop.Governance.preview_bulk_recovery_cohort/1` are the narrow cohort-eligibility reads (D-14). InboxLive (plan 03) MUST NOT run direct `Conversation |> where(...)` queries — the threat register T-25-04 mitigation grep will enforce this.
 
 ### Pending Todos
 
@@ -62,7 +65,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 
 ### Blockers/Concerns
 
-- None.
+- **Plan 25-01 Task 4 (BLOCKING — human action):** Run `mix ecto.migrate` on the project's Postgres-available host so `cairnloop_outbound_bulk_envelopes` exists. The migration file is at `priv/repo/migrations/20260527063000_add_outbound_bulk_envelopes.exs`. Resume signal: "migrated" (or "blocked: <reason>"). Plans 02 + 03 build on this table; their headless tests pass against MockRepo but their integration assertions need the real DB.
 
 ## Deferred Items
 
@@ -74,7 +77,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 
 ## Session Continuity
 
-Last session: 2026-05-27T00:00:00.000Z
-Stopped at: Phase 25 — Bulk Selection & Fan-out: CONTEXT.md written; awaiting plan-phase trigger.
-Next step: `/gsd:plan-phase 25` (owner will trigger; do NOT auto-route).
-Resume file: `.planning/phases/25-bulk-selection-fan-out/25-CONTEXT.md`
+Last session: 2026-05-27T06:53:28Z
+Stopped at: Phase 25 plan 01 — Tasks 1-3 committed (5b49eaf, 83ea233, edf0aae). Task 4 (`mix ecto.migrate`) AWAITING human action on a Postgres-available host (REPO-UNAVAILABLE here, D-16).
+Next step: Operator runs `mix ecto.migrate` on the Postgres-available host per `25-01-PLAN.md` Task 4 `<how-to-verify>` block; then resumes with signal "migrated" so plan 02 (Wave 2) can begin.
+Resume file: `.planning/phases/25-bulk-selection-fan-out/25-01-SUMMARY.md`
