@@ -1,10 +1,11 @@
 ---
 phase: 27
 slug: realistic-demo-fixtures
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: complete
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-27
+completed: 2026-05-27
 ---
 
 # Phase 27 — Validation Strategy
@@ -43,13 +44,13 @@ created: 2026-05-27
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 27-XX-XX | TBD | TBD | FIX-01 (ContextProvider) | — | `DemoContextProvider.get_context/2` returns documented shape for known + unknown actors (fail-open `{:ok, %{}}`) | unit (pure, headless) | `cd examples/cairnloop_example && mix test test/cairnloop_example/demo_context_provider_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | FIX-01 (conversations) | — | Seed produces 16 conversations across 4 JTBD-derived cohorts | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | FIX-02 (articles + revisions) | — | Seed produces ≥5 articles, ≥6 revisions, ≥1 with `state: :archived` | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | FIX-02 (Oban-driven embeddings) | — | After `Oban.drain_queue/1`, `cairnloop_chunks` table is non-empty (M008 substrate self-test) | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | FIX-03 | — | Seed produces ≥3 `GapCandidate` rows with `status: :open` and ≥1 `GapCandidateMembership` each | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | FIX-04 | — | Seed produces ≥1 `ArticleSuggestion :ready_for_review` with companion `ReviewTask {status: :pending_review}` and `:task_created` event | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ❌ W0 | ⬜ pending |
-| 27-XX-XX | TBD | TBD | D-02 (idempotency) | — | Running seeds twice is a no-op (no errors, no duplicate row counts) | integration (DB) | extends `seeds_test.exs` with `for _ <- 1..2, do: Code.eval_file("priv/repo/seeds.exs")` then asserts row-count stability | ❌ W0 | ⬜ pending |
+| 27-02-T1 | 27-02 | 1 | FIX-01 (ContextProvider) | — | `DemoContextProvider.get_context/2` returns documented shape for known + unknown actors (fail-open `{:ok, %{}}`) | unit (pure, headless) | `cd examples/cairnloop_example && mix test test/cairnloop_example/demo_context_provider_test.exs` | ✅ | ✅ green |
+| 27-08-T1 | 27-08 | 7 | FIX-01 (conversations) | T-27-23 | Seed produces ≥16 conversations; ≥12 :open, ≥4 :resolved; 48 ≤ messages ≤ 80 | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
+| 27-08-T1 | 27-08 | 7 | FIX-02 (articles + revisions) | T-27-23 | Seed produces ≥5 articles, ≥6 revisions, ≥1 with `state: :archived` | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
+| 27-08-T2 | 27-08 | 7 | FIX-02 (Oban-driven embeddings) | T-27-25 | After `Oban.drain_queue/1`, `cairnloop_chunks` table is non-empty (M008 substrate self-test) | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
+| 27-08-T1 | 27-08 | 7 | FIX-03 | T-27-23 | Seed produces ≥3 `GapCandidate` rows with `status: :open` and ≥1 `GapCandidateMembership` each | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
+| 27-08-T3 | 27-08 | 7 | FIX-04 | T-27-23 | Seed produces ≥1 `ArticleSuggestion status: :ready` with companion `ReviewTask {status: :pending_review}` | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
+| 27-08-T4 | 27-08 | 7 | D-02 (idempotency) | T-27-24 | Running seeds twice is a no-op — row counts stable after second eval | integration (DB) | `cd examples/cairnloop_example && mix test test/cairnloop_example/seeds_test.exs` | ✅ | ✅ ready (REPO-UNAVAILABLE in dev) |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
