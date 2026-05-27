@@ -24,6 +24,25 @@ defmodule Cairnloop.Web.InboxLive do
   - **D-14:** Cohort eligibility goes through `Cairnloop.Governance` ONLY;
     `InboxLive` runs no direct Ecto queries (the Phase 25 plan acceptance grep
     asserts the `Conversation`-where pattern is absent from this file).
+
+  ## Brand tokens (WR-03)
+
+  Every color in this file is expressed as `var(--cl-<name>, <hex-or-rgba>)`
+  so a host stylesheet can override the cascade without touching this file.
+  The fallback values are inline so headless tests can assert the brand-token
+  vocabulary in rendered HTML (see `inbox_live_test.exs` "var(--cl-primary" /
+  "var(--cl-danger" gates). Future cleanup may extract the duplicated button
+  declarations (`min-height: 44px; padding: 10px 16px; border-radius: 8px;`)
+  to a stylesheet class once the project has a CSS pipeline; until then,
+  keeping the brand tokens visible in HTML is the test contract.
+
+  Token vocabulary used here (additive to `--cl-primary` / `--cl-surface` /
+  `--cl-surface-raised` / `--cl-border` / `--cl-text` / `--cl-danger` that
+  already exist in the codebase): `--cl-on-primary` (text on primary brand),
+  `--cl-text-muted` (62% text alpha), `--cl-text-soft` (72% text alpha),
+  `--cl-overlay` (modal scrim), `--cl-primary-disabled` (disabled-primary
+  tint), `--cl-surface-translucent` (translucent panel), `--cl-danger-soft`
+  (danger banner tint), `--cl-shadow` (elevation shadow).
   """
   use Phoenix.LiveView
 
@@ -104,7 +123,7 @@ defmodule Cairnloop.Web.InboxLive do
             checked={all_visible_selected?(@conversations, @selected_ids)}
             aria-label="Select all visible resolved conversations"
           />
-          <span style="font-size: 14px; color: rgba(47, 36, 29, 0.62);">Select all visible</span>
+          <span style="font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));">Select all visible</span>
         </div>
       <% end %>
 
@@ -147,7 +166,7 @@ defmodule Cairnloop.Web.InboxLive do
           <button
             type="button"
             phx-click="open_bulk_confirm"
-            style="background: var(--cl-primary, #A94F30); color: #fffdf8; border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
+            style="background: var(--cl-primary, #A94F30); color: var(--cl-on-primary, #fffdf8); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
           >
             Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
           </button>
@@ -161,21 +180,21 @@ defmodule Cairnloop.Web.InboxLive do
           aria-modal="true"
           aria-labelledby="bulk-confirm-title"
           class="bulk-confirm-backdrop"
-          style="position: fixed; inset: 0; background: rgba(44, 38, 31, 0.42); display: flex; justify-content: center; align-items: flex-start; padding: 64px 16px; z-index: 50;"
+          style="position: fixed; inset: 0; background: var(--cl-overlay, rgba(44, 38, 31, 0.42)); display: flex; justify-content: center; align-items: flex-start; padding: 64px 16px; z-index: 50;"
           phx-window-keydown="cancel_bulk_confirm"
           phx-key="Escape"
         >
           <.focus_wrap id="bulk-confirm-wrap">
             <div
               class="bulk-confirm-dialog"
-              style="background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px rgba(47, 36, 29, 0.18); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
+              style="background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
             >
               <%= if @bulk_refusal do %>
                 <%!-- D-10 + brand §7.5 — refusal banner: icon + text + danger token. --%>
                 <div
                   role="alert"
                   class="bulk-refusal"
-                  style="background: rgba(181, 76, 54, 0.08); border: 1px solid var(--cl-danger, #B54C36); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start;"
+                  style="background: var(--cl-danger-soft, rgba(181, 76, 54, 0.08)); border: 1px solid var(--cl-danger, #B54C36); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start;"
                 >
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--cl-danger, #B54C36); margin-top: 2px;">
                     <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
@@ -204,7 +223,7 @@ defmodule Cairnloop.Web.InboxLive do
                     type="button"
                     disabled
                     aria-disabled="true"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: none; background: rgba(169, 79, 48, 0.36); color: #fffdf8; font-weight: 600; cursor: not-allowed;"
+                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: none; background: var(--cl-primary-disabled, rgba(169, 79, 48, 0.36)); color: var(--cl-on-primary, #fffdf8); font-weight: 600; cursor: not-allowed;"
                   >
                     Confirm send
                   </button>
@@ -224,14 +243,14 @@ defmodule Cairnloop.Web.InboxLive do
                     <% end %>
                   </ul>
                   <%= if @bulk_preview.more > 0 do %>
-                    <p style="margin: 8px 0 0; font-size: 14px; color: rgba(47, 36, 29, 0.62);">
+                    <p style="margin: 8px 0 0; font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));">
                       + <%= @bulk_preview.more %> more
                     </p>
                   <% end %>
                 </section>
 
-                <section aria-label="Message body" style="margin-bottom: 24px; padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.72);">
-                  <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: rgba(47, 36, 29, 0.72); text-transform: uppercase; letter-spacing: 0.04em;">
+                <section aria-label="Message body" style="margin-bottom: 24px; padding: 16px; border-radius: 12px; background: var(--cl-surface-translucent, rgba(255, 255, 255, 0.72));">
+                  <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--cl-text-soft, rgba(47, 36, 29, 0.72)); text-transform: uppercase; letter-spacing: 0.04em;">
                     Message body
                   </h3>
                   <p style="margin: 0; font-size: 16px; line-height: 1.5; white-space: pre-wrap;">
@@ -250,7 +269,7 @@ defmodule Cairnloop.Web.InboxLive do
                   <button
                     type="button"
                     phx-click="confirm_bulk_send"
-                    style="background: var(--cl-primary, #A94F30); color: #fffdf8; border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
+                    style="background: var(--cl-primary, #A94F30); color: var(--cl-on-primary, #fffdf8); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
                   >
                     Confirm send
                   </button>
