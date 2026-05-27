@@ -39,6 +39,15 @@ defmodule Cairnloop.Web.ConversationLive do
     {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
   end
 
+  # Phase 28 D-17: react to customer widget messages (Chat.ingest_widget_message/2) and
+  # operator replies (Chat.reply_to_conversation/4 OQ-1 broadcast) arriving via PubSub.
+  # Topic: "conversation:#{id}" — subscribed at mount/3 (lines 13-16 above).
+  # Broadcasters: Chat.ingest_widget_message/2 and Chat.reply_to_conversation/4.
+  # Mirrors {:draft_created, _} / {:tool_executed, _} / {:tool_execution_failed, _} exactly.
+  def handle_info({:message_created, _message_id}, socket) do
+    {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
+  end
+
   def handle_event("reply", %{"content" => content}, socket) do
     if content != "" do
       case Chat.reply_to_conversation(socket.assigns.conversation.id, content) do

@@ -78,17 +78,15 @@ defmodule Cairnloop.Web.InboxLive do
   # ---------------------------------------------------------------------------
 
   def mount(_params, session, socket) do
-    # WR-02: previously a dead `if connected?(socket) do …end` block lived
-    # here whose body was a placeholder comment. The `if` evaluated to `nil`
-    # and the result was discarded — dead control flow with no phase tracking.
-    # When pubsub becomes load-bearing (future phase — most likely Phase 26
-    # OBS-01 or whichever phase first ships peer-LiveView coordination),
-    # subscribe here and ALSO route the resulting `:conversations` updates
-    # through `prune_selected_ids/2` so `@selected_ids` stays consistent
-    # with what's actually rendered (a no-longer-visible conversation
-    # remaining selected inflates the bulk-bar "N selected" copy and is a
-    # silent footgun). Until that surface exists, the helper is wired but
-    # unused; mount/3 does not subscribe.
+    # Phase 28 D-09: subscribe to "conversations" topic on Cairnloop.PubSub when socket is
+    # connected so the operator inbox refreshes whenever Chat.create_customer_conversation/1 or
+    # Chat.ingest_widget_message/2 broadcasts {:conversations_changed}.
+    # WR-02 note: this replaces the dead comment-only block from Phase 25. The `connected?/1`
+    # guard ensures test environments (build_socket() is disconnected) don't subscribe, so
+    # existing InboxLive tests continue to pass unchanged.
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
+    end
 
     conversations = Chat.list_conversations()
 
@@ -308,6 +306,22 @@ defmodule Cairnloop.Web.InboxLive do
       current_path="/"
     />
     """
+  end
+
+  # ---------------------------------------------------------------------------
+  # PubSub info handlers (Phase 28).
+  # ---------------------------------------------------------------------------
+
+  # Phase 28 D-10: react to new conversations (create_customer_conversation/1) and new
+  # messages (ingest_widget_message/2) that broadcast {:conversations_changed} on the
+  # "conversations" topic of Cairnloop.PubSub. Subscribed in mount/3 above (D-09).
+  # prune_selected_ids/2 (line ~568) is now load-bearing — any conversation that disappears
+  # from the list is automatically removed from @selected_ids to keep the bulk-bar count
+  # accurate (WR-02 forward-compat fulfilled).
+  def handle_info({:conversations_changed}, socket) do
+    conversations = Chat.list_conversations()
+    selected_ids = prune_selected_ids(socket.assigns.selected_ids, conversations)
+    {:noreply, assign(socket, conversations: conversations, selected_ids: selected_ids)}
   end
 
   # ---------------------------------------------------------------------------
