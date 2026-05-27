@@ -58,6 +58,16 @@ defmodule Cairnloop.ChatTest do
       {:ok, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)}
     end
 
+    # Phase 28 Plan 03: get/2 for tolerant message lookup (NOT get!/2).
+    # Used by Chat.get_message/1 in the ChatLive role-dedup branch (Pitfall 7).
+    def get(Cairnloop.Message, 1),
+      do: %Cairnloop.Message{id: 1, role: :agent, content: "operator reply", conversation_id: 1}
+
+    def get(Cairnloop.Message, 2),
+      do: %Cairnloop.Message{id: 2, role: :user, content: "customer message", conversation_id: 1}
+
+    def get(Cairnloop.Message, _id), do: nil
+
     def update(changeset) do
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
@@ -348,6 +358,24 @@ defmodule Cairnloop.ChatTest do
       Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
       {:ok, _message} = Chat.ingest_widget_message(1, "hi")
       assert_receive {:conversations_changed}, 200
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 28 Plan 03: get_message/1 read-side facade
+  # ---------------------------------------------------------------------------
+
+  describe "get_message/1" do
+    test "returns the message struct for a known id" do
+      assert %Cairnloop.Message{id: 1, role: :agent} = Chat.get_message(1)
+    end
+
+    test "returns a :user-role message for a known id" do
+      assert %Cairnloop.Message{id: 2, role: :user} = Chat.get_message(2)
+    end
+
+    test "returns nil for an unknown id" do
+      assert nil == Chat.get_message(999)
     end
   end
 
