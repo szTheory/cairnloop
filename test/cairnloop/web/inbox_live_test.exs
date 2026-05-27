@@ -498,6 +498,43 @@ defmodule Cairnloop.Web.InboxLiveTest do
   end
 
   # ---------------------------------------------------------------------------
+  # WR-02 forward-compat: prune_selected_ids/2 helper.
+  # ---------------------------------------------------------------------------
+
+  describe "prune_selected_ids/2 (WR-02 forward-compat for pubsub)" do
+    test "drops ids that are not in the current conversations list" do
+      selected = MapSet.new([1, 2, 3, 99])
+
+      conversations = [
+        %Cairnloop.Conversation{id: 1, status: :resolved},
+        %Cairnloop.Conversation{id: 2, status: :resolved}
+      ]
+
+      pruned = InboxLive.prune_selected_ids(selected, conversations)
+
+      assert pruned == MapSet.new([1, 2])
+    end
+
+    test "is a no-op when every selected id is still visible" do
+      selected = MapSet.new([1, 2])
+
+      conversations = [
+        %Cairnloop.Conversation{id: 1, status: :resolved},
+        %Cairnloop.Conversation{id: 2, status: :resolved},
+        %Cairnloop.Conversation{id: 3, status: :open}
+      ]
+
+      assert InboxLive.prune_selected_ids(selected, conversations) ==
+               MapSet.new([1, 2])
+    end
+
+    test "returns an empty MapSet when conversations is empty" do
+      assert InboxLive.prune_selected_ids(MapSet.new([1, 2, 3]), []) ==
+               MapSet.new()
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # D-14 invariant gate — no direct Ecto query in InboxLive.
   # ---------------------------------------------------------------------------
 

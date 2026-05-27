@@ -59,9 +59,17 @@ defmodule Cairnloop.Web.InboxLive do
   # ---------------------------------------------------------------------------
 
   def mount(_params, session, socket) do
-    if connected?(socket) do
-      # In a real app we would subscribe to a pubsub here
-    end
+    # WR-02: previously a dead `if connected?(socket) do …end` block lived
+    # here whose body was a placeholder comment. The `if` evaluated to `nil`
+    # and the result was discarded — dead control flow with no phase tracking.
+    # When pubsub becomes load-bearing (future phase — most likely Phase 26
+    # OBS-01 or whichever phase first ships peer-LiveView coordination),
+    # subscribe here and ALSO route the resulting `:conversations` updates
+    # through `prune_selected_ids/2` so `@selected_ids` stays consistent
+    # with what's actually rendered (a no-longer-visible conversation
+    # remaining selected inflates the bulk-bar "N selected" copy and is a
+    # silent footgun). Until that surface exists, the helper is wired but
+    # unused; mount/3 does not subscribe.
 
     conversations = Chat.list_conversations()
 
@@ -458,6 +466,18 @@ defmodule Cairnloop.Web.InboxLive do
   defp all_visible_selected?(conversations, selected_ids) do
     visible = visible_eligible_ids(conversations)
     visible != [] and Enum.all?(visible, &MapSet.member?(selected_ids, &1))
+  end
+
+  # WR-02 forward-compat: prune `selected_ids` against the currently rendered
+  # conversations list. When pubsub lands (see `mount/3`), routing peer-LiveView
+  # `:conversations` updates through this helper keeps `@selected_ids` in lockstep
+  # with what's actually rendered — a no-longer-visible conversation remaining
+  # selected would silently inflate the bulk-bar count and is a known footgun.
+  # Doc-only at present; wired but unused until a pubsub surface exists.
+  @doc false
+  def prune_selected_ids(selected_ids, conversations) when is_list(conversations) do
+    visible_ids = conversations |> Enum.map(& &1.id) |> MapSet.new()
+    MapSet.intersection(selected_ids, visible_ids)
   end
 
   # v1: render is a pure function of template_id (no per-recipient
