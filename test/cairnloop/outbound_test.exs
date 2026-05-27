@@ -823,26 +823,9 @@ defmodule Cairnloop.OutboundTest do
     end
   end
 
-  # ----------------------------------------------------------------------------
-  # REPO-UNAVAILABLE — requires Cairnloop.Repo + Postgres. These tests genuinely
-  # require Postgres round-trips and cannot run in this workspace (CLAUDE.md
-  # D-16). Authored so they pass on a Postgres-available host via
-  # `mix test.integration`.
-  # ----------------------------------------------------------------------------
-  describe "bulk_trigger/2 — Postgres integration" do
-    @tag :integration
-    # REPO-UNAVAILABLE
-    test "bulk_trigger writes BulkEnvelope + N Message rows atomically (rollback on FK violation)" do
-      # On a Postgres-available host:
-      # 1. count_before = Repo.aggregate(BulkEnvelope, :count, :id)
-      # 2. Call bulk_trigger with a list of conversation_ids where one id is
-      #    intentionally non-existent so the per-recipient Message insert raises
-      #    an FK violation against cairnloop_conversations.
-      # 3. Assert the call returns {:error, _} and that
-      #    Repo.aggregate(BulkEnvelope, :count, :id) == count_before
-      #    (i.e., the envelope row was rolled back atomically with the failed
-      #    Message inserts — Ecto.Multi atomicity guarantee).
-      flunk("integration-only: requires Cairnloop.Repo + cairnloop_conversations FK")
-    end
-  end
+  # Note: bulk_trigger/2's atomicity under transaction rollback (Ecto.Multi
+  # guarantee — envelope row + N Message rows roll back together when any step
+  # fails) is covered by the integration suite at
+  # test/integration/bulk_trigger_atomicity_test.exs, which runs against real
+  # Postgres in CI via `mix test.integration`.
 end

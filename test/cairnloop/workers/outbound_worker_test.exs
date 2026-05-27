@@ -314,25 +314,21 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
   end
 
   # ----------------------------------------------------------------------------
-  # REPO-UNAVAILABLE — requires Cairnloop.Repo + Postgres + Oban tables.
-  # These tests genuinely require Postgres round-trips and cannot run in this
-  # workspace (CLAUDE.md D-16). They are authored so they pass on a Postgres-
-  # available host via `mix test.integration`.
+  # D-11 — Oban worker config (headless). The runtime dedup behavior is Oban's
+  # contract (well-tested upstream); what WE own is the configuration of the
+  # `unique:` keys. Cairnloop ships no Oban migration (the host owns `oban_jobs`
+  # — see test/integration/approval_flow_test.exs:9), so a true Oban.insert
+  # round-trip is out of reach for the integration suite. The headless assertion
+  # below is the right level: it locks the dedup tuple to the documented
+  # (conversation_id, template_id, bulk_envelope_id) shape.
   # ----------------------------------------------------------------------------
-  describe "Oban unique: dedup under bulk envelope" do
-    @tag :integration
-    # REPO-UNAVAILABLE
-    test "two consecutive Oban.insert calls with identical {conversation_id, template_id, bulk_envelope_id} are deduped via Oban unique clause" do
-      # On a Postgres-available host:
-      # 1. Insert OutboundWorker.new(%{"message_id" => m1, "conversation_id" => 10,
-      #                                "template_id" => "recovery_v1",
-      #                                "bulk_envelope_id" => env_id})
-      #    → assert {:ok, %Oban.Job{conflict?: false}} or first-insert success.
-      # 2. Insert OutboundWorker.new with identical conversation_id/template_id/bulk_envelope_id
-      #    → assert second insert returns the existing job (Oban surfaces `:conflict?` on
-      #    the returned job in 2.17+) and that count(oban_jobs) increased by exactly 1.
-      # Only meaningful with a real Oban table — no MockRepo equivalent.
-      flunk("integration-only: requires Cairnloop.Repo + oban_jobs table")
+  describe "Oban unique: config (D-11)" do
+    test "OutboundWorker is configured with the documented dedup tuple" do
+      unique = OutboundWorker.__opts__()[:unique]
+
+      assert unique[:period] == :infinity
+      assert unique[:fields] == [:worker, :args]
+      assert unique[:keys] == [:conversation_id, :template_id, :bulk_envelope_id]
     end
   end
 end
