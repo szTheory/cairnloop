@@ -1978,6 +1978,157 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Phase 26 D-09 failed-bubble subhead + outbound_recovery_card a11y
+  # verification. Additive — chip render and outbound_recovery_card stay
+  # byte-for-byte unchanged (Pitfall 7).
+  # ---------------------------------------------------------------------------
+
+  describe "Phase 26 D-09 failed-bubble subhead" do
+    defp failed_bubble_assigns(status) do
+      %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "Test",
+          messages: [
+            %Cairnloop.Message{
+              id: 10,
+              role: :system_outbound,
+              content: "Hey, checking in.",
+              metadata: %{"template_id" => "recovery_v1", "status" => status}
+            }
+          ],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+    end
+
+    test "Test 1: failed status renders subhead AND keeps the existing chip (Pitfall 7)" do
+      html = render_html(failed_bubble_assigns("failed"))
+
+      # Pitfall 7 regression gate — chip render MUST remain.
+      assert html =~ "message-status-chip status-failed"
+      assert html =~ "Failed"
+      # New calm reason-forward subhead.
+      assert html =~ "Delivery did not complete. Try again from the Outbound recovery card."
+      assert html =~ "outbound-failed-subhead"
+      assert html =~ "var(--cl-text-muted"
+    end
+
+    test "Test 2: sent status does NOT render the subhead" do
+      html = render_html(failed_bubble_assigns("sent"))
+
+      assert html =~ "message-status-chip status-sent"
+      assert html =~ "Sent"
+      refute html =~ "Delivery did not complete"
+      refute html =~ "outbound-failed-subhead"
+    end
+
+    test "Test 3: pending status does NOT render the subhead" do
+      html = render_html(failed_bubble_assigns("pending"))
+
+      assert html =~ "message-status-chip status-pending"
+      refute html =~ "Delivery did not complete"
+      refute html =~ "outbound-failed-subhead"
+    end
+
+    test "Test 4: non-system_outbound role does NOT render the subhead" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          status: :resolved,
+          subject: "Test",
+          messages: [
+            %Cairnloop.Message{
+              id: 11,
+              role: :user,
+              content: "Customer message",
+              metadata: %{}
+            }
+          ],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      refute html =~ "Delivery did not complete"
+      refute html =~ "outbound-failed-subhead"
+      # The rendered <span class="message-status-chip ..."> element should NOT
+      # appear (the class name shows up in the inline <style> block CSS
+      # regardless, so match on the attribute marker instead).
+      refute html =~ ~s(class={["message-status-chip)
+      refute html =~ ~s(class="message-status-chip)
+    end
+
+    test "Test 5: outbound_recovery_card a11y verification — aria-label=\"Outbound recovery\" present on :resolved" do
+      html = render_html(failed_bubble_assigns("sent"))
+
+      assert html =~ ~s(aria-label="Outbound recovery")
+      # Pin the actual rendered <section class="rail-card outbound-action-card">
+      # (the bare class name appears in the embedded CSS regardless of render).
+      assert html =~ ~s(class="rail-card outbound-action-card")
+    end
+
+    test "Test 6: outbound_recovery_card hidden on non-resolved conversation" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 2,
+          status: :open,
+          subject: "Open conversation",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      # The rendered <section> must NOT appear. Bare "outbound-action-card"
+      # shows up in the inline <style> block CSS rule, so match the actual
+      # class attribute string instead.
+      refute html =~ ~s(class="rail-card outbound-action-card)
+      refute html =~ ~s(aria-label="Outbound recovery")
+    end
+
+    test "Test 7: subhead position — AFTER message-content, BEFORE closing message-card div" do
+      html = render_html(failed_bubble_assigns("failed"))
+
+      content_match = :binary.match(html, "class=\"message-content\"")
+      subhead_match = :binary.match(html, "class=\"outbound-failed-subhead\"")
+
+      assert content_match != :nomatch,
+             "expected class=\"message-content\" in rendered HTML"
+
+      assert subhead_match != :nomatch,
+             "expected class=\"outbound-failed-subhead\" in rendered HTML"
+
+      {content_offset, _} = content_match
+      {subhead_offset, _} = subhead_match
+
+      assert subhead_offset > content_offset,
+             "subhead (offset #{subhead_offset}) must appear AFTER the message-content paragraph (offset #{content_offset}) per RESEARCH Code Example 3"
+    end
+  end
+
   describe "handle_event approve_action/reject_action/defer_action — Phase 15 (APRV-01, FLOW-03)" do
     test "approve_action calls Governance.approve and reloads on success" do
       socket = approval_socket()
