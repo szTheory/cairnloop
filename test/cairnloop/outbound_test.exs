@@ -13,12 +13,22 @@ defmodule Cairnloop.OutboundTest do
       # fail with a synthetic `{:error, %Ecto.Changeset{}}` to exercise the
       # refusal-audit-failure observability lane (telemetry outcome
       # `:refused_cap_exceeded_audit_failed` + Logger.error).
-      case Process.get(:mock_repo_force_insert_failure) do
-        %Ecto.Changeset{} = forced ->
+      #
+      # Phase 26 D-03 regression hook (`:mock_repo_force_insert_unexpected_shape`):
+      # tests can force the next `insert/1` call to return an arbitrary non-`{:ok, _}`,
+      # non-`{:error, %Ecto.Changeset{}}` shape so the `other ->` arm of
+      # `bulk_trigger_refused/6`'s `case repo().insert(...)` block can be exercised
+      # for OI trace coverage.
+      cond do
+        forced = Process.get(:mock_repo_force_insert_failure) ->
           Process.delete(:mock_repo_force_insert_failure)
           {:error, forced}
 
-        _ ->
+        forced = Process.get(:mock_repo_force_insert_unexpected_shape) ->
+          Process.delete(:mock_repo_force_insert_unexpected_shape)
+          forced
+
+        true ->
           result =
             case changeset_or_struct do
               %Ecto.Changeset{} = cs ->
@@ -48,7 +58,18 @@ defmodule Cairnloop.OutboundTest do
     end
 
     def transaction(multi) do
-      execute_multi(multi, %{})
+      cond do
+        Process.get(:mock_repo_force_transaction_raise) ->
+          Process.delete(:mock_repo_force_transaction_raise)
+          raise "boom"
+
+        forced = Process.get(:mock_repo_force_transaction_failure) ->
+          Process.delete(:mock_repo_force_transaction_failure)
+          forced
+
+        true ->
+          execute_multi(multi, %{})
+      end
     end
 
     defp execute_multi(multi, acc) do
@@ -106,6 +127,10 @@ defmodule Cairnloop.OutboundTest do
       Process.delete(:mock_repo_inserts)
       # CR-02 regression hook: never leak the forced-failure stub across tests.
       Process.delete(:mock_repo_force_insert_failure)
+      # Phase 26 D-03 regression hooks: never leak forced shapes across tests.
+      Process.delete(:mock_repo_force_insert_unexpected_shape)
+      Process.delete(:mock_repo_force_transaction_failure)
+      Process.delete(:mock_repo_force_transaction_raise)
     end)
 
     :ok
@@ -498,6 +523,185 @@ defmodule Cairnloop.OutboundTest do
       assert Enum.all?(inserts, fn x -> not match?(%BulkEnvelope{}, x) end)
 
       :telemetry.detach("test-bulk-refused-audit-failed")
+    end
+  end
+
+  describe "OI trace lane (Phase 26 D-03)" do
+    alias Cairnloop.Outbound.BulkEnvelope
+
+    # Phase 26 D-03: disjoint 4-segment trace path
+    # [:cairnloop, :outbound, :trace, <event_atom>]. The bounded-metrics spans on
+    # [:cairnloop, :outbound, :triggered, :start|:stop|:exception] and
+    # [:cairnloop, :outbound, :bulk, :triggered, ...] are sealed (Phase 22/25
+    # D-12 / D-14). This describe block proves the OI lane fires ALONGSIDE — never
+    # replacing — those sealed spans across trigger/2, bulk_trigger_submit/6, and
+    # all 3 arms of bulk_trigger_refused/6.
+
+    defp attach_trace_handler(test_id, event_atom) do
+      handler_id = "outbound-trace-#{test_id}-#{event_atom}"
+
+      :telemetry.attach(
+        handler_id,
+        [:cairnloop, :outbound, :trace, event_atom],
+        fn _event, _measurements, metadata, _config ->
+          send(self(), {:trace_metadata, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+    end
+
+    test "trigger/2 happy path — :trigger_started fires GUARDRAIL with attribution refs",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :trigger_started)
+
+      Outbound.trigger(1, template_id: "test", actor: "operator_42")
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:conversation_id] == 1
+      assert meta[:template_id] == "test"
+      assert meta[:actor_id] == "operator_42"
+      assert meta[:outcome] == :triggered
+    end
+
+    test "trigger/2 happy path — :trigger_completed fires GUARDRAIL after the sealed span",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :trigger_completed)
+
+      Outbound.trigger(1, template_id: "test", actor: "operator_42")
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :triggered
+    end
+
+    test "trigger/2 transaction failure — :trigger_failed fires GUARDRAIL with outcome :failed",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :trigger_failed)
+
+      # Force the MockRepo's transaction/1 to return {:error, _} so the inner span
+      # observes a failure result without raising. This exercises the after-span
+      # branch on {:error, _} → Traces.emit(:trigger_failed, outcome: :failed).
+      Process.put(
+        :mock_repo_force_transaction_failure,
+        {:error, :message, :synthetic_failure, %{}}
+      )
+
+      _ = Outbound.trigger(1, template_id: "test", actor: "operator_42")
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :failed
+    end
+
+    test "trigger/2 rescue path — :trigger_failed fires GUARDRAIL with outcome :exception and reraises",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :trigger_failed)
+
+      # Force the MockRepo's transaction/1 to raise so the rescue path fires.
+      Process.put(:mock_repo_force_transaction_raise, true)
+
+      assert_raise RuntimeError, "boom", fn ->
+        Outbound.trigger(1, template_id: "test", actor: "operator_42")
+      end
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :exception,
+             "rescue branch must emit outcome: :exception so the OI lane reflects the raise"
+    end
+
+    test "bulk_trigger submit path — :bulk_submitted fires GUARDRAIL inside the sealed span",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :bulk_submitted)
+
+      assert {:ok, _} =
+               Outbound.bulk_trigger([1, 2],
+                 template_id: "recovery_v1",
+                 rendered_body: "Body",
+                 actor: "op_99"
+               )
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert is_binary(meta[:bulk_envelope_id])
+      assert meta[:template_id] == "recovery_v1"
+      assert meta[:actor_id] == "op_99"
+      assert meta[:outcome] == :submitted
+      # Bulk envelope is the unit of work; per-recipient OI traces fire from the worker.
+      assert meta[:conversation_id] == nil
+
+      # OI lane carries attribution refs only — `:count` is bounded-metrics' concern.
+      refute Map.has_key?(meta, :count)
+    end
+
+    test "bulk_trigger refused arm A {:ok, _envelope} — :bulk_refused fires GUARDRAIL with :effective_cap",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :bulk_refused)
+
+      # cap+1 trips the refusal lane; default MockRepo.insert/1 returns {:ok, _envelope}.
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger(Enum.to_list(1..26),
+                 template_id: "recovery_v1",
+                 rendered_body: "Body",
+                 actor: "op_99"
+               )
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :refused_cap_exceeded
+      assert meta[:effective_cap] == 25,
+             ":effective_cap must be on :bulk_refused metadata (RESEARCH OQ3)"
+      assert is_binary(meta[:bulk_envelope_id])
+      assert meta[:template_id] == "recovery_v1"
+      assert meta[:actor_id] == "op_99"
+    end
+
+    test "bulk_trigger refused arm B {:error, %Ecto.Changeset{}} — :bulk_refused fires GUARDRAIL with audit-failed outcome",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :bulk_refused)
+
+      # Force MockRepo.insert/1 to fail the refusal-envelope insert with a changeset.
+      forced_changeset =
+        BulkEnvelope.changeset(%BulkEnvelope{}, %{})
+        |> Ecto.Changeset.add_error(:base, "forced changeset failure for D-03 arm B")
+
+      Process.put(:mock_repo_force_insert_failure, forced_changeset)
+
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger(Enum.to_list(1..26),
+                 template_id: "recovery_v1",
+                 rendered_body: "Body",
+                 actor: "op_99"
+               )
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :refused_cap_exceeded_audit_failed
+      assert meta[:effective_cap] == 25
+    end
+
+    test "bulk_trigger refused arm C `other` shape — :bulk_refused fires GUARDRAIL with audit-failed outcome",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :bulk_refused)
+
+      # Force MockRepo.insert/1 to return an unexpected shape — exercises the
+      # `other ->` arm of the case repo().insert(...) block.
+      Process.put(:mock_repo_force_insert_unexpected_shape, {:foo, :bar})
+
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger(Enum.to_list(1..26),
+                 template_id: "recovery_v1",
+                 rendered_body: "Body",
+                 actor: "op_99"
+               )
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "GUARDRAIL"
+      assert meta[:outcome] == :refused_cap_exceeded_audit_failed
+      assert meta[:effective_cap] == 25
     end
   end
 
