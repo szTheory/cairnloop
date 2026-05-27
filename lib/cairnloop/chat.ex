@@ -13,6 +13,11 @@ defmodule Cairnloop.Chat do
     |> repo().all()
   end
 
+  @doc "Tolerant lookup of a single message by id. Returns %Cairnloop.Message{} or nil. Used by ChatLive's role-dedup branch (Phase 28 Pitfall 7) so a stale broadcast id can never crash a customer's chat tab."
+  def get_message(id) do
+    repo().get(Cairnloop.Message, id)
+  end
+
   def get_conversation!(id) do
     Conversation
     |> repo().get!(id)
