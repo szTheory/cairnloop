@@ -48,7 +48,15 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   2. KB Index shows at least 5 articles, and each article has multiple `KnowledgeBase.Revision` rows including at least one `:deprecated` revision; embeddings flow through the live `ChunkRevision` Oban worker into pgvector (self-test of the M008 substrate, not a fixture shortcut).
   3. KB gap queue shows at least 3 `GapCandidate` rows on first boot, each with evidence linked to seeded conversations and inspectable in the ranked maintenance queue.
   4. `SuggestionReview` LiveView shows at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` — real review work available immediately, no manual setup.
-**Plans:** TBD
+**Plans:** 8 plans
+  - [ ] 27-01-PLAN.md — Skeleton seeds.exs rewrite: builder shells + idempotency helper + Oban drain wiring + sealed-enum reconciliation table in header.
+  - [ ] 27-02-PLAN.md — `CairnloopExample.DemoContextProvider` module + headless test + config.exs wire (FIX-01 ContextProvider snippets; runs parallel to 27-01 in Wave 1).
+  - [ ] 27-03-PLAN.md — `build_articles/0`: 5 articles via KnowledgeBase facade + article-5 multi-revision progression v1→archived→v2 (FIX-02 articles).
+  - [ ] 27-04-PLAN.md — `build_conversations/1`: 16 conversations × 4 JTBD-derived cohorts with 3–6 messages each, brand-voice bodies (FIX-01 conversations).
+  - [ ] 27-05-PLAN.md — `build_gaps/1`: 3 GapCandidates + RetrievalGapEvents + memberships, all operator-scoped (FIX-03).
+  - [ ] 27-06-PLAN.md — `build_suggestion/2`: 1 ArticleSuggestion :ready + 2 evidence rows + companion ReviewTask via `ensure_review_task_for_suggestion/2` (FIX-04).
+  - [ ] 27-07-PLAN.md — Final wiring of `SeedRun.run/0` orchestrator + adopter-facing IO summary (FIX-02 substrate self-test driven by drain).
+  - [ ] 27-08-PLAN.md — Integration test `seeds_test.exs` pinning FIX-01..FIX-04 row counts + Oban drain non-empty chunks + idempotency (tagged `:requires_postgres`).
 **UI hint:** yes
 
 #### Phase 28: Customer `/chat` Wired to Real Ingress
@@ -171,7 +179,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. Realistic Demo Fixtures | vM014 | 0/0 | Not started | — |
+| 27. Realistic Demo Fixtures | vM014 | 0/8 | Not started | — |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 0/0 | Not started | — |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 0/0 | Not started | — |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
