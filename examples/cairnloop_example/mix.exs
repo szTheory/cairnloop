@@ -40,7 +40,11 @@ defmodule CairnloopExample.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:cairnloop, "~> 0.1.0"},
+      # Phase 28 Plan 03: use path dep so the example app always tests against
+      # the latest local cairnloop source (including Plan 03's Chat.get_message/1).
+      # The hex dep {:cairnloop, "~> 0.1.0"} references the published package which
+      # does not include vM014 phase additions; path dep overrides for local dev/test.
+      {:cairnloop, path: "../.."},
       {:chimeway, "~> 1.0"},
       {:oban, "~> 2.17"},
       {:pgvector, "~> 0.3.1"},
