@@ -249,33 +249,29 @@ defmodule Cairnloop.Outbound do
 
     # D-B / Pitfall 5: telemetry metadata is enum-only — no template_id, no actor,
     # no recipient identifiers in labels.
-    Cairnloop.Telemetry.span(
-      [:outbound, :bulk, :triggered],
-      %{outcome: :submitted, count: count},
-      fn ->
-        multi =
-          Ecto.Multi.new()
-          |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
-          |> Ecto.Multi.merge(fn %{envelope: env} ->
-            Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
-              recipient_opts =
-                per_recipient_opts
-                |> Keyword.put(:bulk_envelope_id, env.id)
-                |> Keyword.put(:multi_key_prefix, cid)
+    Cairnloop.Telemetry.span([:outbound, :bulk, :triggered], %{outcome: :submitted, count: count}, fn ->
+      multi =
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+        |> Ecto.Multi.merge(fn %{envelope: env} ->
+          Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
+            recipient_opts =
+              per_recipient_opts
+              |> Keyword.put(:bulk_envelope_id, env.id)
+              |> Keyword.put(:multi_key_prefix, cid)
 
-              Ecto.Multi.append(acc, build_trigger_multi(cid, recipient_opts))
-            end)
+            Ecto.Multi.append(acc, build_trigger_multi(cid, recipient_opts))
           end)
-          |> auditor.audit(:bulk_outbound_trigger, actor, %{
-            bulk_envelope_id: envelope_id,
-            count: count,
-            template_id: template_id
-          })
+        end)
+        |> auditor.audit(:bulk_outbound_trigger, actor, %{
+          bulk_envelope_id: envelope_id,
+          count: count,
+          template_id: template_id
+        })
 
-        result = repo().transaction(multi)
-        # Telemetry metadata for the :stop event stays enum-only (D-B).
-        {result, %{outcome: :submitted, count: count}}
-      end
-    )
+      result = repo().transaction(multi)
+      # Telemetry metadata for the :stop event stays enum-only (D-B).
+      {result, %{outcome: :submitted, count: count}}
+    end)
   end
 end

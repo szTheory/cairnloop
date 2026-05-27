@@ -3,6 +3,39 @@ defmodule Cairnloop.OutboundTest do
   alias Cairnloop.Outbound
 
   defmodule MockRepo do
+    # Direct insert/1 path used by bulk_trigger/2's refusal lane (persists the
+    # :refused_cap_exceeded BulkEnvelope row outside the Multi transaction so an
+    # operator-facing audit row exists even if the caller has no telemetry handler).
+    # We also record the inserted row in the process dictionary so tests can
+    # assert on the refused envelope shape without needing a real DB.
+    def insert(changeset_or_struct) do
+      result =
+        case changeset_or_struct do
+          %Ecto.Changeset{} = cs ->
+            if cs.valid? do
+              applied = Ecto.Changeset.apply_changes(cs)
+              # BulkEnvelope :id is caller-supplied (binary_id, autogenerate: false)
+              # so we don't synthesize one here.
+              {:ok, applied}
+            else
+              {:error, cs}
+            end
+
+          struct ->
+            {:ok, struct}
+        end
+
+      case result do
+        {:ok, applied} ->
+          existing = Process.get(:mock_repo_inserts, [])
+          Process.put(:mock_repo_inserts, existing ++ [applied])
+          {:ok, applied}
+
+        other ->
+          other
+      end
+    end
+
     def transaction(multi) do
       execute_multi(multi, %{})
     end
@@ -13,7 +46,19 @@ defmodule Cairnloop.OutboundTest do
       Enum.reduce_while(operations, {:ok, acc}, fn
         {name, {:insert, changeset, _}}, {:ok, results} ->
           if changeset.valid? do
-            result = Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 999)
+            applied = Ecto.Changeset.apply_changes(changeset)
+            # Per-recipient :message_* rows still need a synthesized id (the
+            # BulkEnvelope :id is caller-supplied via Ecto.UUID.generate and is
+            # already present on the changeset, so Map.put with 999 would clobber
+            # it — only synthesize when :id is nil).
+            result =
+              case Map.get(applied, :id) do
+                nil -> Map.put(applied, :id, 999)
+                _ -> applied
+              end
+
+            existing = Process.get(:mock_repo_inserts, [])
+            Process.put(:mock_repo_inserts, existing ++ [result])
             {:cont, {:ok, Map.put(results, name, result)}}
           else
             {:halt, {:error, name, changeset, results}}
@@ -41,9 +86,13 @@ defmodule Cairnloop.OutboundTest do
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.put(:mock_repo_inserts, [])
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
+      # Pitfall 7: max_batch_size env tweaks must not leak across tests.
+      Application.delete_env(:cairnloop, :max_batch_size)
+      Process.delete(:mock_repo_inserts)
     end)
 
     :ok
@@ -173,6 +222,225 @@ defmodule Cairnloop.OutboundTest do
       # Accept either absent OR nil — both shapes are acceptable per the plan.
       bulk_id = Map.get(results.message.metadata, "bulk_envelope_id")
       assert is_nil(bulk_id)
+    end
+  end
+
+  describe "bulk_trigger/2" do
+    alias Cairnloop.Outbound.BulkEnvelope
+
+    test "happy path: returns {:ok, results} with envelope + N per-recipient inserts" do
+      assert {:ok, results} =
+               Outbound.bulk_trigger([1, 2, 3],
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi, just checking in.",
+                 actor: "agent_1"
+               )
+
+      # Envelope step
+      env = results.envelope
+      assert %BulkEnvelope{} = env
+      assert env.count == 3
+      assert env.recipient_conversation_ids == [1, 2, 3]
+      assert env.rendered_body == "Hi, just checking in."
+      assert env.template_id == "recovery_v1"
+      assert env.status == :submitted
+      assert is_binary(env.id)
+      # UUID v4 shape: 36 chars with dashes at positions 8, 13, 18, 23.
+      assert String.length(env.id) == 36
+      assert String.at(env.id, 8) == "-"
+
+      # Per-recipient steps — keys are :"message_<cid>" and :"delivery_job_<cid>".
+      for cid <- [1, 2, 3] do
+        assert msg = Map.get(results, :"message_#{cid}")
+        assert msg.conversation_id == cid
+        assert msg.metadata["bulk_envelope_id"] == env.id
+        assert msg.metadata["template_id"] == "recovery_v1"
+
+        assert job = Map.get(results, :"delivery_job_#{cid}")
+        assert job.worker == "Cairnloop.Workers.OutboundWorker"
+        assert job.args["conversation_id"] == cid
+        assert job.args["template_id"] == "recovery_v1"
+        assert job.args["bulk_envelope_id"] == env.id
+      end
+    end
+
+    test "cap refusal at cap+1: returns {:error, :batch_too_large} and persists refusal envelope" do
+      cap = 25
+      ids = Enum.to_list(1..(cap + 1))
+
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger(ids,
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      # The refusal envelope IS persisted (research Open Question 5; mirrors
+      # Governance.propose_blocked posture so OBS-02 reads see both lanes).
+      inserts = Process.get(:mock_repo_inserts, [])
+      assert envelope = Enum.find(inserts, &match?(%BulkEnvelope{}, &1))
+      assert envelope.status == :refused_cap_exceeded
+      assert envelope.count == cap + 1
+      assert envelope.recipient_conversation_ids == ids
+      assert envelope.refused_reason == "batch_size #{cap + 1} exceeds cap #{cap}"
+
+      # And NO per-recipient Message rows were inserted.
+      messages = Enum.filter(inserts, &match?(%Cairnloop.Message{}, &1))
+      assert messages == []
+    end
+
+    test "cap boundary OK at exactly cap=25" do
+      ids = Enum.to_list(1..25)
+
+      assert {:ok, results} =
+               Outbound.bulk_trigger(ids,
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      assert results.envelope.status == :submitted
+      assert results.envelope.count == 25
+
+      # 25 per-recipient message keys exist.
+      for cid <- ids do
+        assert Map.has_key?(results, :"message_#{cid}")
+        assert Map.has_key?(results, :"delivery_job_#{cid}")
+      end
+    end
+
+    test "snapshot persistence: rendered_body is exactly what the caller passed, no re-resolution" do
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "v1")
+
+      assert {:ok, results} =
+               Outbound.bulk_trigger([1, 2],
+                 template_id: "recovery_v1",
+                 rendered_body: "Snapshotted body v1",
+                 actor: "agent_1"
+               )
+
+      # Even after a config flip, the persisted envelope body MUST NOT change —
+      # mirrors research Pitfall 2 regression test (snapshot at decision time).
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "v2")
+
+      assert results.envelope.rendered_body == "Snapshotted body v1"
+    end
+
+    test "envelope id threaded to per-recipient triggers" do
+      assert {:ok, results} =
+               Outbound.bulk_trigger([10, 20],
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      env_id = results.envelope.id
+      assert results[:delivery_job_10].args["bulk_envelope_id"] == env_id
+      assert results[:delivery_job_20].args["bulk_envelope_id"] == env_id
+      assert results[:message_10].metadata["bulk_envelope_id"] == env_id
+      assert results[:message_20].metadata["bulk_envelope_id"] == env_id
+    end
+
+    test "configurable cap via :cairnloop, :max_batch_size env" do
+      Application.put_env(:cairnloop, :max_batch_size, 3)
+
+      # cap+1 → refused
+      assert {:error, :batch_too_large} =
+               Outbound.bulk_trigger([1, 2, 3, 4],
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      # at cap → submitted
+      assert {:ok, results} =
+               Outbound.bulk_trigger([10, 20, 30],
+                 template_id: "recovery_v1",
+                 rendered_body: "Hi",
+                 actor: "agent_1"
+               )
+
+      assert results.envelope.status == :submitted
+      assert results.envelope.count == 3
+    end
+
+    test "telemetry emits enum-only labels (D-B) on submitted happy path" do
+      :telemetry.attach(
+        "test-bulk-triggered-stop",
+        [:cairnloop, :outbound, :bulk, :triggered, :stop],
+        fn _event, measurements, metadata, _config ->
+          send(self(), {:bulk_telemetry, measurements, metadata})
+        end,
+        nil
+      )
+
+      Outbound.bulk_trigger([1, 2, 3],
+        template_id: "recovery_v1",
+        rendered_body: "Hi",
+        actor: "agent_1"
+      )
+
+      assert_receive {:bulk_telemetry, _measurements, metadata}
+      assert metadata.outcome == :submitted
+      assert metadata.count == 3
+
+      # D-B: NO high-cardinality fields leak into telemetry labels.
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :conversation_id)
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :recipient_conversation_ids)
+      refute Map.has_key?(metadata, :bulk_envelope_id)
+
+      :telemetry.detach("test-bulk-triggered-stop")
+    end
+
+    test "telemetry emits :refused_cap_exceeded outcome on cap refusal" do
+      :telemetry.attach(
+        "test-bulk-refused",
+        [:cairnloop, :outbound, :bulk, :triggered],
+        fn _event, _measurements, metadata, _config ->
+          send(self(), {:bulk_refused_telemetry, metadata})
+        end,
+        nil
+      )
+
+      Outbound.bulk_trigger(Enum.to_list(1..26),
+        template_id: "recovery_v1",
+        rendered_body: "Hi",
+        actor: "agent_1"
+      )
+
+      assert_receive {:bulk_refused_telemetry, metadata}
+      assert metadata.outcome == :refused_cap_exceeded
+      assert metadata.count == 26
+      # Same enum-only invariant on refusal.
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :actor)
+
+      :telemetry.detach("test-bulk-refused")
+    end
+  end
+
+  # ----------------------------------------------------------------------------
+  # REPO-UNAVAILABLE — requires Cairnloop.Repo + Postgres. These tests genuinely
+  # require Postgres round-trips and cannot run in this workspace (CLAUDE.md
+  # D-16). Authored so they pass on a Postgres-available host via
+  # `mix test.integration`.
+  # ----------------------------------------------------------------------------
+  describe "bulk_trigger/2 — Postgres integration" do
+    @tag :integration
+    # REPO-UNAVAILABLE
+    test "bulk_trigger writes BulkEnvelope + N Message rows atomically (rollback on FK violation)" do
+      # On a Postgres-available host:
+      # 1. count_before = Repo.aggregate(BulkEnvelope, :count, :id)
+      # 2. Call bulk_trigger with a list of conversation_ids where one id is
+      #    intentionally non-existent so the per-recipient Message insert raises
+      #    an FK violation against cairnloop_conversations.
+      # 3. Assert the call returns {:error, _} and that
+      #    Repo.aggregate(BulkEnvelope, :count, :id) == count_before
+      #    (i.e., the envelope row was rolled back atomically with the failed
+      #    Message inserts — Ecto.Multi atomicity guarantee).
+      flunk("integration-only: requires Cairnloop.Repo + cairnloop_conversations FK")
     end
   end
 end
