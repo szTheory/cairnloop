@@ -186,10 +186,23 @@ defmodule Cairnloop.Integration.BulkRecoveryLiveTest do
       |> element(~s(button[phx-click="confirm_bulk_send"]))
       |> render_click()
 
-      assert render(view) =~ "Bulk recovery queued for 2 conversations."
+      # NOTE on the flash: `Outbound.bulk_trigger/2`'s happy path fires
+      # `put_flash(:info, "Bulk recovery queued for N conversations.")` on the
+      # socket (lib/cairnloop/web/inbox_live.ex:489). The minimal TestLayouts
+      # root (test/support/layouts.ex) renders only `@inner_content` — it does
+      # NOT render `@flash` — so the flash text never appears in `render(view)`
+      # output here. The flash contract is asserted at the headless layer
+      # (test/cairnloop/web/inbox_live_test.exs inspects `socket.assigns.flash`
+      # directly); the integration layer asserts the LOAD-BEARING side effects
+      # — selection cleared, BulkEnvelope row landed, N system_outbound
+      # Messages with envelope correlation key — which collectively prove the
+      # confirm path ran end-to-end through real Postgres.
+      html = render(view)
 
       # Selection cleared — the sticky bar disappears entirely.
-      refute render(view) =~ "Send recovery follow-up to"
+      refute html =~ "Send recovery follow-up to"
+      # Modal dismissed.
+      refute html =~ ~s(role="dialog")
 
       # One envelope row landed; recipient cohort + status are correct.
       assert Repo.aggregate(BulkEnvelope, :count, :id) == envelope_count_before + 1
