@@ -585,6 +585,177 @@ defmodule Cairnloop.Web.InboxLiveTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Phase 26 D-08 polish — empty-inbox calm sentence, modal × close button,
+  # has_visible_eligible regression, refusal-banner copy review.
+  # ---------------------------------------------------------------------------
+
+  describe "Phase 26 D-08 polish" do
+    test "Test 1: empty inbox renders calm 'No conversations yet.' under <h1>Inbox</h1>" do
+      assigns = build_assigns(conversations: [])
+      html = render_html(assigns)
+
+      assert html =~ "No conversations yet."
+      assert html =~ ~s(class="inbox-empty-state")
+      assert html =~ "var(--cl-text-muted"
+      refute html =~ "cairnloop-inbox-bulk-header"
+    end
+
+    test "Test 2: modal close button renders inside the dialog with aria-label, 44px tap target, muted color" do
+      assigns =
+        build_assigns(
+          bulk_modal_open: true,
+          bulk_preview: %{
+            count: 1,
+            sample: ["Test (#1)"],
+            more: 0,
+            rendered_body: "Body"
+          }
+        )
+
+      html = render_html(assigns)
+
+      assert html =~ ~s(aria-label="Close")
+      assert html =~ "min-width: 44px"
+      assert html =~ "min-height: 44px"
+      assert html =~ "var(--cl-text-muted"
+      # × is U+00D7 MULTIPLICATION SIGN — the close glyph itself.
+      assert html =~ "×"
+    end
+
+    test "Test 3: modal close button calls cancel_bulk_confirm (handler reused, no new handler added)" do
+      assigns =
+        build_assigns(
+          bulk_modal_open: true,
+          bulk_preview: %{
+            count: 1,
+            sample: ["Test (#1)"],
+            more: 0,
+            rendered_body: "Body"
+          }
+        )
+
+      html = render_html(assigns)
+
+      assert html =~ ~s(phx-click="cancel_bulk_confirm")
+
+      occurrences =
+        html
+        |> String.split(~s(phx-click="cancel_bulk_confirm"))
+        |> length()
+        |> Kernel.-(1)
+
+      # New × button + existing "Cancel" button = at least TWO occurrences.
+      assert occurrences >= 2,
+             "expected at least 2 phx-click=\"cancel_bulk_confirm\" occurrences (× + Cancel), got #{occurrences}"
+    end
+
+    test "Test 4: dialog inline style includes position: relative so absolute × button anchors" do
+      assigns =
+        build_assigns(
+          bulk_modal_open: true,
+          bulk_preview: %{
+            count: 1,
+            sample: ["Test (#1)"],
+            more: 0,
+            rendered_body: "Body"
+          }
+        )
+
+      html = render_html(assigns)
+
+      assert html =~ "position: relative"
+      # Pin the position:relative declaration to the bulk-confirm-dialog div
+      # (not some other arbitrary element).
+      assert html =~
+               ~r{class="bulk-confirm-dialog"[^>]*style="[^"]*position: relative}
+    end
+
+    test "Test 5: close button is the FIRST child of the dialog div (Pitfall 6 ordering)" do
+      assigns =
+        build_assigns(
+          bulk_modal_open: true,
+          bulk_preview: %{
+            count: 1,
+            sample: ["Test (#1)"],
+            more: 0,
+            rendered_body: "Body"
+          }
+        )
+
+      html = render_html(assigns)
+
+      close_match = :binary.match(html, "aria-label=\"Close\"")
+      title_match = :binary.match(html, "bulk-confirm-title")
+
+      assert close_match != :nomatch,
+             "expected aria-label=\"Close\" in rendered HTML (close button missing)"
+
+      assert title_match != :nomatch,
+             "expected bulk-confirm-title in rendered HTML (title missing)"
+
+      {close_offset, _} = close_match
+      {title_offset, _} = title_match
+
+      assert close_offset < title_offset,
+             "close button (offset #{close_offset}) must appear BEFORE the dialog title (offset #{title_offset}) — Pitfall 6 ordering for focus_wrap"
+    end
+
+    test "Test 6: refusal banner copy review (brand §7.5 — text + SVG icon + danger token)" do
+      assigns =
+        build_assigns(
+          bulk_modal_open: true,
+          bulk_refusal: %{max: 25, count: 100}
+        )
+
+      html = render_html(assigns)
+
+      assert html =~ "Batch too large."
+      assert html =~ "Narrow your selection and try again."
+      assert html =~ "var(--cl-danger"
+    end
+
+    test "Test 7: has_visible_eligible regression — non-resolved cohort hides the bulk header" do
+      assigns =
+        build_assigns(
+          conversations: [
+            %Cairnloop.Conversation{
+              id: 1,
+              status: :open,
+              subject: "Open A",
+              host_user_id: "user_1"
+            }
+          ]
+        )
+
+      html = render_html(assigns)
+
+      refute html =~ "cairnloop-inbox-bulk-header"
+      refute html =~ "Select all visible"
+      # Empty state must NOT render either — the list is non-empty.
+      refute html =~ "No conversations yet."
+    end
+
+    test "Test 8: non-empty resolved cohort — empty state does NOT render, bulk header DOES (Phase 25 gate preserved)" do
+      assigns =
+        build_assigns(
+          conversations: [
+            %Cairnloop.Conversation{
+              id: 1,
+              status: :resolved,
+              subject: "Resolved A",
+              host_user_id: "user_1"
+            }
+          ]
+        )
+
+      html = render_html(assigns)
+
+      refute html =~ "No conversations yet."
+      assert html =~ "cairnloop-inbox-bulk-header"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # D-14 invariant gate — no direct Ecto query in InboxLive.
   # ---------------------------------------------------------------------------
 
