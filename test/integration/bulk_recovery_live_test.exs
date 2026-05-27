@@ -33,6 +33,10 @@ defmodule Cairnloop.Integration.BulkRecoveryLiveTest do
   alias Cairnloop.Message
   alias Cairnloop.Outbound.BulkEnvelope
 
+  # ConnCase does not import Ecto.Query (DataCase does — they're a single
+  # `using do` block apart). Bring in the query macros so the `order_by`,
+  # `limit`, and `where` calls in the persist-assertion blocks below compile.
+  import Ecto.Query
   import Cairnloop.Fixtures
 
   @template_id "recovery_v1"
