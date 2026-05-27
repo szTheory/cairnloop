@@ -53,20 +53,12 @@ defmodule Cairnloop.Channels.WidgetChannel do
   end
 
   @impl true
-  # CSAT-from-/chat deferred per CONTEXT.md OQ-4.
-  # This clause destructures socket.topic via "widget:" <> conversation_id = socket.topic,
-  # which only works on conversation-scoped topics. Phase 28 stays on widget:lobby
-  # so CSAT submission from the customer widget is out of scope until the channel
-  # re-join is implemented in a future phase.
-  def handle_in("submit_csat", %{"rating" => rating}, socket) do
-    "widget:" <> conversation_id = socket.topic
-
-    case Cairnloop.Chat.submit_csat(conversation_id, rating) do
-      {:ok, _conversation} ->
-        {:reply, :ok, socket}
-
-      {:error, _changeset} ->
-        {:reply, {:error, %{reason: "invalid_rating"}}, socket}
-    end
+  # CSAT deferred per CONTEXT.md OQ-4 — channel re-join not yet implemented.
+  # Returns a structured error instead of crashing on "widget:lobby" pattern mismatch.
+  # CR-02 fix: the previous clause destructured socket.topic with "widget:" <> conversation_id,
+  # which succeeds with conversation_id = "lobby" on the lobby topic, then called
+  # Chat.submit_csat("lobby", rating) → Ecto.Query.CastError (cannot cast "lobby" to integer).
+  def handle_in("submit_csat", _payload, socket) do
+    {:reply, {:error, %{reason: "csat_not_available"}}, socket}
   end
 end
