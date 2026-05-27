@@ -328,12 +328,482 @@ defmodule CairnloopExample.SeedRun do
     }
   end
 
+  # ---------------------------------------------------------------------------
+  # JTBD cohort plan (D-03) — 4 cohorts × 4 conversations = 16 total
+  #
+  # JTBD state is DERIVED from status + message ordering; it is NOT stored.
+  # Sealed Conversation.status enum is [:open, :resolved, :archived].
+  #
+  # Derivation rules:
+  #   :new               -> status: :open  + 0 :agent messages
+  #   :open              -> status: :open  + has :agent reply + last msg role :user
+  #   :awaiting_customer -> status: :open  + has :agent reply + last msg role :agent
+  #   :resolved          -> status: :resolved + resolved_at set + last msg :agent | :system_outbound
+  #
+  # Each conversation's subject is prefixed "[demo-NN]" for idempotency (D-02).
+  # host_user_id MUST match one of the 5 demo customer ids from plan 27-02.
+  # ---------------------------------------------------------------------------
+  @demo_conversations [
+    # cohort: :new  (status :open, no :agent reply; 4 rows)
+    %{n: 1, cohort: :new, topic: :api_key, host_user_id: "demo_user_acme_billing"},
+    %{n: 2, cohort: :new, topic: :billing_email, host_user_id: "demo_user_initech_billing"},
+    %{n: 3, cohort: :new, topic: :seat, host_user_id: "demo_user_globex_seats"},
+    %{n: 4, cohort: :new, topic: :ci_skipped, host_user_id: "demo_user_umbrella_ci"},
+    # cohort: :open  (status :open, has :agent reply, last msg :user; 4 rows)
+    %{n: 5, cohort: :open, topic: :api_key, host_user_id: "demo_user_hooli_tokens"},
+    %{n: 6, cohort: :open, topic: :billing_email, host_user_id: "demo_user_acme_billing"},
+    %{n: 7, cohort: :open, topic: :token_rotation, host_user_id: "demo_user_hooli_tokens"},
+    %{n: 8, cohort: :open, topic: :ci_skipped, host_user_id: "demo_user_umbrella_ci"},
+    # cohort: :awaiting_customer  (status :open, has :agent reply, last msg :agent; 4 rows)
+    %{n: 9, cohort: :awaiting_customer, topic: :seat, host_user_id: "demo_user_globex_seats"},
+    %{n: 10, cohort: :awaiting_customer, topic: :billing_email, host_user_id: "demo_user_initech_billing"},
+    %{n: 11, cohort: :awaiting_customer, topic: :api_key, host_user_id: "demo_user_acme_billing"},
+    %{n: 12, cohort: :awaiting_customer, topic: :ci_skipped, host_user_id: "demo_user_umbrella_ci"},
+    # cohort: :resolved  (status :resolved, resolved_at set, last msg :agent or :system_outbound; 4 rows)
+    # Rows 13/14/15 close with :agent (no template_id required).
+    # Row 16 closes with :system_outbound + metadata.template_id = "demo_resolve_confirm" (Pitfall 6).
+    %{
+      n: 13,
+      cohort: :resolved,
+      topic: :api_key,
+      host_user_id: "demo_user_hooli_tokens",
+      csat_rating: :positive,
+      closer: :agent
+    },
+    %{
+      n: 14,
+      cohort: :resolved,
+      topic: :token_rotation,
+      host_user_id: "demo_user_hooli_tokens",
+      csat_rating: :positive,
+      closer: :agent
+    },
+    %{
+      n: 15,
+      cohort: :resolved,
+      topic: :seat,
+      host_user_id: "demo_user_globex_seats",
+      csat_rating: nil,
+      closer: :agent
+    },
+    %{
+      n: 16,
+      cohort: :resolved,
+      topic: :billing_email,
+      host_user_id: "demo_user_initech_billing",
+      csat_rating: :positive,
+      closer: :system_outbound
+    }
+  ]
+
   # Builds 16 conversations across 4 JTBD cohorts (new / open / awaiting_customer / resolved).
   # Accepts the articles map from build_articles/0 for topic distribution (D-19).
   # Returns a list of inserted %Conversation{} rows so downstream builders can reference them.
-  # TODO: filled by 27-04-PLAN.md (FIX-01 16 conversations × 4 JTBD cohorts)
-  defp build_conversations(_articles) do
-    []
+  defp build_conversations(articles) do
+    Enum.map(@demo_conversations, fn row -> seed_conversation_row(row, articles) end)
+  end
+
+  # Idempotent per-row conversation seeder.
+  # Conversation matched on subject (natural key, "[demo-NN]" prefix — D-02).
+  # Messages are only inserted when the conversation is newly created; re-runs skip them.
+  defp seed_conversation_row(row, _articles) do
+    subject = "[demo-#{String.pad_leading(Integer.to_string(row.n), 2, "0")}] " <> topic_subject(row.topic)
+    attrs = conversation_attrs(row, subject)
+
+    case Repo.get_by(Conversation, subject: subject) do
+      nil ->
+        conv =
+          %Conversation{}
+          |> Conversation.changeset(attrs)
+          |> Repo.insert!()
+
+        insert_messages_for_cohort(conv, row)
+        conv
+
+      existing ->
+        existing
+    end
+  end
+
+  # Brand-voice conversation subjects per topic atom (D-18 / D-17).
+  defp topic_subject(:api_key), do: "Resetting my Trailmark API key"
+  defp topic_subject(:billing_email), do: "Updating billing email after switching CFO"
+  defp topic_subject(:seat), do: "Adding a teammate to our Trailmark account"
+  defp topic_subject(:ci_skipped), do: "CI run skipped without explanation"
+  defp topic_subject(:token_rotation), do: "Rotation reminder for expiring token"
+
+  # Conversation attrs per cohort (D-03).
+  # :resolved rows include resolved_at + optional csat_rating.
+  # All other cohorts use status: :open with no resolved_at.
+  defp conversation_attrs(%{cohort: :resolved} = row, subject) do
+    base = %{
+      status: :resolved,
+      subject: subject,
+      host_user_id: row.host_user_id,
+      resolved_at: DateTime.add(DateTime.utc_now(), -row.n, :day)
+    }
+
+    case row.csat_rating do
+      nil -> base
+      rating -> Map.put(base, :csat_rating, rating)
+    end
+  end
+
+  defp conversation_attrs(row, subject) do
+    %{
+      status: :open,
+      subject: subject,
+      host_user_id: row.host_user_id
+    }
+  end
+
+  # Inserts 2–5 messages per conversation following each cohort's derivation rule.
+  #
+  # :new               -> 2 messages (user opening + user follow-up)
+  # :open              -> 4 messages (user → agent → user → user; last must be :user)
+  # :awaiting_customer -> 3 messages (user → user detail → agent; last must be :agent)
+  # :resolved          -> 5 messages (user → agent → user → agent → closer)
+  #                       If closer == :system_outbound, 5th message carries metadata.template_id.
+  #
+  # n=5 and n=13 also receive 1 :internal_note message after the first :agent reply (D-18).
+  defp insert_messages_for_cohort(conv, row) do
+    messages = build_message_list(row)
+    Enum.each(messages, fn msg_attrs ->
+      %Message{}
+      |> Message.changeset(Map.merge(%{role: :user, metadata: %{}, conversation_id: conv.id}, msg_attrs))
+      |> Repo.insert!()
+    end)
+  end
+
+  # Returns the ordered list of message attrs maps for each cohort.
+  defp build_message_list(%{cohort: :new, topic: topic}) do
+    [
+      %{role: :user, content: opening_user(topic)},
+      %{role: :user, content: followup_user(topic)}
+    ]
+  end
+
+  defp build_message_list(%{cohort: :open, topic: topic, n: n}) do
+    base = [
+      %{role: :user, content: opening_user(topic)},
+      %{role: :agent, content: agent_first_reply(topic)},
+      %{role: :user, content: followup_user(topic)},
+      %{role: :user, content: second_followup_user(topic)}
+    ]
+
+    # n=5: add :internal_note after first :agent reply (D-18 carve-out)
+    if n == 5 do
+      [hd(base), Enum.at(base, 1), %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))]
+    else
+      base
+    end
+  end
+
+  defp build_message_list(%{cohort: :awaiting_customer, topic: topic}) do
+    [
+      %{role: :user, content: opening_user(topic)},
+      %{role: :user, content: additional_detail_user(topic)},
+      %{role: :agent, content: agent_response(topic)}
+    ]
+  end
+
+  defp build_message_list(%{cohort: :resolved, topic: topic, n: n, closer: closer}) do
+    closing_msg =
+      if closer == :system_outbound do
+        %{
+          role: :system_outbound,
+          content: "Your request has been resolved. We've sent a confirmation to your email.",
+          metadata: %{"template_id" => "demo_resolve_confirm"}
+        }
+      else
+        %{role: :agent, content: agent_closing(topic)}
+      end
+
+    base = [
+      %{role: :user, content: opening_user(topic)},
+      %{role: :agent, content: agent_first_reply(topic)},
+      %{role: :user, content: followup_user(topic)},
+      %{role: :agent, content: agent_solution(topic)},
+      closing_msg
+    ]
+
+    # n=13: add :internal_note after first :agent reply (D-18 carve-out)
+    if n == 13 do
+      [hd(base), Enum.at(base, 1), %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))]
+    else
+      base
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Per-topic message body helpers (brand voice — D-18 / §5.5)
+  # Customer messages: slightly informal, problem-stating.
+  # Agent messages: calm, factual, reason-forward (brand book §5.5).
+  # Internal-note bodies may reference IDs/typed terms (D-18 carve-out).
+  # ---------------------------------------------------------------------------
+
+  defp opening_user(:api_key) do
+    "Hi — I need to reset my Trailmark API key. I accidentally committed it to a public " <>
+      "repository and want to revoke it right away. What are the steps?"
+  end
+
+  defp opening_user(:billing_email) do
+    "Hello, we just switched CFOs and the billing email on our account is still the old " <>
+      "one. Invoices are going to the wrong person. Can you help me update it?"
+  end
+
+  defp opening_user(:seat) do
+    "Hi, I'd like to add a new engineer to our Trailmark account. Her name is Sam and " <>
+      "she starts on Monday. How do I send her an invitation?"
+  end
+
+  defp opening_user(:ci_skipped) do
+    "Our CI run from this morning shows a 'skipped' status but we pushed real code changes. " <>
+      "No error message, just 'skipped'. Is something wrong with our configuration?"
+  end
+
+  defp opening_user(:token_rotation) do
+    "I got a notification that our integration token is expiring in 7 days. What's the " <>
+      "process for rotating it without breaking our production pipeline?"
+  end
+
+  defp followup_user(:api_key) do
+    "I tried going to Settings but I don't see a Revoke button for the key. " <>
+      "Is there a permission I'm missing?"
+  end
+
+  defp followup_user(:billing_email) do
+    "I've looked in the billing portal but I only see a read-only view of the current " <>
+      "email. There doesn't seem to be an edit option. Am I looking in the right place?"
+  end
+
+  defp followup_user(:seat) do
+    "I sent the invite but Sam said she hasn't received anything. It's been about an hour. " <>
+      "Should I resend, or could it be caught in her spam filter?"
+  end
+
+  defp followup_user(:ci_skipped) do
+    "I checked the run detail page and the skip reason says 'cached result reused', but " <>
+      "I'm sure we haven't pushed this exact commit before. Is there a way to force a fresh run?"
+  end
+
+  defp followup_user(:token_rotation) do
+    "Thanks — one follow-up: after I generate the new token, is there a grace period " <>
+      "where both the old and new tokens are valid? I want to roll it out gradually."
+  end
+
+  defp second_followup_user(:api_key) do
+    "Also, once I revoke the key, will any existing sessions using that key stop working " <>
+      "immediately, or is there a delay?"
+  end
+
+  defp second_followup_user(:billing_email) do
+    "Just to confirm — will the update also affect the contact on file for PO-matched " <>
+      "invoices, or only the email delivery address?"
+  end
+
+  defp second_followup_user(:seat) do
+    "One more thing — is there a seat limit on our current plan? I want to make sure we " <>
+      "have room before I invite more people next week."
+  end
+
+  defp second_followup_user(:ci_skipped) do
+    "We found that the trigger path patterns don't include our new service directory. " <>
+      "Does updating the trigger config apply to already-running pipelines, or only new pushes?"
+  end
+
+  defp second_followup_user(:token_rotation) do
+    "Also, should I notify our DevOps team before rotating, or is the rotation zero-downtime " <>
+      "if we update the secret before the old token expires?"
+  end
+
+  defp additional_detail_user(:api_key) do
+    "To add context: the key was pushed to our monorepo's main branch about 3 hours ago. " <>
+      "We've already removed the commit from history, but the key was exposed for roughly 45 minutes."
+  end
+
+  defp additional_detail_user(:billing_email) do
+    "For reference, the current email on file is marcus@acme-old.example. " <>
+      "The new address should be finance@acme.example. Both are internal addresses."
+  end
+
+  defp additional_detail_user(:seat) do
+    "Her email is sam.reyes@globex.example. She'll need the Engineer role with read access " <>
+      "to all projects but no admin permissions."
+  end
+
+  defp additional_detail_user(:ci_skipped) do
+    "Here's more detail: the skipped run ID is #4821. Our trigger config covers 'src/**' " <>
+      "but the new service lives under 'services/payments/' which is apparently outside that pattern."
+  end
+
+  defp additional_detail_user(:token_rotation) do
+    "The token in question is the Webhooks integration token, not the API key. " <>
+      "It's used in three production services. We need to coordinate the rotation carefully."
+  end
+
+  defp agent_first_reply(:api_key) do
+    "I can help you with that. To revoke your API key, go to **Settings > API Keys** in " <>
+      "your Trailmark dashboard. Click **Revoke** next to the compromised key. The key is " <>
+      "invalidated immediately — any requests using it will fail right away. Once revoked, " <>
+      "click **Generate new key** and store the new key in your secrets manager. " <>
+      "Let me know if you run into any trouble with those steps."
+  end
+
+  defp agent_first_reply(:billing_email) do
+    "Happy to help. The billing email can be updated in **Settings > Billing**. Click " <>
+      "**Edit** next to your current billing address, enter the new email, and confirm. " <>
+      "Trailmark will send a verification link to the new address — the change takes effect " <>
+      "once you click that link. Future invoices will go to the verified address. " <>
+      "Is the new address ready to receive the verification email?"
+  end
+
+  defp agent_first_reply(:seat) do
+    "To invite Sam, open **Settings > Team** and click **Invite a teammate**. Enter her " <>
+      "work email and select the Engineer role. Trailmark will send her an invitation email " <>
+      "with a link to accept. The seat is active once she accepts. If your account has a " <>
+      "seat-approval policy, an admin may need to confirm before the email is sent. " <>
+      "Let me know how it goes."
+  end
+
+  defp agent_first_reply(:ci_skipped) do
+    "A 'skipped' status typically means Trailmark determined there was nothing new to run. " <>
+      "The most common cause is that no changed paths matched your configured CI triggers. " <>
+      "Open the run detail page for the skipped run and check the **Skip reason** field at " <>
+      "the top. If it says 'no diffed paths matched configured triggers', the fix is to " <>
+      "update your trigger path patterns under **Project > Settings > CI Triggers**. " <>
+      "What does the skip reason show for your run?"
+  end
+
+  defp agent_first_reply(:token_rotation) do
+    "Token rotation is straightforward. Go to **Settings > API Keys**, click **Revoke** " <>
+      "on the expiring token, then select **Generate new key**. Update your integrations " <>
+      "with the new token before revoking the old one — both are not valid simultaneously, " <>
+      "so plan a brief maintenance window or update your secrets before the old token expires. " <>
+      "Which integration are you rotating the token for?"
+  end
+
+  defp agent_response(:api_key) do
+    "Given the 45-minute exposure window, I'd recommend revoking the key immediately and " <>
+      "reviewing your activity log for any unexpected requests during that period. Go to " <>
+      "**Settings > API Keys**, click **Revoke**, then check the audit log under " <>
+      "**Settings > Audit**. Filter by the key's last 4 characters to see what was called. " <>
+      "If you see any requests you don't recognize, please reach out so we can investigate further."
+  end
+
+  defp agent_response(:billing_email) do
+    "I've updated the billing contact on our end to finance@acme.example. " <>
+      "You should receive a verification email at that address within a few minutes. " <>
+      "Once you click the link, the change will take effect for all future invoices. " <>
+      "Past invoices remain accessible in the portal at the original address. " <>
+      "Please confirm once you've verified the new email."
+  end
+
+  defp agent_response(:seat) do
+    "I've checked your account — you're on the Team plan which includes up to 10 seats, " <>
+      "and you currently have 4 active. The invitation for sam.reyes@globex.example has " <>
+      "been queued. Please ask her to check her inbox, including the spam folder, for an " <>
+      "email from noreply@trailmark.example. If she doesn't see it within 10 minutes, " <>
+      "let me know and I can resend from our side."
+  end
+
+  defp agent_response(:ci_skipped) do
+    "Your trigger config covers 'src/**' but run #4821 only touched 'services/payments/'. " <>
+      "Since that path is outside your configured triggers, Trailmark correctly marked it " <>
+      "as skipped rather than running a potentially irrelevant pipeline. To include your " <>
+      "new service, add 'services/**' or 'services/payments/**' to your CI Triggers. " <>
+      "Trigger updates apply to all future pushes — already-queued runs are not affected. " <>
+      "Let me know if you'd like help reviewing your full trigger config."
+  end
+
+  defp agent_response(:token_rotation) do
+    "For the Webhooks integration token, I recommend coordinating a brief maintenance window " <>
+      "with your DevOps team. The rotation is not zero-downtime unless your services support " <>
+      "dual-token mode. Update each service's secret before revoking the old token to minimize " <>
+      "downtime. Once all three services are updated, revoke the old token in " <>
+      "**Settings > API Keys**. If you'd like, I can flag this rotation in your account notes " <>
+      "so our team can monitor for delivery errors in the 24 hours after the switch."
+  end
+
+  defp agent_solution(:api_key) do
+    "Good news — I can see from the activity log that the key was only used by your own " <>
+      "deploy scripts during that window. No unauthorized calls were made. Your new key is " <>
+      "ready to use. I'd also recommend enabling IP allowlisting for API key usage under " <>
+      "**Settings > Security** to reduce exposure risk for future keys."
+  end
+
+  defp agent_solution(:billing_email) do
+    "The verification email has been resent to finance@acme.example. The previous link has " <>
+      "been invalidated for security. Once you click the new link, the billing contact will " <>
+      "be updated. Going forward, Trailmark sends a notification to the old address whenever " <>
+      "the billing contact is changed, so your outgoing CFO will be informed automatically."
+  end
+
+  defp agent_solution(:seat) do
+    "Sam's invitation has been resent. I've also checked your account's email delivery log " <>
+      "and confirmed the first invitation reached our mail provider successfully — it may " <>
+      "have been filtered by Globex's mail server. The new invitation uses a slightly " <>
+      "different subject line that should improve deliverability. She should receive it " <>
+      "within the next few minutes."
+  end
+
+  defp agent_solution(:ci_skipped) do
+    "I've reviewed your trigger config and the 'services/payments/' path is not covered. " <>
+      "Adding 'services/**' will cover all current and future service directories. " <>
+      "To make the change: go to **Project > Settings > CI Triggers**, click **Edit**, " <>
+      "add 'services/**' as a new path pattern, and save. The change takes effect on the " <>
+      "next push. Would you like me to walk you through the config format?"
+  end
+
+  defp agent_solution(:token_rotation) do
+    "Here's a step-by-step plan for your three services: (1) Generate the new token in " <>
+      "**Settings > API Keys**. (2) Update Service A's secret, verify it's working. " <>
+      "(3) Repeat for Services B and C. (4) Once all three are updated, revoke the old token. " <>
+      "There is no grace period — the old token stops working immediately on revocation. " <>
+      "Estimated downtime per service during the secret update is under 30 seconds for a " <>
+      "rolling restart. Let me know once you're ready to begin."
+  end
+
+  defp agent_closing(:api_key) do
+    "Your API key has been successfully rotated and the activity log shows no unauthorized " <>
+      "usage. I've marked this ticket resolved. If you have any further questions about " <>
+      "key security or access controls, feel free to reach out."
+  end
+
+  defp agent_closing(:billing_email) do
+    "The billing email has been updated and verified. Future invoices will go to the new " <>
+      "address. I've marked this request resolved. If the change doesn't appear on your " <>
+      "next invoice, please let us know and we'll investigate."
+  end
+
+  defp agent_closing(:seat) do
+    "Sam has accepted her invitation and her seat is now active. I've marked this ticket " <>
+      "resolved. If you need to adjust her role or permissions later, you can do so from " <>
+      "**Settings > Team** at any time."
+  end
+
+  defp agent_closing(:ci_skipped) do
+    "Your trigger config has been updated to include 'services/**'. The next push to that " <>
+      "path will run the full pipeline. I've marked this ticket resolved. " <>
+      "Feel free to reach out if you see any unexpected skip behavior in future runs."
+  end
+
+  defp agent_closing(:token_rotation) do
+    "Token rotation is complete and all three services are running on the new token. " <>
+      "I've marked this ticket resolved. Your new token is valid for 90 days from today. " <>
+      "We'll send a reminder 7 days before it expires."
+  end
+
+  # Internal-note bodies (D-18 carve-out — may reference IDs and typed terms).
+  # Used in conversations n=5 (open, api_key) and n=13 (resolved, api_key).
+  defp internal_note(:api_key) do
+    "Flagged for security review: host_user_id=demo_user_hooli_tokens, key exposure ~45 min. " <>
+      "Activity log checked — calls originated from deploy pipeline CIDRs only. " <>
+      "No fraud signal. Marked as low-risk rotation."
+  end
+
+  defp internal_note(_topic) do
+    "Internal: reviewed account history. No prior escalations. Standard handling applies."
   end
 
   # Builds 3+ GapCandidates with memberships and RetrievalGapEvent back-references.
