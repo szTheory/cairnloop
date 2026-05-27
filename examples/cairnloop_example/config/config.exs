@@ -11,6 +11,10 @@ config :cairnloop_example,
   ecto_repos: [CairnloopExample.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# Register pgvector with Postgrex so `vector` columns work from the example app
+# (mirrors the library's own `config :cairnloop, Cairnloop.Repo, types: Cairnloop.PostgrexTypes`).
+config :cairnloop_example, CairnloopExample.Repo, types: Cairnloop.PostgrexTypes
+
 # Configure the endpoint
 config :cairnloop_example, CairnloopExampleWeb.Endpoint,
   url: [host: "localhost"],

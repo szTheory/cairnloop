@@ -75,7 +75,6 @@ defmodule CairnloopExample.SeedRun do
   alias Cairnloop.KnowledgeBase.Revision
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeAutomation.ArticleSuggestion
-  alias Cairnloop.KnowledgeAutomation.ArticleSuggestionEvidence
   alias Cairnloop.KnowledgeAutomation.GapCandidate
   alias Cairnloop.KnowledgeAutomation.GapCandidateMembership
   alias Cairnloop.Retrieval.GapEvent
@@ -516,8 +515,11 @@ defmodule CairnloopExample.SeedRun do
   defp build_message_list(%{cohort: :resolved, topic: topic, n: n, closer: closer}) do
     closing_msg =
       if closer == :system_outbound do
+        # Message.role enum is sealed at [:agent, :internal_note, :system, :user];
+        # the spec-language ":system_outbound" is a closer-plan label (not persisted).
+        # The metadata.template_id below is the Pitfall 6 marker the renderer reads.
         %{
-          role: :system_outbound,
+          role: :system,
           content: "Your request has been resolved. We've sent a confirmation to your email.",
           metadata: %{"template_id" => "demo_resolve_confirm"}
         }
