@@ -150,7 +150,20 @@ Plans:
   2. Bulk outbound actions write audit records with actor and cohort size
   3. Final UI pass tightens empty/error states and outbound affordance polish
 
-**Plans**: pending
+**Plans**: 3 plans
+Plans:
+**Wave 1**
+
+- [ ] 26-01-PLAN.md — `Cairnloop.Outbound.Telemetry.Traces` module + delivery telemetry on `OutboundWorker.perform/1` (4 arms) + OI trace emissions alongside sealed bounded-metrics spans in `Outbound.trigger/2` + `bulk_trigger/2` + `Cairnloop.Telemetry` moduledoc block (OBS-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 26-02-PLAN.md — `Cairnloop.Governance.list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` narrow audit READ facade + D-05 auditor metadata shape regression (OBS-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 26-03-PLAN.md — InboxLive empty-state + modal `×` close button + `has_visible_eligible` regression + ConversationLive failed-bubble subhead + `outbound_recovery_card` a11y verification (polish — D-08 / D-09)
+
 **UI hint**: yes
 
 ---
@@ -163,7 +176,7 @@ Plans:
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
 | 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete    | 2026-05-27 |
-| 26. Observability & Polish | vM013 | 0/1 | Not started | - |
+| 26. Observability & Polish | vM013 | 0/3 | Planned | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
 | 15. Approval State Machine & Oban Resume | vM011 | 5/5 | Complete | 2026-05-25 |
