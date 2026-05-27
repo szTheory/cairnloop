@@ -34,8 +34,8 @@
 - [ ] **OUT-04** — Chimeway integration for routing outbound messages to delivery channels.
 - [ ] **OUT-05** — Outbound messages are immutably linked to a parent `Conversation`.
 - [ ] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations.
-- [ ] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients".
-- [ ] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency.
+- [x] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients". *(Library layer landed Phase 25 plan 02 — `Cairnloop.Outbound.bulk_trigger/2`; InboxLive operator surface lands Phase 25 plan 03.)*
+- [x] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency. *(Substrate + envelope landed Phase 25 plans 01 + 02 — `BulkEnvelope` schema with `:refused_cap_exceeded` lane, `max_batch_size = 25` env knob with hard fail-closed envelope guard, Oban `unique:` keys for at-most-once delivery.)*
 - [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`.
 - [x] **UI-02** — Outbound delivery status indicators visible in the message bubble.
 - [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations.
@@ -73,8 +73,8 @@
 | OUT-04 | Phase 2 | Pending |
 | OUT-05 | Phase 1 | Pending |
 | BULK-01 | Phase 4 | Pending |
-| BULK-02 | Phase 4 | Pending |
-| BULK-03 | Phase 4 | Pending |
+| BULK-02 | Phase 25 | Library layer landed (plan 02); UI in plan 03 |
+| BULK-03 | Phase 25 | Substrate + envelope landed (plans 01 + 02); UI refusal banner in plan 03 |
 | UI-01 | Phase 3 | Validated |
 | UI-02 | Phase 3 | Validated |
 | UI-03 | Phase 4 | Pending |
@@ -82,4 +82,4 @@
 | OBS-02 | Phase 5 | Pending |
 
 ---
-*Last updated: 2026-05-26 — vM013 Active; vM012 Validated.*
+*Last updated: 2026-05-27 — Phase 25 plan 02 landed BULK-02 (library layer) + BULK-03 (substrate + envelope); BULK-01 + UI rails remain for plan 03. vM013 Active; vM012 Validated.*
