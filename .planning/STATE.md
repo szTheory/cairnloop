@@ -2,9 +2,10 @@
 gsd_state_version: 1.0
 milestone: vM014
 milestone_name: Adoption Proof
-status: planning
-last_updated: "2026-05-27T13:07:26.160Z"
-last_activity: 2026-05-27
+status: "Roadmap formalized; awaiting `/gsd:discuss-phase 27` or `/gsd:plan-phase 27`"
+stopped_at: Phase 27 context gathered
+last_updated: "2026-05-27T13:29:50.034Z"
+last_activity: 2026-05-27 — vM014 ROADMAP.md written from `.planning/threads/vM014-adoption-proof-assessment.md`; REQUIREMENTS.md traceability filled
 progress:
   total_phases: 6
   completed_phases: 0
@@ -77,8 +78,8 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 ## Session Continuity
 
-Last session: 2026-05-27 — vM014 Adoption Proof roadmap formalized from assessment thread
-Stopped at: ROADMAP.md written (Phases 27–32); REQUIREMENTS.md traceability filled; STATE.md updated; ready for Phase 27 discuss/plan
+Last session: 2026-05-27T13:29:50.028Z
+Stopped at: Phase 27 context gathered
 Next step: `/gsd:discuss-phase 27` (gather Phase 27 context) or `/gsd:plan-phase 27` (skip discussion, plan directly)
 
 ## Operator Next Steps
