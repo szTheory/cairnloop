@@ -706,6 +706,124 @@ defmodule Cairnloop.OutboundTest do
   end
 
   # ----------------------------------------------------------------------------
+  # Phase 26 OBS-02 D-05 — auditor metadata shape regression.
+  #
+  # The audit-WRITE substrate already exists: `Outbound.trigger/2` line 95-98
+  # calls `auditor.audit(:outbound_trigger, actor, %{conversation_id,
+  # template_id})` and `bulk_trigger_submit/6` line 339-343 calls
+  # `auditor.audit(:bulk_outbound_trigger, actor, %{bulk_envelope_id, count,
+  # template_id})`. This describe block PINS the exact metadata key SET on
+  # both lanes via `Map.keys |> Enum.sort()` equality + negative `refute
+  # Map.has_key?` for PII-rich keys so a future refactor that drifts the
+  # contract (e.g. accidentally adding `:rendered_body` or
+  # `:recipient_conversation_ids` to the auditor metadata) fails loudly.
+  #
+  # Mitigates T-26-07 (audit-metadata drift / information-disclosure).
+  # ----------------------------------------------------------------------------
+  describe "auditor metadata shape regression (Phase 26 OBS-02 D-05)" do
+    # MapShapeAuditor sends every audit call into the test process mailbox so
+    # `assert_receive` can pin the metadata key set. Distinct from the Phase 22
+    # `TestAuditor` block above (which is a positive integration probe via
+    # `assert results.audit.metadata == ...`); this auditor's purpose is the
+    # negative `refute Map.has_key?` assertion + sorted-key-set equality.
+    #
+    # The `Ecto.Multi.run/3` callback fires inside the test process (the
+    # MockRepo's `execute_multi/2` runs the Multi synchronously in-process), so
+    # `send(self(), ...)` lands in the test's mailbox. Mirrors the
+    # `MockNotifier.on_outbound_triggered/2` pattern in
+    # `test/cairnloop/workers/outbound_worker_test.exs`.
+    defmodule MapShapeAuditor do
+      @behaviour Cairnloop.Auditor
+      def audit(multi, action, actor, metadata) do
+        send(self(), {:audited, %{action: action, actor: actor, metadata: metadata}})
+
+        Ecto.Multi.run(multi, :audit, fn _repo, _changes ->
+          {:ok, :captured}
+        end)
+      end
+    end
+
+    test ":outbound_trigger metadata key set is exactly [:conversation_id, :template_id]" do
+      assert {:ok, _results} =
+               Outbound.trigger(1,
+                 template_id: "test",
+                 actor: "system",
+                 auditor: MapShapeAuditor
+               )
+
+      assert_receive {:audited, %{action: :outbound_trigger, actor: "system", metadata: metadata}},
+                     500
+
+      assert Map.keys(metadata) |> Enum.sort() == [:conversation_id, :template_id]
+      # Pinning the exact values too — defense against subtle drift.
+      assert metadata == %{conversation_id: 1, template_id: "test"}
+    end
+
+    test ":bulk_outbound_trigger metadata key set is exactly [:bulk_envelope_id, :count, :template_id]" do
+      assert {:ok, _results} =
+               Outbound.bulk_trigger([1, 2],
+                 template_id: "test",
+                 rendered_body: "Body",
+                 actor: "system",
+                 auditor: MapShapeAuditor
+               )
+
+      assert_receive {:audited,
+                      %{action: :bulk_outbound_trigger, actor: "system", metadata: metadata}},
+                     500
+
+      assert Map.keys(metadata) |> Enum.sort() == [:bulk_envelope_id, :count, :template_id]
+      # The :bulk_envelope_id value is a UUID generated at runtime — check shape, not
+      # exact equality.
+      assert metadata.count == 2
+      assert metadata.template_id == "test"
+      assert is_binary(metadata.bulk_envelope_id)
+    end
+
+    test ":outbound_trigger metadata refutes PII-rich extras (T-26-07 mitigation)" do
+      assert {:ok, _results} =
+               Outbound.trigger(1,
+                 template_id: "test",
+                 actor: "system",
+                 auditor: MapShapeAuditor
+               )
+
+      assert_receive {:audited, %{action: :outbound_trigger, metadata: metadata}}, 500
+
+      # The narrow auditor metadata MUST NOT leak any of these keys — they
+      # belong on the durable Message row, the worker job args, the
+      # BulkEnvelope row, or telemetry (depending on the fact), NOT in the
+      # auditor metadata which crosses the library boundary into the host's
+      # audit log.
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :rendered_body)
+      refute Map.has_key?(metadata, :bulk_envelope_id)
+      refute Map.has_key?(metadata, :recipient_conversation_ids)
+      refute Map.has_key?(metadata, :count)
+    end
+
+    test ":bulk_outbound_trigger metadata refutes PII-rich extras (T-26-07 mitigation)" do
+      assert {:ok, _results} =
+               Outbound.bulk_trigger([1, 2, 3],
+                 template_id: "test",
+                 rendered_body: "Body",
+                 actor: "system",
+                 auditor: MapShapeAuditor
+               )
+
+      assert_receive {:audited, %{action: :bulk_outbound_trigger, metadata: metadata}}, 500
+
+      # Same narrow-metadata invariant on the bulk lane. The rendered body and
+      # the recipient ids live on the durable BulkEnvelope row (D-13); they
+      # MUST NOT leak through the auditor callback into the host's audit log.
+      refute Map.has_key?(metadata, :rendered_body)
+      refute Map.has_key?(metadata, :recipient_conversation_ids)
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :effective_cap)
+    end
+  end
+
+  # ----------------------------------------------------------------------------
   # REPO-UNAVAILABLE — requires Cairnloop.Repo + Postgres. These tests genuinely
   # require Postgres round-trips and cannot run in this workspace (CLAUDE.md
   # D-16). Authored so they pass on a Postgres-available host via
