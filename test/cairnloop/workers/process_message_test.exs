@@ -56,6 +56,10 @@ defmodule Cairnloop.Workers.ProcessMessageTest do
     # The EmailWebhookPlug calls ProcessMessage.new(%{channel: "email", content: content})
     # — this clause keeps that secondary caller working under D-07's arg reshape.
     test "email channel preserves logger stub (Pitfall 2)" do
+      # The email stub uses Logger.warning/1 (not :info) so it is captured even with the
+      # :warning threshold set in config/test.exs. The log level is :warning because the
+      # stub is intentionally a temporary placeholder — using :warning signals to operators
+      # that email ingress is not fully wired yet, which is accurate (D-07 / Pitfall 2).
       log =
         capture_log(fn ->
           :ok =
