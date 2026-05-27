@@ -45,6 +45,15 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
     def on_outbound_triggered(_, _), do: {:error, :delivery_failed}
   end
 
+  # Phase 26 OBS-01 D-02: an extra notifier that returns `{:ok, _}` (arm B) so the
+  # delivery-telemetry suite can prove the {:ok, _} arm fires :sent/:notifier_ok.
+  defmodule OkTupleNotifier do
+    @behaviour Cairnloop.Notifier
+    def on_conversation_resolved(_, _), do: :ok
+    def on_sla_breach(_, _, _), do: :ok
+    def on_outbound_triggered(_, _), do: {:ok, :delivered}
+  end
+
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
     Application.put_env(:cairnloop, :notifier, MockNotifier)
@@ -127,6 +136,141 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
       assert {:ok, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
 
       assert_receive {:notified, 1, 10}
+    end
+  end
+
+  describe "delivery telemetry (Phase 26 OBS-01 D-02)" do
+    # Phase 26 D-02 / D-03: bounded-metrics delivery events on
+    # [:cairnloop, :outbound, :delivery, :sent | :failed] (4-segment,
+    # point-in-time) AND OI trace events on
+    # [:cairnloop, :outbound, :trace, :delivery_sent | :delivery_failed]
+    # (4-segment with :trace in pos 3). Both lanes are disjoint by D-03.
+
+    defp attach_delivery_handler(test_id, outcome_atom) do
+      handler_id = "outbound-delivery-#{test_id}-#{outcome_atom}"
+
+      :telemetry.attach(
+        handler_id,
+        [:cairnloop, :outbound, :delivery, outcome_atom],
+        fn _event, measurements, metadata, _config ->
+          send(self(), {:delivery_event, measurements, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+    end
+
+    defp attach_trace_handler(test_id, event_atom) do
+      handler_id = "outbound-trace-#{test_id}-#{event_atom}"
+
+      :telemetry.attach(
+        handler_id,
+        [:cairnloop, :outbound, :trace, event_atom],
+        fn _event, _measurements, metadata, _config ->
+          send(self(), {:trace_metadata, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+    end
+
+    test "arm A — :ok notifier fires :sent with reason :notifier_ok", %{test: test_id} do
+      attach_delivery_handler(test_id, :sent)
+
+      # Default MockNotifier (set in `setup`) returns :ok — arm A.
+      assert {:ok, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:delivery_event, %{count: 1}, metadata}, 500
+      assert metadata.outcome == :sent
+      assert metadata.reason == :notifier_ok
+
+      # Enum-only labels per D-01: NO conversation_id / template_id / actor / bulk_envelope_id.
+      refute Map.has_key?(metadata, :conversation_id)
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :bulk_envelope_id)
+    end
+
+    test "arm B — {:ok, _} notifier fires :sent with reason :notifier_ok", %{test: test_id} do
+      Application.put_env(:cairnloop, :notifier, OkTupleNotifier)
+      attach_delivery_handler(test_id, :sent)
+
+      assert {:ok, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:delivery_event, %{count: 1}, metadata}, 500
+      assert metadata.outcome == :sent
+      assert metadata.reason == :notifier_ok
+    end
+
+    test "arm C — ErrorNotifier fires :failed with reason :notifier_returned_error",
+         %{test: test_id} do
+      Application.put_env(:cairnloop, :notifier, ErrorNotifier)
+      attach_delivery_handler(test_id, :failed)
+
+      # Phase 22/23 regression-safe: function still returns {:error, _} as before.
+      assert {:error, {:error, :delivery_failed}} =
+               OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:delivery_event, %{count: 1}, metadata}, 500
+      assert metadata.outcome == :failed
+      assert metadata.reason == :notifier_returned_error
+    end
+
+    test "arm D — no notifier configured fires :sent with reason :no_notifier_configured",
+         %{test: test_id} do
+      Application.delete_env(:cairnloop, :notifier)
+      attach_delivery_handler(test_id, :sent)
+
+      assert :ok = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:delivery_event, %{count: 1}, metadata}, 500
+      assert metadata.outcome == :sent
+      assert metadata.reason == :no_notifier_configured
+    end
+
+    test "OI trace lane parity — :sent fires TOOL trace with attribution refs",
+         %{test: test_id} do
+      # MockNotifier (:ok arm) — also fires the OI lane.
+      attach_trace_handler(test_id, :delivery_sent)
+
+      assert {:ok, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "TOOL"
+      assert meta[:conversation_id] == 10
+      assert meta[:template_id] == "test"
+      assert meta[:outcome] == :sent
+      # No bulk_envelope_id in default args — therefore nil on the trace.
+      assert meta[:bulk_envelope_id] == nil
+      # actor_id is system-initiated at delivery time per RESEARCH OQ2.
+      assert meta[:actor_id] == nil
+    end
+
+    test "OI trace lane parity — :failed fires TOOL trace with outcome :failed",
+         %{test: test_id} do
+      Application.put_env(:cairnloop, :notifier, ErrorNotifier)
+      attach_trace_handler(test_id, :delivery_failed)
+
+      assert {:error, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta["openinference.span.kind"] == "TOOL"
+      assert meta[:outcome] == :failed
+    end
+
+    test "bulk_envelope_id is threaded from job args to the OI trace metadata",
+         %{test: test_id} do
+      attach_trace_handler(test_id, :delivery_sent)
+
+      assert {:ok, _} =
+               OutboundWorker.perform(%Oban.Job{
+                 args: %{"message_id" => 1, "bulk_envelope_id" => "env-uuid-77"}
+               })
+
+      assert_receive {:trace_metadata, meta}, 500
+      assert meta[:bulk_envelope_id] == "env-uuid-77"
     end
   end
 
