@@ -48,18 +48,22 @@ defmodule Cairnloop.Channels.WidgetChannelTest do
   end
 
   describe "handle_in/3 with submit_csat" do
-    test "replies :ok when rating is successful" do
+    # CR-02 fix: submit_csat is deferred (CONTEXT.md OQ-4) and now returns a structured
+    # error reply on any topic rather than crashing with an Ecto.Query.CastError on
+    # "widget:lobby". Both lobby and conversation-scoped topics must return csat_not_available.
+    test "replies with csat_not_available error on lobby topic" do
+      socket = %Phoenix.Socket{topic: "widget:lobby"}
+      payload = %{"rating" => "positive"}
+
+      assert {:reply, {:error, %{reason: "csat_not_available"}}, ^socket} =
+               WidgetChannel.handle_in("submit_csat", payload, socket)
+    end
+
+    test "replies with csat_not_available error on conversation-scoped topic" do
       socket = %Phoenix.Socket{topic: "widget:123"}
       payload = %{"rating" => "positive"}
 
-      assert {:reply, :ok, ^socket} = WidgetChannel.handle_in("submit_csat", payload, socket)
-    end
-
-    test "replies with error when rating is invalid" do
-      socket = %Phoenix.Socket{topic: "widget:123"}
-      payload = %{"rating" => "invalid_rating"}
-
-      assert {:reply, {:error, %{reason: "invalid_rating"}}, ^socket} =
+      assert {:reply, {:error, %{reason: "csat_not_available"}}, ^socket} =
                WidgetChannel.handle_in("submit_csat", payload, socket)
     end
   end
