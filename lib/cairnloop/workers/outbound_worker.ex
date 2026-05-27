@@ -93,8 +93,19 @@ defmodule Cairnloop.Workers.OutboundWorker do
         end
 
       _ ->
+        # WR-04: when no notifier is configured no message is actually
+        # delivered — operators looking at success counts on
+        # [:cairnloop, :outbound, :delivery, :sent] previously saw this
+        # as a successful delivery (the `:reason` field differentiated
+        # but a typical aggregation rolls up by `:outcome` only). Emit
+        # the distinct `:no_op` outcome so dashboards can count
+        # no-notifier no-ops separately from real sends. We still update
+        # the message status to "sent" to keep the durable Phase 22/23
+        # contract intact (the message LIFE-CYCLE is "we attempted and
+        # the lane completed without error"); only the OBSERVABILITY
+        # label changes.
         update_message_status(message, "sent")
-        emit_delivery(:sent, :no_notifier_configured, message, args)
+        emit_delivery(:no_op, :no_notifier_configured, message, args)
         :ok
     end
   end
@@ -111,30 +122,47 @@ defmodule Cairnloop.Workers.OutboundWorker do
   # Phase 26 OBS-01 D-02 + D-03: bounded-metrics + OI trace, side-by-side, enum-only labels.
   #
   # Bounded-metrics (D-01 / D-02): point-in-time event on
-  # `[:cairnloop, :outbound, :delivery, :sent | :failed]` with enum-only metadata —
-  # `:outcome` and `:reason` only. NO conversation_id / template_id / actor /
-  # bulk_envelope_id in labels (cardinality + PII protection).
+  # `[:cairnloop, :outbound, :delivery, :sent | :failed | :no_op]` with enum-only
+  # metadata — `:outcome` and `:reason` only. NO conversation_id / template_id /
+  # actor / bulk_envelope_id in labels (cardinality + PII protection).
   #
   # OI trace (D-03): disjoint 4-segment trace path with TOOL span kind and
   # attribution refs. `:actor_id` is `nil` at delivery time — trigger-time actor
   # is captured at the trigger event; delivery is system-initiated (RESEARCH OQ2).
+  #
+  # WR-04 / IN-04: outcomes are mapped to OI trace events via a `case` (clearer
+  # than the inline `if/3` and naturally extensible). `:no_op` (no notifier
+  # configured) intentionally fires NO trace event — a TOOL span represents an
+  # actual execution, and no execution happened. The bounded-metrics event
+  # still fires so ops can count no-notifier no-ops separately from real sends.
   defp emit_delivery(outcome, reason, message, args)
-       when outcome in [:sent, :failed] do
+       when outcome in [:sent, :failed, :no_op] do
     Cairnloop.Telemetry.execute(
       [:outbound, :delivery, outcome],
       %{count: 1},
       %{outcome: outcome, reason: reason}
     )
 
-    Traces.emit(
-      if(outcome == :sent, do: :delivery_sent, else: :delivery_failed),
-      %{
-        conversation_id: message.conversation_id,
-        template_id: Map.get(message.metadata || %{}, "template_id"),
-        bulk_envelope_id: Map.get(args, "bulk_envelope_id"),
-        actor_id: nil,
-        outcome: outcome
-      }
-    )
+    case outcome do
+      :sent ->
+        emit_trace(:delivery_sent, outcome, message, args)
+
+      :failed ->
+        emit_trace(:delivery_failed, outcome, message, args)
+
+      :no_op ->
+        # No execution happened — no TOOL span to record on the OI lane.
+        :ok
+    end
+  end
+
+  defp emit_trace(trace_event, outcome, message, args) do
+    Traces.emit(trace_event, %{
+      conversation_id: message.conversation_id,
+      template_id: Map.get(message.metadata || %{}, "template_id"),
+      bulk_envelope_id: Map.get(args, "bulk_envelope_id"),
+      actor_id: nil,
+      outcome: outcome
+    })
   end
 end

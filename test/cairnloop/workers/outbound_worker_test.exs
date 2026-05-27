@@ -218,16 +218,55 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
       assert metadata.reason == :notifier_returned_error
     end
 
-    test "arm D — no notifier configured fires :sent with reason :no_notifier_configured",
+    test "arm D — no notifier configured fires :no_op with reason :no_notifier_configured (WR-04)",
          %{test: test_id} do
+      # WR-04: previously this arm reported outcome :sent — operators
+      # aggregating on `:outcome` saw no-notifier no-ops as successful
+      # deliveries. Now the bounded-metrics event lands on
+      # [:cairnloop, :outbound, :delivery, :no_op] with outcome :no_op
+      # so dashboards can count no-op cases separately. The OI lane
+      # intentionally fires NO trace for :no_op since no TOOL execution
+      # happened (asserted in a separate test below).
       Application.delete_env(:cairnloop, :notifier)
-      attach_delivery_handler(test_id, :sent)
+      attach_delivery_handler(test_id, :no_op)
 
       assert :ok = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
 
       assert_receive {:delivery_event, %{count: 1}, metadata}, 500
-      assert metadata.outcome == :sent
+      assert metadata.outcome == :no_op
       assert metadata.reason == :no_notifier_configured
+
+      # Enum-only labels per D-01 stay invariant.
+      refute Map.has_key?(metadata, :conversation_id)
+      refute Map.has_key?(metadata, :template_id)
+      refute Map.has_key?(metadata, :actor)
+      refute Map.has_key?(metadata, :bulk_envelope_id)
+    end
+
+    test "WR-04: no-notifier arm fires NO OI trace event (no execution span when nothing executed)",
+         %{test: test_id} do
+      Application.delete_env(:cairnloop, :notifier)
+      # Attach to both delivery_sent and delivery_failed so we'd catch
+      # a stray trace either way.
+      attach_trace_handler(test_id, :delivery_sent)
+
+      sent_handler = "outbound-trace-#{test_id}-delivery_sent"
+      failed_handler = "outbound-trace-#{test_id}-delivery_failed"
+
+      :telemetry.attach(
+        failed_handler,
+        [:cairnloop, :outbound, :trace, :delivery_failed],
+        fn _e, _m, metadata, _c -> send(self(), {:trace_metadata, metadata}) end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(failed_handler) end)
+
+      assert :ok = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+
+      refute_receive {:trace_metadata, _meta}, 100
+
+      _ = sent_handler
     end
 
     test "OI trace lane parity — :sent fires TOOL trace with attribution refs",
