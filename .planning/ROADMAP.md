@@ -75,7 +75,12 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   2. Customer types a message in `/chat`, it pushes through `WidgetChannel`, lands in an operator-side inbox conversation, and operator's reply broadcasts back into the customer's `/chat` LiveView via PubSub — no mock `Process.send_after(self(), :bot_reply, 1000)` path remains anywhere in `chat_live.ex`.
   3. Example app README documents the two-tab demo (operator inbox + customer `/chat`) with the exact local-dev commands an adopter needs to reproduce the round trip.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+  - [ ] 28-01-PLAN.md — Chat-facade foundation: add `create_customer_conversation/1` + `ingest_widget_message/2`, additive `reply_to_conversation/4` post-commit broadcast (OQ-1), `ConversationLive` + `InboxLive` PubSub handle_info clauses, and `Cairnloop.PubSub` started in the example app supervisor (Pitfall 1).
+  - [ ] 28-02-PLAN.md — Channel + worker rewire: `WidgetChannel.join("widget:lobby", ...)` creates the conversation via the new facade, `handle_in("new_message", ...)` reads conversation_id from `socket.assigns` (T-M001 input-trust mitigation), `ProcessMessage` rewritten with unique-option header + multi-clause `perform/1` preserving the EmailWebhookPlug stub (Pitfall 2 / OQ-2).
+  - [ ] 28-03-PLAN.md — Endpoint mount + ChatLive rewrite + README: `/widget` socket mount on the example endpoint, full `chat_live.ex` rewrite with colocated `WidgetChat` JS hook + UI-SPEC compliance + role-dedup handle_info (Pitfall 7), additive `Cairnloop.Chat.get_message/1` read facade, README §Two-Tab Demo block verbatim from UI-SPEC §3.
+
 **UI hint:** yes
 
 #### Phase 29: Brand-Token CSS Extraction (D-10 Closure)
@@ -200,7 +205,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
-| 28. Customer `/chat` Wired to Real Ingress | vM014 | 0/0 | Not started | — |
+| 28. Customer `/chat` Wired to Real Ingress | vM014 | 0/3 | Not started | — |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 0/0 | Not started | — |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 0/0 | Not started | — |
@@ -224,3 +229,4 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 _For current project status, see `.planning/STATE.md`_
 _vM014 roadmap formalized: 2026-05-27 from `.planning/threads/vM014-adoption-proof-assessment.md`_
+_Phase 28 plans created: 2026-05-27 — 3 plans, 3 waves (sequential dependency chain: data facade → channel+worker rewire → endpoint+ChatLive+README)_
