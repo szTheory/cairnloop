@@ -19,6 +19,9 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
     :rendered_body,
     :recipient_conversation_ids,
     :count,
+    # WR-05: snapshot of `max_batch_size/0` at decision time. Required so
+    # OBS-02 readers can compare `count` against the policy of the moment.
+    :effective_cap,
     :requested_at
   ]
 
@@ -29,6 +32,8 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
       rendered_body: "We're following up to see how things are going.",
       recipient_conversation_ids: [101, 102, 103],
       count: 3,
+      # WR-05: matches the v1 default `max_batch_size = 25` from D-09.
+      effective_cap: 25,
       requested_by: "ops_user_1",
       requested_at: DateTime.utc_now()
     }
@@ -64,6 +69,19 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
       changeset = BulkEnvelope.changeset(%BulkEnvelope{}, valid_attrs(%{count: 0}))
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :count)
+    end
+
+    test "is invalid when effective_cap is 0 (WR-05 — validate_number greater_than: 0)" do
+      changeset = BulkEnvelope.changeset(%BulkEnvelope{}, valid_attrs(%{effective_cap: 0}))
+      refute changeset.valid?
+      assert Keyword.has_key?(changeset.errors, :effective_cap)
+    end
+
+    test "effective_cap snapshot is preserved through cast/apply_changes (WR-05)" do
+      changeset = BulkEnvelope.changeset(%BulkEnvelope{}, valid_attrs(%{effective_cap: 25}))
+      assert changeset.valid?
+      applied = Ecto.Changeset.apply_changes(changeset)
+      assert applied.effective_cap == 25
     end
 
     test "status defaults to :submitted; refused_cap_exceeded + reason is valid (Test 4)" do

@@ -208,7 +208,9 @@ defmodule Cairnloop.Outbound do
     if count > cap do
       bulk_trigger_refused(conversation_ids, template_id, rendered_body, actor, count, cap)
     else
-      bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, opts)
+      # WR-05: thread the cap through to the submit lane so it lands on the
+      # `:effective_cap` envelope column alongside the refused lane.
+      bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, cap, opts)
     end
   end
 
@@ -224,6 +226,10 @@ defmodule Cairnloop.Outbound do
       rendered_body: rendered_body,
       recipient_conversation_ids: conversation_ids,
       count: count,
+      # WR-05: snapshot the cap that was in effect at decision time so OBS-02
+      # readers see the policy of the moment, not whatever `max_batch_size/0`
+      # returns at audit-read time.
+      effective_cap: cap,
       requested_by: actor,
       requested_at: DateTime.utc_now(),
       status: :refused_cap_exceeded,
@@ -289,7 +295,7 @@ defmodule Cairnloop.Outbound do
   # D-13 happy path. Single `Ecto.Multi`: envelope insert + per-recipient
   # `build_trigger_multi/2` merge + auditor step. Wrapped in a telemetry span with
   # enum-only labels (D-B / Pitfall 5).
-  defp bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, opts) do
+  defp bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, cap, opts) do
     envelope_id = Ecto.UUID.generate()
     count = length(conversation_ids)
 
@@ -299,6 +305,10 @@ defmodule Cairnloop.Outbound do
       rendered_body: rendered_body,
       recipient_conversation_ids: conversation_ids,
       count: count,
+      # WR-05: snapshot the cap that was in effect at decision time. Lets OBS-02
+      # readers compare `count` against the policy of the moment even if ops
+      # tune `:cairnloop, :max_batch_size` between attempts.
+      effective_cap: cap,
       requested_by: actor,
       requested_at: DateTime.utc_now(),
       status: :submitted

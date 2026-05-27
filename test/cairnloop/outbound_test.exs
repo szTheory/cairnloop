@@ -269,6 +269,9 @@ defmodule Cairnloop.OutboundTest do
       # UUID v4 shape: 36 chars with dashes at positions 8, 13, 18, 23.
       assert String.length(env.id) == 36
       assert String.at(env.id, 8) == "-"
+      # WR-05: cap-at-decision-time snapshotted on the submitted row too,
+      # so OBS-02 readers see the policy of the moment on both lanes.
+      assert env.effective_cap == 25
 
       # Per-recipient steps — keys are :"message_<cid>" and :"delivery_job_<cid>".
       for cid <- [1, 2, 3] do
@@ -304,6 +307,8 @@ defmodule Cairnloop.OutboundTest do
       assert envelope.count == cap + 1
       assert envelope.recipient_conversation_ids == ids
       assert envelope.refused_reason == "batch_size #{cap + 1} exceeds cap #{cap}"
+      # WR-05: cap-at-decision-time snapshotted on the refused row.
+      assert envelope.effective_cap == cap
 
       # And NO per-recipient Message rows were inserted.
       messages = Enum.filter(inserts, &match?(%Cairnloop.Message{}, &1))
@@ -383,6 +388,9 @@ defmodule Cairnloop.OutboundTest do
 
       assert results.envelope.status == :submitted
       assert results.envelope.count == 3
+      # WR-05: the snapshot tracks the cap that was tuned to 3 above, NOT the
+      # v1 default of 25.
+      assert results.envelope.effective_cap == 3
     end
 
     test "telemetry emits enum-only labels (D-B) on submitted happy path" do

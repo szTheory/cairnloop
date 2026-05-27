@@ -24,6 +24,17 @@ defmodule Cairnloop.Repo.Migrations.AddOutboundBulkEnvelopes do
       # bigint matches the cairnloop_conversations PK type.
       add(:recipient_conversation_ids, {:array, :bigint}, null: false)
       add(:count, :integer, null: false)
+      # WR-05: snapshot the cap that was in effect at decision time so OBS-02
+      # readers can compare `count` against the policy of the moment. If ops
+      # tune `:cairnloop, :max_batch_size` between two bulk attempts, an
+      # auditor looking at two envelopes both with `count: 20` cannot tell
+      # whether each was below or above the cap at the time unless the cap
+      # itself is snapshotted on the row. Populated on BOTH submitted AND
+      # refused paths. NOT NULL is safe because both call sites in
+      # `Outbound.bulk_trigger/2` always read `cap = max_batch_size()` at
+      # entry; no pre-existing rows exist (migration not yet applied per
+      # STATE.md blocker, so backfill is unnecessary).
+      add(:effective_cap, :integer, null: false)
       # Nullable: actor may be "system" for non-operator-initiated bulk actions.
       add(:requested_by, :string)
       add(:requested_at, :utc_datetime_usec, null: false)

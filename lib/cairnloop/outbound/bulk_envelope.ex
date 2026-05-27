@@ -18,6 +18,10 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
     individual `system_outbound` `Message` rows created via the sealed
     `Outbound.trigger/2` lane.
   - `:count` — denormalized cohort size (must be `> 0`).
+  - `:effective_cap` — the value of `max_batch_size/0` at decision time. Snapshotted
+    on BOTH the `:submitted` and `:refused_cap_exceeded` paths so OBS-02 readers can
+    compare `count` against the policy that was actually in effect when the operator
+    confirmed (WR-05). Must be `> 0`.
   - `:requested_by` — actor string (operator, system, etc.); nullable so system-initiated
     bulk actions are representable.
   - `:requested_at` — confirmation timestamp.
@@ -34,8 +38,9 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
   ## Validation
 
   - `:id`, `:template_id`, `:rendered_body`, `:recipient_conversation_ids`, `:count`,
-    and `:requested_at` are required.
+    `:effective_cap`, and `:requested_at` are required.
   - `:count` must be `> 0` (a zero-cohort envelope has no audit value).
+  - `:effective_cap` must be `> 0`.
 
   See `priv/repo/migrations/20260527063000_add_outbound_bulk_envelopes.exs` for the
   underlying table definition (D-15).
@@ -51,6 +56,10 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
     field(:rendered_body, :string)
     field(:recipient_conversation_ids, {:array, :integer})
     field(:count, :integer)
+    # WR-05: snapshot of `max_batch_size/0` at decision time. Lets OBS-02
+    # readers compare `count` against the policy that was actually in effect
+    # when the operator confirmed.
+    field(:effective_cap, :integer)
     field(:requested_by, :string)
     field(:requested_at, :utc_datetime_usec)
     # :submitted (fan-out enqueued) | :refused_cap_exceeded (cap-exceeded attempt persisted).
@@ -66,6 +75,7 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
     :rendered_body,
     :recipient_conversation_ids,
     :count,
+    :effective_cap,
     :requested_by,
     :requested_at,
     :status,
@@ -78,6 +88,7 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
     :rendered_body,
     :recipient_conversation_ids,
     :count,
+    :effective_cap,
     :requested_at
   ]
 
@@ -85,8 +96,9 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
   Builds a changeset for the bulk envelope.
 
   Casts all writable fields and validates required ones (`:id`, `:template_id`,
-  `:rendered_body`, `:recipient_conversation_ids`, `:count`, `:requested_at`). Enforces
-  `count > 0` (zero-cohort envelopes have no audit value).
+  `:rendered_body`, `:recipient_conversation_ids`, `:count`, `:effective_cap`,
+  `:requested_at`). Enforces `count > 0` and `effective_cap > 0` (zero values
+  have no audit value).
 
   `:requested_by` is intentionally optional — system-initiated bulk actions are
   representable with `nil` here. `:status` defaults to `:submitted`; setting it to
@@ -97,5 +109,6 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
     |> cast(attrs, @castable)
     |> validate_required(@required)
     |> validate_number(:count, greater_than: 0)
+    |> validate_number(:effective_cap, greater_than: 0)
   end
 end
