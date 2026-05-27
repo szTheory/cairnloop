@@ -806,12 +806,191 @@ defmodule CairnloopExample.SeedRun do
     "Internal: reviewed account history. No prior escalations. Standard handling applies."
   end
 
+  # -------------------------------------------------------------------------
+  # Gap spec data (D-14): 3 demo gaps distributed across the past 14 days.
+  #
+  # Constraints satisfied:
+  #   - score in 0.4..0.8 (0.65, 0.55, 0.45)
+  #   - evidence_count in 2..4
+  #   - manual_case_count and weak_grounding_count non-zero across all 3
+  #   - first_seen_at offset older (more negative) than last_seen_at offset
+  #   - candidate_type: :mixed on all 3 (D-14)
+  #   - host_user_id: "demo_operator" on all rows (Pitfall 3 — operator-scope)
+  # -------------------------------------------------------------------------
+  @demo_gaps [
+    %{
+      stable_key: "demo_gap_billing_export",
+      title: "Exporting Trailmark billing receipts",
+      seed_excerpt:
+        "Adopters repeatedly ask how to download multi-month billing receipts; no canonical KB article exists yet.",
+      sanitized_query: "export billing receipts past months",
+      ui_surface: :conversation,
+      first_seen_offset_d: -14,
+      last_seen_offset_d: -2,
+      evidence_count: 3,
+      manual_case_count: 2,
+      weak_grounding_count: 1,
+      no_hit_count: 0,
+      score: 0.65,
+      score_components: %{
+        "manual_handling" => 0.4,
+        "weak_grounding" => 0.15,
+        "freshness_boost" => 0.10
+      }
+    },
+    %{
+      stable_key: "demo_gap_ci_skip_diagnostics",
+      title: "Diagnosing why a CI run was skipped",
+      seed_excerpt:
+        "CI-skip diagnostics surface intermittently; current article gives causes but not a step-by-step debug flow.",
+      sanitized_query: "ci run skipped not triggered",
+      ui_surface: :conversation,
+      first_seen_offset_d: -10,
+      last_seen_offset_d: -1,
+      evidence_count: 4,
+      manual_case_count: 1,
+      weak_grounding_count: 2,
+      no_hit_count: 1,
+      score: 0.55,
+      score_components: %{
+        "manual_handling" => 0.2,
+        "weak_grounding" => 0.3,
+        "no_hit" => 0.05
+      }
+    },
+    %{
+      stable_key: "demo_gap_team_seat_governance",
+      title: "Clarifying the seat-invite governed-action flow",
+      seed_excerpt:
+        "Operators need clearer guidance on when seat-invite proposals require approval vs auto-apply.",
+      sanitized_query: "add team seat governed approval",
+      ui_surface: :inbox,
+      first_seen_offset_d: -7,
+      last_seen_offset_d: -3,
+      evidence_count: 2,
+      manual_case_count: 2,
+      weak_grounding_count: 1,
+      no_hit_count: 0,
+      score: 0.45,
+      score_components: %{
+        "manual_handling" => 0.4,
+        "weak_grounding" => 0.05
+      }
+    }
+  ]
+
   # Builds 3+ GapCandidates with memberships and RetrievalGapEvent back-references.
-  # Accepts the conversations list from build_conversations/1 for membership source_id wiring.
-  # Returns list of inserted %GapCandidate{} rows.
-  # TODO: filled by 27-05-PLAN.md (FIX-03 ≥3 GapCandidates + memberships + RetrievalGapEvent)
+  #
+  # Strategy (D-13 / RESEARCH Open Question 1):
+  #   - Direct Schema.changeset + Repo.insert! only — M010 builder path is NOT used.
+  #   - 1 real RetrievalGapEvent seeded per GapCandidate so the gap-queue detail view
+  #     renders evidence rather than the empty-state copy.
+  #   - 1 GapCandidateMembership per gap linking to its seeded RetrievalGapEvent.
+  #   - All host_user_id values are "demo_operator" (Pitfall 3 — operator-scope).
+  #
+  # Returns list of inserted %GapCandidate{} rows (plan 27-06 uses the first
+  # element as the ArticleSuggestion's entrypoint_id — demo_gap_billing_export
+  # whose title aligns with the FIX-04 demo suggestion content).
   defp build_gaps(_conversations) do
-    []
+    Enum.map(@demo_gaps, fn spec -> seed_gap_with_evidence(spec) end)
+  end
+
+  # Per-spec idempotent gap seeder.
+  # GapCandidate keyed on :stable_key (natural key — D-02).
+  # RetrievalGapEvent keyed on :query_fingerprint (sha256 of stable_key — deterministic + 64 chars).
+  # GapCandidateMembership is no-op on re-run via Repo.get_by before insert.
+  defp seed_gap_with_evidence(spec) do
+    now = DateTime.utc_now()
+
+    gap_attrs = %{
+      stable_key: spec.stable_key,
+      status: :open,
+      candidate_type: :mixed,
+      title: spec.title,
+      seed_excerpt: spec.seed_excerpt,
+      tenant_scope: :host_user_scoped,
+      # operator-scope (Pitfall 3 — must NOT be a demo_user_* customer id)
+      host_user_id: "demo_operator",
+      ui_surface: spec.ui_surface,
+      first_seen_at: DateTime.add(now, spec.first_seen_offset_d, :day),
+      last_seen_at: DateTime.add(now, spec.last_seen_offset_d, :day),
+      evidence_count: spec.evidence_count,
+      manual_case_count: spec.manual_case_count,
+      weak_grounding_count: spec.weak_grounding_count,
+      no_hit_count: spec.no_hit_count,
+      score: spec.score,
+      score_components: spec.score_components
+    }
+
+    gap = get_or_insert!(GapCandidate, :stable_key, gap_attrs)
+
+    # Seed exactly 1 RetrievalGapEvent per gap (RESEARCH Open Question 1 recommendation:
+    # seed real GapEvent rows so the gap-queue detail view renders evidence).
+    event = get_or_insert_gap_event!(spec, now)
+    _membership = upsert_membership!(gap, event)
+
+    gap
+  end
+
+  # Inserts a RetrievalGapEvent idempotently, keyed on query_fingerprint.
+  # query_fingerprint is sha256 hex of "demo:gap_event:<stable_key>" — guaranteed 64 hex chars
+  # (T-27-14 mitigation).
+  # host_user_id is "demo_operator" — same operator-scope as the GapCandidate (Pitfall 3).
+  defp get_or_insert_gap_event!(spec, now) do
+    fingerprint =
+      :crypto.hash(:sha256, "demo:gap_event:" <> spec.stable_key)
+      |> Base.encode16(case: :lower)
+
+    attrs = %{
+      occurred_at: DateTime.add(now, spec.last_seen_offset_d, :day),
+      surface: :search_modal,
+      outcome_class: :empty_recall,
+      reason: :no_canonical_results,
+      # operator-scope (Pitfall 3)
+      host_user_id: "demo_operator",
+      tenant_scope: :host_user_scoped,
+      ui_surface: spec.ui_surface,
+      query_fingerprint: fingerprint,
+      sanitized_query_excerpt: spec.sanitized_query,
+      canonical_hit_count: 0,
+      assistive_hit_count: 0,
+      clarification_attempts: 0
+    }
+
+    case Repo.get_by(GapEvent, query_fingerprint: fingerprint) do
+      nil ->
+        %GapEvent{}
+        |> GapEvent.changeset(attrs)
+        |> Repo.insert!()
+
+      existing ->
+        existing
+    end
+  end
+
+  # Inserts a GapCandidateMembership linking a gap to a GapEvent.
+  # Idempotent: Repo.get_by before insert; unique constraint on (gap_candidate_id,
+  # source_type, source_id) catches any regression (T-27-15 mitigation).
+  defp upsert_membership!(gap, event) do
+    attrs = %{
+      gap_candidate_id: gap.id,
+      source_type: :retrieval_gap_event,
+      source_id: event.id
+    }
+
+    case Repo.get_by(GapCandidateMembership,
+           gap_candidate_id: gap.id,
+           source_type: :retrieval_gap_event,
+           source_id: event.id
+         ) do
+      nil ->
+        %GapCandidateMembership{}
+        |> GapCandidateMembership.changeset(attrs)
+        |> Repo.insert!()
+
+      existing ->
+        existing
+    end
   end
 
   # Builds 1 ArticleSuggestion with status :ready (spec: :ready_for_review) + evidence rows
