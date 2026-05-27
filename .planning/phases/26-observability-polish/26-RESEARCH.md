@@ -954,22 +954,22 @@ Phase 26 is not a rename/refactor/migration phase. **Section intentionally omitt
 
 **If this table is empty:** Not applicable — all assumptions above are explicitly listed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the `Cairnloop.Telemetry` "Outbound Events" moduledoc block have a pinning test, or is planner-time inline review sufficient?**
    - What we know: existing moduledoc blocks (Conversation, Feedback, Retrieval, Knowledge-Maintenance) at `telemetry.ex:8-46` have NO pinning test — they are pure doc.
    - What's unclear: whether Phase 26 wants a regression to prevent moduledoc drift.
-   - Recommendation: **Decide-and-proceed: no pinning test.** Follow the existing precedent (no pinning) — moduledoc is doc, not contract. Planner reviews diff at task-commit time. If the owner wants stricter doc-gating, that's a project-wide decision out of scope for this phase.
+   - **RESOLVED**: Recommendation: **Decide-and-proceed: no pinning test.** Follow the existing precedent (no pinning) — moduledoc is doc, not contract. Planner reviews diff at task-commit time. If the owner wants stricter doc-gating, that's a project-wide decision out of scope for this phase.
 
 2. **Should the OI trace `actor_id` for delivery events come from `Message.metadata["actor"]` or from a new job-args field?**
    - What we know: `OutboundWorker.perform/1` does NOT currently extract actor from anywhere; the message is rendered and delivered without an actor context at worker-run time. The trigger-time actor lives in the auditor metadata (`outbound.ex:97`).
    - What's unclear: whether the OI trace at delivery time should attribute to the trigger-time actor (would require a new job-args key) or leave `actor_id: nil` for delivery events.
-   - Recommendation: **Decide-and-proceed: `actor_id: nil` for delivery events.** The Phase 17 precedent uses `actor_id: "system"` for `:execution_started` because execution is system-initiated. Outbound delivery is the same — the trigger-time actor is captured at the trigger event; delivery is system-initiated. Use `actor_id: nil` (or `"system"` — either is acceptable; `nil` matches the Phase 17 default at `governance/telemetry/traces.ex:117`).
+   - **RESOLVED**: Recommendation: **Decide-and-proceed: `actor_id: nil` for delivery events.** The Phase 17 precedent uses `actor_id: "system"` for `:execution_started` because execution is system-initiated. Outbound delivery is the same — the trigger-time actor is captured at the trigger event; delivery is system-initiated. Use `actor_id: nil` (or `"system"` — either is acceptable; `nil` matches the Phase 17 default at `governance/telemetry/traces.ex:117`).
 
 3. **For bulk-refused traces, should the OI metadata carry `effective_cap` (since this is an attribution ref, not free-text)?**
    - What we know: `BulkEnvelope.effective_cap` is an integer (the cap-of-the-moment); D-03 says attribution refs are OK, free-text is not.
    - What's unclear: whether bare-integer cap is "attribution ref" (OK) or "outcome detail" (also OK, but `outcome: :refused_cap_exceeded` already captures the lane).
-   - Recommendation: **Decide-and-proceed: yes, include `effective_cap` in OI metadata for `:bulk_refused` events only.** It's an integer enum (one of `25` or whatever the host has configured) — low cardinality, useful for OI consumers who want to correlate refusals against policy changes. Add it to the metadata-build branch for `:bulk_refused` only; omit for other events.
+   - **RESOLVED**: Recommendation: **Decide-and-proceed: yes, include `effective_cap` in OI metadata for `:bulk_refused` events only.** It's an integer enum (one of `25` or whatever the host has configured) — low cardinality, useful for OI consumers who want to correlate refusals against policy changes. Add it to the metadata-build branch for `:bulk_refused` only; omit for other events.
 
 ## Sources
 
