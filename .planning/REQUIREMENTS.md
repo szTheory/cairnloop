@@ -22,8 +22,8 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 
 ### Customer Chat Wired to Real Ingress
 
-- [ ] **CHAT-01**: `examples/cairnloop_example/lib/cairnloop_example_web/endpoint.ex` mounts `Cairnloop.Channels.WidgetSocket` at its canonical socket path — the example endpoint is currently missing this mount entirely.
-- [ ] **CHAT-02**: `examples/cairnloop_example/lib/cairnloop_example_web/live/chat_live.ex` is rewritten from its current 51-LOC mock (`Process.send_after(self(), :bot_reply, 1000)`) to push customer messages through `WidgetChannel` and receive operator replies via PubSub — no mock bot reply path remains.
+- [x] **CHAT-01**: `examples/cairnloop_example/lib/cairnloop_example_web/endpoint.ex` mounts `Cairnloop.Channels.WidgetSocket` at its canonical socket path — the example endpoint is currently missing this mount entirely.
+- [x] **CHAT-02**: `examples/cairnloop_example/lib/cairnloop_example_web/live/chat_live.ex` is rewritten from its current 51-LOC mock (`Process.send_after(self(), :bot_reply, 1000)`) to push customer messages through `WidgetChannel` and receive operator replies via PubSub — no mock bot reply path remains.
 - [ ] **CHAT-03**: A two-tab demo doc snippet (operator inbox + customer `/chat`) is added to the example app README showing the end-to-end customer→operator→customer round trip on the local dev server.
 
 ### Brand-Token CSS Extraction (D-10 Closure)
@@ -120,8 +120,8 @@ Which phases cover which requirements.
 | FIX-02 | Phase 27 | Complete |
 | FIX-03 | Phase 27 | Complete |
 | FIX-04 | Phase 27 | Complete |
-| CHAT-01 | Phase 28 | Pending |
-| CHAT-02 | Phase 28 | Pending |
+| CHAT-01 | Phase 28 | Complete |
+| CHAT-02 | Phase 28 | Complete |
 | CHAT-03 | Phase 28 | Pending |
 | BRAND-01 | Phase 29 | Pending |
 | BRAND-02 | Phase 29 | Pending |

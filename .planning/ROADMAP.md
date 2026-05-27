@@ -20,7 +20,7 @@
 ### Phases
 
 - [x] **Phase 27: Realistic Demo Fixtures** — Replace the lonely 1-conversation seed with a JTBD-spanning fixture set that exercises the M008 substrate end-to-end. (completed 2026-05-27)
-- [ ] **Phase 28: Customer `/chat` Wired to Real Ingress** — Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customer→operator path.
+- [x] **Phase 28: Customer `/chat` Wired to Real Ingress** — Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customer→operator path. (completed 2026-05-27)
 - [ ] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** — Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate.
 - [ ] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** — Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker.
 - [ ] **Phase 31: Golden-Path JTBD Smoke Test** — Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
@@ -75,7 +75,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   2. Customer types a message in `/chat`, it pushes through `WidgetChannel`, lands in an operator-side inbox conversation, and operator's reply broadcasts back into the customer's `/chat` LiveView via PubSub — no mock `Process.send_after(self(), :bot_reply, 1000)` path remains anywhere in `chat_live.ex`.
   3. Example app README documents the two-tab demo (operator inbox + customer `/chat`) with the exact local-dev commands an adopter needs to reproduce the round trip.
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
   - [x] 28-01-PLAN.md — Chat-facade foundation: add `create_customer_conversation/1` + `ingest_widget_message/2`, additive `reply_to_conversation/4` post-commit broadcast (OQ-1), `ConversationLive` + `InboxLive` PubSub handle_info clauses, and `Cairnloop.PubSub` started in the example app supervisor (Pitfall 1).
   - [x] 28-02-PLAN.md — Channel + worker rewire: `WidgetChannel.join("widget:lobby", ...)` creates the conversation via the new facade, `handle_in("new_message", ...)` reads conversation_id from `socket.assigns` (T-M001 input-trust mitigation), `ProcessMessage` rewritten with unique-option header + multi-clause `perform/1` preserving the EmailWebhookPlug stub (Pitfall 2 / OQ-2).
@@ -205,7 +205,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
-| 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete   | 2026-05-27 |
+| 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete    | 2026-05-27 |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 0/0 | Not started | — |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 0/0 | Not started | — |
