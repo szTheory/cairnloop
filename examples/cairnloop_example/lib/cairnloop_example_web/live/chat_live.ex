@@ -247,11 +247,21 @@ defmodule CairnloopExampleWeb.ChatLive do
   # ---------------------------------------------------------------------------
   # handle_event("send_error", ...) — T-28-03-07
   # Called by the JS hook when channel.push.receive("error") fires.
-  # Renders the UI-SPEC §1d "Your message could not be sent..." alert row.
+  # WR-03 fix: drop the last optimistically-appended message (the one that failed)
+  # and clear the pending indicator, in addition to setting send_error: true.
+  # Without this, the failed message remains as a ghost entry in @messages, and
+  # the pending indicator is never cleared — both causing confusing UI state.
   # ---------------------------------------------------------------------------
 
   def handle_event("send_error", _params, socket) do
-    {:noreply, assign(socket, :send_error, true)}
+    # Drop the last optimistically-appended message (the failed one) and clear pending.
+    messages = socket.assigns.messages |> Enum.drop(-1)
+
+    {:noreply,
+     socket
+     |> assign(:messages, messages)
+     |> assign(:pending, false)
+     |> assign(:send_error, true)}
   end
 
   # ---------------------------------------------------------------------------
