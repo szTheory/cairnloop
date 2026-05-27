@@ -40,8 +40,8 @@
 - [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`.
 - [x] **UI-02** — Outbound delivery status indicators visible in the message bubble.
 - [x] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations.
-- [ ] **OBS-01** — Telemetry events for outbound triggers and delivery (OpenInference).
-- [ ] **OBS-02** — Audit log entries for bulk outbound actions.
+- [x] **OBS-01** — Telemetry events for outbound triggers and delivery (OpenInference).
+- [x] **OBS-02** — Audit log entries for bulk outbound actions.
 
 ## Out of Scope
 
@@ -80,8 +80,8 @@
 | UI-01 | Phase 3 | Validated |
 | UI-02 | Phase 3 | Validated |
 | UI-03 | Phase 4 | Complete |
-| OBS-01 | Phase 5 | Pending |
-| OBS-02 | Phase 5 | Pending |
+| OBS-01 | Phase 5 | Complete |
+| OBS-02 | Phase 5 | Complete |
 
 ---
 *Last updated: 2026-05-27 — Phase 25 plan 02 landed BULK-02 (library layer) + BULK-03 (substrate + envelope); BULK-01 + UI rails remain for plan 03. vM013 Active; vM012 Validated.*

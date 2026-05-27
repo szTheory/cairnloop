@@ -16,7 +16,7 @@
 - [x] **Phase 23: Delivery & Scheduling Engine** — Oban-backed `OutboundWorker` plus Chimeway routing and persisted status transitions
 - [x] **Phase 24: Individual Outbound UI** — `ConversationLive` timeline rendering for outbound messages and resolved-only manual recovery trigger
 - [x] **Phase 25: Bulk Selection & Fan-out** — multi-select inbox outbound with preview and safety rails (completed 2026-05-27)
-- [ ] **Phase 26: Observability & Polish** — telemetry, audit logging, and final operator-surface polish
+- [x] **Phase 26: Observability & Polish** — telemetry, audit logging, and final operator-surface polish (completed 2026-05-27)
 
 Archive: `.planning/vM013-ROADMAP.md`
 
@@ -176,7 +176,7 @@ Plans:
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
 | 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete    | 2026-05-27 |
-| 26. Observability & Polish | vM013 | 3/3 | Complete   | 2026-05-27 |
+| 26. Observability & Polish | vM013 | 3/3 | Complete    | 2026-05-27 |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
 | 15. Approval State Machine & Oban Resume | vM011 | 5/5 | Complete | 2026-05-25 |
