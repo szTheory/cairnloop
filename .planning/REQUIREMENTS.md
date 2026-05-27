@@ -18,7 +18,7 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 - [x] **FIX-01**: `examples/cairnloop_example/priv/repo/seeds.exs` seeds 12–16 conversations spanning the full JTBD lifecycle (`:new`, `:open`, `:awaiting_customer`, `:resolved`) with realistic operator + customer messages and ContextProvider snippets — replaces the current 1-conversation lonely demo.
 - [x] **FIX-02**: Seed at least 5 KB articles with multiple `KnowledgeBase.Revision` rows per article (including at least one `:deprecated` revision) and the live `ChunkRevision` Oban worker drives embeddings through pgvector — self-test of the M008 substrate, not a fixture shortcut.
 - [x] **FIX-03**: Seed at least 3 `GapCandidate` rows with evidence linked to seeded conversations so the KB gap queue shows ranked, inspectable maintenance work on first boot.
-- [ ] **FIX-04**: Seed at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` so `SuggestionReview` LiveView shows real work on first boot.
+- [x] **FIX-04**: Seed at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` so `SuggestionReview` LiveView shows real work on first boot. (D-15 sealed-enum reconciliation: schema persists as `:ready`; satisfied empirically by `seeds_test.exs` test 3 — `:pending_review` ReviewTask companion present + suggestion row green.)
 
 ### Customer Chat Wired to Real Ingress
 
@@ -119,7 +119,7 @@ Which phases cover which requirements.
 | FIX-01 | Phase 27 | Complete |
 | FIX-02 | Phase 27 | Complete |
 | FIX-03 | Phase 27 | Complete |
-| FIX-04 | Phase 27 | Pending |
+| FIX-04 | Phase 27 | Complete |
 | CHAT-01 | Phase 28 | Pending |
 | CHAT-02 | Phase 28 | Pending |
 | CHAT-03 | Phase 28 | Pending |
