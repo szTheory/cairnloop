@@ -37,6 +37,8 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 **Current milestone:** vM013 — "Support-Triggered Outbound Lifecycle" — started 2026-05-26.
 
+**Phase 25 (Bulk Selection & Fan-out) complete (2026-05-27):** operators can multi-select resolved conversations in `InboxLive`, preview the cohort + snapshotted body in a `<.focus_wrap>` confirmation modal, and submit through `Cairnloop.Outbound.bulk_trigger/2` — which writes one durable `BulkEnvelope` (audit row per D-13) + N per-recipient `system_outbound` Messages under a single `Ecto.Multi`. Large batches are bounded at both the UI and envelope layers with a fail-closed refusal lane (icon + brand-token color, never color-alone). `OutboundWorker` carries Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` for at-most-once delivery (D-11). Phase 22/23 sealed primitives untouched. Operator-deferred handoff: `mix ecto.migrate` + REPO-UNAVAILABLE integration tests + in-browser UAT tracked in `25-HUMAN-UAT.md`.
+
 **Why now:** vM012 closed the adopter and packaging gap. The next narrow wedge is proactive support follow-up: let operators trigger recovery and resolution-linked outreach without leaving the conversation lane, while keeping scheduling, delivery, and status durable inside the existing Phoenix/Ecto/Oban truth model.
 
 ## Requirements
@@ -165,4 +167,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-26 — vM013 Phase 24 implemented in code; bulk + observability phases remain*
+*Last updated: 2026-05-27 — vM013 Phase 25 (Bulk Selection & Fan-out) complete; observability + polish remain*
