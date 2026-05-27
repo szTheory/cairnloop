@@ -15,9 +15,9 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 
 ### Realistic Demo Fixtures
 
-- [ ] **FIX-01**: `examples/cairnloop_example/priv/repo/seeds.exs` seeds 12–16 conversations spanning the full JTBD lifecycle (`:new`, `:open`, `:awaiting_customer`, `:resolved`) with realistic operator + customer messages and ContextProvider snippets — replaces the current 1-conversation lonely demo.
-- [ ] **FIX-02**: Seed at least 5 KB articles with multiple `KnowledgeBase.Revision` rows per article (including at least one `:deprecated` revision) and the live `ChunkRevision` Oban worker drives embeddings through pgvector — self-test of the M008 substrate, not a fixture shortcut.
-- [ ] **FIX-03**: Seed at least 3 `GapCandidate` rows with evidence linked to seeded conversations so the KB gap queue shows ranked, inspectable maintenance work on first boot.
+- [x] **FIX-01**: `examples/cairnloop_example/priv/repo/seeds.exs` seeds 12–16 conversations spanning the full JTBD lifecycle (`:new`, `:open`, `:awaiting_customer`, `:resolved`) with realistic operator + customer messages and ContextProvider snippets — replaces the current 1-conversation lonely demo.
+- [x] **FIX-02**: Seed at least 5 KB articles with multiple `KnowledgeBase.Revision` rows per article (including at least one `:deprecated` revision) and the live `ChunkRevision` Oban worker drives embeddings through pgvector — self-test of the M008 substrate, not a fixture shortcut.
+- [x] **FIX-03**: Seed at least 3 `GapCandidate` rows with evidence linked to seeded conversations so the KB gap queue shows ranked, inspectable maintenance work on first boot.
 - [ ] **FIX-04**: Seed at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` so `SuggestionReview` LiveView shows real work on first boot.
 
 ### Customer Chat Wired to Real Ingress
@@ -116,9 +116,9 @@ Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | Phase 27 | Pending |
-| FIX-02 | Phase 27 | Pending |
-| FIX-03 | Phase 27 | Pending |
+| FIX-01 | Phase 27 | Complete |
+| FIX-02 | Phase 27 | Complete |
+| FIX-03 | Phase 27 | Complete |
 | FIX-04 | Phase 27 | Pending |
 | CHAT-01 | Phase 28 | Pending |
 | CHAT-02 | Phase 28 | Pending |
@@ -142,6 +142,7 @@ Which phases cover which requirements.
 | DOC-04 | Phase 32 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 24 total
 - Mapped to phases: 24
 - Unmapped: 0 ✓

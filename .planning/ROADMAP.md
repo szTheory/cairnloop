@@ -19,7 +19,7 @@
 
 ### Phases
 
-- [ ] **Phase 27: Realistic Demo Fixtures** — Replace the lonely 1-conversation seed with a JTBD-spanning fixture set that exercises the M008 substrate end-to-end.
+- [x] **Phase 27: Realistic Demo Fixtures** — Replace the lonely 1-conversation seed with a JTBD-spanning fixture set that exercises the M008 substrate end-to-end. (completed 2026-05-27)
 - [ ] **Phase 28: Customer `/chat` Wired to Real Ingress** — Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customer→operator path.
 - [ ] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** — Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate.
 - [ ] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** — Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker.
@@ -51,7 +51,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   3. KB gap queue shows at least 3 `GapCandidate` rows on first boot, each with evidence linked to seeded conversations and inspectable in the ranked maintenance queue.
   4. `SuggestionReview` LiveView shows at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` — real review work available immediately, no manual setup.
 
-**Plans:** 8 plans
+**Plans:** 8/8 plans complete
 
   - [x] 27-01-PLAN.md — Skeleton seeds.exs rewrite: builder shells + idempotency helper + Oban drain wiring + sealed-enum reconciliation table in header.
   - [x] 27-02-PLAN.md — `CairnloopExample.DemoContextProvider` module + headless test + config.exs wire (FIX-01 ContextProvider snippets; runs parallel to 27-01 in Wave 1).
@@ -199,7 +199,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete   | 2026-05-27 |
+| 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 0/0 | Not started | — |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 0/0 | Not started | — |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
