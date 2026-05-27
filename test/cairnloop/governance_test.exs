@@ -61,6 +61,32 @@ defmodule Cairnloop.GovernanceTest do
     # Dispatch by inspecting the query's `from` source. ToolProposal queries follow
     # the pre-existing behavior; Conversation queries read from Process.get(:conversations).
     # ---------------------------------------------------------------------------
+    # Phase 26 plan 02 (D-06): bulk-envelope audit READ facade dispatch arm.
+    # Reads seeded rows from Process.get(:bulk_envelopes, []), filters by an
+    # optional `where status == ^X` clause (extracted from `query.wheres |>
+    # Enum.flat_map(& &1.params)` — `nil` / no params → `:all`), orders by
+    # `requested_at desc`, and applies the `limit` literal from
+    # `query.limit.expr`. Returns the resulting list. NO `Process.put(:filter,
+    # ...)` parallel-channel — pure query inspection only (mirrors the
+    # cairnloop_conversations arm below).
+    def all(%Ecto.Query{from: %{source: {"cairnloop_outbound_bulk_envelopes", _}}} = query) do
+      status_atom = extract_envelope_status_filter(query)
+
+      rows =
+        Process.get(:bulk_envelopes, [])
+        |> Enum.filter(fn e ->
+          status_atom == :all or e.status == status_atom
+        end)
+        |> Enum.sort_by(& &1.requested_at, {:desc, DateTime})
+
+      limit = extract_limit(query)
+
+      case limit do
+        nil -> rows
+        n when is_integer(n) and n >= 0 -> Enum.take(rows, n)
+      end
+    end
+
     def all(%Ecto.Query{from: %{source: {"cairnloop_conversations", _}}} = query) do
       # Phase 25 plan 01 (D-14): cohort-eligibility reads against the Conversation
       # schema. We extract the candidate_ids list from the query's params and apply
@@ -136,6 +162,41 @@ defmodule Cairnloop.GovernanceTest do
       end)
     end
 
+    # Phase 26 plan 02 (D-06): bulk-envelope `:status` filter extractor.
+    #
+    # `Governance.list_recent_bulk_outbound_envelopes/1` emits ONE where-clause
+    # (`where status == ^X`) when `:status` is `:submitted | :refused_cap_exceeded`
+    # and ZERO where-clauses when `:all`. The single param on the produced where
+    # is an `{atom, _type_metadata}` tuple. We walk `query.wheres |>
+    # Enum.flat_map(& &1.params)` and return the first atom we find — `nil` /
+    # empty → `:all`.
+    defp extract_envelope_status_filter(%Ecto.Query{wheres: wheres}) do
+      wheres
+      |> Enum.flat_map(fn %{params: params} -> params end)
+      |> Enum.find_value(:all, fn
+        {value, _} when is_atom(value) and not is_nil(value) -> value
+        _ -> nil
+      end)
+    end
+
+    # Phase 26 plan 02 (D-06): `:limit` extractor.
+    #
+    # `Governance.list_recent_bulk_outbound_envelopes/1` calls
+    # `limit(^limit)` so the integer lands as a param on the limit clause.
+    # We extract that integer literal so the MockRepo can apply `Enum.take/2`
+    # to the seeded list. Returns `nil` if the query has no limit (defensive —
+    # the production path always sets one).
+    defp extract_limit(%Ecto.Query{limit: nil}), do: nil
+
+    defp extract_limit(%Ecto.Query{limit: %{params: [{value, _} | _]}})
+         when is_integer(value),
+         do: value
+
+    defp extract_limit(%Ecto.Query{limit: %{expr: value}}) when is_integer(value),
+      do: value
+
+    defp extract_limit(_), do: nil
+
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
     defp maybe_put_id(struct), do: struct
 
@@ -193,6 +254,13 @@ defmodule Cairnloop.GovernanceTest do
         Cairnloop.Governance.ToolApproval ->
           Process.get(:tool_approvals, [])
           |> Enum.find(fn a -> a.id == id end)
+
+        # Phase 26 plan 02 (D-06): bulk-envelope `get/2` clause backing
+        # `Cairnloop.Governance.get_bulk_outbound_envelope/1`. Returns `nil`
+        # on miss (Enum.find default) — NEVER raises.
+        Cairnloop.Outbound.BulkEnvelope ->
+          Process.get(:bulk_envelopes, [])
+          |> Enum.find(fn e -> e.id == id end)
 
         _ ->
           nil
@@ -366,6 +434,9 @@ defmodule Cairnloop.GovernanceTest do
       # Phase 25 plan 01: clean per-test conversation seed so state never leaks
       # between describes (async: false).
       Process.delete(:conversations)
+      # Phase 26 plan 02 (D-06): clean per-test bulk-envelope seed so state
+      # never leaks between describes (async: false).
+      Process.delete(:bulk_envelopes)
     end)
 
     :ok
@@ -1512,6 +1583,186 @@ defmodule Cairnloop.GovernanceTest do
       assert result.more == 0
       assert result.sample == []
       assert result.eligible_ids == []
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 26 OBS-02 D-06 — narrow audit READ facade for BulkEnvelope rows.
+  # Covers default limit (50), hard cap (500 → ArgumentError), :status filter
+  # (:submitted | :refused_cap_exceeded | :all), ordering (requested_at desc),
+  # get/1 happy path and miss-returns-nil semantics.
+  #
+  # All tests use MockRepo dispatch through `Process.put(:bulk_envelopes, ...)`
+  # — REPO-UNAVAILABLE-safe per CLAUDE.md (no Postgres needed for the
+  # function-shape contract).
+  # ---------------------------------------------------------------------------
+
+  describe "list_recent_bulk_outbound_envelopes/1 (Phase 26 OBS-02 D-06)" do
+    alias Cairnloop.Outbound.BulkEnvelope
+
+    defp build_envelope(id, status, requested_at) do
+      %BulkEnvelope{
+        id: id,
+        template_id: "recovery_v1",
+        rendered_body: "Body for #{id}",
+        recipient_conversation_ids: [1],
+        count: 1,
+        effective_cap: 25,
+        requested_by: "agent_1",
+        requested_at: requested_at,
+        status: status,
+        refused_reason: nil
+      }
+    end
+
+    test "default limit returns at most 50 rows" do
+      # Seed 75 envelopes with descending requested_at so order is well-defined.
+      seeds =
+        for i <- 1..75 do
+          build_envelope(
+            "uuid-#{i}",
+            :submitted,
+            DateTime.add(~U[2026-05-27 00:00:00.000000Z], -i, :minute)
+          )
+        end
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes()
+      assert length(result) == 50
+    end
+
+    test "custom :limit option honored" do
+      seeds =
+        for i <- 1..10 do
+          build_envelope(
+            "uuid-#{i}",
+            :submitted,
+            DateTime.add(~U[2026-05-27 00:00:00.000000Z], -i, :minute)
+          )
+        end
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes(limit: 5)
+      assert length(result) == 5
+    end
+
+    test ":limit > 500 raises ArgumentError (defense-in-depth, D-06 hard cap)" do
+      # Empty seed — the raise MUST happen BEFORE the query is built.
+      assert_raise ArgumentError, ~r/limit 501 exceeds bulk envelope hard cap 500/, fn ->
+        Governance.list_recent_bulk_outbound_envelopes(limit: 501)
+      end
+    end
+
+    test ":status :submitted filter returns only submitted rows" do
+      seeds = [
+        build_envelope("uuid-1", :submitted, ~U[2026-05-27 10:00:00.000000Z]),
+        build_envelope("uuid-2", :refused_cap_exceeded, ~U[2026-05-27 09:00:00.000000Z]),
+        build_envelope("uuid-3", :submitted, ~U[2026-05-27 08:00:00.000000Z])
+      ]
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes(status: :submitted)
+      assert length(result) == 2
+      assert Enum.all?(result, fn e -> e.status == :submitted end)
+    end
+
+    test ":status :refused_cap_exceeded filter returns only refused rows" do
+      seeds = [
+        build_envelope("uuid-1", :submitted, ~U[2026-05-27 10:00:00.000000Z]),
+        build_envelope("uuid-2", :refused_cap_exceeded, ~U[2026-05-27 09:00:00.000000Z]),
+        build_envelope("uuid-3", :refused_cap_exceeded, ~U[2026-05-27 08:00:00.000000Z])
+      ]
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes(status: :refused_cap_exceeded)
+      assert length(result) == 2
+      assert Enum.all?(result, fn e -> e.status == :refused_cap_exceeded end)
+    end
+
+    test ":status :all (default) returns rows of both lanes" do
+      seeds = [
+        build_envelope("uuid-1", :submitted, ~U[2026-05-27 10:00:00.000000Z]),
+        build_envelope("uuid-2", :refused_cap_exceeded, ~U[2026-05-27 09:00:00.000000Z])
+      ]
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes()
+      assert length(result) == 2
+
+      statuses = result |> Enum.map(& &1.status) |> Enum.sort()
+      assert statuses == [:refused_cap_exceeded, :submitted]
+    end
+
+    test "ordering descends by requested_at (newest first)" do
+      seeds = [
+        build_envelope("uuid-mid", :submitted, ~U[2026-05-26 12:00:00.000000Z]),
+        build_envelope("uuid-newest", :submitted, ~U[2026-05-27 12:00:00.000000Z]),
+        build_envelope("uuid-oldest", :submitted, ~U[2026-05-25 12:00:00.000000Z])
+      ]
+
+      Process.put(:bulk_envelopes, seeds)
+
+      result = Governance.list_recent_bulk_outbound_envelopes()
+      ids = Enum.map(result, & &1.id)
+      assert ids == ["uuid-newest", "uuid-mid", "uuid-oldest"]
+    end
+  end
+
+  describe "get_bulk_outbound_envelope/1 (Phase 26 OBS-02 D-06)" do
+    alias Cairnloop.Outbound.BulkEnvelope
+
+    test "returns the row struct when the id is present" do
+      seed =
+        %BulkEnvelope{
+          id: "uuid-test-1",
+          template_id: "recovery_v1",
+          rendered_body: "Body",
+          recipient_conversation_ids: [1, 2],
+          count: 2,
+          effective_cap: 25,
+          requested_by: "agent_1",
+          requested_at: ~U[2026-05-27 10:00:00.000000Z],
+          status: :submitted,
+          refused_reason: nil
+        }
+
+      Process.put(:bulk_envelopes, [seed])
+
+      result = Governance.get_bulk_outbound_envelope("uuid-test-1")
+      assert %BulkEnvelope{} = result
+      assert result.id == "uuid-test-1"
+      assert result.template_id == "recovery_v1"
+      assert result.status == :submitted
+    end
+
+    test "returns nil on miss (NEVER raises)" do
+      # Empty seed list — facade contract: `nil` on miss, no raise.
+      Process.put(:bulk_envelopes, [])
+
+      result = Governance.get_bulk_outbound_envelope("missing-uuid")
+      assert is_nil(result)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # REPO-UNAVAILABLE handoff (CLAUDE.md D-12 / Phase 25 BLOCKING-handoff pattern).
+  # This integration test needs a real Postgres round-trip against the
+  # `cairnloop_outbound_bulk_envelopes` table; excluded by default via
+  # `@tag :integration`, runs on a Postgres-available host via
+  # `mix test.integration`.
+  # ---------------------------------------------------------------------------
+  describe "list_recent_bulk_outbound_envelopes/1 — Postgres integration" do
+    @tag :integration
+    # REPO-UNAVAILABLE
+    test "facade reads return real envelope rows after bulk_trigger/2 persisted submit + refused lanes" do
+      flunk(
+        "integration-only: requires Cairnloop.Repo + cairnloop_outbound_bulk_envelopes table"
+      )
     end
   end
 end
