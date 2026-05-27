@@ -133,7 +133,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 25-03-PLAN.md — InboxLive selection, sticky bar, confirmation modal, refusal banner (BULK-01, BULK-02, BULK-03, UI-03)
+- [x] 25-03-PLAN.md — InboxLive selection, sticky bar, confirmation modal, refusal banner (BULK-01, BULK-02, BULK-03, UI-03)
 
 **UI hint**: yes
 
@@ -162,7 +162,7 @@ Plans:
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
-| 25. Bulk Selection & Fan-out | vM013 | 2/3 | In Progress | - |
+| 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete   | 2026-05-27 |
 | 26. Observability & Polish | vM013 | 0/1 | Not started | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |

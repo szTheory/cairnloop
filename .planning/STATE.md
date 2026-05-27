@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: vM013
 milestone_name: Support-Triggered Outbound Lifecycle
 status: executing
-stopped_at: "Phase 25 plan 02 — all 3 tasks committed; ready for Plan 25-03 (InboxLive selection + sticky bar + confirmation modal). Plan 25-01 Task 4 (mix ecto.migrate) STILL awaiting operator for full integration validation of both plans 01 + 02."
-last_updated: "2026-05-27T07:07:04Z"
-last_activity: 2026-05-27 -- Phase 25 plan 02 complete (Outbound.bulk_trigger/2 + Oban dedup + additive opt landed; 23/23 plan-touched tests green; trigger/2 sealed)
+stopped_at: "Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired (selection MapSet + sticky bar + <.focus_wrap> modal + calm refusal banner + bulk_trigger/2 submit); 22/22 plan-touched tests green; mix compile --warnings-as-errors clean; all acceptance grep gates pass. Plan 25-03 Task 3 (in-browser human-verify on Postgres host) + Plan 25-01 Task 4 (mix ecto.migrate) STILL awaiting operator — both are REPO-UNAVAILABLE gates that cannot run in this workspace per D-16."
+last_updated: "2026-05-27T07:25:02.778Z"
+last_activity: 2026-05-27
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 0
+  completed_plans: 3
+  percent: 20
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 25 (bulk-selection-fan-out) — EXECUTING
-Plan: 2 of 3 — Plan 25-02 complete; ready for Plan 25-03 (InboxLive)
-Status: Plan 25-02 fully landed. Plan 25-01 Task 4 (`mix ecto.migrate`) STILL awaiting operator for full integration validation; headless flows for both plans pass without it.
-Last activity: 2026-05-27 -- Plan 25-02 Tasks 1-3 committed (372b895, 96430b5, 6a38c60)
+Phase: 25 (bulk-selection-fan-out) — EXECUTING (Plan 25-03 committed; Plan 25-03 Task 3 + Plan 25-01 Task 4 are human-verify / human-action gates awaiting operator)
+Plan: 3 of 3 — Plan 25-03 GREEN landed; all 3 plans' headless work is done
+Status: Plans 01 + 02 + 03 fully committed at the headless layer. Two REPO-UNAVAILABLE gates remain for the operator: Plan 25-01 Task 4 (mix ecto.migrate) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host).
+Last activity: 2026-05-27 -- Plan 25-03 Tasks 1+2 committed (9e165e5, 5f74610)
 
-Progress bar: `██████░░░░ 60%` (3/5 phases)
+Progress bar: `████████░░ 80%` (4/5 vM013 phases — Phases 22-24 shipped; Phase 25 fully landed at the headless layer per SUMMARY 25-03, gated on operator's Postgres-host integration verify before formal close; Phase 26 pending)
 
 ## Accumulated Context
 
@@ -62,6 +62,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 - **[2026-05-27 Phase 25 plan 02]** `Cairnloop.Workers.OutboundWorker` declares `unique: [period: :infinity, fields: [:worker, :args], keys: [:conversation_id, :template_id, :bulk_envelope_id]]` per D-11 — at-most-once delivery enforced at the Oban job-uniqueness layer. Phase 24 single-conversation callers pass `bulk_envelope_id: nil` and participate in the same dedup (research Open Question 2, locked decision: this IS the desired Phase 24 behavior).
 - **[2026-05-27 Phase 25 plan 02]** Bulk telemetry event vocabulary (Phase 26 OBS-01 will read these): `[:cairnloop, :outbound, :bulk, :triggered, :start | :stop | :exception]` for the submitted span, and a point-in-time `[:cairnloop, :outbound, :bulk, :triggered]` for cap refusals. Labels are enum-only per D-B: `outcome :: :submitted | :refused_cap_exceeded` + `count`. `template_id`, `actor`, recipient ids, and `bulk_envelope_id` live in the durable `BulkEnvelope` row + auditor metadata, NEVER in telemetry.
 - **[2026-05-27 Phase 25 plan 02]** `max_batch_size/0` reads `Application.get_env(:cairnloop, :max_batch_size, 25)` (research Open Question 3 — direct env access, no `Cairnloop.Outbound.Config` module). Defense-in-depth (research Pitfall 4): the cap is enforced at the envelope boundary regardless of caller (LiveView, MCP, console, future tools), not only in InboxLive.
+- **[2026-05-27 Phase 25 plan 03]** `Cairnloop.Web.InboxLive` becomes the operator-visible bulk-recovery cockpit. Selection state is `@selected_ids :: MapSet.t/0` (LiveView-local, no persistence; cleared on remount per D-04). Sticky bottom action bar (D-05 / research OQ4 — `position: sticky; bottom: 0; var(--cl-primary)`). Confirmation modal uses `Phoenix.Component.focus_wrap/1` (UI-03 a11y) and renders count + first-5 sample + `+ N more` tail + snapshotted rendered body (D-07). Cancel preserves `@selected_ids` (D-08 / Pitfall 6 regression test pins this); success resets it. Oversized cohorts hit a calm refusal banner with inline SVG icon + `var(--cl-danger)` accent and `Confirm send` disabled (D-10 / brand §7.5 — never color-alone). Submit calls `outbound_module().bulk_trigger/2` (via `conversation_live.ex:1739-1745`-style indirection) with the snapshotted `:rendered_body` and `:actor` = `@host_user_id`. D-14 negative grep gates pass: `grep -c "Conversation |> where" lib/cairnloop/web/inbox_live.ex == 0` and `grep -E "inspect(" non-comment-lines == 0` (no raw-Elixir-term operator copy; T-25-06 mitigation).
 
 ### Pending Todos
 
@@ -71,6 +72,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 ### Blockers/Concerns
 
 - **Plan 25-01 Task 4 (BLOCKING — human action):** Run `mix ecto.migrate` on the project's Postgres-available host so `cairnloop_outbound_bulk_envelopes` exists. The migration file is at `priv/repo/migrations/20260527063000_add_outbound_bulk_envelopes.exs`. Resume signal: "migrated" (or "blocked: <reason>"). Plans 02 + 03 build on this table; their headless tests pass against MockRepo but their integration assertions need the real DB.
+- **Plan 25-03 Task 3 (BLOCKING — human verify):** Operator must run the in-browser integration check on a Postgres-available host per the plan's `<how-to-verify>` block: (a) `mix test` + `mix test.integration` green; (b) checkboxes only on resolved rows, sticky bottom bar with brand-primary button, `<.focus_wrap>` traps focus, Esc/Cancel preserves selection, Confirm clears it, each affected conversation gets exactly one `system_outbound` card; (c) oversized cohort renders the refusal banner with SVG icon + calm copy + `var(--cl-danger)` accent and no Confirm send button. Resume signal: "verified" (or "failed: <summary>"). Depends on Plan 25-01 Task 4 above as a prerequisite.
 
 ## Deferred Items
 
@@ -82,7 +84,7 @@ Progress bar: `██████░░░░ 60%` (3/5 phases)
 
 ## Session Continuity
 
-Last session: 2026-05-27T07:07:04Z
-Stopped at: Phase 25 plan 02 — all 3 tasks committed (372b895, 96430b5, 6a38c60). `Cairnloop.Outbound.bulk_trigger/2` + Oban dedup keys + additive `:bulk_envelope_id` opt all landed; trigger/2 sealed (D-12 verified); 23/23 plan-touched headless tests green; 2 REPO-UNAVAILABLE `@tag :integration` tests authored. Plan 25-01 Task 4 (`mix ecto.migrate`) STILL awaiting operator for full integration validation of both 25-01 + 25-02 on a Postgres host.
-Next step: Plan 25-03 (Wave 3) — InboxLive selection MapSet + sticky bulk-action bar + confirmation modal + refusal banner. Will consume `Cairnloop.Governance.preview_bulk_recovery_cohort/1` (plan 01) and `Cairnloop.Outbound.bulk_trigger/2` (this plan). T-25-04 mitigation grep on the LiveView (`grep -c "Conversation |> where" lib/cairnloop/web/inbox_live.ex == 0`) is now enforceable since both data needs route through facades.
-Resume file: `.planning/phases/25-bulk-selection-fan-out/25-02-SUMMARY.md`
+Last session: 2026-05-27T07:25:02Z
+Stopped at: Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired: `@selected_ids :: MapSet.t/0` + sticky bottom bulk-action bar + `<.focus_wrap>` confirmation modal + calm fail-closed refusal banner + `confirm_bulk_send` handler that calls `outbound_module().bulk_trigger/2` with body snapshotted at confirm-open time. 22/22 plan-touched headless tests green; `mix compile --warnings-as-errors` clean; all acceptance grep gates pass. Two BLOCKING checkpoints remain (both REPO-UNAVAILABLE in this workspace per D-16): Plan 25-01 Task 4 (`mix ecto.migrate`) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host) — both await operator.
+Next step: Operator runs Plan 25-01 Task 4 (`mix ecto.migrate`) on a Postgres-available host, then Plan 25-03 Task 3's in-browser checks per the plan's `<how-to-verify>` block. Once both return "migrated" / "verified", Phase 25 is fully done and Phase 26 (Observability & Polish — OBS-01 telemetry attach + OBS-02 audit reads) can begin.
+Resume file: `.planning/phases/25-bulk-selection-fan-out/25-03-SUMMARY.md`

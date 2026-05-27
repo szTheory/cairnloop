@@ -1,6 +1,7 @@
 # Cairnloop: Requirements
 
 ## Validated
+
 - ✓ Multi-Channel Ingress Engine — vM001
 - ✓ AI Triage, Drafting, & Governance — vM002
 - ✓ Deep Context Enrichment — vM003
@@ -33,16 +34,17 @@
 - [ ] **OUT-03** — Durable scheduling of outbound messages via Oban.
 - [ ] **OUT-04** — Chimeway integration for routing outbound messages to delivery channels.
 - [ ] **OUT-05** — Outbound messages are immutably linked to a parent `Conversation`.
-- [ ] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations.
+- [x] **BULK-01** — Bulk selection capability in `InboxLive` for resolved or tagged conversations.
 - [x] **BULK-02** — Bulk outbound trigger workflow: "Compose once, fan-out to N recipients". *(Library layer landed Phase 25 plan 02 — `Cairnloop.Outbound.bulk_trigger/2`; InboxLive operator surface lands Phase 25 plan 03.)*
 - [x] **BULK-03** — Safety guards for bulk actions: max batch size limits and idempotency. *(Substrate + envelope landed Phase 25 plans 01 + 02 — `BulkEnvelope` schema with `:refused_cap_exceeded` lane, `max_batch_size = 25` env knob with hard fail-closed envelope guard, Oban `unique:` keys for at-most-once delivery.)*
 - [x] **UI-01** — Distinct visual styling for `system_outbound` messages in `ConversationLive`.
 - [x] **UI-02** — Outbound delivery status indicators visible in the message bubble.
-- [ ] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations.
+- [x] **UI-03** — Bulk action toolbar in the Inbox for multi-select operations.
 - [ ] **OBS-01** — Telemetry events for outbound triggers and delivery (OpenInference).
 - [ ] **OBS-02** — Audit log entries for bulk outbound actions.
 
 ## Out of Scope
+
 - Marketing/Newsletter drip campaigns.
 - In-browser Rich Text Editor for templates.
 - Broad external MCP server surface for untrusted third-party public clients.
@@ -72,12 +74,12 @@
 | OUT-03 | Phase 2 | Pending |
 | OUT-04 | Phase 2 | Pending |
 | OUT-05 | Phase 1 | Pending |
-| BULK-01 | Phase 4 | Pending |
+| BULK-01 | Phase 4 | Complete |
 | BULK-02 | Phase 25 | Library layer landed (plan 02); UI in plan 03 |
 | BULK-03 | Phase 25 | Substrate + envelope landed (plans 01 + 02); UI refusal banner in plan 03 |
 | UI-01 | Phase 3 | Validated |
 | UI-02 | Phase 3 | Validated |
-| UI-03 | Phase 4 | Pending |
+| UI-03 | Phase 4 | Complete |
 | OBS-01 | Phase 5 | Pending |
 | OBS-02 | Phase 5 | Pending |
 
