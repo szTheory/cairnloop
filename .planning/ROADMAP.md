@@ -15,7 +15,7 @@
 - [x] **Phase 22: Outbound Foundation & Persistence** — `Cairnloop.Outbound`, `system_outbound`, immutable conversation linkage
 - [x] **Phase 23: Delivery & Scheduling Engine** — Oban-backed `OutboundWorker` plus Chimeway routing and persisted status transitions
 - [x] **Phase 24: Individual Outbound UI** — `ConversationLive` timeline rendering for outbound messages and resolved-only manual recovery trigger
-- [ ] **Phase 25: Bulk Selection & Fan-out** — multi-select inbox outbound with preview and safety rails
+- [x] **Phase 25: Bulk Selection & Fan-out** — multi-select inbox outbound with preview and safety rails (completed 2026-05-27)
 - [ ] **Phase 26: Observability & Polish** — telemetry, audit logging, and final operator-surface polish
 
 Archive: `.planning/vM013-ROADMAP.md`
@@ -162,7 +162,7 @@ Plans:
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
-| 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete   | 2026-05-27 |
+| 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete    | 2026-05-27 |
 | 26. Observability & Polish | vM013 | 0/1 | Not started | - |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |

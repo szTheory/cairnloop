@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: vM013
 milestone_name: Support-Triggered Outbound Lifecycle
-status: executing
-stopped_at: "Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired (selection MapSet + sticky bar + <.focus_wrap> modal + calm refusal banner + bulk_trigger/2 submit); 22/22 plan-touched tests green; mix compile --warnings-as-errors clean; all acceptance grep gates pass. Plan 25-03 Task 3 (in-browser human-verify on Postgres host) + Plan 25-01 Task 4 (mix ecto.migrate) STILL awaiting operator — both are REPO-UNAVAILABLE gates that cannot run in this workspace per D-16."
-last_updated: "2026-05-27T07:25:02.778Z"
+status: verifying
+stopped_at: "Phase 25 plan 03 — Tasks 1+2 committed (9e165e5 RED, 5f74610 GREEN). InboxLive bulk-recovery cockpit fully wired: `@selected_ids :: MapSet.t/0` + sticky bottom bulk-action bar + `<.focus_wrap>` confirmation modal + calm fail-closed refusal banner + `confirm_bulk_send` handler that calls `outbound_module().bulk_trigger/2` with body snapshotted at confirm-open time. 22/22 plan-touched headless tests green; `mix compile --warnings-as-errors` clean; all acceptance grep gates pass. Two BLOCKING checkpoints remain (both REPO-UNAVAILABLE in this workspace per D-16): Plan 25-01 Task 4 (`mix ecto.migrate`) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host) — both await operator."
+last_updated: "2026-05-27T08:01:06.626Z"
 last_activity: 2026-05-27
 progress:
   total_phases: 5
@@ -25,10 +25,10 @@ See: `.planning/PROJECT.md`
 
 ## Current Position
 
-Phase: 25 (bulk-selection-fan-out) — EXECUTING (Plan 25-03 committed; Plan 25-03 Task 3 + Plan 25-01 Task 4 are human-verify / human-action gates awaiting operator)
-Plan: 3 of 3 — Plan 25-03 GREEN landed; all 3 plans' headless work is done
+Phase: 26
+Plan: Not started
 Status: Plans 01 + 02 + 03 fully committed at the headless layer. Two REPO-UNAVAILABLE gates remain for the operator: Plan 25-01 Task 4 (mix ecto.migrate) and Plan 25-03 Task 3 (in-browser integration verify on a Postgres-available host).
-Last activity: 2026-05-27 -- Plan 25-03 Tasks 1+2 committed (9e165e5, 5f74610)
+Last activity: 2026-05-27
 
 Progress bar: `████████░░ 80%` (4/5 vM013 phases — Phases 22-24 shipped; Phase 25 fully landed at the headless layer per SUMMARY 25-03, gated on operator's Postgres-host integration verify before formal close; Phase 26 pending)
 
