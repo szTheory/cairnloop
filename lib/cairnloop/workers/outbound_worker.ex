@@ -66,8 +66,9 @@ defmodule Cairnloop.Workers.OutboundWorker do
     unique: [period: :infinity, fields: [:worker, :args], keys: [:conversation_id, :template_id, :bulk_envelope_id]]
 
   alias Cairnloop.{Chat, Message}
+  alias Cairnloop.Outbound.Telemetry.Traces
 
-  def perform(%Oban.Job{args: %{"message_id" => message_id}}) do
+  def perform(%Oban.Job{args: %{"message_id" => message_id} = args}) do
     repo = Application.fetch_env!(:cairnloop, :repo)
     message = repo.get!(Message, message_id)
     conversation = Chat.get_conversation!(message.conversation_id)
@@ -76,18 +77,24 @@ defmodule Cairnloop.Workers.OutboundWorker do
       notifier when is_atom(notifier) and not is_nil(notifier) ->
         case notifier.on_outbound_triggered(message, conversation) do
           :ok ->
-            update_message_status(message, "sent")
+            result = update_message_status(message, "sent")
+            emit_delivery(:sent, :notifier_ok, message, args)
+            result
 
           {:ok, _} ->
-            update_message_status(message, "sent")
+            result = update_message_status(message, "sent")
+            emit_delivery(:sent, :notifier_ok, message, args)
+            result
 
           error ->
             update_message_status(message, "failed")
+            emit_delivery(:failed, :notifier_returned_error, message, args)
             {:error, error}
         end
 
       _ ->
         update_message_status(message, "sent")
+        emit_delivery(:sent, :no_notifier_configured, message, args)
         :ok
     end
   end
@@ -95,9 +102,39 @@ defmodule Cairnloop.Workers.OutboundWorker do
   defp update_message_status(message, status) do
     repo = Application.fetch_env!(:cairnloop, :repo)
     metadata = Map.put(message.metadata || %{}, "status", status)
-    
+
     message
     |> Ecto.Changeset.change(%{metadata: metadata})
     |> repo.update()
+  end
+
+  # Phase 26 OBS-01 D-02 + D-03: bounded-metrics + OI trace, side-by-side, enum-only labels.
+  #
+  # Bounded-metrics (D-01 / D-02): point-in-time event on
+  # `[:cairnloop, :outbound, :delivery, :sent | :failed]` with enum-only metadata —
+  # `:outcome` and `:reason` only. NO conversation_id / template_id / actor /
+  # bulk_envelope_id in labels (cardinality + PII protection).
+  #
+  # OI trace (D-03): disjoint 4-segment trace path with TOOL span kind and
+  # attribution refs. `:actor_id` is `nil` at delivery time — trigger-time actor
+  # is captured at the trigger event; delivery is system-initiated (RESEARCH OQ2).
+  defp emit_delivery(outcome, reason, message, args)
+       when outcome in [:sent, :failed] do
+    Cairnloop.Telemetry.execute(
+      [:outbound, :delivery, outcome],
+      %{count: 1},
+      %{outcome: outcome, reason: reason}
+    )
+
+    Traces.emit(
+      if(outcome == :sent, do: :delivery_sent, else: :delivery_failed),
+      %{
+        conversation_id: message.conversation_id,
+        template_id: Map.get(message.metadata || %{}, "template_id"),
+        bulk_envelope_id: Map.get(args, "bulk_envelope_id"),
+        actor_id: nil,
+        outcome: outcome
+      }
+    )
   end
 end
