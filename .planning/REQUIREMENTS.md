@@ -112,40 +112,40 @@ Explicitly excluded from vM014. Documented to prevent scope creep.
 
 ## Traceability
 
-Which phases cover which requirements. **Populated by `gsd-roadmapper` during roadmap creation.**
+Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FIX-01 | TBD | Pending |
-| FIX-02 | TBD | Pending |
-| FIX-03 | TBD | Pending |
-| FIX-04 | TBD | Pending |
-| CHAT-01 | TBD | Pending |
-| CHAT-02 | TBD | Pending |
-| CHAT-03 | TBD | Pending |
-| BRAND-01 | TBD | Pending |
-| BRAND-02 | TBD | Pending |
-| BRAND-03 | TBD | Pending |
-| BRAND-04 | TBD | Pending |
-| KB-01 | TBD | Pending |
-| KB-02 | TBD | Pending |
-| KB-03 | TBD | Pending |
-| KB-04 | TBD | Pending |
-| SEC-01 | TBD | Pending |
-| SEC-02 | TBD | Pending |
-| E2E-01 | TBD | Pending |
-| E2E-02 | TBD | Pending |
-| E2E-03 | TBD | Pending |
-| DOC-01 | TBD | Pending |
-| DOC-02 | TBD | Pending |
-| DOC-03 | TBD | Pending |
-| DOC-04 | TBD | Pending |
+| FIX-01 | Phase 27 | Pending |
+| FIX-02 | Phase 27 | Pending |
+| FIX-03 | Phase 27 | Pending |
+| FIX-04 | Phase 27 | Pending |
+| CHAT-01 | Phase 28 | Pending |
+| CHAT-02 | Phase 28 | Pending |
+| CHAT-03 | Phase 28 | Pending |
+| BRAND-01 | Phase 29 | Pending |
+| BRAND-02 | Phase 29 | Pending |
+| BRAND-03 | Phase 29 | Pending |
+| BRAND-04 | Phase 29 | Pending |
+| KB-01 | Phase 30 | Pending |
+| KB-02 | Phase 30 | Pending |
+| KB-03 | Phase 30 | Pending |
+| KB-04 | Phase 30 | Pending |
+| SEC-01 | Phase 30 | Pending |
+| SEC-02 | Phase 30 | Pending |
+| E2E-01 | Phase 31 | Pending |
+| E2E-02 | Phase 31 | Pending |
+| E2E-03 | Phase 31 | Pending |
+| DOC-01 | Phase 32 | Pending |
+| DOC-02 | Phase 32 | Pending |
+| DOC-03 | Phase 32 | Pending |
+| DOC-04 | Phase 32 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 24 ⚠️ (will be 0 ✓ after roadmap)
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-27 (milestone vM014 kickoff)*
-*Last updated: 2026-05-27 — initial definition; traceability awaiting roadmap*
+*Last updated: 2026-05-27 — traceability filled in by gsd-roadmapper; all 24 requirements mapped to Phases 27–32*

@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-05-27T13:07:26.160Z"
 last_activity: 2026-05-27
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-27 — vM014 Adoption Proof kicked off)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** vM014 Adoption Proof — Phase 27 (Realistic Demo Fixtures) up next
+**Current focus:** vM014 Adoption Proof — Phase 27 (Realistic Demo Fixtures) ready to discuss/plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 27 (Realistic Demo Fixtures) — ready to discuss/plan
 Plan: —
-Status: Defining requirements
-Last activity: 2026-05-27 — Milestone vM014 started
+Status: Roadmap formalized; awaiting `/gsd:discuss-phase 27` or `/gsd:plan-phase 27`
+Last activity: 2026-05-27 — vM014 ROADMAP.md written from `.planning/threads/vM014-adoption-proof-assessment.md`; REQUIREMENTS.md traceability filled
 
 ## Accumulated Context
 
@@ -48,32 +48,37 @@ Remaining carried decisions (milestone-scoped, not project-level):
 - **CI shift-left after the fact:** former human-UAT items that needed a real Postgres host can be backfilled into the integration test lane within the milestone close window.
 - **vM014 test harness decision (2026-05-27):** `Phoenix.LiveViewTest` + `Phoenix.ChannelTest` for JTBD smoke tests. NOT Wallaby (avoids Selenium/Chrome-in-CI flake), NOT PhoenixTest dep. Proven path across 9 existing integration tests.
 - **vM014 D-10 closure path (2026-05-27):** Drop the hex fallback (Option B) in inline `var(--cl-token, #hex)` strings. NOT migrate to named CSS classes (Option A — bigger diff, churns sealed render code). Re-pin 5 headless-token assertions + add negative-grep gate.
+- **vM014 SECURITY split (2026-05-27):** T-10-09 + T-10-11 bundle with Phase 30 (same files: `editor.ex` + `suggestion_review.ex`). T-10-10 + T-10-12 + T-10-13 defer to vM015 (domain layer, different file: `knowledge_automation.ex`).
 
 ### Pending Todos
 
 - Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear. (Carried from vM009.)
-- Root `SECURITY.md` carries 5 open threats (T-10-09..T-10-13) from vM010 — pre-existing debt.
+- Root `SECURITY.md` carries 3 open threats (T-10-10, T-10-12, T-10-13) deferred to vM015 — T-10-09 + T-10-11 close in Phase 30.
 
 ### Blockers/Concerns
 
-(none — vM013 closed cleanly; previous Phase 25 operator-host migrate + integration-verify blockers were resolved by the CI shift-left commits `5bad851` → `23e700b` on 2026-05-27)
+(none — vM013 closed cleanly; vM014 roadmap formalized from assessment thread.)
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Tech Debt | Root SECURITY.md carries 5 pre-existing open threats (T-10-09..T-10-13) from vM010 | Open | vM011 close |
+| Tech Debt | Root SECURITY.md threats T-10-10 / T-10-12 / T-10-13 (domain layer in `knowledge_automation.ex`) — defer to vM015 | Open | vM014 planning (2026-05-27) |
 | Tech Debt | AR-14-02: governed-actions rail lacks pagination (acceptable at current volume) | Open | vM011 Phase 14 |
 | Tech Debt | Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear | Open | vM009 retrospective |
-| Tech Debt | D-10 brand-token CSS extraction (inline `var(--cl-<token>, <hex>)` strings are the headless-test contract for v1) | Open | vM013 Phase 26 |
+| Scope | Wallaby / Selenium browser-driven smoke tests | Out of Scope (vM014) | vM014 planning (2026-05-27) |
+| Scope | PhoenixTest as a new test dependency | Out of Scope (vM014) | vM014 planning (2026-05-27) |
+| Scope | Brand-token migration to named CSS classes (Option A) | Out of Scope (vM014) | vM014 planning (2026-05-27) |
+| Scope | Real `SettingsLive` overhaul (MCP tokens / Notifier health / retrieval health / dark mode) | Deferred to vM015 | vM014 planning (2026-05-27) |
+| Scope | `/health` + `/metrics` HTTP endpoints | Deferred to vM015 | vM014 planning (2026-05-27) |
 | Scope | Marketing/Newsletter drip campaigns | Out of Scope | vM013 planning |
 | Scope | In-browser rich text template editing | Out of Scope | vM013 planning |
 | Scope | SMS/WhatsApp delivery in the outbound lane | Out of Scope | vM013 planning |
 
 ## Session Continuity
 
-Last session: 2026-05-27 — vM014 Adoption Proof kicked off via `/gsd-new-milestone vM014`
-Stopped at: PROJECT.md + STATE.md updated; REQUIREMENTS.md + ROADMAP.md written; ready for Phase 27 discuss/plan
+Last session: 2026-05-27 — vM014 Adoption Proof roadmap formalized from assessment thread
+Stopped at: ROADMAP.md written (Phases 27–32); REQUIREMENTS.md traceability filled; STATE.md updated; ready for Phase 27 discuss/plan
 Next step: `/gsd:discuss-phase 27` (gather Phase 27 context) or `/gsd:plan-phase 27` (skip discussion, plan directly)
 
 ## Operator Next Steps
