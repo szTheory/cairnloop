@@ -74,6 +74,9 @@ defmodule Cairnloop.Governance do
   # Phase 25 plan 01 (D-14): cohort-eligibility reads target the Conversation schema.
   alias Cairnloop.Conversation
 
+  # Phase 26 plan 02 (D-06): bulk-envelope audit READ facade targets the BulkEnvelope schema.
+  alias Cairnloop.Outbound.BulkEnvelope
+
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
@@ -89,6 +92,16 @@ defmodule Cairnloop.Governance do
   defp approval_ttl_seconds do
     Application.get_env(:cairnloop, :approval_ttl_seconds, 172_800)
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 26 D-06: hard cap on bulk-envelope audit reads (defense-in-depth —
+  # RESEARCH "Specific Ideas"). Unbounded reads from a future admin LiveView
+  # could exhaust memory or the DB connection pool; the hard cap is enforced
+  # at the facade boundary regardless of caller (mitigates T-26-06 DoS).
+  # ---------------------------------------------------------------------------
+
+  @bulk_envelope_default_limit 50
+  @bulk_envelope_hard_cap 500
 
   # ---------------------------------------------------------------------------
   # safe_enqueue/1 — wraps Oban.insert in try/rescue (host may have no Oban).
@@ -1071,6 +1084,77 @@ defmodule Cairnloop.Governance do
     }
   end
 
+  # ---------------------------------------------------------------------------
+  # Phase 26 plan 02 — OBS-02 audit READ facade for BulkEnvelope rows (D-06).
+  #
+  # Two narrow reads that let hosts (or a future operator surface) consume the
+  # durable `Cairnloop.Outbound.BulkEnvelope` audit substrate landed in
+  # Phase 25 plan 01. Both reads go through `repo().all/1` / `repo().get/2`
+  # per D-14 (the web layer is forbidden from running direct `Cairnloop.Repo`
+  # queries). Submit and refused-cap-exceeded rows live on the same table so
+  # a single call sees both lanes.
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns recent `Cairnloop.Outbound.BulkEnvelope` rows ordered `requested_at desc`.
+
+  ## Options
+
+    * `:limit` (default `#{@bulk_envelope_default_limit}`, hard cap
+      `#{@bulk_envelope_hard_cap}`) — max rows returned. Raises `ArgumentError`
+      if the caller requests more than the cap (defense-in-depth against
+      unbounded reads — Phase 26 D-06 / RESEARCH "Specific Ideas" / threat
+      T-26-06 DoS mitigation).
+    * `:status` (default `:all`) — `:submitted | :refused_cap_exceeded | :all`.
+      `:all` returns rows of both lanes.
+
+  ## Narrow-facade contract (D-14)
+
+  Reads through `repo().all/1` per D-14: the web layer / host admin surfaces
+  MUST go through this function, never the concrete repo module directly. Phase
+  25's threat-register T-25-04 mitigation grep enforces zero direct repo
+  references from `lib/cairnloop/web/inbox_live.ex`; this read shares that
+  posture for the bulk-envelope substrate.
+
+  ## Phase 26 OBS-02 read facade (D-06)
+
+  This is the consumer-side read for the durable `BulkEnvelope` substrate
+  landed in Phase 25 plan 01 (D-13). Submit (`:submitted`) and refused
+  (`:refused_cap_exceeded`) attempts are stored on the same table so a single
+  call sees both lanes when `:status` is `:all`.
+  """
+  def list_recent_bulk_outbound_envelopes(opts \\ []) do
+    limit = Keyword.get(opts, :limit, @bulk_envelope_default_limit)
+    status = Keyword.get(opts, :status, :all)
+
+    if limit > @bulk_envelope_hard_cap do
+      raise ArgumentError,
+            "limit #{limit} exceeds bulk envelope hard cap #{@bulk_envelope_hard_cap}"
+    end
+
+    BulkEnvelope
+    |> filter_envelope_status(status)
+    |> order_by([e], desc: e.requested_at)
+    |> limit(^limit)
+    |> repo().all()
+  end
+
+  @doc """
+  Returns a single `Cairnloop.Outbound.BulkEnvelope` by id, or `nil` if not found.
+
+  The `id` is a binary UUID string (e.g. from `Ecto.UUID.generate/0`) — the
+  `BulkEnvelope` PK is `:binary_id` with `autogenerate: false`, so callers
+  supply the UUID at bulk-trigger confirmation time and use the same value
+  here to fetch the row.
+
+  Returns `nil` on miss (does NOT raise) per D-06 — callers branch on the
+  result. Goes through `repo().get/2`; never the concrete repo module
+  directly (D-14).
+  """
+  def get_bulk_outbound_envelope(id) do
+    repo().get(BulkEnvelope, id)
+  end
+
   # Format a single cohort row into an operator-visible label. A bound subject
   # yields "<subject> (#<id>)"; a missing subject yields "Conversation #<id>".
   # Brand-aligned: calm, honest, never raw Elixir terms (CLAUDE.md).
@@ -1079,4 +1163,14 @@ defmodule Cairnloop.Governance do
   end
 
   defp bulk_recovery_label_for(%{id: id}), do: "Conversation ##{id}"
+
+  # Phase 26 plan 02 (D-06): `:status` filter helper for
+  # `list_recent_bulk_outbound_envelopes/1`. `:all` is a no-op (pass-through);
+  # the two enum values map to a single `where status == ^X` clause.
+  defp filter_envelope_status(query, :all), do: query
+
+  defp filter_envelope_status(query, status)
+       when status in [:submitted, :refused_cap_exceeded] do
+    where(query, [e], e.status == ^status)
+  end
 end
