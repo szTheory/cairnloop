@@ -302,10 +302,14 @@ defmodule CairnloopExampleWeb.ChatLive do
   defp connection_label(:connecting), do: "Connecting…"
   defp connection_label(:connected), do: "Connected"
   defp connection_label(:disconnected), do: "Disconnected — reconnecting"
+  # WR-04 fix: catch-all prevents FunctionClauseError if @channel_status holds an unexpected atom
+  defp connection_label(_), do: "Unknown"
 
   defp connection_dot_color(:connecting), do: "var(--cl-text-muted, #677066)"
   defp connection_dot_color(:connected), do: "var(--cl-success, #2D7A3A)"
   defp connection_dot_color(:disconnected), do: "var(--cl-danger, #B54C36)"
+  # WR-04 fix: catch-all prevents FunctionClauseError if @channel_status holds an unexpected atom
+  defp connection_dot_color(_), do: "var(--cl-text-muted, #677066)"
 
   defp bubble_style(:customer) do
     "background: var(--cl-primary, #A94F30); color: var(--cl-primary-text, #FFFFFF);"
