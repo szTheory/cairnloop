@@ -145,8 +145,8 @@ defmodule CairnloopExampleWeb.ChatLive do
           socket.connect()
 
           // Push channel_status events to the LiveView on WebSocket lifecycle events.
-          // D-12: LV handle_event("channel_status", ...) uses String.to_existing_atom/1
-          // so only the four pre-existing atoms are accepted (T-28-03-04 DoS mitigation).
+          // D-12: LV handle_event("channel_status", ...) uses a closed case over known strings
+          // to map status values to atoms safely (T-28-03-04 DoS mitigation).
           socket.onOpen(() => this.pushEvent("channel_status", {status: "connected"}))
           socket.onError(() => this.pushEvent("channel_status", {status: "disconnected"}))
           socket.onClose(() => this.pushEvent("channel_status", {status: "disconnected"}))
@@ -203,14 +203,22 @@ defmodule CairnloopExampleWeb.ChatLive do
 
   # ---------------------------------------------------------------------------
   # handle_event("channel_status", ...) — D-03, T-28-03-04
-  # String.to_existing_atom/1 is used (NOT String.to_atom/1) to prevent atom-table
-  # flooding via arbitrary hook-provided strings (T-28-03-04 DoS mitigation).
-  # The four valid values are pre-existing atoms in the BEAM:
-  # :connecting, :connected, :disconnected.
+  # A closed case is used instead of String.to_existing_atom/1 to eliminate the
+  # ArgumentError crash surface on unexpected input (CR-01 fix). Unknown status
+  # strings preserve the current channel_status assign unchanged rather than crashing.
   # ---------------------------------------------------------------------------
 
   def handle_event("channel_status", %{"status" => status}, socket) do
-    {:noreply, assign(socket, :channel_status, String.to_existing_atom(status))}
+    atom =
+      case status do
+        "connecting" -> :connecting
+        "connected" -> :connected
+        "disconnected" -> :disconnected
+        # unknown status: preserve current state rather than crashing
+        _ -> socket.assigns.channel_status
+      end
+
+    {:noreply, assign(socket, :channel_status, atom)}
   end
 
   # ---------------------------------------------------------------------------
