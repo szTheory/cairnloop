@@ -84,6 +84,7 @@ defmodule Cairnloop.Outbound.Telemetry.Traces do
     :trigger_completed,
     :trigger_failed,
     :bulk_submitted,
+    :bulk_failed,
     :bulk_refused,
     :delivery_sent,
     :delivery_failed

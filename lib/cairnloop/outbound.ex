@@ -404,19 +404,36 @@ defmodule Cairnloop.Outbound do
 
       result = repo().transaction(multi)
 
-      # Phase 26 D-03: OI trace lane — bulk envelope is the unit of work; per-recipient
-      # traces fire from OutboundWorker.perform/1. Emitted inside the sealed span's `fn`
-      # so the OI trace ships AFTER the transaction result is known.
-      Traces.emit(:bulk_submitted, %{
+      # WR-01 / WR-02: derive both the OI trace event and the bounded-metrics
+      # `:stop` outcome from the actual transaction result. Previously the
+      # submit lane unconditionally reported `outcome: :submitted` on both the
+      # OI trace (`:bulk_submitted`) and the bounded-metrics `:stop` metadata
+      # even when `repo().transaction(multi)` returned an `Ecto.Multi` 4-tuple
+      # failure. That contradicted the CLAUDE.md "telemetry is observability
+      # only" posture (an observability lane that lies about failure is worse
+      # than no lane at all) and made the OI lane disagree with the symmetric
+      # `trigger/2` lane which already branches on result. Now both lanes
+      # honestly distinguish submitted from failed.
+      trace_attrs = %{
         bulk_envelope_id: envelope_id,
         template_id: template_id,
         actor_id: actor,
-        outcome: :submitted,
         conversation_id: nil
-      })
+      }
+
+      stop_outcome =
+        case result do
+          {:ok, _changes} ->
+            Traces.emit(:bulk_submitted, Map.put(trace_attrs, :outcome, :submitted))
+            :submitted
+
+          _failure ->
+            Traces.emit(:bulk_failed, Map.put(trace_attrs, :outcome, :failed))
+            :failed
+        end
 
       # Telemetry metadata for the :stop event stays enum-only (D-B).
-      {result, %{outcome: :submitted, count: count}}
+      {result, %{outcome: stop_outcome, count: count}}
     end)
   end
 end
