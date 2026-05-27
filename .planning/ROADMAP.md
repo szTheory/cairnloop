@@ -158,7 +158,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 26-02-PLAN.md — `Cairnloop.Governance.list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` narrow audit READ facade + D-05 auditor metadata shape regression (OBS-02)
+- [x] 26-02-PLAN.md — `Cairnloop.Governance.list_recent_bulk_outbound_envelopes/1` + `get_bulk_outbound_envelope/1` narrow audit READ facade + D-05 auditor metadata shape regression (OBS-02)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -176,7 +176,7 @@ Plans:
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
 | 25. Bulk Selection & Fan-out | vM013 | 3/3 | Complete    | 2026-05-27 |
-| 26. Observability & Polish | vM013 | 1/3 | In Progress|  |
+| 26. Observability & Polish | vM013 | 2/3 | In Progress|  |
 | 13. Governed Tool Contract & Proposal Records | vM011 | 3/3 | Complete | 2026-05-24 |
 | 14. Operator Timeline & Preview Surface | vM011 | 4/4 | Complete | 2026-05-24 |
 | 15. Approval State Machine & Oban Resume | vM011 | 5/5 | Complete | 2026-05-25 |
