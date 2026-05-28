@@ -115,7 +115,12 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   3. When `KnowledgeBase.Editor` is opened via a `GapCandidate` handoff, a "View source gap" sidebar surfaces the originating evidence in-context; "Open for manual edit" on `SuggestionReview` uses calm, reason-forward copy per `prompts/cairnloop_brand_book.md` and never leaks raw Elixir terms or raw JSON to the operator.
   4. `Cairnloop.KnowledgeAutomation.EditorHandoff.verify!/2` requires a `manual_edit_opened_at` timestamp marker on the handoff record; `KnowledgeBase.Editor` refuses to preload `proposed_markdown` from a bare URL `suggestion_id` parameter — only via the handoff marker (closes T-10-09 + T-10-11; T-10-10 / T-10-12 / T-10-13 remain deferred to vM015 per assessment thread).
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+  - [ ] 30-01-PLAN.md — EditorHandoff double-layer gate (decode/1, sign/5 marker opts, 3-step verify!/2) + record_editor_handoff/2 + get_gap_candidate/2 + list_articles/1 + manual_edit_changeset/2 + pure gate tests (SEC-01, SEC-02, KB-02/KB-03 facades).
+  - [ ] 30-02-PLAN.md — NavComponent.kb_nav/1 shared editorial nav + ReviewTaskPresenter 3-variant calm copy + pure nav/presenter tests (KB-01 component, KB-04).
+  - [ ] 30-03-PLAN.md — Index (list_articles read, New article button, nav) + Editor (gap sidebar, mount rescue, nav) + updated knowledge_base_live_test.exs marker/rescue fixtures (KB-01/KB-02/KB-03, SEC-02 consumer).
+  - [ ] 30-04-PLAN.md — SuggestionReview (record_editor_handoff + marker sign + nav) + Gaps nav + ConversationLive open_manual_draft gate fix + suggestion_review_test (KB-01, SEC-01 minting side).
 **UI hint:** yes
 
 #### Phase 31: Golden-Path JTBD Smoke Test
