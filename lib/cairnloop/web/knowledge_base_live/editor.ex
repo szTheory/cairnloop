@@ -200,7 +200,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
   defp normalize_id(value) when is_binary(value) do
     case Integer.parse(value) do
-      {id, _} -> id
+      {id, ""} -> id
       _ -> value
     end
   end
