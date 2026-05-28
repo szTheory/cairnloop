@@ -51,7 +51,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
         >
           <div
             class="search-modal-content"
-            style="background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(1040px, 92vw); min-height: 560px; max-height: 78vh; box-shadow: 0 24px 60px rgba(47, 36, 29, 0.18); overflow: hidden; display: flex; flex-direction: column;"
+            style="background: var(--cl-surface); color: var(--cl-text); border-radius: 18px; width: min(1040px, 92vw); min-height: 560px; max-height: 78vh; box-shadow: 0 24px 60px rgba(47, 36, 29, 0.18); overflow: hidden; display: flex; flex-direction: column;"
             phx-click-away="close"
             phx-target={@myself}
           >
@@ -68,14 +68,14 @@ defmodule Cairnloop.Web.SearchModalComponent do
                 aria-expanded="true"
                 aria-controls={"#{@id}-search-results"}
                 aria-activedescendant={@active_dom_id}
-                style="width: 100%; padding: 16px; font-size: 16px; line-height: 1.5; border: 1px solid rgba(64, 51, 43, 0.12); border-radius: 12px; outline-color: var(--cl-primary, #A94F30); background: #fffdfa;"
+                style="width: 100%; padding: 16px; font-size: 16px; line-height: 1.5; border: 1px solid rgba(64, 51, 43, 0.12); border-radius: 12px; outline-color: var(--cl-primary); background: #fffdfa;"
               />
             </form>
 
             <div class="search-modal-body" style="display: flex; flex: 1; gap: 32px; padding: 24px; overflow: hidden; flex-wrap: wrap;">
               <div class="search-results-pane" style="flex: 1 1 432px; min-width: min(432px, 100%); display: flex; flex-direction: column; overflow: hidden;">
                 <%= if @error do %>
-                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(181, 76, 54, 0.08); color: var(--cl-danger, #B54C36);">
+                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(181, 76, 54, 0.08); color: var(--cl-danger);">
                     Search is unavailable right now. Keep working in the current conversation, then try the search again.
                   </div>
                 <% end %>
@@ -148,7 +148,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                                     <%= presenter.recency_label %>
                                   </span>
                                 </div>
-                                <div style="margin-top: 12px; font-size: 14px; color: var(--cl-primary, #A94F30); font-weight: 600;">
+                                <div style="margin-top: 12px; font-size: 14px; color: var(--cl-primary); font-weight: 600;">
                                   <%= presenter.open_action_label %>
                                 </div>
                               </button>
@@ -192,7 +192,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                         type="button"
                         phx-click="open_active_result"
                         phx-target={@myself}
-                        style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; text-decoration: none; background: var(--cl-primary, #A94F30); color: white; font-weight: 600;"
+                        style="display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; text-decoration: none; background: var(--cl-primary); color: white; font-weight: 600;"
                       >
                         <%= @preview.open_action_label %>
                       </button>
