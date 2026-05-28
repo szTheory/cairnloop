@@ -195,13 +195,22 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def action_label(:reject), do: "Reject"
   def action_label(:defer), do: "Defer"
   def action_label(:publish), do: "Publish"
-  def action_label(:open_for_edit), do: "Open for edit"
+  def action_label(:open_for_edit), do: "Open for manual edit"
 
   def action_label(action, %ReviewTask{article_suggestion: suggestion})
       when not is_nil(suggestion) do
-    case {action, ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion)} do
-      {:open_for_edit, "Manual draft required"} -> "Open manual draft"
-      _ -> action_label(action)
+    cond do
+      action == :open_for_edit and suggestion.status == :failed ->
+        "Review and draft manually"
+
+      action == :open_for_edit and
+          (suggestion.suggestion_type == :article or
+             ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) ==
+               "Manual draft required") ->
+        "Create manual draft"
+
+      true ->
+        action_label(action)
     end
   end
 
