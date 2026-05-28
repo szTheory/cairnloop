@@ -37,7 +37,7 @@ defmodule Cairnloop.Web.BrandTokenGateTest do
 
     violations =
       for file <- files,
-          {line_no, line} <- file |> File.read!() |> String.split("\n") |> Enum.with_index(1),
+          {line, line_no} <- file |> File.read!() |> String.split("\n") |> Enum.with_index(1),
           Regex.match?(@hex_fallback_pattern, line) do
         {Path.basename(file), line_no, String.trim(line)}
       end
