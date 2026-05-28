@@ -147,7 +147,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
     %{
       review_task: task,
-      return_to: Map.get(params, "return_to", "/knowledge-base/suggestions?task=#{task.id}"),
+      return_to:
+        verified_return_to_from_token(params) ||
+          "/knowledge-base/suggestions?task=#{task.id}",
       operator_summary: task.article_suggestion && task.article_suggestion.operator_summary,
       evidence_count:
         task.article_suggestion |> Map.get(:evidence_snapshot, []) |> List.wrap() |> length()
@@ -204,6 +206,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   end
 
   defp normalize_id(value), do: value
+
+  defp verified_return_to_from_token(%{"handoff" => token}) do
+    case Cairnloop.KnowledgeAutomation.EditorHandoff.decode(token) do
+      {:ok, %{"return_to" => rt}} when is_binary(rt) and rt != "" -> rt
+      _ -> nil
+    end
+  end
+
+  defp verified_return_to_from_token(_), do: nil
 
   defp scope_filters(session) do
     host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)
