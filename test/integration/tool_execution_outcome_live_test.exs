@@ -313,7 +313,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
     # The status chip shows the status label (from status_label/1)
     # For :executed approval, the approval_outlook shows "Action completed: ..."
     # The status chip must not rely on color alone to convey meaning
-    assert html =~ "var(--cl-primary, #A94F30)",
+    assert html =~ "var(--cl-primary)",
            "Status chip must use brand token (never hardcoded hex)"
   end
 
@@ -391,7 +391,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
            "Done-group card must NOT show 'Action completed' for a failed lane"
 
     # State chip must carry text — never color-alone (brand §7.5)
-    assert html =~ "var(--cl-primary, #A94F30)",
+    assert html =~ "var(--cl-primary)",
            "Status chip must use brand token"
   end
 
@@ -440,7 +440,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
            "Chip text must name the state ('Action completed') — never color-alone (brand §7.5)"
 
     # Brand token is present alongside the text
-    assert html =~ "var(--cl-primary, #A94F30)",
+    assert html =~ "var(--cl-primary)",
            "Brand token var(--cl-primary) must be present alongside the chip text (brand §7.5)"
   end
 end
