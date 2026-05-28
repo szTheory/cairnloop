@@ -1,0 +1,136 @@
+---
+phase: 31-golden-path-jtbd-smoke-test
+verified: 2026-05-28T17:45:00Z
+status: human_needed
+score: 7/8 must-haves verified
+overrides_applied: 0
+human_verification:
+  - test: "Run `mix test.integration test/integration/golden_path_test.exs` on a machine with dockerized Postgres + pgvector"
+    expected: "Exit code 0 — the single sequential 9-stage `test \"full JTBD round trip\"` passes against real Postgres + pgvector"
+    why_human: "This workspace lacks the pgvector extension (`vector.control` missing from local PostgreSQL@14). The REPO-UNAVAILABLE constraint is documented in CLAUDE.md and both test files. CI with dockerized Postgres + pgvector is the authoritative validation environment."
+  - test: "Run `mix test.integration test/integration/widget_channel_test.exs` on a machine with dockerized Postgres + pgvector"
+    expected: "Exit code 0 — the channel join/push/process/operator-delivery test passes"
+    why_human: "Same pgvector constraint. The test requires a live Repo to insert conversation rows during WidgetChannel join."
+---
+
+# Phase 31: Golden-Path JTBD Smoke Test — Verification Report
+
+**Phase Goal:** The full JTBD round trip is locked into CI against real Postgres + pgvector via the existing integration harness — adopters who run the suite get a green light on the same path the two-tab demo walks. No browser-driver flake; no new test dependency.
+**Verified:** 2026-05-28T17:45:00Z
+**Status:** human_needed
+**Re-verification:** No — initial verification
+
+---
+
+## Goal Achievement
+
+### Observable Truths
+
+| # | Truth | Status | Evidence |
+|---|-------|--------|----------|
+| 1 | `test/integration/golden_path_test.exs` exists, contains `test "full JTBD round trip"`, and drives all 9 JTBD stages in a single accumulating sequential test | VERIFIED | File exists at 340 lines; `test "full JTBD round trip"` found at line 128; `grep -c "Stage [1-9]:"` returns 9 |
+| 2 | `test/integration/widget_channel_test.exs` exists and drives join → push → ProcessMessage → operator-side delivery | VERIFIED | File exists at 96 lines (exceeds min 50); all key structural elements confirmed by inspection |
+| 3 | Both tests use `Phoenix.LiveViewTest` / `Phoenix.ChannelTest` with no new test dependency added to `mix.exs` | VERIFIED | `mix.exs` unmodified by phase 31 commits; no Wallaby or PhoenixTest references in either file |
+| 4 | No new file added under `test/support/` | VERIFIED | `git log --diff-filter=A -- test/support/` shows no phase 31 additions; test/support/ contains only pre-existing files |
+| 5 | Both tests are in `test/integration/` and receive `@moduletag :integration` automatically via ConnCase | VERIFIED | `conn_case.ex` line 12 sets `@moduletag :integration`; `mix.exs` line 70 alias runs `test/integration` with `--include integration` |
+| 6 | `mix compile --warnings-as-errors` exits 0 with both new test files present | VERIFIED | `mix compile --warnings-as-errors` exits 0; `mix test` runs 741 tests with only the pre-existing DraftTest baseline failure |
+| 7 | No `Oban.drain_queue`, no `SeedRun.run`, no Wallaby/PhoenixTest in either file | VERIFIED | `Oban.drain_queue` appears only in a comment on line 68 of widget_channel_test.exs ("D-09: never Oban.drain_queue"); `SeedRun.run` count = 0 in golden_path_test.exs |
+| 8 | `mix test.integration` exits 0 for both new test files (E2E-03: green in CI) | UNCERTAIN — HUMAN NEEDED | Requires dockerized Postgres + pgvector. REPO-UNAVAILABLE constraint: local workspace lacks `vector.control` extension. Compile passes; structural and API alignment verified against source. |
+
+**Score:** 7/8 truths verified (truth #8 requires human execution in a CI-capable environment)
+
+---
+
+### Required Artifacts
+
+| Artifact | Expected | Status | Details |
+|----------|----------|--------|---------|
+| `test/integration/golden_path_test.exs` | E2E-01 full JTBD round trip, `test "full JTBD round trip"`, min 120 lines | VERIFIED | 340 lines; `test "full JTBD round trip"` at line 128; all 9 stage comments present |
+| `test/integration/widget_channel_test.exs` | E2E-02 widget channel test, `subscribe_and_join`, min 50 lines | VERIFIED | 96 lines; `subscribe_and_join` at line 58; `ProcessMessage.perform` at line 74 |
+
+---
+
+### Key Link Verification
+
+| From | To | Via | Status | Details |
+|------|----|-----|--------|---------|
+| `golden_path_test.exs` | `Cairnloop.Web.ConversationLive` | `live(conn, "/governance/#{conversation.id}")` | VERIFIED | Lines 160, 208, 259, 275 — all use `/governance/` prefix (Pitfall 1 honored) |
+| `golden_path_test.exs` | `Cairnloop.Web.SearchModalComponent` | `send_update(Cairnloop.Web.SearchModalComponent, id: "search-modal", retrieval_module: StubRetrieval)` | VERIFIED | Line 164 — exact pattern; `Phoenix.LiveView.send_update` used (not imported function) |
+| `golden_path_test.exs` | `Cairnloop.Outbound.BulkEnvelope` | `Repo.aggregate(BulkEnvelope, :count, :id)` | VERIFIED | Lines 306, 322 — before/after count assertions present |
+| `widget_channel_test.exs` | `Cairnloop.Channels.WidgetChannel` | `subscribe_and_join(... "widget:lobby" ...)` | VERIFIED | Line 58 — exact pattern; `socket/3` bypasses endpoint mount (Pitfall 7 honored) |
+| `widget_channel_test.exs` | `Cairnloop.Workers.ProcessMessage` | `ProcessMessage.perform(%Oban.Job{args: ...})` | VERIFIED | Lines 73-80 — direct perform with `channel/conversation_id/content` args |
+| `widget_channel_test.exs` | `Cairnloop.Web.InboxLive` | `live(conn, "/inbox")` | VERIFIED | Line 45 — mounted before channel join so PubSub subscription is active first |
+
+---
+
+### Data-Flow Trace (Level 4)
+
+Both files are integration test files, not production components — they do not render dynamic data from a data source; they assert on it. Level 4 data-flow trace not applicable.
+
+---
+
+### Behavioral Spot-Checks
+
+| Behavior | Command | Result | Status |
+|----------|---------|--------|--------|
+| `mix compile --warnings-as-errors` exits 0 | `mix compile --warnings-as-errors` | Exit 0, no output | PASS |
+| `mix test` (headless, excludes :integration) runs clean | `mix test` | 741 tests, 1 pre-existing baseline failure (Cairnloop.Automation.DraftTest — known MEMORY.md), exit 0 | PASS |
+| No new test dependencies in `mix.exs` | `grep "Wallaby\|PhoenixTest" mix.exs` | No match | PASS |
+| `grep -c "Stage [1-9]:" golden_path_test.exs` returns 9 | grep -c | 9 | PASS |
+| `grep -c "defmodule StubRetrieval\|InlineTestTool\|StubContextProvider" golden_path_test.exs` returns 3 | grep -c | 3 | PASS |
+| `mix test.integration` passes against pgvector | Requires live DB | Cannot verify in this workspace | SKIP — human required |
+
+---
+
+### Probe Execution
+
+No `probe-*.sh` scripts declared for Phase 31. N/A.
+
+---
+
+### Requirements Coverage
+
+| Requirement | Source Plan | Description | Status | Evidence |
+|-------------|------------|-------------|--------|----------|
+| E2E-01 | 31-01-PLAN.md | `test/integration/golden_path_test.exs` covers full JTBD round trip (9 stages) | VERIFIED structurally; execution UNCERTAIN | File exists, 9 stages present, compiles clean; DB run requires human |
+| E2E-02 | 31-02-PLAN.md | `test/integration/widget_channel_test.exs` covers channel ingress + operator delivery | VERIFIED structurally; execution UNCERTAIN | File exists, all 5 steps present, compiles clean; DB run requires human |
+| E2E-03 | 31-01-PLAN.md + 31-02-PLAN.md | Both tests in `mix test.integration` lane, no Wallaby/PhoenixTest, no new dep | VERIFIED (structural); execution UNCERTAIN | `mix.exs` alias confirmed; no new deps; no browser driver; CI run requires human |
+
+**Note on E2E-01 wording vs implementation:** REQUIREMENTS.md E2E-01 states "per-recipient OutboundWorker jobs enqueued." The plan's interfaces section (31-01-PLAN.md line 115) explicitly documented that `bulk_trigger/2` creates `system_outbound` Message rows, not Oban OutboundWorker jobs — and declared that the Message rows satisfy the acceptance intent. The test asserts `BulkEnvelope` count + `system_outbound` Message rows accordingly. This is a documented intentional deviation that aligns with the actual implementation.
+
+---
+
+### Anti-Patterns Found
+
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| None found | — | — | — | — |
+
+No `TBD`, `FIXME`, `XXX` debt markers. No `TODO`/`HACK`/`PLACEHOLDER` patterns. The `Oban.drain_queue` text in `widget_channel_test.exs` line 68 is a comment explicitly prohibiting the pattern ("D-09: never Oban.drain_queue") — not usage of it. No empty return values or unconnected state variables found.
+
+---
+
+### Human Verification Required
+
+#### 1. Full JTBD Round Trip Test Execution
+
+**Test:** On a machine with dockerized Postgres + pgvector, run `mix test.integration test/integration/golden_path_test.exs`
+**Expected:** Exit code 0 — the single `test "full JTBD round trip"` passes all 9 stages against real Postgres + pgvector
+**Why human:** The local workspace lacks the `pgvector` extension (`vector.control` file missing from PostgreSQL@14). Both test files are tagged `# REPO-UNAVAILABLE` per CLAUDE.md convention. This is the documented constraint — CI with dockerized pgvector is the authoritative environment. All structural checks (compilation, API alignment, pitfall avoidance, stage counts) pass in this workspace.
+
+#### 2. Widget Channel Test Execution
+
+**Test:** On a machine with dockerized Postgres + pgvector, run `mix test.integration test/integration/widget_channel_test.exs`
+**Expected:** Exit code 0 — the channel join → push → ProcessMessage → InboxLive re-render test passes
+**Why human:** Same pgvector constraint. Additionally, the `socket/3` + `subscribe_and_join` pattern for `WidgetChannel` was assessed as MEDIUM confidence in RESEARCH.md (Pitfall 7 assumption about bypassing endpoint mount comes from training knowledge, not a run test). This is the highest-risk structural claim that needs live DB verification.
+
+---
+
+### Gaps Summary
+
+No blocking gaps. The phase delivered both test files with correct structure, complete stage coverage, all documented pitfalls honored, and warnings-clean build. The single unresolved item (E2E-03 "run green in CI") requires execution against a live Postgres + pgvector instance — a known environmental constraint explicitly documented as REPO-UNAVAILABLE by CLAUDE.md. All automated checks that can run in this workspace pass.
+
+---
+
+_Verified: 2026-05-28T17:45:00Z_
+_Verifier: Claude (gsd-verifier)_
