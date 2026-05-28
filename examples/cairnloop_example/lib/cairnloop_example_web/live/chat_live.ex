@@ -33,11 +33,11 @@ defmodule CairnloopExampleWeb.ChatLive do
         phx-hook=".WidgetChat"
         data-token="demo_customer"
         class="cl-card flex flex-col flex-1"
-        style="background: var(--cl-surface, #FBF7EE); border: 1px solid var(--cl-border, #D8D0BF); border-radius: var(--cl-radius-lg, 14px); padding: 24px;"
+        style="background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-lg, 14px); padding: 24px;"
       >
         <%!-- Panel header: title + connection state indicator --%>
-        <div class="flex items-center justify-between mb-4 pb-4" style="border-bottom: 1px solid var(--cl-border, #D8D0BF);">
-          <h1 style="font-size: 18px; font-weight: 600; color: var(--cl-text, #18211F); margin: 0;">
+        <div class="flex items-center justify-between mb-4 pb-4" style="border-bottom: 1px solid var(--cl-border);">
+          <h1 style="font-size: 18px; font-weight: 600; color: var(--cl-text); margin: 0;">
             Cairnloop Support
           </h1>
           <%!-- Connection state dot+label — brand §7.5: never color alone --%>
@@ -47,7 +47,7 @@ defmodule CairnloopExampleWeb.ChatLive do
               aria-hidden="true"
             >
             </span>
-            <span style="font-size: 13px; color: var(--cl-text-muted, #677066);">
+            <span style="font-size: 13px; color: var(--cl-text-muted);">
               <%= connection_label(@channel_status) %>
             </span>
           </div>
@@ -55,7 +55,7 @@ defmodule CairnloopExampleWeb.ChatLive do
 
         <%!-- Channel join error — rendered when channel_status is :disconnected and no conversation_id yet --%>
         <%= if @channel_status == :disconnected and is_nil(@conversation_id) do %>
-          <p role="alert" style="font-size: 13px; color: var(--cl-error, #B23B2C); margin-bottom: 8px;">
+          <p role="alert" style="font-size: 13px; color: var(--cl-danger); margin-bottom: 8px;">
             Could not connect to support. Refresh the page to try again.
           </p>
         <% end %>
@@ -69,7 +69,7 @@ defmodule CairnloopExampleWeb.ChatLive do
         >
           <%= if @messages == [] do %>
             <%!-- Empty state --%>
-            <p class="italic text-center mt-10" style="font-size: 15px; color: var(--cl-text-muted, #677066);">
+            <p class="italic text-center mt-10" style="font-size: 15px; color: var(--cl-text-muted);">
               How can we help you today?
             </p>
           <% else %>
@@ -90,14 +90,14 @@ defmodule CairnloopExampleWeb.ChatLive do
 
           <%!-- Pending row — plain text, NOT a bubble (UI-SPEC §1b explicit) --%>
           <%= if @pending do %>
-            <p style="font-size: 13px; color: var(--cl-text-muted, #677066); margin-top: 4px;">
+            <p style="font-size: 13px; color: var(--cl-text-muted); margin-top: 4px;">
               Message sent — waiting on operator.
             </p>
           <% end %>
 
           <%!-- Send error row — rendered when hook reports a channel push error (T-28-03-07) --%>
           <%= if @send_error do %>
-            <p role="alert" style="font-size: 13px; color: var(--cl-error, #B23B2C); margin-top: 4px;">
+            <p role="alert" style="font-size: 13px; color: var(--cl-danger); margin-top: 4px;">
               Your message could not be sent. Check your connection and try again.
             </p>
           <% end %>
@@ -107,7 +107,7 @@ defmodule CairnloopExampleWeb.ChatLive do
         <form
           phx-submit="send_message"
           class="flex gap-2 mt-4 pt-4"
-          style="border-top: 1px solid var(--cl-border, #D8D0BF);"
+          style="border-top: 1px solid var(--cl-border);"
         >
           <input
             type="text"
@@ -116,13 +116,13 @@ defmodule CairnloopExampleWeb.ChatLive do
             aria-label="Type your message"
             required
             class="flex-1 px-3 py-2"
-            style="background: var(--cl-surface-raised, #FFFFFF); border: 1px solid var(--cl-border, #D8D0BF); border-radius: var(--cl-radius-md, 10px); font-size: 15px; outline: none; box-shadow: none;"
+            style="background: var(--cl-surface-raised); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-md, 10px); font-size: 15px; outline: none; box-shadow: none;"
           />
           <%!-- Send button: min-h-[44px] per brand §16.2 touch target --%>
           <button
             type="submit"
             class="phx-submit-loading:opacity-50 min-h-[44px] px-4 py-2 rounded-md hover:opacity-90"
-            style="background: var(--cl-primary, #A94F30); color: var(--cl-primary-text, #FFFFFF); font-size: 15px; font-weight: 500; border: none; cursor: pointer;"
+            style="background: var(--cl-primary); color: var(--cl-primary-text); font-size: 15px; font-weight: 500; border: none; cursor: pointer;"
           >
             Send
           </button>
@@ -305,19 +305,19 @@ defmodule CairnloopExampleWeb.ChatLive do
   # WR-04 fix: catch-all prevents FunctionClauseError if @channel_status holds an unexpected atom
   defp connection_label(_), do: "Unknown"
 
-  defp connection_dot_color(:connecting), do: "var(--cl-text-muted, #677066)"
-  defp connection_dot_color(:connected), do: "var(--cl-success, #2D7A3A)"
-  defp connection_dot_color(:disconnected), do: "var(--cl-danger, #B54C36)"
+  defp connection_dot_color(:connecting), do: "var(--cl-text-muted)"
+  defp connection_dot_color(:connected), do: "var(--cl-success)"
+  defp connection_dot_color(:disconnected), do: "var(--cl-danger)"
   # WR-04 fix: catch-all prevents FunctionClauseError if @channel_status holds an unexpected atom
-  defp connection_dot_color(_), do: "var(--cl-text-muted, #677066)"
+  defp connection_dot_color(_), do: "var(--cl-text-muted)"
 
   defp bubble_style(:customer) do
-    "background: var(--cl-primary, #A94F30); color: var(--cl-primary-text, #FFFFFF);"
+    "background: var(--cl-primary); color: var(--cl-primary-text);"
   end
 
   defp bubble_style(:operator) do
-    "background: var(--cl-surface-raised, #FFFFFF); color: var(--cl-text, #18211F); border: 1px solid var(--cl-border, #D8D0BF);"
+    "background: var(--cl-surface-raised); color: var(--cl-text); border: 1px solid var(--cl-border);"
   end
 
-  defp bubble_style(_), do: "background: var(--cl-surface-raised, #FFFFFF); color: var(--cl-text, #18211F);"
+  defp bubble_style(_), do: "background: var(--cl-surface-raised); color: var(--cl-text);"
 end
