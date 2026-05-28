@@ -16,7 +16,14 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
   use Cairnloop.ConnCase, async: false
 
   # D-05: ConnCase does NOT import Phoenix.ChannelTest; add it inline.
+  # Resolve import ambiguities that arise when Phoenix.ChannelTest and the ConnCase
+  # transitive imports (Plug.Conn, Phoenix.LiveViewTest) share the same function names:
+  #   - push/3: Plug.Conn (HTTP/2 server push) vs Phoenix.ChannelTest (channel push)
+  #   - assert_reply/2: Phoenix.LiveViewTest vs Phoenix.ChannelTest (channel reply)
+  # Re-import the conflicting modules with `except:` so Phoenix.ChannelTest wins for all.
   import Phoenix.ChannelTest
+  import Plug.Conn, except: [push: 3]
+  import Phoenix.LiveViewTest, except: [assert_reply: 2, assert_reply: 3]
   import Cairnloop.Fixtures
 
   alias Cairnloop.Workers.ProcessMessage

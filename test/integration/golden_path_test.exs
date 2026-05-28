@@ -160,7 +160,8 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     {:ok, view, _html} = live(conn, "/governance/#{conversation.id}")
 
     # Inject stub retrieval module into the SearchModalComponent (D-03)
-    send_update(Cairnloop.Web.SearchModalComponent,
+    # send_update/2 is Phoenix.LiveView.send_update/2 — not imported by ConnCase
+    Phoenix.LiveView.send_update(Cairnloop.Web.SearchModalComponent,
       id: "search-modal",
       retrieval_module: StubRetrieval
     )
