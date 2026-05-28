@@ -94,30 +94,39 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   def list_review_tasks(opts \\ []) do
-    ReviewTask
-    |> apply_scope(opts)
-    |> maybe_filter_review_task_status(opts)
-    |> order_by(
-      [task],
-      asc:
-        fragment(
-          """
-          CASE ?
-            WHEN 'pending_review' THEN 0
-            WHEN 'review_needed' THEN 1
-            WHEN 'approved_ready_to_publish' THEN 2
-            WHEN 'deferred' THEN 3
-            WHEN 'rejected' THEN 4
-            WHEN 'published' THEN 5
-            ELSE 6
-          END
-          """,
-          task.status
-        ),
-      desc: task.inserted_at,
-      desc: task.id
-    )
-    |> repo().all()
+    preloads = Keyword.get(opts, :preload, [])
+
+    tasks =
+      ReviewTask
+      |> apply_scope(opts)
+      |> maybe_filter_review_task_status(opts)
+      |> order_by(
+        [task],
+        asc:
+          fragment(
+            """
+            CASE ?
+              WHEN 'pending_review' THEN 0
+              WHEN 'review_needed' THEN 1
+              WHEN 'approved_ready_to_publish' THEN 2
+              WHEN 'deferred' THEN 3
+              WHEN 'rejected' THEN 4
+              WHEN 'published' THEN 5
+              ELSE 6
+            END
+            """,
+            task.status
+          ),
+        desc: task.inserted_at,
+        desc: task.id
+      )
+      |> repo().all()
+
+    if preloads == [] do
+      tasks
+    else
+      repo().preload(tasks, preloads)
+    end
   end
 
   def get_review_task!(id, opts \\ []) do

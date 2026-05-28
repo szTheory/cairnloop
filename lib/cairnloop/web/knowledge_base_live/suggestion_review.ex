@@ -319,8 +319,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   defp load_review_tasks(scope_filters, queue_filter) do
     scope_filters
     |> queue_filter_opts(queue_filter)
+    |> Keyword.put(:preload, [:article_suggestion, :events])
     |> knowledge_automation().list_review_tasks()
-    |> Enum.map(fn task -> knowledge_automation().get_review_task!(task.id, scope_filters) end)
   end
 
   defp queue_filter_opts(scope_filters, nil), do: scope_filters
