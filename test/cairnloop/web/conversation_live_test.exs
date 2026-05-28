@@ -127,6 +127,14 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       {:ok, 91}
     end
 
+    def record_editor_handoff(suggestion_id, _opts) do
+      {:ok,
+       struct(Cairnloop.KnowledgeAutomation.ArticleSuggestion, %{
+         id: suggestion_id,
+         manual_edit_opened_at: DateTime.utc_now()
+       })}
+    end
+
     def get_conversation_quick_fix(321, _opts) do
       {:ok,
        %{
