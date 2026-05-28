@@ -8,6 +8,10 @@ defmodule Cairnloop.KnowledgeAutomation.EditorHandoff do
     Plug.Crypto.sign(secret_key_base(), @salt, normalize(attrs), max_age: @max_age)
   end
 
+  def decode(token) do
+    Plug.Crypto.verify(secret_key_base(), @salt, token, max_age: @max_age)
+  end
+
   def verify(token, attrs) when is_map(attrs) do
     expected = normalize(attrs)
 
@@ -24,6 +28,8 @@ defmodule Cairnloop.KnowledgeAutomation.EditorHandoff do
     %{
       "article_id" =>
         normalize_integer(Map.get(attrs, :article_id) || Map.get(attrs, "article_id")),
+      "manual_edit_opened_at" =>
+        Map.get(attrs, :manual_edit_opened_at) || Map.get(attrs, "manual_edit_opened_at"),
       "review_task_id" =>
         normalize_integer(Map.get(attrs, :review_task_id) || Map.get(attrs, "review_task_id")),
       "return_to" => Map.get(attrs, :return_to) || Map.get(attrs, "return_to"),
