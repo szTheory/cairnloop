@@ -138,48 +138,49 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   end
 
   def handle_event("open_for_manual_edit", %{"id" => task_id}, socket) do
-    {:ok, task, suggestion} = load_task_selection(task_id, socket)
+    with {:ok, task, suggestion} <- load_task_selection(task_id, socket),
+         {:ok, target_article_id} <- resolve_target_article_id(suggestion, socket),
+         {:ok, _suggestion} <-
+           knowledge_automation().record_editor_handoff(
+             suggestion.id,
+             socket.assigns.scope_filters
+           ) do
+      return_to =
+        task.id
+        |> task_patch(socket.assigns.queue_filter)
+        |> URI.encode_www_form()
 
-    target_article_id =
-      if suggestion.suggestion_type == :revision do
-        suggestion.article_id
-      else
-        {:ok, article_id} =
-          knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
-            suggestion.id,
-            socket.assigns.scope_filters
-          )
+      handoff_token =
+        EditorHandoff.sign(
+          suggestion.id,
+          target_article_id,
+          task.id,
+          URI.decode_www_form(return_to),
+          manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+        )
 
-        article_id
-      end
+      {:noreply,
+       push_navigate(
+         socket,
+         to:
+           "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
+             "&review_task_id=#{task.id}&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
+       )}
+    else
+      _ ->
+        {:noreply,
+         put_flash(socket, :error, "Unable to open the editor right now. Try again.")}
+    end
+  end
 
-    {:ok, _suggestion} =
-      knowledge_automation().record_editor_handoff(
-        suggestion.id,
-        socket.assigns.scope_filters
-      )
+  defp resolve_target_article_id(%{suggestion_type: :revision, article_id: article_id}, _socket),
+    do: {:ok, article_id}
 
-    return_to =
-      task.id
-      |> task_patch(socket.assigns.queue_filter)
-      |> URI.encode_www_form()
-
-    handoff_token =
-      EditorHandoff.sign(
-        suggestion.id,
-        target_article_id,
-        task.id,
-        URI.decode_www_form(return_to),
-        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
-      )
-
-    {:noreply,
-     push_navigate(
-       socket,
-       to:
-         "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
-           "&review_task_id=#{task.id}&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
-     )}
+  defp resolve_target_article_id(suggestion, socket) do
+    knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
+      suggestion.id,
+      socket.assigns.scope_filters
+    )
   end
 
   def render(assigns) do
