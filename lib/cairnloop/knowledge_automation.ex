@@ -87,9 +87,10 @@ defmodule Cairnloop.KnowledgeAutomation do
     now = now_fn(opts).()
     suggestion = get_article_suggestion!(suggestion_id, opts)
 
-    suggestion
-    |> ArticleSuggestion.manual_edit_changeset(now)
-    |> repo().update()
+    case suggestion |> ArticleSuggestion.manual_edit_changeset(now) |> repo().update() do
+      {:ok, updated} -> {:ok, updated, DateTime.to_iso8601(now)}
+      error -> error
+    end
   end
 
   def list_review_tasks(opts \\ []) do

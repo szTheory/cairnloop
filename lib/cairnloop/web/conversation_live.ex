@@ -175,7 +175,7 @@ defmodule Cairnloop.Web.ConversationLive do
                    suggestion_id,
                    quick_fix_scope_opts(socket.assigns.conversation)
                  ) do
-              {:ok, _suggestion} ->
+              {:ok, _suggestion, opened_at_iso} ->
                 return_path = "/#{socket.assigns.conversation.id}"
                 return_to = URI.encode_www_form(return_path)
 
@@ -188,7 +188,7 @@ defmodule Cairnloop.Web.ConversationLive do
                     article_id,
                     socket.assigns.quick_fix_card[:review_task_id],
                     return_path,
-                    manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+                    manual_edit_opened_at: opened_at_iso
                   )
 
                 {:noreply,

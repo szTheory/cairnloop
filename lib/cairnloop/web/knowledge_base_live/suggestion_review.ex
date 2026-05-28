@@ -140,7 +140,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   def handle_event("open_for_manual_edit", %{"id" => task_id}, socket) do
     with {:ok, task, suggestion} <- load_task_selection(task_id, socket),
          {:ok, target_article_id} <- resolve_target_article_id(suggestion, socket),
-         {:ok, _suggestion} <-
+         {:ok, _suggestion, opened_at_iso} <-
            knowledge_automation().record_editor_handoff(
              suggestion.id,
              socket.assigns.scope_filters
@@ -156,7 +156,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           target_article_id,
           task.id,
           URI.decode_www_form(return_to),
-          manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+          manual_edit_opened_at: opened_at_iso
         )
 
       {:noreply,

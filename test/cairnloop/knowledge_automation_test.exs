@@ -64,7 +64,7 @@ defmodule Cairnloop.KnowledgeAutomationTest do
   end
 
   describe "record_editor_handoff/2" do
-    test "writes the now_fn timestamp via manual_edit_changeset and returns {:ok, suggestion}" do
+    test "writes the now_fn timestamp via manual_edit_changeset and returns {:ok, suggestion, iso_string}" do
       # Set up MockRepo.one!/1 to return a fixture suggestion (get_article_suggestion! uses one!)
       pinned_ts = ~U[2026-05-28 12:00:00.000000Z]
       fixture = %ArticleSuggestion{id: 15, manual_edit_opened_at: nil}
@@ -73,8 +73,9 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       result =
         KnowledgeAutomation.record_editor_handoff(15, now_fn: fn -> pinned_ts end)
 
-      assert {:ok, applied} = result
+      assert {:ok, applied, opened_at_iso} = result
       assert applied.manual_edit_opened_at == pinned_ts
+      assert opened_at_iso == DateTime.to_iso8601(pinned_ts)
 
       assert_received {:updated, _applied, changes}
       assert changes.manual_edit_opened_at == pinned_ts

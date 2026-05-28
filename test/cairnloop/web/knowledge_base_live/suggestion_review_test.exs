@@ -49,7 +49,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
 
     def record_editor_handoff(suggestion_id, opts) do
       send(self(), {:record_editor_handoff, suggestion_id, opts})
-      {:ok, %ArticleSuggestion{id: suggestion_id, manual_edit_opened_at: DateTime.utc_now()}}
+      now = DateTime.utc_now()
+      {:ok, %ArticleSuggestion{id: suggestion_id, manual_edit_opened_at: now}, DateTime.to_iso8601(now)}
     end
 
     def ensure_review_task_for_suggestion(suggestion_id, _opts \\ []) do
