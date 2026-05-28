@@ -217,6 +217,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
           nil
       end
     end
+
+    def one!(%Ecto.Query{from: %{source: {_table, Article}}} = _query) do
+      %Article{id: 77, title: "Billing export guide", status: :published}
+    end
+
+    def one!(%Ecto.Query{} = query) do
+      case one(query) do
+        nil -> raise Ecto.NoResultsError, queryable: query
+        result -> result
+      end
+    end
   end
 
   defmodule MockKnowledgeBase do
