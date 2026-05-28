@@ -56,16 +56,26 @@ defmodule Cairnloop.KnowledgeAutomation.EditorHandoff do
         value
 
       _ ->
-        key = {__MODULE__, :secret_key_base}
+        if Mix.env() == :test do
+          # test-only: stable per-process random key
+          key = {__MODULE__, :secret_key_base}
 
-        case :persistent_term.get(key, nil) do
-          nil ->
-            value = Base.url_encode64(:crypto.strong_rand_bytes(48), padding: false)
-            :persistent_term.put(key, value)
-            value
+          case :persistent_term.get(key, nil) do
+            nil ->
+              value = Base.url_encode64(:crypto.strong_rand_bytes(48), padding: false)
+              :persistent_term.put(key, value)
+              value
 
-          value ->
-            value
+            value ->
+              value
+          end
+        else
+          raise """
+          Cairnloop.KnowledgeAutomation.EditorHandoff requires a stable secret_key_base.
+          Configure it in config/runtime.exs:
+            config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+              secret_key_base: System.fetch_env!("CAIRNLOOP_HANDOFF_SECRET_KEY_BASE")
+          """
         end
     end
   end
