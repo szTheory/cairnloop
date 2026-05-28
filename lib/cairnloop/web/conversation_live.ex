@@ -799,7 +799,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <%= if outbound_status_label(msg) == "Failed" do %>
                   <p
                     class="outbound-failed-subhead"
-                    style="margin: 6px 0 0; font-size: 14px; line-height: 1.4; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));"
+                    style="margin: 6px 0 0; font-size: 14px; line-height: 1.4; color: var(--cl-text-muted);"
                   >
                     Delivery did not complete. Try again from the Outbound recovery card.
                   </p>
