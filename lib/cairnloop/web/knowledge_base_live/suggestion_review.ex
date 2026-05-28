@@ -1,6 +1,8 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   use Phoenix.LiveView
 
+  import Cairnloop.Web.KnowledgeBaseLive.NavComponent
+
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter}
@@ -151,6 +153,12 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
         article_id
       end
 
+    {:ok, _suggestion} =
+      knowledge_automation().record_editor_handoff(
+        suggestion.id,
+        socket.assigns.scope_filters
+      )
+
     return_to =
       task.id
       |> task_patch(socket.assigns.queue_filter)
@@ -161,7 +169,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
         suggestion.id,
         target_article_id,
         task.id,
-        URI.decode_www_form(return_to)
+        URI.decode_www_form(return_to),
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
       )
 
     {:noreply,
@@ -176,6 +185,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   def render(assigns) do
     ~H"""
     <div class="suggestion-review">
+      <.kb_nav current={:suggestions} />
       <header>
         <h1>Suggestion review</h1>
         <p>Inspect grounded KB proposals before any manual editing or later publish workflow begins.</p>
