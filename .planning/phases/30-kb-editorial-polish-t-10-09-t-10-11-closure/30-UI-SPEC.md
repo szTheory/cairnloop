@@ -60,13 +60,16 @@ Source: brand book §8.3 "Product UI" scale.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
+| Microcopy / Label / small | 13px | 400 (microcopy) / 600 (labels) | 1.54 (20px) |
 | Body | 15px | 400 | 1.6 (24px) |
-| Label / small | 13px | 600 | 1.54 (20px) |
 | Panel heading | 18px | 600 | 1.44 (26px) |
 | Page title | 28px | 600 | 1.29 (36px) |
 
+Microcopy note: Counter badges, status timestamps, and other small supporting text use 13px at
+weight 400. Labels (filter tags, chip labels, button text, section subheadings) use 13px at
+weight 600. Same size — differentiated by weight alone.
+
 Additional rules (source: brand book §8.2):
-- Microcopy (counter badges, status timestamps): 12px / weight 400 / line-height 1.5 (18px).
 - Inline code, diff output, proposed markdown: 13px Martian Mono / weight 400 / line-height 1.69 (22px).
 - All product UI uses `font-family: var(--cl-font-sans)`.
 - Fraunces is NOT used in product UI — admin surfaces only (per brand book §8.4).
@@ -87,10 +90,10 @@ Source: brand book §7.2–7.4, §7.5. Tokens from Phase 29 `app.css` `:root` bl
 
 Accent reserved for:
 1. The shared editorial nav shell active-route left marker (2px `var(--cl-primary)` left border on current route).
-2. "Create new article" primary CTA button (Path Copper fill, white text).
+2. "New article" primary CTA button (Path Copper fill, white text).
 3. "Open for manual edit" and "Generate article suggestion" primary action buttons.
 4. Focus rings on all interactive elements (`outline: 2px solid var(--cl-focus)`).
-5. "Save Draft" / "Publish" primary action buttons in the Editor.
+5. "Save draft" / "Publish revision" primary action buttons in the Editor.
 
 Secondary semantic tokens in use:
 - `var(--cl-ai)` (`#7A5D78` Heather) — AI-origin evidence cards, grounding status indicator.
@@ -114,6 +117,8 @@ This section specifies new and modified components Phase 30 introduces. All are 
 HEEx — no React, no shadcn.
 
 ### 1. Shared Editorial Nav Shell (KB-01)
+
+**Primary focus:** Persistent route orientation — operator always knows which KB surface they are on.
 
 **What:** A persistent horizontal sub-navigation rendered inside all four KB LiveViews
 (`KnowledgeBase.Index`, `KnowledgeBase.Editor`, `SuggestionReview`, `KnowledgeBase.Gaps`).
@@ -146,7 +151,9 @@ helper module). Each KB LiveView calls `<.kb_nav current={:index} />` (or `:edit
 **Accessibility:** Use `<nav aria-label="Knowledge base">` as the wrapper. Mark the active link with
 `aria-current="page"`. Keyboard focus ring: `outline: 2px solid var(--cl-focus); outline-offset: 2px`.
 
-### 2. "Create new article" Button (KB-02)
+### 2. "New article" Button (KB-02)
+
+**Primary focus:** Single clear entry point for article creation from the index listing.
 
 **What:** A primary CTA button on `KnowledgeBase.Index` that routes to the Editor for a new article.
 Currently absent.
@@ -169,6 +176,8 @@ let the server create the record first so the editor always opens against a real
 
 ### 3. "View source gap" Sidebar (KB-03)
 
+**Primary focus:** Inline evidence context — operator sees the gap that motivated this article without leaving the editor.
+
 **What:** In `KnowledgeBase.Editor`, when opened via a `GapCandidate` handoff, a sidebar panel
 surfaces the originating gap evidence in-context alongside the editor/preview split.
 
@@ -185,18 +194,20 @@ in Phase 30 when a `gap_candidate_id` param is present alongside the handoff tok
 - Gap title: 15px / weight 600 / `color: var(--cl-text)`, margin-bottom 8px.
 - Evidence count chip: inline chip — `background: var(--cl-surface-raised)`,
   `border: 1px solid var(--cl-border)`, `border-radius: var(--cl-radius-sm)`,
-  `padding: 2px 8px`, `font-size: 12px`, `color: var(--cl-text-muted)`.
+  `padding: 4px 8px`, `font-size: 13px`, `color: var(--cl-text-muted)`.
 - Evidence items: each in a sub-card — `background: var(--cl-bg)`,
   `border: 1px solid var(--cl-border)`, `border-radius: var(--cl-radius-sm)`,
   `padding: 8px 12px`, `margin-bottom: 8px`.
-  - Reason label: 12px / weight 600 / `color: var(--cl-warning)`.
+  - Reason label: 13px / weight 600 / `color: var(--cl-warning)`.
   - Query excerpt: 13px / weight 400 / `color: var(--cl-text-muted)`.
-  - Hit counts: 12px / `color: var(--cl-info)`.
+  - Hit counts: 13px / weight 400 / `color: var(--cl-info)`.
 
 **Accessibility:** The sidebar panel has `aria-label="Source gap evidence"`. It is not modal — the
 operator can ignore it and edit freely.
 
 ### 4. "Open for manual edit" Affordance — Calm Copy (KB-04)
+
+**Primary focus:** Clear, reason-forward handoff from suggestion review into the article editor.
 
 **What:** The `SuggestionReview` action button that currently delegates copy to
 `ReviewTaskPresenter.action_label(:open_for_edit, task)`. This renders "Open for edit" or
@@ -223,6 +234,8 @@ reason-forward, and never leaks raw Elixir terms or raw JSON.
 `color: var(--cl-text)`, `min-height: 44px`.
 
 ### 5. Handoff Marker Interaction (SEC-01 + SEC-02)
+
+**Primary focus:** Gate failure surfaces a calm, actionable error — not a raw exception or silent redirect.
 
 **What:** No new visible UI element. The handoff marker (`manual_edit_opened_at` timestamp on the
 `EditorHandoff` record) is a server-side security gate, not a visible component. However,
@@ -257,7 +270,7 @@ Source: brand book §5, §13, §5.5 microcopy examples.
 | Shared nav — Gaps link | "Gaps" |
 | Create article CTA | "New article" |
 | Editor — save draft button | "Save draft" |
-| Editor — publish button | "Publish" |
+| Editor — publish button | "Publish revision" |
 | Editor — review-origin info aside heading | "Review-origin draft" |
 | Editor — review-origin return link | "Return to review task" |
 | Editor — review-origin guard message | "Publish from the review task to preserve the audit trail." |
@@ -270,12 +283,12 @@ Source: brand book §5, §13, §5.5 microcopy examples.
 | SuggestionReview — open_for_edit default | "Open for manual edit" |
 | SuggestionReview — open_for_edit new article | "Create manual draft" |
 | SuggestionReview — open_for_edit failed suggestion | "Review and draft manually" |
-| SuggestionReview — regenerate button | "Regenerate" |
-| SuggestionReview — dismiss button | "Dismiss" |
-| SuggestionReview — approve button | "Approve" |
-| SuggestionReview — reject button | "Reject" |
-| SuggestionReview — defer button | "Defer" |
-| SuggestionReview — publish button | "Publish" |
+| SuggestionReview — regenerate button | "Regenerate suggestion" |
+| SuggestionReview — dismiss button | "Dismiss candidate" (single-click with undo toast; see note below) |
+| SuggestionReview — approve button | "Approve suggestion" |
+| SuggestionReview — reject button | "Reject suggestion" (single-click with undo toast; see note below) |
+| SuggestionReview — defer button | "Defer for now" |
+| SuggestionReview — publish button | "Publish article" |
 | Gaps — empty state heading | "No gap candidates yet." |
 | Gaps — empty state body | "When retrieval misses and repeated manual handling accumulate, this queue will show ranked maintenance signals." |
 | Gaps — generate suggestion button | "Generate article suggestion" |
@@ -283,6 +296,12 @@ Source: brand book §5, §13, §5.5 microcopy examples.
 | Index — no articles empty body | "Create the first article to start building your knowledge base." |
 | Handoff gate failure flash (exact) | "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing." |
 | Generic operation failed flash | "Unable to complete this action right now. Try again or return to the knowledge base." |
+
+**Destructive action confirmation approach:**
+"Reject suggestion" and "Dismiss candidate" are soft-destructive (reversible within the session).
+Use single-click-with-undo-toast: the action executes immediately, and a flash `:info` toast appears
+with an "Undo" link for ~8 seconds. This matches the calm brand register (brand book §5.3) — no
+confirmation dialogs for reversible actions, no jarring interruptions to the review flow.
 
 **Copy rules:**
 - Never expose raw Elixir atom values, struct reprs, changeset error messages, or JSON blobs in
