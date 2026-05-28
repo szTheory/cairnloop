@@ -4,8 +4,8 @@ milestone: vM014
 milestone_name: Adoption Proof
 status: executing
 stopped_at: Phase 29 context gathered
-last_updated: "2026-05-28T01:25:39.317Z"
-last_activity: 2026-05-28 -- Phase 29 planning complete
+last_updated: "2026-05-28T01:26:45.235Z"
+last_activity: 2026-05-28 -- Phase 29 execution started
 progress:
   total_phases: 6
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-27 — vM014 Adoption Proof kicked off)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 28 — customer-chat-wired-to-real-ingress
+**Current focus:** Phase 29 — brand-token-css-extraction-d-10-closure
 
 ## Current Position
 
-Phase: 29
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-05-28 -- Phase 29 planning complete
+Phase: 29 (brand-token-css-extraction-d-10-closure) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 29
+Last activity: 2026-05-28 -- Phase 29 execution started
 
 ## Accumulated Context
 
