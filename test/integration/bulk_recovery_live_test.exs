@@ -96,7 +96,7 @@ defmodule Cairnloop.Integration.BulkRecoveryLiveTest do
       assert html =~ "2 selected"
       assert html =~ "Send recovery follow-up to 2"
       # Brand §7.5 — text label AND token (never-color-alone).
-      assert html =~ "var(--cl-primary, #A94F30)"
+      assert html =~ "var(--cl-primary)"
     end
 
     test "opening the confirm modal renders <.focus_wrap>, cohort sample, body, and actions (D-07 / D-08)",
@@ -264,7 +264,7 @@ defmodule Cairnloop.Integration.BulkRecoveryLiveTest do
       assert html =~ "<svg"
       assert html =~ "Batch too large."
       assert html =~ "safe send limit of 2"
-      assert html =~ "var(--cl-danger, #B54C36)"
+      assert html =~ "var(--cl-danger)"
 
       # Confirm send button is disabled (no phx-click; markup carries disabled).
       assert html =~ ~s(disabled)
