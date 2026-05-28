@@ -1,14 +1,11 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   use Phoenix.LiveView
+  import Cairnloop.Web.KnowledgeBaseLive.NavComponent
   alias Cairnloop.KnowledgeAutomation
-  alias Cairnloop.KnowledgeBase.Article
-
-  defp repo do
-    Application.fetch_env!(:cairnloop, :repo)
-  end
+  alias Cairnloop.KnowledgeBase
 
   def mount(_params, session, socket) do
-    articles = repo().all(Article)
+    articles = KnowledgeBase.list_articles(scope_filters(session))
     {:ok, assign(socket, articles: articles, scope_filters: scope_filters(session))}
   end
 
@@ -39,24 +36,52 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
     end
   end
 
+  def handle_event("new_article", _params, socket) do
+    case KnowledgeBase.create_article(%{title: "Untitled article", status: :draft}) do
+      {:ok, article} ->
+        {:noreply, push_navigate(socket, to: "/knowledge-base/#{article.id}/edit")}
+
+      {:error, _changeset} ->
+        {:noreply,
+         put_flash(socket, :error, "Unable to create the article right now. Try again.")}
+    end
+  end
+
   def render(assigns) do
     ~H"""
     <div class="knowledge-base-index">
-      <h1>Knowledge Base</h1>
-      <p>
+      <.kb_nav current={:index} />
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px 24px 0;">
+        <h1>Knowledge Base</h1>
+        <button
+          phx-click="new_article"
+          phx-click-loading={[disabled: true]}
+          style="background: var(--cl-primary); color: var(--cl-primary-text); border: none; border-radius: var(--cl-radius-sm); padding: 8px 16px; min-height: 44px; font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.015em;"
+        >
+          New article
+        </button>
+      </div>
+      <p style="padding: 0 24px;">
         <.link navigate="/knowledge-base/gaps">Review KB gap candidates</.link>
       </p>
-      <ul>
-        <%= for article <- @articles do %>
-          <li>
-            <.link navigate={"/knowledge-base/#{article.id}/edit"}><%= article.title %></.link>
-            (<%= article.status %>)
-            <button phx-click="suggest_revision" phx-value-article_id={article.id}>
-              Suggest revision
-            </button>
-          </li>
-        <% end %>
-      </ul>
+      <%= if @articles == [] do %>
+        <div style="padding: 24px; text-align: center;">
+          <p>No articles yet.</p>
+          <p>Create the first article to start building your knowledge base.</p>
+        </div>
+      <% else %>
+        <ul style="padding: 0 24px;">
+          <%= for article <- @articles do %>
+            <li>
+              <.link navigate={"/knowledge-base/#{article.id}/edit"}><%= article.title %></.link>
+              (<%= article.status %>)
+              <button phx-click="suggest_revision" phx-value-article_id={article.id}>
+                Suggest revision
+              </button>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
     </div>
     """
   end
