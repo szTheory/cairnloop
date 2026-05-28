@@ -117,10 +117,11 @@ The phases form an additive dependency chain dictated by the adopter-experience 
 
 **Plans:** 4 plans
 
-  - [ ] 30-01-PLAN.md — EditorHandoff double-layer gate (decode/1, sign/5 marker opts, 3-step verify!/2) + record_editor_handoff/2 + get_gap_candidate/2 + list_articles/1 + manual_edit_changeset/2 + pure gate tests (SEC-01, SEC-02, KB-02/KB-03 facades).
-  - [ ] 30-02-PLAN.md — NavComponent.kb_nav/1 shared editorial nav + ReviewTaskPresenter 3-variant calm copy + pure nav/presenter tests (KB-01 component, KB-04).
+  - [x] 30-01-PLAN.md — EditorHandoff double-layer gate (decode/1, sign/5 marker opts, 3-step verify!/2) + record_editor_handoff/2 + get_gap_candidate/2 + list_articles/1 + manual_edit_changeset/2 + pure gate tests (SEC-01, SEC-02, KB-02/KB-03 facades).
+  - [x] 30-02-PLAN.md — NavComponent.kb_nav/1 shared editorial nav + ReviewTaskPresenter 3-variant calm copy + pure nav/presenter tests (KB-01 component, KB-04).
   - [ ] 30-03-PLAN.md — Index (list_articles read, New article button, nav) + Editor (gap sidebar, mount rescue, nav) + updated knowledge_base_live_test.exs marker/rescue fixtures (KB-01/KB-02/KB-03, SEC-02 consumer).
   - [ ] 30-04-PLAN.md — SuggestionReview (record_editor_handoff + marker sign + nav) + Gaps nav + ConversationLive open_manual_draft gate fix + suggestion_review_test (KB-01, SEC-01 minting side).
+
 **UI hint:** yes
 
 #### Phase 31: Golden-Path JTBD Smoke Test
@@ -217,7 +218,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete    | 2026-05-27 |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete    | 2026-05-28 |
-| 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
+| 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 2/4 | In Progress|  |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 0/0 | Not started | — |
 | 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 0/0 | Not started | — |
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
