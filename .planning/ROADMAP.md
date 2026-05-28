@@ -138,8 +138,9 @@ The phases form an additive dependency chain dictated by the adopter-experience 
 **Plans:** 2 plans
 
 Plans:
-- [ ] 31-01-PLAN.md — golden_path_test.exs: single sequential 9-stage JTBD round trip (E2E-01)
-- [ ] 31-02-PLAN.md — widget_channel_test.exs: channel join → push → ProcessMessage → operator inbox delivery (E2E-02)
+
+- [x] 31-01-PLAN.md — golden_path_test.exs: single sequential 9-stage JTBD round trip (E2E-01)
+- [x] 31-02-PLAN.md — widget_channel_test.exs: channel join → push → ProcessMessage → operator inbox delivery (E2E-02)
 
 #### Phase 32: README + ExDoc Guides + JTBD Walkthrough
 
@@ -223,7 +224,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete    | 2026-05-27 |
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete    | 2026-05-28 |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 4/4 | Complete   | 2026-05-28 |
-| 31. Golden-Path JTBD Smoke Test | vM014 | 0/2 | Planned     | â |
+| 31. Golden-Path JTBD Smoke Test | vM014 | 2/2 | Complete   | 2026-05-28 |
 | 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 0/0 | Not started | â |
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
