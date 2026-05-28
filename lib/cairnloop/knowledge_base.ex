@@ -68,6 +68,21 @@ defmodule Cairnloop.KnowledgeBase do
     |> repo().insert()
   end
 
+  def list_articles(opts \\ []) do
+    Article
+    |> maybe_filter_article_status(opts)
+    |> order_by([a], desc: a.inserted_at, desc: a.id)
+    |> repo().all()
+  end
+
+  defp maybe_filter_article_status(query, opts) do
+    case Keyword.get(opts, :status, :all) do
+      :all -> query
+      nil -> query
+      status -> where(query, [a], a.status == ^status)
+    end
+  end
+
   def publish_revision(revision) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:revision, Revision.changeset(revision, %{state: :published}))

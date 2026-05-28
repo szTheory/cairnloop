@@ -77,6 +77,21 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> enforce_scope!(opts, ArticleSuggestion)
   end
 
+  def get_gap_candidate(id, opts \\ []) do
+    get_gap_candidate!(id, opts)
+  rescue
+    Ecto.NoResultsError -> nil
+  end
+
+  def record_editor_handoff(suggestion_id, opts \\ []) do
+    now = now_fn(opts).()
+    suggestion = get_article_suggestion!(suggestion_id, opts)
+
+    suggestion
+    |> ArticleSuggestion.manual_edit_changeset(now)
+    |> repo().update()
+  end
+
   def list_review_tasks(opts \\ []) do
     ReviewTask
     |> apply_scope(opts)
