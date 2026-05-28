@@ -4,6 +4,11 @@ defmodule Cairnloop.KnowledgeBaseTest do
   alias Cairnloop.KnowledgeBase.{Article, Revision}
 
   defmodule MockRepo do
+    def all(%Ecto.Query{} = q) do
+      send(self(), {:list_query, q})
+      Process.get(:mock_articles, [])
+    end
+
     def one(%Ecto.Query{}) do
       Process.get(:mock_repo_one_result)
     end
@@ -120,6 +125,51 @@ defmodule Cairnloop.KnowledgeBaseTest do
       assert_received {:multi_insert, :chunk_job, chunk_job}
       assert chunk_job.worker == "Cairnloop.KnowledgeBase.Workers.ChunkRevision"
       assert chunk_job.args == %{revision_id: 1}
+    end
+  end
+
+  describe "list_articles/1" do
+    test "returns the MockRepo-seeded article list" do
+      articles = [
+        %Article{id: 2, title: "Newer", status: :published},
+        %Article{id: 1, title: "Older", status: :draft}
+      ]
+
+      Process.put(:mock_articles, articles)
+
+      result = KnowledgeBase.list_articles([])
+      assert result == articles
+    end
+
+    test "query has desc order_bys on inserted_at and id" do
+      KnowledgeBase.list_articles([])
+      assert_received {:list_query, q}
+
+      order_bys = q.order_bys
+      assert length(order_bys) == 1
+      [order_by_expr] = order_bys
+      # The expr is a list of {direction, field_ast} tuples
+      fields = order_by_expr.expr
+      directions = Enum.map(fields, fn {dir, _field} -> dir end)
+      assert directions == [:desc, :desc]
+    end
+
+    test "list_articles(status: :draft) adds a where clause to the query" do
+      KnowledgeBase.list_articles(status: :draft)
+      assert_received {:list_query, q}
+      assert q.wheres != []
+    end
+
+    test "list_articles(status: :all) does not add a where clause" do
+      KnowledgeBase.list_articles(status: :all)
+      assert_received {:list_query, q}
+      assert q.wheres == []
+    end
+
+    test "list_articles([]) does not add a where clause" do
+      KnowledgeBase.list_articles([])
+      assert_received {:list_query, q}
+      assert q.wheres == []
     end
   end
 end
