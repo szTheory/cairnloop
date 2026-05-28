@@ -55,7 +55,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
         <h1>Knowledge Base</h1>
         <button
           phx-click="new_article"
-          phx-click-loading={[disabled: true]}
+          phx-disable-with="Creating..."
           style="background: var(--cl-primary); color: var(--cl-primary-text); border: none; border-radius: var(--cl-radius-sm); padding: 8px 16px; min-height: 44px; font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.015em;"
         >
           New article

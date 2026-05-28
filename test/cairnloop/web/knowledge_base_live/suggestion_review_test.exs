@@ -189,6 +189,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       [%Article{id: 77, title: "Billing export guide", status: :published}]
     end
 
+    # list_articles/1 now passes an Ecto.Query (not the bare Article module)
+    def all(%Ecto.Query{} = _query) do
+      [%Article{id: 77, title: "Billing export guide", status: :published}]
+    end
+
     def get!(Article, id) do
       case to_string(id) do
         "77" -> %Article{id: 77, title: "Billing export guide", status: :published}
