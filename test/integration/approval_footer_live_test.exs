@@ -49,7 +49,7 @@ defmodule Cairnloop.Integration.ApprovalFooterLiveTest do
     {:ok, view, html} = live(ctx.conn, "/governance/#{ctx.conversation.id}")
 
     # never-color-alone (brand §7.5): the affordance carries BOTH a text label and the token.
-    assert html =~ "var(--cl-primary, #A94F30)"
+    assert html =~ "var(--cl-primary)"
     assert has_element?(view, "button[phx-click='approve_action']")
     assert has_element?(view, "form[phx-submit='reject_action']")
     assert has_element?(view, "form[phx-submit='defer_action']")
