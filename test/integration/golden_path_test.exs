@@ -166,7 +166,7 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     )
 
     # Open the cmd+k palette — toggle_search handles phx-window-keydown on the component root
-    # (search_modal_component.ex line 222). Use render_keydown targeting the component root.
+    # (search_modal_component.ex line 222; toggle_shortcut? checks metaKey=="true" via truthy?/1)
     view
     |> element("[phx-window-keydown='toggle_search']")
     |> render_keydown(%{"key" => "k", "metaKey" => "true"})
@@ -179,48 +179,18 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     # Stub result title appears in the rendered HTML
     assert render(view) =~ "Test Article"
 
-    # Simulate citation-chip: activate the first result, then open it
     # dom_id for knowledge_base result with article_id=1, chunk_index=nil (defaults to 0):
     # "knowledge_base-1-0" (SearchResultPresenter.dom_id/1)
+    # Note: template attribute is phx-value-dom_id (underscore) not phx-value-dom-id (hyphen)
     dom_id = "knowledge_base-1-0"
 
+    # Fire activate_result on the component result button (phx-target={@myself}, phx-value-dom_id)
     view
-    |> element("[phx-window-keydown='toggle_search']")
-    |> render_keydown(%{"key" => "k", "metaKey" => "true"})
-
-    # Re-open the modal and re-run search to restore state after close
-    view
-    |> element("[phx-window-keydown='toggle_search']")
-    |> render_keydown(%{"key" => "k", "metaKey" => "true"})
-
-    view
-    |> element("form[phx-change='search']")
-    |> render_change(%{"query" => "refund"})
-
-    # activate_result sets the active result (mouse hover / keyboard nav)
-    view
-    |> element("[phx-target]")
-
-    # Target the component events via the component target (phx-target={@myself})
-    # The SearchModalComponent handles activate_result + open_active_result on @myself
-    send_update(Cairnloop.Web.SearchModalComponent,
-      id: "search-modal",
-      retrieval_module: StubRetrieval
-    )
-
-    view
-    |> element("form[phx-change='search']")
-    |> render_change(%{"query" => "refund"})
-
-    assert render(view) =~ "Test Article"
-
-    # Fire activate_result on the component (phx-target={@myself} on the result row)
-    view
-    |> element("[phx-click='activate_result'][phx-value-dom-id='#{dom_id}']")
+    |> element("[phx-click='activate_result'][phx-value-dom_id='#{dom_id}']")
     |> render_click()
 
-    # open_active_result navigates internally via push_navigate (no parent event)
-    # Just assert the stub result was visible — citation chip flow is internal to the modal
+    # open_active_result navigates internally via push_navigate (no parent event fired to LiveView)
+    # Citation chip flow is internal to the modal — assert result was visible (done above)
 
     # ------------------------------------------------------------------
     # Stage 4: Approve AI draft
