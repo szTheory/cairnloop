@@ -1,34 +1,49 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   use Phoenix.LiveView
+  import Cairnloop.Web.KnowledgeBaseLive.NavComponent
   alias Cairnloop.KnowledgeBase
   alias Cairnloop.KnowledgeBase.Article
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
+  alias Cairnloop.Web.GapCandidatePresenter
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
   def mount(params, session, socket) do
-    id = (is_map(params) && params["id"]) || session["id"]
-    scope_filters = scope_filters(session)
-    article = repo().get!(Article, id)
-    latest_revision = KnowledgeBase.get_latest_revision(id)
-    suggestion = load_suggestion(params, scope_filters, article.id)
-    :ok = ensure_editor_target_matches!(article, suggestion)
-    review_context = load_review_context(params, scope_filters, article, suggestion)
-    content = preload_content(suggestion, latest_revision)
+    try do
+      id = (is_map(params) && params["id"]) || session["id"]
+      scope_filters = scope_filters(session)
+      article = repo().get!(Article, id)
+      latest_revision = KnowledgeBase.get_latest_revision(id)
+      suggestion = load_suggestion(params, scope_filters, article.id)
+      :ok = ensure_editor_target_matches!(article, suggestion)
+      review_context = load_review_context(params, scope_filters, article, suggestion)
+      content = preload_content(suggestion, latest_revision)
+      gap_candidate = load_gap_candidate_from_suggestion(suggestion, scope_filters)
 
-    socket =
-      socket
-      |> assign(article: article)
-      |> assign(revision: latest_revision)
-      |> assign(content: content)
-      |> assign(preview_html: parse_markdown(content))
-      |> assign(review_context: review_context)
-      |> assign(review_origin?: review_context.review_task != nil)
+      socket =
+        socket
+        |> assign(article: article)
+        |> assign(revision: latest_revision)
+        |> assign(content: content)
+        |> assign(preview_html: parse_markdown(content))
+        |> assign(review_context: review_context)
+        |> assign(review_origin?: review_context.review_task != nil)
+        |> assign(gap_candidate: gap_candidate)
 
-    {:ok, socket}
+      {:ok, socket}
+    rescue
+      Ecto.NoResultsError ->
+        {:ok,
+         socket
+         |> put_flash(
+           :error,
+           "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
+         )
+         |> push_navigate(to: "/knowledge-base/suggestions")}
+    end
   end
 
   def handle_event("change", %{"content" => content}, socket) do
@@ -100,6 +115,18 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   end
 
   defp load_suggestion(_params, _scope_filters, _article_id), do: nil
+
+  defp load_gap_candidate_from_suggestion(nil, _scope_filters), do: nil
+
+  defp load_gap_candidate_from_suggestion(suggestion, scope_filters) do
+    case {suggestion.entrypoint_type, suggestion.entrypoint_id} do
+      {:gap_candidate, gid} when is_integer(gid) ->
+        knowledge_automation().get_gap_candidate(gid, scope_filters)
+
+      _ ->
+        nil
+    end
+  end
 
   defp load_review_context(
          %{"review_task_id" => review_task_id} = params,
@@ -225,12 +252,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   def render(assigns) do
     ~H"""
     <div class="knowledge-base-editor">
+      <.kb_nav current={:editor} />
       <.link navigate="/knowledge-base">Back to Index</.link>
       <h2>Editing: <%= @article.title %></h2>
       <%= if @revision && @revision.state == :published do %>
         <p>Loaded from the latest published revision.</p>
       <% end %>
-      
+
       <div class="editor-layout" style="display: flex; gap: 32px;">
         <div class="editor-pane" style="flex: 1;">
           <%= if @review_origin? do %>
@@ -253,10 +281,32 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
             <% end %>
           </div>
         </div>
-        
+
         <div class="preview-pane" style="flex: 1; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;">
           <%= Phoenix.HTML.raw(@preview_html) %>
         </div>
+
+        <%= if @gap_candidate do %>
+          <aside
+            aria-label="Source gap evidence"
+            style="width: 280px; background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-md); padding: 16px; flex-shrink: 0;"
+          >
+            <h3 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">Source gap</h3>
+            <p style="font-size: 15px; font-weight: 600; margin: 0 0 16px;"><%= @gap_candidate.title %></p>
+            <div style="margin-bottom: 16px;">
+              <span style="font-size: 13px; font-weight: 400; color: var(--cl-text-muted);">
+                <%= "#{@gap_candidate.evidence_count} evidence" %>
+              </span>
+              <span style="font-size: 13px; font-weight: 400; color: var(--cl-text-muted); margin-left: 8px;">
+                <%= GapCandidatePresenter.freshness_label(@gap_candidate) %>
+              </span>
+            </div>
+            <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">Retrieval evidence</h4>
+            <%= if @gap_candidate.evidence_count == 0 do %>
+              <p style="font-size: 13px; color: var(--cl-text-muted);">No retrieval evidence linked to this gap.</p>
+            <% end %>
+          </aside>
+        <% end %>
       </div>
     </div>
     """

@@ -1,12 +1,20 @@
 defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
   use ExUnit.Case, async: false
   alias Cairnloop.KnowledgeAutomation.ArticleSuggestion
+  alias Cairnloop.KnowledgeAutomation.GapCandidate
   alias Cairnloop.KnowledgeBase.{Article, Revision}
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
 
   defmodule MockRepo do
     def all(Article) do
       [%Article{id: 42, title: "Test Article", status: :draft}]
+    end
+
+    def all(%Ecto.Query{}) do
+      case Process.get(:mock_repo_all_result) do
+        nil -> [%Article{id: 42, title: "Test Article", status: :draft}]
+        result -> result
+      end
     end
 
     def get!(Article, id) do
@@ -85,6 +93,26 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       }
     end
 
+    def get_article_suggestion!(18, _opts) do
+      %ArticleSuggestion{
+        id: 18,
+        proposed_markdown: "# Gap-originated copy\n\nPrepared from gap candidate.",
+        title: "Gap Article",
+        entrypoint_type: :gap_candidate,
+        entrypoint_id: 7
+      }
+    end
+
+    def get_article_suggestion!(19, _opts) do
+      %ArticleSuggestion{
+        id: 19,
+        proposed_markdown: "# Revision copy\n\nPrepared from revision.",
+        title: "Revision Article",
+        entrypoint_type: :article_revision,
+        entrypoint_id: 5
+      }
+    end
+
     def get_review_task!(id, opts \\ [])
 
     def get_review_task!(27, _opts) do
@@ -99,6 +127,21 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       send(self(), {:material_edit, review_task_id, attrs})
       {:ok, Process.get(:mock_review_task)}
     end
+
+    def get_gap_candidate(id, _opts \\ [])
+
+    def get_gap_candidate(7, _opts) do
+      %GapCandidate{
+        id: 7,
+        title: "Billing export gap",
+        seed_excerpt: "Customers cannot export billing data",
+        candidate_type: :manual_handling,
+        evidence_count: 2,
+        last_seen_at: DateTime.utc_now()
+      }
+    end
+
+    def get_gap_candidate(_id, _opts), do: nil
   end
 
   setup do
@@ -109,10 +152,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :knowledge_automation)
       Process.delete(:mock_repo_one_lookup)
+      Process.delete(:mock_repo_all_result)
       Process.delete(:mock_review_task)
     end)
 
     :ok
+  end
+
+  # Build a socket with flash initialized (required for put_flash/3 in mount rescue
+  # and handle_event error paths, which read assigns.flash to update it).
+  defp socket_with_flash do
+    %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}, flash: %{}}}
   end
 
   test "Editor renders preview side-by-side using Earmark when Markdown is input" do
@@ -171,7 +221,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       content: "# Hello"
     })
 
-    handoff = EditorHandoff.sign(15, 42, nil, nil)
+    handoff =
+      EditorHandoff.sign(15, 42, nil, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
@@ -206,7 +259,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       }
     })
 
-    handoff = EditorHandoff.sign(15, 42, 27, "/knowledge-base/suggestions?task=27")
+    handoff =
+      EditorHandoff.sign(15, 42, 27, "/knowledge-base/suggestions?task=27",
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
@@ -229,7 +285,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     refute html =~ ">Publish<"
   end
 
-  test "editor rejects bare suggestion ids without a signed handoff" do
+  test "editor rejects bare suggestion ids without a signed handoff — returns calm flash + redirect" do
     Process.put(:mock_repo_one_result, %Revision{
       id: 1,
       article_id: 42,
@@ -238,16 +294,18 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       content: "# Hello"
     })
 
-    assert_raise Ecto.NoResultsError, fn ->
+    {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
         %{"id" => "42", "suggestion_id" => "15"},
         %{},
-        %Phoenix.LiveView.Socket{}
+        socket_with_flash()
       )
-    end
+
+    assert socket.assigns.flash["error"] ==
+             "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
   end
 
-  test "editor rejects suggestion ids that do not belong to the route article" do
+  test "editor rejects suggestion ids that do not belong to the route article — returns calm flash + redirect" do
     Process.put(:mock_repo_one_result, %Revision{
       id: 1,
       article_id: 42,
@@ -256,18 +314,23 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       content: "# Hello"
     })
 
-    handoff = EditorHandoff.sign(16, 42, nil, nil)
+    handoff =
+      EditorHandoff.sign(16, 42, nil, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
-    assert_raise Ecto.NoResultsError, fn ->
+    {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
         %{"id" => "42", "suggestion_id" => "16", "handoff" => handoff},
         %{},
-        %Phoenix.LiveView.Socket{}
+        socket_with_flash()
       )
-    end
+
+    assert socket.assigns.flash["error"] ==
+             "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
   end
 
-  test "editor rejects review tasks that do not belong to the selected suggestion" do
+  test "editor rejects review tasks that do not belong to the selected suggestion — returns calm flash + redirect" do
     Process.put(:mock_repo_one_result, %Revision{
       id: 1,
       article_id: 42,
@@ -283,18 +346,23 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       status: :pending_review
     })
 
-    handoff = EditorHandoff.sign(15, 42, 28, nil)
+    handoff =
+      EditorHandoff.sign(15, 42, 28, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
-    assert_raise Ecto.NoResultsError, fn ->
+    {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
         %{"id" => "42", "suggestion_id" => "15", "review_task_id" => "28", "handoff" => handoff},
         %{},
-        %Phoenix.LiveView.Socket{}
+        socket_with_flash()
       )
-    end
+
+    assert socket.assigns.flash["error"] ==
+             "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
   end
 
-  test "editor rejects bare review_task ids that target a different article" do
+  test "editor rejects bare review_task ids that target a different article — returns calm flash + redirect" do
     Process.put(:mock_repo_one_result, %Revision{
       id: 1,
       article_id: 42,
@@ -310,13 +378,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       status: :pending_review
     })
 
-    assert_raise Ecto.NoResultsError, fn ->
+    {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
         %{"id" => "42", "review_task_id" => "27"},
         %{},
-        %Phoenix.LiveView.Socket{}
+        socket_with_flash()
       )
-    end
+
+    assert socket.assigns.flash["error"] ==
+             "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
   end
 
   test "editor forwards scope filters to suggestion and review-task lookups" do
@@ -335,7 +405,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       status: :pending_review
     })
 
-    handoff = EditorHandoff.sign(15, 42, 27, nil)
+    handoff =
+      EditorHandoff.sign(15, 42, 27, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     original = Application.get_env(:cairnloop, :knowledge_automation)
 
@@ -360,6 +433,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
           attrs,
           opts
         )
+      end
+
+      def get_gap_candidate(id, opts) do
+        Cairnloop.Web.KnowledgeBaseLiveTest.MockKnowledgeAutomation.get_gap_candidate(id, opts)
       end
     end
 
@@ -397,7 +474,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       content: "# Hello"
     })
 
-    handoff = EditorHandoff.sign(17, 42, nil, nil)
+    handoff =
+      EditorHandoff.sign(17, 42, nil, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
@@ -452,7 +532,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       }
     })
 
-    handoff = EditorHandoff.sign(15, 42, 27, nil)
+    handoff =
+      EditorHandoff.sign(15, 42, 27, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
 
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
@@ -505,6 +588,112 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
 
     html = render_html(socket.assigns)
     assert html =~ ">Publish<"
+  end
+
+  test "Editor renders Source gap sidebar when suggestion has entrypoint_type :gap_candidate" do
+    Process.put(:mock_repo_one_result, %Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    handoff =
+      EditorHandoff.sign(18, 42, nil, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42", "suggestion_id" => "18", "handoff" => handoff},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ "Source gap"
+    assert html =~ "Billing export gap"
+    assert html =~ "2 evidence"
+    assert html =~ "Seen today"
+  end
+
+  test "Editor does not render Source gap sidebar for non-gap suggestions" do
+    Process.put(:mock_repo_one_result, %Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    handoff =
+      EditorHandoff.sign(19, 42, nil, nil,
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42", "suggestion_id" => "19", "handoff" => handoff},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    refute html =~ "Source gap"
+  end
+
+  test "Index new_article event creates an article and push_navigates to its editor" do
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.mount(
+        %{},
+        %{},
+        socket_with_flash()
+      )
+
+    {:noreply, result_socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.handle_event("new_article", %{}, socket)
+
+    # MockRepo.insert returns {:ok, apply_changes(changeset)} — article gets id: nil
+    # push_navigate sets socket.redirected to {:live, :redirect, %{to: path}}
+    assert match?({:live, :redirect, %{to: path}} when is_binary(path), result_socket.redirected)
+    {:live, :redirect, %{to: path}} = result_socket.redirected
+    assert path =~ "/knowledge-base/"
+    assert path =~ "/edit"
+  end
+
+  test "Index new_article event flashes calm error when create_article fails" do
+    defmodule FailingRepo do
+      def all(_), do: []
+
+      def insert(_changeset, _opts \\ []) do
+        {:error,
+         Ecto.Changeset.add_error(
+           Ecto.Changeset.change(%Cairnloop.KnowledgeBase.Article{}),
+           :title,
+           "some error"
+         )}
+      end
+    end
+
+    Application.put_env(:cairnloop, :repo, FailingRepo)
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.mount(
+        %{},
+        %{},
+        socket_with_flash()
+      )
+
+    {:noreply, result_socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.handle_event("new_article", %{}, socket)
+
+    assert result_socket.assigns.flash["error"] ==
+             "Unable to create the article right now. Try again."
+
+    Application.put_env(:cairnloop, :repo, MockRepo)
   end
 
   defp render_html(assigns) do
