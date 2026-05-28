@@ -28,9 +28,9 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 
 ### Brand-Token CSS Extraction (D-10 Closure)
 
-- [ ] **BRAND-01**: The canonical `:root` brand tokens from `prompts/cairnloop.css` and `prompts/cairnloop.tokens.json` (~30 semantic + ~15 primitive tokens) are imported into `examples/cairnloop_example/assets/css/app.css` and the example app's Tailwind `@theme` block extends them — replaces the current 4-token + 6-raw-`--cl-*` placeholder.
-- [ ] **BRAND-02**: Inline `var(--cl-<token>, #<hex>)` fallback strings across `lib/cairnloop/web/inbox_live.ex` and `lib/cairnloop/web/conversation_live.ex` are dropped to bare `var(--cl-<token>)` form — Option B per the assessment thread; named-class migration (Option A) is explicitly out of scope.
-- [ ] **BRAND-03**: The 5 known `assert html =~ "var(--cl-primary, #A94F30)"` headless-token assertions in `test/cairnloop/web/inbox_live_test.exs`, `test/cairnloop/web/conversation_live_test.exs`, `test/integration/approval_footer_live_test.exs`, and `test/integration/tool_execution_outcome_live_test.exs` are re-pinned to the new hex-free form.
+- [x] **BRAND-01**: The canonical `:root` brand tokens from `prompts/cairnloop.css` and `prompts/cairnloop.tokens.json` (~30 semantic + ~15 primitive tokens) are imported into `examples/cairnloop_example/assets/css/app.css` and the example app's Tailwind `@theme` block extends them — replaces the current 4-token + 6-raw-`--cl-*` placeholder.
+- [x] **BRAND-02**: Inline `var(--cl-<token>, #<hex>)` fallback strings across `lib/cairnloop/web/inbox_live.ex` and `lib/cairnloop/web/conversation_live.ex` are dropped to bare `var(--cl-<token>)` form — Option B per the assessment thread; named-class migration (Option A) is explicitly out of scope.
+- [x] **BRAND-03**: The 5 known `assert html =~ "var(--cl-primary, #A94F30)"` headless-token assertions in `test/cairnloop/web/inbox_live_test.exs`, `test/cairnloop/web/conversation_live_test.exs`, `test/integration/approval_footer_live_test.exs`, and `test/integration/tool_execution_outcome_live_test.exs` are re-pinned to the new hex-free form.
 - [ ] **BRAND-04**: A negative-grep gate enforces zero remaining hex-fallback strings: `grep -r 'var(--cl-[a-z-]*, #' lib/cairnloop/web/` returns nothing. Gate runs in the test lane so the contract holds across future edits.
 
 ### KB Editorial Polish
@@ -123,9 +123,9 @@ Which phases cover which requirements.
 | CHAT-01 | Phase 28 | Complete |
 | CHAT-02 | Phase 28 | Complete |
 | CHAT-03 | Phase 28 | Pending |
-| BRAND-01 | Phase 29 | Pending |
-| BRAND-02 | Phase 29 | Pending |
-| BRAND-03 | Phase 29 | Pending |
+| BRAND-01 | Phase 29 | Complete |
+| BRAND-02 | Phase 29 | Complete |
+| BRAND-03 | Phase 29 | Complete |
 | BRAND-04 | Phase 29 | Pending |
 | KB-01 | Phase 30 | Pending |
 | KB-02 | Phase 30 | Pending |

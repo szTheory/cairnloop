@@ -21,7 +21,7 @@
 
 - [x] **Phase 27: Realistic Demo Fixtures** — Replace the lonely 1-conversation seed with a JTBD-spanning fixture set that exercises the M008 substrate end-to-end. (completed 2026-05-27)
 - [x] **Phase 28: Customer `/chat` Wired to Real Ingress** — Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customer→operator path. (completed 2026-05-27)
-- [ ] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** — Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate.
+- [x] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** — Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate. (completed 2026-05-28)
 - [ ] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** — Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker.
 - [ ] **Phase 31: Golden-Path JTBD Smoke Test** — Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
 - [ ] **Phase 32: README + ExDoc Guides + JTBD Walkthrough** — Make the front door match the shipped install path; ship four ExDoc guides + CHANGELOG entry so adopters can self-serve.
@@ -95,7 +95,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
   3. The 5 known `assert html =~ "var(--cl-primary, #A94F30)"` headless-token assertions across `test/cairnloop/web/inbox_live_test.exs`, `test/cairnloop/web/conversation_live_test.exs`, `test/integration/approval_footer_live_test.exs`, and `test/integration/tool_execution_outcome_live_test.exs` are re-pinned to the hex-free form and pass on `mix test`.
   4. A negative-grep gate runs in the test lane and fails the build if `grep -r 'var(--cl-[a-z-]*, #' lib/cairnloop/web/` returns anything — the contract holds across future edits.
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
   - [x] 29-01-PLAN.md — BRAND-01: land canonical `:root` + `@theme` + dark overrides + `--cl-on-primary` alias in `examples/cairnloop_example/assets/css/app.css` (verbatim from `prompts/cairnloop.css`; replaces the 4-token stub).
   - [x] 29-02-PLAN.md — BRAND-02 + BRAND-04: drop hex fallbacks across 4 sealed render files (`inbox_live.ex` + `conversation_live.ex` + `search_modal_component.ex` + example app `chat_live.ex`), rename `--cl-error` → `--cl-danger` in `chat_live.ex`, refresh `inbox_live.ex` moduledoc, land negative-grep gate test `test/cairnloop/web/brand_token_gate_test.exs`.
@@ -211,7 +211,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 |-------|-----------|----------------|--------|-----------|
 | 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete    | 2026-05-27 |
-| 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete   | 2026-05-28 |
+| 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete    | 2026-05-28 |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 0/0 | Not started | — |
 | 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 0/0 | Not started | — |
