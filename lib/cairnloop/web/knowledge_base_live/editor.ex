@@ -7,15 +7,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.GapCandidatePresenter
 
-  defp repo do
-    Application.fetch_env!(:cairnloop, :repo)
-  end
-
   def mount(params, session, socket) do
     try do
       id = (is_map(params) && params["id"]) || session["id"]
       scope_filters = scope_filters(session)
-      article = repo().get!(Article, id)
+      article = KnowledgeBase.get_article!(id)
       latest_revision = KnowledgeBase.get_latest_revision(id)
       suggestion = load_suggestion(params, scope_filters, article.id)
       :ok = ensure_editor_target_matches!(article, suggestion)

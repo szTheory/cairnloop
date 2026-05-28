@@ -32,6 +32,20 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       end
     end
 
+    def one!(%Ecto.Query{from: %{source: {_table, Article}}} = _query) do
+      case Process.get(:mock_article_result) do
+        nil -> %Article{id: 42, title: "Test Article", status: :draft}
+        result -> result
+      end
+    end
+
+    def one!(%Ecto.Query{} = query) do
+      case one(query) do
+        nil -> raise Ecto.NoResultsError, queryable: query
+        result -> result
+      end
+    end
+
     def insert(changeset, _opts \\ []) do
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
