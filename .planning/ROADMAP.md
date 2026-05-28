@@ -99,7 +99,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
 
   - [x] 29-01-PLAN.md — BRAND-01: land canonical `:root` + `@theme` + dark overrides + `--cl-on-primary` alias in `examples/cairnloop_example/assets/css/app.css` (verbatim from `prompts/cairnloop.css`; replaces the 4-token stub).
   - [x] 29-02-PLAN.md — BRAND-02 + BRAND-04: drop hex fallbacks across 4 sealed render files (`inbox_live.ex` + `conversation_live.ex` + `search_modal_component.ex` + example app `chat_live.ex`), rename `--cl-error` → `--cl-danger` in `chat_live.ex`, refresh `inbox_live.ex` moduledoc, land negative-grep gate test `test/cairnloop/web/brand_token_gate_test.exs`.
-  - [ ] 29-03-PLAN.md — BRAND-03: re-pin all 6 hex-fallback assertions across 3 integration test files (`approval_footer_live_test.exs` + `tool_execution_outcome_live_test.exs` + `bulk_recovery_live_test.exs`) to bare `var(--cl-<token>)` form with closing-paren strictness.
+  - [x] 29-03-PLAN.md — BRAND-03: re-pin all 6 hex-fallback assertions across 3 integration test files (`approval_footer_live_test.exs` + `tool_execution_outcome_live_test.exs` + `bulk_recovery_live_test.exs`) to bare `var(--cl-<token>)` form with closing-paren strictness.
 
 **UI hint:** yes
 
@@ -211,7 +211,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 |-------|-----------|----------------|--------|-----------|
 | 27. Realistic Demo Fixtures | vM014 | 8/8 | Complete    | 2026-05-27 |
 | 28. Customer `/chat` Wired to Real Ingress | vM014 | 3/3 | Complete    | 2026-05-27 |
-| 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 2/3 | In Progress|  |
+| 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete   | 2026-05-28 |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 0/0 | Not started | — |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 0/0 | Not started | — |
 | 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 0/0 | Not started | — |
