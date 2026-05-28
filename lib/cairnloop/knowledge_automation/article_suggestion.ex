@@ -86,6 +86,10 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestion do
     |> validate_quick_fix_metadata()
   end
 
+  def manual_edit_changeset(article_suggestion, opened_at) do
+    cast(article_suggestion, %{manual_edit_opened_at: opened_at}, [:manual_edit_opened_at])
+  end
+
   def dismiss_changeset(article_suggestion, dismissed_at) do
     changeset(article_suggestion, %{
       status: :dismissed,
