@@ -47,6 +47,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       {:ok, 91}
     end
 
+    def record_editor_handoff(suggestion_id, opts) do
+      send(self(), {:record_editor_handoff, suggestion_id, opts})
+      {:ok, %ArticleSuggestion{id: suggestion_id, manual_edit_opened_at: DateTime.utc_now()}}
+    end
+
     def ensure_review_task_for_suggestion(suggestion_id, _opts \\ []) do
       task =
         Process.get(:mock_review_task_map, %{})
@@ -220,6 +225,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
     Application.put_env(:cairnloop, :knowledge_base, MockKnowledgeBase)
     Application.put_env(:cairnloop, :repo, MockRepo)
+
+    Application.put_env(:cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+      secret_key_base: "test-secret-key-base-for-suggestion-review-tests-pinned-deterministic"
+    )
 
     ready_article =
       suggestion_fixture(%{
@@ -550,6 +559,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
       Application.delete_env(:cairnloop, :knowledge_automation)
       Application.delete_env(:cairnloop, :knowledge_base)
       Application.delete_env(:cairnloop, :repo)
+      Application.delete_env(:cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff)
     end)
 
     :ok
@@ -616,7 +626,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert html =~ "Approve"
     assert html =~ "Reject"
     assert html =~ "Defer"
-    assert html =~ "Open for edit"
+    # task 21 is a :article suggestion → action_label returns "Create manual draft" (KB-04)
+    assert html =~ "Create manual draft"
     refute html =~ "Regenerate"
     refute html =~ "Dismiss"
     refute html =~ "phx-click=\"publish\""
@@ -628,7 +639,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     html = render_html(socket.assigns)
 
     assert html =~ "Publish"
-    assert html =~ "Open for edit"
+    # task 22 is a :revision suggestion (non-failed, non-article) → "Open for manual edit" (KB-04)
+    assert html =~ "Open for manual edit"
     assert html =~ "Reject"
     assert html =~ "Defer"
   end
@@ -639,7 +651,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     html = render_html(socket.assigns)
 
     assert html =~ "Manual draft required"
-    assert html =~ "Open manual draft"
+    # blocked_quick_fix.status == :failed → action_label returns "Review and draft manually" (KB-04)
+    assert html =~ "Review and draft manually"
     assert html =~ "policy guard"
     refute html =~ "phx-click=\"publish\""
   end
@@ -705,6 +718,28 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     assert {:live, :redirect, %{to: blocked_path}} = blocked_edit_socket.redirected
     assert blocked_path =~ "/knowledge-base/91/edit?suggestion_id=14"
     assert blocked_path =~ "review_task_id=28"
+  end
+
+  test "open_for_manual_edit records DB handoff and mints a marker-bearing token" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "22"}, "", socket)
+
+    assert {:noreply, edit_socket} =
+             SuggestionReview.handle_event("open_for_manual_edit", %{"id" => "22"}, socket)
+
+    # Assert record_editor_handoff was called for suggestion 11 (ready_revision)
+    assert_received {:record_editor_handoff, 11, _opts}
+
+    # Extract handoff= param from the navigate path and decode the token
+    assert {:live, :redirect, %{to: path}} = edit_socket.redirected
+    %URI{query: query} = URI.parse(path)
+    params = URI.decode_query(query)
+    token = URI.decode_www_form(params["handoff"])
+
+    # Decode the token and assert manual_edit_opened_at is a non-empty binary
+    assert {:ok, payload} = Cairnloop.KnowledgeAutomation.EditorHandoff.decode(token)
+    assert is_binary(payload["manual_edit_opened_at"])
+    assert payload["manual_edit_opened_at"] != ""
   end
 
   test "manual-edit handoff stays deterministic end to end from review lane to editor preload" do

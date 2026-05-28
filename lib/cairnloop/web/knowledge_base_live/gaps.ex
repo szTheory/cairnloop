@@ -1,6 +1,8 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   use Phoenix.LiveView
 
+  import Cairnloop.Web.KnowledgeBaseLive.NavComponent
+
   alias Cairnloop.Web.GapCandidatePresenter
 
   def mount(_params, session, socket) do
@@ -59,6 +61,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   def render(assigns) do
     ~H"""
     <div class="knowledge-base-gaps">
+      <.kb_nav current={:gaps} />
       <header>
         <h1>KB gap candidates</h1>
         <p>Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling.</p>
