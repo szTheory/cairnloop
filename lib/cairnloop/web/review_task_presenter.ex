@@ -12,6 +12,8 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
     {"published", "Published"}
   ]
 
+  @valid_queue_values Enum.map(@queue_filters, &elem(&1, 0))
+
   def queue_filters, do: @queue_filters
 
   def status_label(%ReviewTask{status: status}), do: status_label(status)
@@ -23,7 +25,15 @@ defmodule Cairnloop.Web.ReviewTaskPresenter do
   def status_label(:published), do: "Published"
 
   def queue_filter_status("all"), do: nil
-  def queue_filter_status(value) when is_binary(value), do: String.to_existing_atom(value)
+
+  def queue_filter_status(value) when is_binary(value) do
+    if value in @valid_queue_values do
+      String.to_existing_atom(value)
+    else
+      nil
+    end
+  end
+
   def queue_filter_status(value), do: value
 
   def queue_filter_label(status) when is_atom(status),
