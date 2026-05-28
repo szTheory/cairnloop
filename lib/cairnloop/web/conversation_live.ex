@@ -527,8 +527,8 @@ defmodule Cairnloop.Web.ConversationLive do
         min-height: 44px;
         padding: 10px 16px;
         border-radius: 8px;
-        border: 1px solid var(--cl-primary, #A94F30);
-        background: var(--cl-primary, #A94F30);
+        border: 1px solid var(--cl-primary);
+        background: var(--cl-primary);
         color: #fffdf8;
         font-weight: 600;
         cursor: pointer;
@@ -666,7 +666,7 @@ defmodule Cairnloop.Web.ConversationLive do
         background: #fdecea;
       }
       .governed-action-chip-status {
-        color: var(--cl-primary, #A94F30);
+        color: var(--cl-primary);
         background: #f4e6d4;
         border-color: #c38f57;
       }
@@ -757,7 +757,7 @@ defmodule Cairnloop.Web.ConversationLive do
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--cl-primary, #A94F30);
+        color: var(--cl-primary);
       }
       .governed-actions-empty {
         font-size: 0.9rem;
@@ -989,7 +989,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <input type="text" name={@form[field].name} value={@form[field].value} style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" />
               </div>
             <% end %>
-            <button type="submit" style="padding: 6px 12px; background: var(--cl-primary, #A94F30); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Propose</button>
+            <button type="submit" style="padding: 6px 12px; background: var(--cl-primary); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Propose</button>
           </.form>
         </div>
         """
@@ -1375,7 +1375,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
       <%!-- Footer action slot: Approve / Reject / Defer affordances when :pending approval exists.
            Status conveyed by text AND color — never color-alone (brand §7.5).
-           Brand token var(--cl-primary, #A94F30) for primary affordance color (§2.2/§7). --%>
+           Brand token var(--cl-primary) for primary affordance color (§2.2/§7). --%>
       <div class="governed-action-footer">
         <%= if @active_approval && @active_approval.status == :pending do %>
           <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -1385,7 +1385,7 @@ defmodule Cairnloop.Web.ConversationLive do
               <button
                 phx-click="approve_action"
                 phx-value-approval-id={@active_approval.id}
-                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary, #A94F30); background: var(--cl-primary, #A94F30); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
+                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary); background: var(--cl-primary); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
               >
                 Approve
               </button>
