@@ -25,24 +25,23 @@ defmodule Cairnloop.Web.InboxLive do
     `InboxLive` runs no direct Ecto queries (the Phase 25 plan acceptance grep
     asserts the `Conversation`-where pattern is absent from this file).
 
-  ## Brand tokens (WR-03)
+  ## Brand tokens (WR-03 / Phase 29 D-10 closure)
 
-  Every color in this file is expressed as `var(--cl-<name>, <hex-or-rgba>)`
-  so a host stylesheet can override the cascade without touching this file.
-  The fallback values are inline so headless tests can assert the brand-token
-  vocabulary in rendered HTML (see `inbox_live_test.exs` "var(--cl-primary" /
-  "var(--cl-danger" gates). Future cleanup may extract the duplicated button
-  declarations (`min-height: 44px; padding: 10px 16px; border-radius: 8px;`)
-  to a stylesheet class once the project has a CSS pipeline; until then,
-  keeping the brand tokens visible in HTML is the test contract.
+  Every brand color in this file uses the bare `var(--cl-<name>)` form —
+  no inline hex fallback. The canonical token definitions live in
+  `examples/cairnloop_example/assets/css/app.css` (copied from
+  `prompts/cairnloop.css`). Enforcement: the BRAND-04 gate test at
+  `test/cairnloop/web/brand_token_gate_test.exs` fails the build if any
+  `var(--cl-<token>, #<hex>)` string is re-introduced in `lib/cairnloop/web/`
+  or `examples/cairnloop_example/lib/cairnloop_example_web/live/`.
 
-  Token vocabulary used here (additive to `--cl-primary` / `--cl-surface` /
-  `--cl-surface-raised` / `--cl-border` / `--cl-text` / `--cl-danger` that
-  already exist in the codebase): `--cl-on-primary` (text on primary brand),
-  `--cl-text-muted` (62% text alpha), `--cl-text-soft` (72% text alpha),
-  `--cl-overlay` (modal scrim), `--cl-primary-disabled` (disabled-primary
-  tint), `--cl-surface-translucent` (translucent panel), `--cl-danger-soft`
-  (danger banner tint), `--cl-shadow` (elevation shadow).
+  Canonical tokens used in this file: `--cl-primary`, `--cl-on-primary`
+  (aliased to `--cl-primary-text` in app.css), `--cl-surface`,
+  `--cl-surface-raised`, `--cl-border`, `--cl-text`, `--cl-danger`.
+
+  Non-canonical tokens that retain `rgba(...)` fallbacks (deferred to vM015):
+  `--cl-text-soft`, `--cl-overlay`, `--cl-shadow`, `--cl-danger-soft`,
+  `--cl-primary-disabled`, `--cl-surface-translucent`.
   """
   use Phoenix.LiveView
 
@@ -161,20 +160,20 @@ defmodule Cairnloop.Web.InboxLive do
           role="region"
           aria-label="Bulk actions"
           class="bulk-action-bar"
-          style="position: sticky; bottom: 0; background: var(--cl-surface-raised, #FFFFFF); border-top: 1px solid var(--cl-border, #D8D0BF); padding: 12px 16px; display: flex; gap: 12px; align-items: center; z-index: 10;"
+          style="position: sticky; bottom: 0; background: var(--cl-surface-raised); border-top: 1px solid var(--cl-border); padding: 12px 16px; display: flex; gap: 12px; align-items: center; z-index: 10;"
         >
           <span><%= MapSet.size(@selected_ids) %> selected</span>
           <button
             type="button"
             phx-click="clear_selection"
-            style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border, #D8D0BF); background: transparent; color: var(--cl-text, #2f241d);"
+            style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
           >
             Clear selection
           </button>
           <button
             type="button"
             phx-click="open_bulk_confirm"
-            style="background: var(--cl-primary, #A94F30); color: var(--cl-on-primary, #fffdf8); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
+            style="background: var(--cl-primary); color: var(--cl-on-primary); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
           >
             Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
           </button>
@@ -195,7 +194,7 @@ defmodule Cairnloop.Web.InboxLive do
           <.focus_wrap id="bulk-confirm-wrap">
             <div
               class="bulk-confirm-dialog"
-              style="position: relative; background: var(--cl-surface, #FBF7EE); color: var(--cl-text, #2f241d); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
+              style="position: relative; background: var(--cl-surface); color: var(--cl-text); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
             >
               <%!-- Phase 26 D-08: visible close affordance. Escape already works via phx-window-keydown. Anchored by position:relative on the dialog div. --%>
               <button
@@ -212,9 +211,9 @@ defmodule Cairnloop.Web.InboxLive do
                 <div
                   role="alert"
                   class="bulk-refusal"
-                  style="background: var(--cl-danger-soft, rgba(181, 76, 54, 0.08)); border: 1px solid var(--cl-danger, #B54C36); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start;"
+                  style="background: var(--cl-danger-soft, rgba(181, 76, 54, 0.08)); border: 1px solid var(--cl-danger); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start;"
                 >
-                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--cl-danger, #B54C36); margin-top: 2px;">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--cl-danger); margin-top: 2px;">
                     <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
                     <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                   </svg>
@@ -233,7 +232,7 @@ defmodule Cairnloop.Web.InboxLive do
                   <button
                     type="button"
                     phx-click="cancel_bulk_confirm"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border, #D8D0BF); background: transparent; color: var(--cl-text, #2f241d);"
+                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
                   >
                     Cancel
                   </button>
@@ -241,7 +240,7 @@ defmodule Cairnloop.Web.InboxLive do
                     type="button"
                     disabled
                     aria-disabled="true"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: none; background: var(--cl-primary-disabled, rgba(169, 79, 48, 0.36)); color: var(--cl-on-primary, #fffdf8); font-weight: 600; cursor: not-allowed;"
+                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: none; background: var(--cl-primary-disabled, rgba(169, 79, 48, 0.36)); color: var(--cl-on-primary); font-weight: 600; cursor: not-allowed;"
                   >
                     Confirm send
                   </button>
@@ -280,14 +279,14 @@ defmodule Cairnloop.Web.InboxLive do
                   <button
                     type="button"
                     phx-click="cancel_bulk_confirm"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border, #D8D0BF); background: transparent; color: var(--cl-text, #2f241d);"
+                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     phx-click="confirm_bulk_send"
-                    style="background: var(--cl-primary, #A94F30); color: var(--cl-on-primary, #fffdf8); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
+                    style="background: var(--cl-primary); color: var(--cl-on-primary); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
                   >
                     Confirm send
                   </button>
