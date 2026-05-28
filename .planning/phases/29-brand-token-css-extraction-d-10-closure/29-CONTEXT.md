@@ -40,8 +40,13 @@ Land the canonical `cairnloop.css` `:root` block as the single source of truth f
 
 ### BRAND-04 — negative-grep gate mechanism
 
-- **D-08:** Implement as an **ExUnit test** (`test/cairnloop/brand_token_gate_test.exs` or similar) that calls `System.cmd("grep", ["-r", "var(--cl-", "lib/cairnloop/web/"])` and asserts the output contains no `#` hex values. Runs in `mix test` (headless lane, no Repo required). Gate location: `test/cairnloop/` (unit lane, not integration).
-- **D-09:** Exact grep pattern: `var(--cl-[a-z-]*, #` (regex matching `grep -E` or `--include` approach). The test fails if any match is found; passes if output is empty.
+- **D-08:** Implement as an **ExUnit test** (`test/cairnloop/brand_token_gate_test.exs` or similar) that uses `File.read!` + `Regex.match?` (project idiom — established by 5+ existing source-scan tests; NOT `System.cmd("grep", …)` which conflicts with portability). Runs in `mix test` (headless lane, no Repo required). Gate location: `test/cairnloop/` (unit lane, not integration).
+- **D-09:** Exact regex pattern: `var\(--cl-[a-z-]+,\s*#` (ERE form, matches hex fallbacks but NOT `rgba()` fallbacks which are deferred to vM015). The test fails if any match is found in `lib/cairnloop/web/` AND `examples/cairnloop_example/lib/cairnloop_example_web/live/`; passes if output is empty for both trees.
+
+### BRAND-02 scope extension (research Q1/Q2 ratification)
+
+- **D-10:** `examples/cairnloop_example/lib/cairnloop_example_web/live/chat_live.ex` (Phase 28 file) is included in BRAND-02 scope. The ROADMAP phase goal explicitly says "example app and library render surfaces." The file has 18 hex fallbacks; leaving them would create a styling discrepancy between the demo and the canonical token contract. All 18 drop to bare `var(--cl-<token>)` form per D-02 (suffix-only). The BRAND-04 gate extends to scan `examples/cairnloop_example/lib/cairnloop_example_web/live/` as well (Q2 resolved YES, tied to Q1).
+- **D-11:** Non-canonical token identifiers encountered during the BRAND-02 sweep (specifically `--cl-error` used in `chat_live.ex`) are renamed to the closest canonical equivalent (`--cl-error` → `--cl-danger`). This is a necessary exception to D-02's "suffix-only" constraint: `--cl-error` has no canonical definition in `prompts/cairnloop.css`, so a bare `var(--cl-error)` would render as an unresolved CSS variable. The rename is tightly scoped to tokens with NO canonical definition; tokens that merely lack a `:root` alias (e.g., `--cl-on-primary`) are handled additively via BRAND-01 (alias in `:root`) per D-03 equivalent rationale.
 
 </decisions>
 
@@ -60,10 +65,11 @@ Land the canonical `cairnloop.css` `:root` block as the single source of truth f
 - `.planning/ROADMAP.md` §Phase 29 — Goal, success criteria (4 items).
 
 ### Files to modify (source)
-- `examples/cairnloop_example/assets/css/app.css` — Replace 4-token stub with full canonical `:root` block + dark overrides; extend `@theme` with 15 primitive colors (BRAND-01).
-- `lib/cairnloop/web/inbox_live.ex` — Drop 10 hex fallbacks (BRAND-02, D-01).
+- `examples/cairnloop_example/assets/css/app.css` — Replace 4-token stub with full canonical `:root` block + dark overrides; extend `@theme` with 15 primitive colors; add `--cl-on-primary` alias (BRAND-01).
+- `lib/cairnloop/web/inbox_live.ex` — Drop 10 hex fallbacks; update moduledoc (BRAND-02, D-01).
 - `lib/cairnloop/web/conversation_live.ex` — Drop 7 hex fallbacks (BRAND-02, D-01).
 - `lib/cairnloop/web/search_modal_component.ex` — Drop 5 hex fallbacks (BRAND-02, D-01 extension).
+- `examples/cairnloop_example/lib/cairnloop_example_web/live/chat_live.ex` — Drop 18 hex fallbacks; rename `--cl-error` → `--cl-danger` at 2 sites (BRAND-02, D-10, D-11).
 
 ### Files to modify (tests)
 - `test/integration/approval_footer_live_test.exs` — Re-pin 1 assertion (BRAND-03, D-03).
