@@ -4,20 +4,90 @@
 @import "tailwindcss" source(none);
 
 @theme {
+  /* 15 primitive color tokens — generates bg-cl-*, text-cl-*, border-cl-*, etc. */
   --color-cl-basalt: #18211F;
+  --color-cl-moss-ink: #263A2E;
   --color-cl-trailpaper: #F5F0E6;
   --color-cl-warm-stone: #FBF7EE;
-  --color-cl-primary: #A94F30;
+  --color-cl-granite: #D8D0BF;
+  --color-cl-slate-lichen: #677066;
+  --color-cl-path-copper: #A94F30;
+  --color-cl-copper-glow: #C46A3A;
+  --color-cl-lichen: #A8B56C;
+  --color-cl-deep-lichen: #4A6238;
+  --color-cl-glacier-mist: #DDE8E3;
+  --color-cl-waypoint-blue: #3F6F80;
+  --color-cl-heather: #7A5D78;
+  --color-cl-ember: #8B531E;
+  --color-cl-fault-clay: #B54C36;
 }
 
 @layer base {
   :root {
+    /* Primitives (mirror @theme — so var(--cl-color-*) refs resolve cleanly) */
     --cl-color-basalt: #18211F;
+    --cl-color-moss-ink: #263A2E;
     --cl-color-trailpaper: #F5F0E6;
     --cl-color-warm-stone: #FBF7EE;
+    --cl-color-granite: #D8D0BF;
+    --cl-color-slate-lichen: #677066;
     --cl-color-path-copper: #A94F30;
+    --cl-color-copper-glow: #C46A3A;
+    --cl-color-lichen: #A8B56C;
+    --cl-color-deep-lichen: #4A6238;
+    --cl-color-glacier-mist: #DDE8E3;
+    --cl-color-waypoint-blue: #3F6F80;
+    --cl-color-heather: #7A5D78;
+    --cl-color-ember: #8B531E;
+    --cl-color-fault-clay: #B54C36;
+
+    /* Semantic tokens — resolve to primitives */
     --cl-bg: var(--cl-color-trailpaper);
+    --cl-surface: var(--cl-color-warm-stone);
+    --cl-surface-raised: #FFFFFF;
+    --cl-text: var(--cl-color-basalt);
+    --cl-text-muted: var(--cl-color-slate-lichen);
+    --cl-border: var(--cl-color-granite);
     --cl-primary: var(--cl-color-path-copper);
+    --cl-primary-text: #FFFFFF;
+    --cl-success: var(--cl-color-deep-lichen);
+    --cl-info: var(--cl-color-waypoint-blue);
+    --cl-ai: var(--cl-color-heather);
+    --cl-warning: var(--cl-color-ember);
+    --cl-danger: var(--cl-color-fault-clay);
+    --cl-focus: var(--cl-color-path-copper);
+
+    /* Alias for sealed render code (Pitfall 3 — additive, zero churn) */
+    --cl-on-primary: var(--cl-primary-text);
+
+    /* Typography */
+    --cl-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --cl-font-display: "Fraunces", "Atkinson Hyperlegible Next", Georgia, serif;
+    --cl-font-mono: "Martian Mono", "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Radius, shadow */
+    --cl-radius-sm: 6px;
+    --cl-radius-md: 10px;
+    --cl-radius-lg: 14px;
+    --cl-shadow-raised: 0 1px 2px rgba(24, 33, 31, 0.08), 0 8px 24px rgba(24, 33, 31, 0.06);
+  }
+
+  /* D-07 — dark-theme overrides immediately follow :root in the same @layer base */
+  [data-theme="dark"] {
+    --cl-bg: #101614;
+    --cl-surface: #18211F;
+    --cl-surface-raised: #1F2C28;
+    --cl-text: #F5F0E6;
+    --cl-text-muted: #B7C0B2;
+    --cl-border: #34443D;
+    --cl-primary: #D98A4A;
+    --cl-primary-text: #18211F;
+    --cl-success: #A8B56C;
+    --cl-info: #9EC3CF;
+    --cl-ai: #C9A7C6;
+    --cl-warning: #D98A4A;
+    --cl-danger: #E18C7D;
+    --cl-focus: #D98A4A;
   }
 }
 
