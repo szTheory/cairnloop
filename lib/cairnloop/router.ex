@@ -8,6 +8,7 @@ defmodule Cairnloop.Router do
         # dashboard surfaces can keep operator search tenant-scoped.
         live_session :cairnloop_dashboard, opts do
           live("/", Cairnloop.Web.InboxLive, :index, as: :cairnloop_inbox)
+          live("/audit-log", Cairnloop.Web.AuditLogLive, :index, as: :cairnloop_audit_log)
           live("/knowledge-base", Cairnloop.Web.KnowledgeBaseLive.Index, :index)
           live("/knowledge-base/gaps", Cairnloop.Web.KnowledgeBaseLive.Gaps, :index)
 

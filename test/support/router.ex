@@ -34,6 +34,7 @@ defmodule Cairnloop.Web.TestRouter do
     live_session :cairnloop_test do
       live("/governance/:id", Cairnloop.Web.ConversationLive, :show)
       live("/inbox", Cairnloop.Web.InboxLive, :index)
+      live("/audit-log", Cairnloop.Web.AuditLogLive, :index)
     end
   end
 end
