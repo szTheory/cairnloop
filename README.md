@@ -77,4 +77,4 @@ Contributions are welcome. Open an issue or pull request on
 
 ## License
 
-MIT. See [LICENSE.md](LICENSE.md).
+MIT. See [LICENSE](https://github.com/szTheory/cairnloop/blob/main/LICENSE).
