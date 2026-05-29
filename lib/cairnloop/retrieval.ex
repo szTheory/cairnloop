@@ -9,6 +9,35 @@ defmodule Cairnloop.Retrieval do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  def system_health do
+    try do
+      # 1. Check pgvector extension
+      ext_query = "SELECT 1 FROM pg_extension WHERE extname = 'vector'"
+      {:ok, ext_res} = Ecto.Adapters.SQL.query(repo(), ext_query, [])
+      ext_ok? = ext_res.num_rows > 0
+
+      # 2. Check vector index health (can we query the chunk tables?)
+      idx_query = "SELECT id FROM cairnloop_chunks LIMIT 1"
+      {:ok, _} = Ecto.Adapters.SQL.query(repo(), idx_query, [])
+      index_ok? = true
+
+      # 3. Check Oban queue for failed indexing attempts
+      oban_query = "SELECT 1 FROM oban_jobs WHERE state IN ('retryable', 'discarded') AND worker LIKE '%Retrieval%' LIMIT 1"
+      {:ok, oban_res} = Ecto.Adapters.SQL.query(repo(), oban_query, [])
+      failed_jobs? = oban_res.num_rows > 0
+
+      if ext_ok? and index_ok? and not failed_jobs? do
+        {:ok, "Healthy"}
+      else
+        {:error, "Unreachable / Degraded"}
+      end
+    rescue
+      _ -> {:error, "Unreachable / Degraded"}
+    catch
+      :exit, _ -> {:error, "Unreachable / Degraded"}
+    end
+  end
+
   def search(query, opts \\ []) do
     started_at = System.monotonic_time()
 

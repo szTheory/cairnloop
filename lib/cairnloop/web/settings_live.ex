@@ -5,11 +5,27 @@ defmodule Cairnloop.Web.SettingsLive do
     provider =
       Application.get_env(:cairnloop, :sla_policy_provider, Cairnloop.DefaultSLAPolicyProvider)
 
+    notifier = Application.get_env(:cairnloop, :notifier)
+    notifier_health =
+      if notifier && Code.ensure_loaded?(notifier) && function_exported?(notifier, :on_conversation_resolved, 2) do
+        "Healthy"
+      else
+        "Unreachable / Degraded"
+      end
+
+    retrieval_health =
+      case Cairnloop.Retrieval.system_health() do
+        {:ok, msg} -> msg
+        {:error, msg} -> msg
+      end
+
     socket =
       socket
       |> assign(:host_user_id, Map.get(session, "host_user_id"))
       |> assign(:provider, provider)
       |> assign(:priorities, [:low, :normal, :high, :urgent])
+      |> assign(:notifier_health, notifier_health)
+      |> assign(:retrieval_health, retrieval_health)
       |> load_policies()
 
     {:ok, socket}
@@ -65,7 +81,16 @@ defmodule Cairnloop.Web.SettingsLive do
       current_path="/settings"
     />
     <div class="cairnloop-settings">
-      <h1>SLA Policies</h1>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h1>Settings Cockpit</h1>
+        <button 
+          type="button" 
+          onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
+          class="cl-btn"
+        >
+          Toggle Dark Mode
+        </button>
+      </div>
       
       <%= if flash = Phoenix.Flash.get(@flash, :info) do %>
         <div class="alert alert-info"><%= flash %></div>
@@ -74,43 +99,64 @@ defmodule Cairnloop.Web.SettingsLive do
         <div class="alert alert-error"><%= flash %></div>
       <% end %>
 
-      <div class="policies-list">
-        <h2>Active Policies</h2>
-        <ul>
-          <%= for policy <- @policies do %>
-            <li>
-              <strong><%= Map.get(policy, :priority, "unknown") %></strong>
-              - First Response: <%= Map.get(policy, :target_first_response_minutes, "N/A") %> min
-              - Resolution: <%= Map.get(policy, :target_resolution_minutes, "N/A") %> min
-            </li>
-          <% end %>
+      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
+        <h2>System Health</h2>
+        <ul style="list-style: none; padding: 0;">
+          <li style="margin-bottom: 8px;">
+            <strong>Notifier:</strong> 
+            <span style={if @notifier_health == "Healthy", do: "color: var(--cl-success, green);", else: "color: var(--cl-danger, red);"}>
+              <%= if @notifier_health == "Healthy", do: "●", else: "●" %> <%= @notifier_health %>
+            </span>
+          </li>
+          <li>
+            <strong>Retrieval (pgvector):</strong> 
+            <span style={if @retrieval_health == "Healthy", do: "color: var(--cl-success, green);", else: "color: var(--cl-danger, red);"}>
+              <%= if @retrieval_health == "Healthy", do: "●", else: "●" %> <%= @retrieval_health %>
+            </span>
+          </li>
         </ul>
       </div>
 
-      <div class="policy-form">
-        <h2>Update Policy</h2>
-        <form phx-submit="save_policy">
-          <div>
-            <label for="priority">Priority</label>
-            <select name="policy[priority]" id="priority" required>
-              <%= for priority <- @priorities do %>
-                <option value={priority}><%= priority %></option>
-              <% end %>
-            </select>
-          </div>
-          
-          <div>
-            <label for="target_first_response_minutes">Target First Response (minutes)</label>
-            <input type="number" name="policy[target_first_response_minutes]" id="target_first_response_minutes" required min="1" />
-          </div>
-          
-          <div>
-            <label for="target_resolution_minutes">Target Resolution (minutes)</label>
-            <input type="number" name="policy[target_resolution_minutes]" id="target_resolution_minutes" required min="1" />
-          </div>
-          
-          <button type="submit">Save Policy</button>
-        </form>
+      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
+        <h2>SLA Policies</h2>
+        <div class="policies-list">
+          <h3>Active Policies</h3>
+          <ul>
+            <%= for policy <- @policies do %>
+              <li>
+                <strong><%= Map.get(policy, :priority, "unknown") %></strong>
+                - First Response: <%= Map.get(policy, :target_first_response_minutes, "N/A") %> min
+                - Resolution: <%= Map.get(policy, :target_resolution_minutes, "N/A") %> min
+              </li>
+            <% end %>
+          </ul>
+        </div>
+
+        <div class="policy-form" style="margin-top: 16px;">
+          <h3>Update Policy</h3>
+          <form phx-submit="save_policy">
+            <div style="margin-bottom: 8px;">
+              <label for="priority" style="display: block; margin-bottom: 4px;">Priority</label>
+              <select name="policy[priority]" id="priority" required style="width: 100%; padding: 8px;">
+                <%= for priority <- @priorities do %>
+                  <option value={priority}><%= priority %></option>
+                <% end %>
+              </select>
+            </div>
+            
+            <div style="margin-bottom: 8px;">
+              <label for="target_first_response_minutes" style="display: block; margin-bottom: 4px;">Target First Response (minutes)</label>
+              <input type="number" name="policy[target_first_response_minutes]" id="target_first_response_minutes" required min="1" style="width: 100%; padding: 8px;" />
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <label for="target_resolution_minutes" style="display: block; margin-bottom: 4px;">Target Resolution (minutes)</label>
+              <input type="number" name="policy[target_resolution_minutes]" id="target_resolution_minutes" required min="1" style="width: 100%; padding: 8px;" />
+            </div>
+            
+            <button type="submit" class="cl-btn" style="padding: 8px 16px; background: var(--cl-primary, blue); color: white; border: none; border-radius: 4px; cursor: pointer;">Save Policy</button>
+          </form>
+        </div>
       </div>
     </div>
     """

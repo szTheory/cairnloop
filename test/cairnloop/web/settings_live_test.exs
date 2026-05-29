@@ -16,6 +16,8 @@ defmodule Cairnloop.Web.SettingsLiveTest do
       flash: %{},
       host_user_id: "user_42",
       priorities: [:low, :normal, :high, :urgent],
+      notifier_health: "Healthy",
+      retrieval_health: "Healthy",
       policies: [
         %{
           priority: :normal,
