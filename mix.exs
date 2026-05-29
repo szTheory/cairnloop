@@ -107,6 +107,7 @@ defmodule Cairnloop.MixProject do
       {:req, "~> 0.5"},
       {:chimeway, "~> 1.0", optional: true},
       {:scrypath, ">= 0.0.0", optional: true},
+      {:telemetry_metrics_prometheus_core, "~> 1.2", optional: true},
       # phoenix_live_view 1.1 uses lazy_html (not floki) as its test-time HTML parser
       # for Phoenix.LiveViewTest element/form helpers.
       {:lazy_html, ">= 0.1.0", only: :test},
