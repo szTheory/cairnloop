@@ -16,6 +16,11 @@ defmodule Cairnloop.Auditor do
               actor :: map() | String.t() | nil,
               metadata :: map()
             ) :: Ecto.Multi.t()
+
+  @doc """
+  Retrieves a list of audit events.
+  """
+  @callback list_events(opts :: keyword()) :: [map()]
 end
 
 defmodule Cairnloop.Auditor.NoOp do
@@ -28,4 +33,7 @@ defmodule Cairnloop.Auditor.NoOp do
   def audit(multi, _action, _actor, _metadata) do
     multi
   end
+
+  @impl true
+  def list_events(_opts), do: []
 end
