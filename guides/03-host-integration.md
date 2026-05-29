@@ -81,7 +81,10 @@ for the outbound delivery lane (`Outbound.trigger/2` and `bulk_trigger/2` route 
 
 `Notifier` is the business-logic integration point: CRM sync, email, webhooks, background
 jobs, or any other side effect your app needs to trigger when support events occur. Cairnloop
-calls each callback asynchronously via Oban, ensuring reliable retries and data consistency.
+calls these callbacks from within Oban workers — `on_conversation_resolved/2` and
+`on_outbound_triggered/2` each have a dedicated Oban worker, while `on_sla_breach/3` is
+called directly within the SLA countdown worker. Raising in any callback retries the
+enclosing Oban job.
 
 **Callbacks (all three — implement all of them):**
 
