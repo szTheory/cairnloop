@@ -190,7 +190,7 @@ defmodule Cairnloop.Web.SettingsLive do
         <h2>MCP Authentication</h2>
         
         <%= if @new_raw_token do %>
-          <div class="alert alert-warning" style="background-color: var(--cl-warning-bg, #fff3cd); padding: 16px; margin-bottom: 16px; border-radius: 4px; border: 1px solid var(--cl-warning-border, #ffeeba);">
+          <div class="alert alert-warning" style="background-color: var(--cl-warning-bg); padding: 16px; margin-bottom: 16px; border-radius: 4px; border: 1px solid var(--cl-warning-border);">
             <strong>Important:</strong> Copy your new token now. It will not be shown again.
             <br/><br/>
             <code style="background: rgba(0,0,0,0.1); padding: 4px; border-radius: 4px; word-break: break-all;"><%= @new_raw_token %></code>

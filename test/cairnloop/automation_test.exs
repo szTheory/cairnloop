@@ -132,6 +132,9 @@ defmodule Cairnloop.AutomationTest do
 
   describe "auditor integration" do
     defmodule TestAuditor do
+  @impl true
+  def list_events(_opts), do: []
+
       @behaviour Cairnloop.Auditor
 
       @impl true

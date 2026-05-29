@@ -7,7 +7,7 @@ defmodule Cairnloop.Automation.DraftTest do
       changeset = Draft.changeset(%Draft{}, %{})
 
       assert %{
-               content: ["can't be blank"],
+               customer_reply: ["can't be blank"],
                conversation_id: ["can't be blank"]
              } = errors_on(changeset)
     end

@@ -201,6 +201,9 @@ defmodule Cairnloop.OutboundTest do
 
     test "integrates with auditor" do
       defmodule TestAuditor do
+  @impl true
+  def list_events(_opts), do: []
+
         @behaviour Cairnloop.Auditor
         def audit(multi, action, actor, metadata) do
           Ecto.Multi.run(multi, :audit, fn _repo, _changes ->
@@ -733,6 +736,9 @@ defmodule Cairnloop.OutboundTest do
     # `MockNotifier.on_outbound_triggered/2` pattern in
     # `test/cairnloop/workers/outbound_worker_test.exs`.
     defmodule MapShapeAuditor do
+  @impl true
+  def list_events(_opts), do: []
+
       @behaviour Cairnloop.Auditor
       def audit(multi, action, actor, metadata) do
         send(self(), {:audited, %{action: action, actor: actor, metadata: metadata}})
