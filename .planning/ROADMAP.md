@@ -3,8 +3,8 @@
 ## Phases
 
 - [ ] **Phase 33: Security Domain Closure** - Enforce immutable evidence and state for knowledge automation.
-- [ ] **Phase 34: Operator Settings Surface** - Real settings interface for MCP tokens, health, and theming.
-- [ ] **Phase 35: Audit & Operations Support** - HTTP health/metrics endpoints, UI audit log, and rail pagination.
+- [x] **Phase 34: Operator Settings Surface** - Real settings interface for MCP tokens, health, and theming.
+- [x] **Phase 35: Audit & Operations Support** - HTTP health/metrics endpoints, UI audit log, and rail pagination.
 - [ ] **Phase 36: Documentation & v0.2.0 Release** - Architecture docs, guides, and package release.
 
 ## Phase Details
@@ -59,6 +59,6 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 33. Security Domain Closure | 1/1 | Complete | 2026-05-29 |
-| 34. Operator Settings Surface | 0/0 | Not started | - |
-| 35. Audit & Operations Support | 0/0 | Not started | - |
+| 34. Operator Settings Surface | 2/2 | Complete | 2026-05-29 |
+| 35. Audit & Operations Support | 2/2 | Complete | 2026-05-29 |
 | 36. Documentation & v0.2.0 Release | 0/0 | Not started | - |
