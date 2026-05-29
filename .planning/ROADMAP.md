@@ -24,7 +24,7 @@
 - [x] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** â Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate. (completed 2026-05-28)
 - [x] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** â Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker. (completed 2026-05-28)
 - [x] **Phase 31: Golden-Path JTBD Smoke Test** â Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
-- [ ] **Phase 32: README + ExDoc Guides + JTBD Walkthrough** â Make the front door match the shipped install path; ship four ExDoc guides + CHANGELOG entry so adopters can self-serve.
+- [x] **Phase 32: README + ExDoc Guides + JTBD Walkthrough** â Make the front door match the shipped install path; ship four ExDoc guides + CHANGELOG entry so adopters can self-serve. (completed 2026-05-29)
 
 ### Why this order
 
@@ -154,7 +154,7 @@ Plans:
   3. `mix.exs` package config ships the `guides/` directory and `mix docs` surfaces them in the docs navigation alongside the API reference â the guides are visible on Hex.pm after the next release, not local-only.
   4. `CHANGELOG.md` carries a vM014 entry summarizing the adopter-surface improvements (realistic demo, JTBD smoke test, brand-token extraction, KB editorial polish, T-10-09/T-10-11 closure, guides).
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
 **Wave 1**
 
@@ -236,7 +236,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete    | 2026-05-28 |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 4/4 | Complete   | 2026-05-28 |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 2/2 | Complete   | 2026-05-28 |
-| 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 4/4 | Complete   | 2026-05-29 |
+| 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 4/4 | Complete    | 2026-05-29 |
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |

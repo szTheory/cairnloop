@@ -53,9 +53,9 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 
 ### README + ExDoc Guides + JTBD Walkthrough
 
-- [ ] **DOC-01**: Root `README.md` leads with `mix cairnloop.install` (the shipped Igniter task at `lib/mix/tasks/cairnloop/install.ex`), not the current `{:cairnloop, "~> 0.1.0"}` snippet — the install path adopters should actually use is now the first one they see.
-- [ ] **DOC-02**: ExDoc `guides/` directory ships with four guides — `01-quickstart.md`, `02-jtbd-walkthrough.md` (with PNG screenshots captured from the Phase-27-seeded example), `03-host-integration.md` (`ContextProvider`, `Notifier`, `AutomationPolicy`, `SLAPolicyProvider`), `04-troubleshooting.md`.
-- [ ] **DOC-03**: `mix.exs` package config ships the `guides/` directory and ExDoc surfaces them in the docs navigation — `mix docs` renders the guides alongside the API reference.
+- [x] **DOC-01**: Root `README.md` leads with `mix cairnloop.install` (the shipped Igniter task at `lib/mix/tasks/cairnloop/install.ex`), not the current `{:cairnloop, "~> 0.1.0"}` snippet — the install path adopters should actually use is now the first one they see.
+- [x] **DOC-02**: ExDoc `guides/` directory ships with four guides — `01-quickstart.md`, `02-jtbd-walkthrough.md` (with PNG screenshots captured from the Phase-27-seeded example), `03-host-integration.md` (`ContextProvider`, `Notifier`, `AutomationPolicy`, `SLAPolicyProvider`), `04-troubleshooting.md`.
+- [x] **DOC-03**: `mix.exs` package config ships the `guides/` directory and ExDoc surfaces them in the docs navigation — `mix docs` renders the guides alongside the API reference.
 - [ ] **DOC-04**: `CHANGELOG.md` carries a vM014 entry summarizing the adopter-surface improvements (realistic demo, JTBD smoke test, brand-token extraction, KB editorial polish, T-10-09/T-10-11 closure, guides).
 
 ## Future Requirements
@@ -136,9 +136,9 @@ Which phases cover which requirements.
 | E2E-01 | Phase 31 | ✅ Closed 2026-05-28 |
 | E2E-02 | Phase 31 | ✅ Closed 2026-05-28 |
 | E2E-03 | Phase 31 | ✅ Closed 2026-05-28 |
-| DOC-01 | Phase 32 | Pending |
-| DOC-02 | Phase 32 | Pending |
-| DOC-03 | Phase 32 | Pending |
+| DOC-01 | Phase 32 | Complete |
+| DOC-02 | Phase 32 | Complete |
+| DOC-03 | Phase 32 | Complete |
 | DOC-04 | Phase 32 | Pending |
 
 **Coverage:**
