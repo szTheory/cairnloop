@@ -16,6 +16,7 @@ defmodule Cairnloop.MixProject do
       homepage_url: "https://github.com/szTheory/cairnloop",
       package: [
         name: "cairnloop",
+        files: ~w(lib priv guides mix.exs README.md LICENSE CHANGELOG.md),
         licenses: ["MIT"],
         links: %{
           "GitHub" => "https://github.com/szTheory/cairnloop",
@@ -25,7 +26,18 @@ defmodule Cairnloop.MixProject do
       ],
       docs: [
         main: "readme",
-        extras: ["README.md", "CHANGELOG.md"],
+        extras: [
+          {"guides/01-quickstart.md", title: "Quickstart"},
+          {"guides/02-jtbd-walkthrough.md", title: "JTBD Walkthrough"},
+          {"guides/03-host-integration.md", title: "Host Integration"},
+          {"guides/04-troubleshooting.md", title: "Troubleshooting"},
+          "README.md",
+          "CHANGELOG.md"
+        ],
+        groups_for_extras: [
+          "Guides": ~r/^guides\//
+        ],
+        # assets: "guides/assets"  # uncomment once PNG screenshots are captured
         groups_for_modules: [
           Governance: [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
           "Knowledge Base": [~r/^Cairnloop\.KnowledgeBase/, ~r/^Cairnloop\.KnowledgeAutomation/],
