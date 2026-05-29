@@ -4,8 +4,8 @@ milestone: vM014
 milestone_name: Adoption Proof
 status: executing
 stopped_at: Phase 32 context gathered
-last_updated: "2026-05-29T01:05:14.670Z"
-last_activity: 2026-05-29 -- Phase 32 planning complete
+last_updated: "2026-05-29T01:06:33.751Z"
+last_activity: 2026-05-29 -- Phase 32 execution started
 progress:
   total_phases: 6
   completed_phases: 5
@@ -21,13 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-27 — vM014 Adoption Proof kicked off)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** vM014 Adoption Proof — COMPLETE
+**Current focus:** Phase 32 — readme-exdoc-guides-jtbd-walkthrough
 
 ## Current Position
 
-Phase: 31 (golden-path-jtbd-smoke-test) — COMPLETE ✅
-Status: Ready to execute
-Last activity: 2026-05-29 -- Phase 32 planning complete
+Phase: 32 (readme-exdoc-guides-jtbd-walkthrough) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 32
+Last activity: 2026-05-29 -- Phase 32 execution started
 
 ## Accumulated Context
 
