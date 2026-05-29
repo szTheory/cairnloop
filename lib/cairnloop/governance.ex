@@ -990,16 +990,22 @@ defmodule Cairnloop.Governance do
   Used by Wave 2 to populate the governed-action rail in the conversation LiveView.
   Goes through the `repo()` indirection — never `Cairnloop.Repo` directly (D-30).
   """
-  def list_proposals_for_conversation(conversation_id) do
+  def list_proposals_for_conversation(conversation_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit)
+
     events_query =
       ToolActionEvent
       |> order_by([e], asc: e.inserted_at)
 
-    ToolProposal
-    |> where([p], p.conversation_id == ^conversation_id)
-    |> order_by([p], desc: p.inserted_at)
-    |> preload(events: ^events_query, approval: [])
-    |> repo().all()
+    query =
+      ToolProposal
+      |> where([p], p.conversation_id == ^conversation_id)
+      |> order_by([p], desc: p.inserted_at)
+      |> preload(events: ^events_query, approval: [])
+
+    query = if limit, do: limit(query, ^limit), else: query
+
+    repo().all(query)
   end
 
   # ---------------------------------------------------------------------------

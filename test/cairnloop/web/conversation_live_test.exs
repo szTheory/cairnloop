@@ -2261,4 +2261,25 @@ defmodule Cairnloop.Web.ConversationLiveTest do
              "defer_action must handle empty reason gracefully (FLOW-03)"
     end
   end
+
+  describe "load_more_actions event" do
+    test "increases governed_actions_limit by 10 and reloads proposals" do
+      socket = %Phoenix.LiveView.Socket{
+        endpoint: Cairnloop.Web.Endpoint,
+        assigns: %{
+          conversation: MockRepo.get!(Cairnloop.Conversation, 1),
+          host_context: %{},
+          governed_actions_limit: 10,
+          flash: %{},
+          __changed__: %{}
+        }
+      }
+
+      assert {:noreply, socket} =
+               ConversationLive.handle_event("load_more_actions", %{}, socket)
+
+      assert socket.assigns.governed_actions_limit == 20
+      assert is_list(socket.assigns.governed_actions)
+    end
+  end
 end

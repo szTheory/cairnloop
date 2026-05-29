@@ -17,7 +17,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
     socket =
       socket
-      |> assign(form: to_form(%{"content" => ""}), pending_discard_draft_id: nil)
+      |> assign(form: to_form(%{"content" => ""}), pending_discard_draft_id: nil, governed_actions_limit: 10)
       |> reload_conversation_with_context(id)
 
     {:ok, socket}
@@ -344,6 +344,12 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
+  def handle_event("load_more_actions", _params, socket) do
+    new_limit = (socket.assigns.governed_actions_limit || 10) + 10
+    socket = assign(socket, :governed_actions_limit, new_limit)
+    {:noreply, reload_conversation_with_context(socket, socket.assigns.conversation.id)}
+  end
+
   defp failure_reason_message(:unsupported, _reason), do: "Unknown tool — proposal rejected."
   defp failure_reason_message(:needs_input, _cs), do: "Invalid tool parameters."
 
@@ -362,7 +368,8 @@ defmodule Cairnloop.Web.ConversationLive do
     {context, context_error} = load_host_context(conversation)
     quick_fix_card = load_quick_fix_card(conversation)
     # D-09: load governed_actions via the narrow facade (never direct schema query from web layer)
-    governed_actions = Cairnloop.Governance.list_proposals_for_conversation(conversation_id)
+    limit = socket.assigns[:governed_actions_limit] || 10
+    governed_actions = Cairnloop.Governance.list_proposals_for_conversation(conversation_id, limit: limit)
 
     assign(socket,
       conversation: conversation,
@@ -840,6 +847,11 @@ defmodule Cairnloop.Web.ConversationLive do
             <% else %>
               <%= for proposal <- @governed_actions do %>
                 <.governed_action_card proposal={proposal} />
+              <% end %>
+              <%= if length(@governed_actions) == Map.get(assigns, :governed_actions_limit, 10) do %>
+                <button type="button" phx-click="load_more_actions" style="margin-top: 16px; padding: 8px 16px; border: 1px solid var(--cl-primary); border-radius: 6px; background: transparent; color: var(--cl-primary); cursor: pointer; font-weight: 600; width: 100%;">
+                  Load more
+                </button>
               <% end %>
             <% end %>
           </section>

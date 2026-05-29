@@ -137,14 +137,22 @@ defmodule Cairnloop.GovernanceTest do
       # Handle preload of events (asc: inserted_at) if present
       all_events = Process.get(:tool_action_events, [])
 
-      Enum.map(proposals, fn proposal ->
-        events =
-          all_events
-          |> Enum.filter(fn e -> e.tool_proposal_id == proposal.id end)
-          |> Enum.sort_by(& &1.inserted_at, :asc)
+      proposals =
+        Enum.map(proposals, fn proposal ->
+          events =
+            all_events
+            |> Enum.filter(fn e -> e.tool_proposal_id == proposal.id end)
+            |> Enum.sort_by(& &1.inserted_at, :asc)
 
-        %{proposal | events: events}
-      end)
+          %{proposal | events: events}
+        end)
+
+      limit = extract_limit(query)
+
+      case limit do
+        nil -> proposals
+        n when is_integer(n) and n >= 0 -> Enum.take(proposals, n)
+      end
     end
 
     # Conversation queries use `where([c], c.id in ^candidate_ids and ...)`. The
@@ -760,6 +768,29 @@ defmodule Cairnloop.GovernanceTest do
       assert [proposal | _] = results
       # Events must be loaded (not Ecto.Association.NotLoaded)
       assert is_list(proposal.events)
+    end
+
+    test "respects the :limit option" do
+      conversation_id = 44
+      tool_ref = Atom.to_string(ValidTool)
+
+      # Insert 3 proposals
+      for i <- 1..3 do
+        context = %{
+          tool_params: %{order_id: "order_limit_#{i}"},
+          scopes: [],
+          conversation_id: conversation_id
+        }
+        assert {:ok, _} = Governance.propose(tool_ref, "user_1", context)
+      end
+
+      # Without limit, gets all 3 (since they match conversation_id)
+      results = apply(Governance, :list_proposals_for_conversation, [conversation_id])
+      assert length(results) == 3
+
+      # With limit: 2, gets 2
+      limited_results = apply(Governance, :list_proposals_for_conversation, [conversation_id, [limit: 2]])
+      assert length(limited_results) == 2
     end
   end
 
