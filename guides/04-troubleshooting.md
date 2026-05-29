@@ -162,6 +162,29 @@ Oban.drain_queue(queue: :default)
 Or simply wait a few seconds after seeding and refresh the search. Once the
 `ChunkRevision` jobs complete, embeddings are stored and retrieval returns results.
 
+## EditorHandoff Token Key
+
+**Symptom:** Clicking "Open for manual edit" in the KB suggestions list crashes with a
+500 error in dev, or the app fails to start in production with `RuntimeError: ...secret_key_base`.
+
+**Cause:** `Cairnloop.KnowledgeAutomation.EditorHandoff` requires a `secret_key_base` in
+application config. In the `:test` environment a persistent_term fallback is used; all other
+environments require explicit config.
+
+**Fix:** Add the config key. For local development, add this to `config/dev.exs`:
+
+```elixir
+config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+  secret_key_base: "dev_only_64_byte_minimum_secret_for_editor_handoff_tokens_cairnloop"
+```
+
+For production, use an environment variable in `config/runtime.exs`:
+
+```elixir
+config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+  secret_key_base: System.fetch_env!("CAIRNLOOP_HANDOFF_SECRET_KEY_BASE")
+```
+
 ---
 
 For host behaviour implementation details, see the

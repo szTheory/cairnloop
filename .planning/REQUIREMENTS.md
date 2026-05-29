@@ -139,7 +139,7 @@ Which phases cover which requirements.
 | DOC-01 | Phase 32 | Complete |
 | DOC-02 | Phase 32 | Complete |
 | DOC-03 | Phase 32 | Complete |
-| DOC-04 | Phase 32 | Pending |
+| DOC-04 | Phase 32.1 | Complete |
 
 **Coverage:**
 
@@ -149,4 +149,5 @@ Which phases cover which requirements.
 
 ---
 *Requirements defined: 2026-05-27 (milestone vM014 kickoff)*
-*Last updated: 2026-05-28 — CHAT-03, BRAND-04, KB-01..04, SEC-01..02 marked Complete per Phase 28–30 VERIFICATION.md evidence (vM014 milestone audit)*
+*Last updated: 2026-05-29 — DOC-04 marked Complete (Phase 32.1 cleanup pass)*
+ete per Phase 28–30 VERIFICATION.md evidence (vM014 milestone audit)*

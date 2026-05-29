@@ -29,8 +29,8 @@ defmodule Cairnloop.Web.BrandTokenGateTest do
 
   test "no hex-fallback strings remain in lib/cairnloop/web/ or examples/cairnloop_example/lib/cairnloop_example_web/live/ (BRAND-04, Phase 29 D-10 closure)" do
     files =
-      Path.wildcard(Path.join(@web_dir, "*.ex")) ++
-        Path.wildcard(Path.join(@example_live_dir, "*.ex"))
+      Path.wildcard(Path.join(@web_dir, "**/*.ex")) ++
+        Path.wildcard(Path.join(@example_live_dir, "**/*.ex"))
 
     refute files == [],
            "Expected to find .ex files in both #{@web_dir} and #{@example_live_dir}; got empty list — check path resolution"
