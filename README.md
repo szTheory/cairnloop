@@ -4,38 +4,24 @@
 [![HexDocs](https://img.shields.io/badge/hexdocs-online-blue.svg)](https://hexdocs.pm/cairnloop)
 [![GitHub Actions CI](https://github.com/szTheory/cairnloop/actions/workflows/ci.yml/badge.svg)](https://github.com/szTheory/cairnloop/actions)
 
-An embedded, Phoenix-native customer support automation layer for Elixir applications. 
+An embedded, Phoenix-native customer support automation layer for Elixir applications.
 
-Cairnloop turns support conversations into answers, product signals, knowledge-base improvements, and safe automated actions—directly inside your existing monolith. Deflect what can be deflected, draft what cannot, and escalate risks cleanly.
+## Installation
 
-Want the practical library-user view? Read [Cairnloop, From a Phoenix SaaS Builder's Perspective](docs/cairnloop-jtbd-and-user-flows.md).
+The fastest way to install Cairnloop is with the Igniter installer. First, add Igniter to your
+dependencies if it is not already present, then run:
 
-## ⚡️ Why Cairnloop?
-
-* **SaaS in a Box:** Don't build a brittle syncing layer to external CRMs. Embed the support widget directly into your LiveView app.
-* **Strict Decoupling:** Emits Elixir native `:telemetry` events for observability without blocking the request.
-* **Safe Automation:** Human-in-the-loop (HITL) by default. The AI drafts; your operators approve.
-* **Customer-Led Growth:** Capture sentiment (CSAT/CES) frictionlessly at the exact moment of resolution.
-
----
-
-## 🏗️ Architecture at a Glance
-
-```mermaid
-graph TD
-    User[End User Widget] -->|WebSockets| Ingress[Phoenix Channels]
-    Email[Inbound Email] -->|Webhook| Ingress
-    Ingress --> Conv[(Conversations / Ecto)]
-    Conv -->|Oban Async| Draft[AI Drafting Engine]
-    Draft -. Pending Approval .-> Operator[LiveView Dashboard]
-    Operator -->|Approve/Send| Conv
-    Conv -->|Resolved| Telemetry[Telemetry & Oban Callbacks]
-    Telemetry -. CSAT / Growth Actions .-> Host[Host Application]
+```bash
+mix deps.get
+mix cairnloop.install
 ```
 
-## 🚀 Installation
+The installer adds `{:cairnloop, "~> 0.1.0"}` to your `mix.exs` deps and generates a
+`create_cairnloop_tables` migration against your detected Ecto repo.
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed by adding `cairnloop` to your list of dependencies in `mix.exs`:
+### Manual install (without Igniter)
+
+Add Cairnloop to your `mix.exs` dependencies:
 
 ```elixir
 def deps do
@@ -45,93 +31,50 @@ def deps do
 end
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc) and published on [HexDocs](https://hexdocs.pm). Once published, the docs can be found at <https://hexdocs.pm/cairnloop>.
+Then run `mix deps.get` and generate the migration manually (see the quickstart guide for the
+migration contents).
 
-## 🔌 Host Integration: Wiring It Up
+## Why Cairnloop?
 
-Cairnloop explicitly separates **Observability** (metrics, tracing) from **Business Logic** (side-effects, CRM sync, state changes). When a conversation is resolved, Cairnloop exposes two integration points for host applications.
+- **Host-owned support truth.** Conversations, drafts, governed actions, and outbound follow-ups
+  all live in your Postgres database — no external CRM sync required.
+- **Safe automation by default.** The AI drafts; your operators approve. Every proposed action
+  passes through a durable approval state machine before execution.
+- **KB substrate built in.** Hybrid pgvector + full-text retrieval keeps AI answers grounded in
+  your published knowledge base, not hallucinated context.
+- **Additive, not invasive.** Cairnloop is a library embedded in your existing Phoenix monolith.
+  No separate service, no separate deploy.
+- **Observable without lock-in.** Bounded `:telemetry` spans on every meaningful operation.
+  Export to any APM; your app stays in control.
 
-### 1. Observability & Domain Events (Telemetry)
+## What it does
 
-Cairnloop uses a **Dual Emission** architecture via `:telemetry` to separate performance tracing from domain business logic. This ensures non-blocking execution while providing rich extensibility.
+Cairnloop turns support conversations into answers, product signals, knowledge-base improvements,
+and safe automated actions — all inside your existing Phoenix app. Incoming messages route through
+Phoenix Channels to a durable Ecto-backed conversation record. An Oban worker drafts an
+AI-grounded reply using your published KB and offers it to the operator for approval. Resolved
+conversations feed back into the KB maintenance queue through a governed review workflow, and
+support-triggered outbound follow-ups route durably through a configurable Notifier behaviour.
 
-**A. Tracing Spans (Performance & APMs)**
+## Explore the guides
 
-Use the span lifecycle events (`:start`, `:stop`, `:exception`) to capture execution metrics. This is ideal for exporting to APMs (DataDog, Prometheus) or logging function execution duration.
+- [Quickstart](https://hexdocs.pm/cairnloop/01-quickstart.html) — Clone, install, boot the
+  example app, and walk your first support conversation end-to-end.
+- [JTBD Walkthrough](https://hexdocs.pm/cairnloop/02-jtbd-walkthrough.html) — A prose walkthrough
+  of every Jobs-To-Be-Done stage in the seeded example: inbox → draft approval → governed tool
+  proposal → resolve → outbound follow-up → bulk recovery.
+- [Host Integration](https://hexdocs.pm/cairnloop/03-host-integration.html) — Wire up
+  `ContextProvider`, `Notifier`, `AutomationPolicy`, and `SLAPolicyProvider` in your app. Includes
+  telemetry patterns and Oban configuration.
+- [Troubleshooting](https://hexdocs.pm/cairnloop/04-troubleshooting.html) — Common install errors,
+  migration order, pgvector setup, and Oban worker timing.
 
-```elixir
-:telemetry.attach(
-  "cairnloop-apm-tracker",
-  [:cairnloop, :conversation, :resolve, :stop],
-  fn _event, measurements, metadata, _config ->
-    require Logger
-    # Execution time is available in `measurements.duration`
-    Logger.info("Resolve function took #{System.convert_time_unit(measurements.duration, :native, :millisecond)}ms")
-  end,
-  nil
-)
-```
+## Contributing
 
-**B. Domain Events (Business Logic & Extensibility)**
+Contributions are welcome. Open an issue or pull request on
+[GitHub](https://github.com/szTheory/cairnloop). Please follow the existing code style and run
+`mix test` before submitting.
 
-Use past-tense domain events to hook into successful business actions. This is the recommended approach for reacting to support lifecycle changes, such as triggering an in-app "App Store Rating" prompt when an issue is successfully resolved.
-```elixir
-:telemetry.attach(
-  "cairnloop-domain-hooks",
-  [:cairnloop, :conversation, :resolved],
-  fn _event, measurements, metadata, _config ->
-    require Logger
+## License
 
-    # metadata.conversation contains the fully updated Ecto struct
-    conversation = metadata.conversation
-    Logger.info("Conversation #{conversation.id} resolved by #{metadata.actor.id} in #{measurements.duration_seconds}s at #{conversation.resolved_at}")
-
-    # Example: Broadcast to LiveView to show a CSAT modal or App Store prompt
-    # Phoenix.PubSub.broadcast(MyApp.PubSub, "user_sessions:#{metadata.host_user_id}", :support_issue_resolved)
-  end,
-  nil
-)
-```
-### 2. Business Logic (Notifier Behaviour)
-
-For critical side-effects like syncing with a CRM or sending an email, use the `Cairnloop.Notifier` behaviour. These are executed asynchronously via Oban, ensuring data consistency and reliable retries.
-
-The easiest way to get started is to use the included generator:
-
-```bash
-mix cairnloop.gen.notifier
-```
-
-This will automatically scaffold a Notifier module in your host application and inject the required configuration. 
-
-Alternatively, you can implement it manually:
-
-```elixir
-defmodule MyApp.CairnloopNotifier do
-  @behaviour Cairnloop.Notifier
-
-  @impl true
-  def on_conversation_resolved(conversation, metadata) do
-    actor = metadata[:actor]
-    
-    # Safely trigger a background job
-    %{conversation_id: conversation.id, resolved_by_id: actor && actor.id}
-    |> MyApp.Workers.SyncCRMSyncJob.new()
-    |> Oban.insert()
-    
-    :ok
-  end
-  
-  @impl true
-  def on_sla_breach(conversation, sla, _metadata) do
-    # Handle SLA breach notifications
-    :ok
-  end
-end
-```
-
-Then configure it in your `config/config.exs`:
-
-```elixir
-config :cairnloop, :notifier, MyApp.CairnloopNotifier
-```
+MIT. See [LICENSE.md](LICENSE.md).
