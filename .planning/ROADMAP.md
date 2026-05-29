@@ -23,7 +23,7 @@
 - [x] **Phase 28: Customer `/chat` Wired to Real Ingress** â Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customerâoperator path. (completed 2026-05-27)
 - [x] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** â Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate. (completed 2026-05-28)
 - [x] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** â Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker. (completed 2026-05-28)
-- [ ] **Phase 31: Golden-Path JTBD Smoke Test** â Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
+- [x] **Phase 31: Golden-Path JTBD Smoke Test** â Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
 - [ ] **Phase 32: README + ExDoc Guides + JTBD Walkthrough** â Make the front door match the shipped install path; ship four ExDoc guides + CHANGELOG entry so adopters can self-serve.
 
 ### Why this order
@@ -124,7 +124,7 @@ The phases form an additive dependency chain dictated by the adopter-experience 
 
 **UI hint:** yes
 
-#### Phase 31: Golden-Path JTBD Smoke Test
+#### Phase 31: Golden-Path JTBD Smoke Test ✅ COMPLETE (2026-05-28)
 
 **Goal:** The full JTBD round trip is locked into CI against real Postgres + pgvector via the existing integration harness â adopters who run the suite get a green light on the same path the two-tab demo walks. No browser-driver flake; no new test dependency.
 **Depends on:** Phase 30 (golden path traverses the editorial polish + the SEC-01/SEC-02 handoff marker added in Phase 30, plus the Phase 27 fixtures, the Phase 28 ingress wiring, and the Phase 29 brand-token contract).

@@ -24,32 +24,32 @@ Requirements for the vM014 release. Each maps to exactly one roadmap phase.
 
 - [x] **CHAT-01**: `examples/cairnloop_example/lib/cairnloop_example_web/endpoint.ex` mounts `Cairnloop.Channels.WidgetSocket` at its canonical socket path — the example endpoint is currently missing this mount entirely.
 - [x] **CHAT-02**: `examples/cairnloop_example/lib/cairnloop_example_web/live/chat_live.ex` is rewritten from its current 51-LOC mock (`Process.send_after(self(), :bot_reply, 1000)`) to push customer messages through `WidgetChannel` and receive operator replies via PubSub — no mock bot reply path remains.
-- [ ] **CHAT-03**: A two-tab demo doc snippet (operator inbox + customer `/chat`) is added to the example app README showing the end-to-end customer→operator→customer round trip on the local dev server.
+- [x] **CHAT-03**: A two-tab demo doc snippet (operator inbox + customer `/chat`) is added to the example app README showing the end-to-end customer→operator→customer round trip on the local dev server.
 
 ### Brand-Token CSS Extraction (D-10 Closure)
 
 - [x] **BRAND-01**: The canonical `:root` brand tokens from `prompts/cairnloop.css` and `prompts/cairnloop.tokens.json` (~30 semantic + ~15 primitive tokens) are imported into `examples/cairnloop_example/assets/css/app.css` and the example app's Tailwind `@theme` block extends them — replaces the current 4-token + 6-raw-`--cl-*` placeholder.
 - [x] **BRAND-02**: Inline `var(--cl-<token>, #<hex>)` fallback strings across `lib/cairnloop/web/inbox_live.ex` and `lib/cairnloop/web/conversation_live.ex` are dropped to bare `var(--cl-<token>)` form — Option B per the assessment thread; named-class migration (Option A) is explicitly out of scope.
 - [x] **BRAND-03**: The 5 known `assert html =~ "var(--cl-primary, #A94F30)"` headless-token assertions in `test/cairnloop/web/inbox_live_test.exs`, `test/cairnloop/web/conversation_live_test.exs`, `test/integration/approval_footer_live_test.exs`, and `test/integration/tool_execution_outcome_live_test.exs` are re-pinned to the new hex-free form.
-- [ ] **BRAND-04**: A negative-grep gate enforces zero remaining hex-fallback strings: `grep -r 'var(--cl-[a-z-]*, #' lib/cairnloop/web/` returns nothing. Gate runs in the test lane so the contract holds across future edits.
+- [x] **BRAND-04**: A negative-grep gate enforces zero remaining hex-fallback strings: `grep -r 'var(--cl-[a-z-]*, #' lib/cairnloop/web/` returns nothing. Gate runs in the test lane so the contract holds across future edits.
 
 ### KB Editorial Polish
 
-- [ ] **KB-01**: A shared editorial nav shell renders consistently across all 4 KB routes (`KnowledgeBase.Index`, `KnowledgeBase.Editor`, `SuggestionReview`, KB gap surface) so operators don't context-switch between unrelated layouts mid-task.
-- [ ] **KB-02**: `KnowledgeBase.Index` shows an explicit "Create new article" affordance (button + route) — currently missing; operators cannot create from the Index.
-- [ ] **KB-03**: `KnowledgeBase.Editor` shows a "View source gap" sidebar when the article being edited was opened from a `GapCandidate` handoff, surfacing the originating evidence in-context.
-- [ ] **KB-04**: `SuggestionReview` "Open for manual edit" affordance uses calm, reason-forward copy (per `prompts/cairnloop_brand_book.md`) and never leaks raw Elixir terms or raw JSON to the operator.
+- [x] **KB-01**: A shared editorial nav shell renders consistently across all 4 KB routes (`KnowledgeBase.Index`, `KnowledgeBase.Editor`, `SuggestionReview`, KB gap surface) so operators don't context-switch between unrelated layouts mid-task.
+- [x] **KB-02**: `KnowledgeBase.Index` shows an explicit "Create new article" affordance (button + route) — currently missing; operators cannot create from the Index.
+- [x] **KB-03**: `KnowledgeBase.Editor` shows a "View source gap" sidebar when the article being edited was opened from a `GapCandidate` handoff, surfacing the originating evidence in-context.
+- [x] **KB-04**: `SuggestionReview` "Open for manual edit" affordance uses calm, reason-forward copy (per `prompts/cairnloop_brand_book.md`) and never leaks raw Elixir terms or raw JSON to the operator.
 
 ### Security Threat Closure (T-10-09 + T-10-11)
 
-- [ ] **SEC-01**: `Cairnloop.KnowledgeAutomation.EditorHandoff.verify!/2` requires a `manual_edit_opened_at` timestamp marker on the handoff record before allowing Editor preload of `proposed_markdown` — closes T-10-09 (auditable handoff marker; simpler than HMAC).
-- [ ] **SEC-02**: `KnowledgeBase.Editor` preload of `proposed_markdown` requires the SEC-01 handoff marker, not a bare URL `suggestion_id` parameter — closes T-10-11 (no unauthenticated proposed-content disclosure).
+- [x] **SEC-01**: `Cairnloop.KnowledgeAutomation.EditorHandoff.verify!/2` requires a `manual_edit_opened_at` timestamp marker on the handoff record before allowing Editor preload of `proposed_markdown` — closes T-10-09 (auditable handoff marker; simpler than HMAC).
+- [x] **SEC-02**: `KnowledgeBase.Editor` preload of `proposed_markdown` requires the SEC-01 handoff marker, not a bare URL `suggestion_id` parameter — closes T-10-11 (no unauthenticated proposed-content disclosure).
 
 ### Golden-Path JTBD Smoke Test
 
-- [ ] **E2E-01**: `test/integration/golden_path_test.exs` (using `Phoenix.LiveViewTest`) covers the full JTBD round trip: seed customer message → operator inbox sees → ConversationLive + cmd+k search + citation chip → approve AI draft → tool proposal approve → `ToolExecutionWorker` `:success` → resolve → `Outbound.trigger/2` from sidebar → multi-select bulk recovery → `BulkEnvelope` row created + per-recipient `OutboundWorker` jobs enqueued.
-- [ ] **E2E-02**: `test/integration/widget_channel_test.exs` (using `Phoenix.ChannelTest`) covers the customer-ingress side: customer message join → push through `WidgetChannel` → PubSub broadcast → operator-side delivery — proves the CHAT-01/CHAT-02 wiring end-to-end.
-- [ ] **E2E-03**: Both new tests are registered in the `mix test.integration` lane (dockerized Postgres + pgvector) and run green in CI. No Wallaby. No PhoenixTest dep. No browser-driver flake.
+- [x] **E2E-01**: `test/integration/golden_path_test.exs` (using `Phoenix.LiveViewTest`) covers the full JTBD round trip: seed customer message → operator inbox sees → ConversationLive + cmd+k search + citation chip → approve AI draft → tool proposal approve → `ToolExecutionWorker` `:success` → resolve → `Outbound.trigger/2` from sidebar → multi-select bulk recovery → `BulkEnvelope` row created + per-recipient `OutboundWorker` jobs enqueued.
+- [x] **E2E-02**: `test/integration/widget_channel_test.exs` (using `Phoenix.ChannelTest`) covers the customer-ingress side: customer message join → push through `WidgetChannel` → PubSub broadcast → operator-side delivery — proves the CHAT-01/CHAT-02 wiring end-to-end.
+- [x] **E2E-03**: Both new tests are registered in the `mix test.integration` lane (dockerized Postgres + pgvector) and run green in CI. No Wallaby. No PhoenixTest dep. No browser-driver flake.
 
 ### README + ExDoc Guides + JTBD Walkthrough
 
@@ -122,20 +122,20 @@ Which phases cover which requirements.
 | FIX-04 | Phase 27 | Complete |
 | CHAT-01 | Phase 28 | Complete |
 | CHAT-02 | Phase 28 | Complete |
-| CHAT-03 | Phase 28 | Pending |
+| CHAT-03 | Phase 28 | Complete |
 | BRAND-01 | Phase 29 | Complete |
 | BRAND-02 | Phase 29 | Complete |
 | BRAND-03 | Phase 29 | Complete |
-| BRAND-04 | Phase 29 | Pending |
-| KB-01 | Phase 30 | Pending |
-| KB-02 | Phase 30 | Pending |
-| KB-03 | Phase 30 | Pending |
-| KB-04 | Phase 30 | Pending |
-| SEC-01 | Phase 30 | Pending |
-| SEC-02 | Phase 30 | Pending |
-| E2E-01 | Phase 31 | Pending |
-| E2E-02 | Phase 31 | Pending |
-| E2E-03 | Phase 31 | Pending |
+| BRAND-04 | Phase 29 | Complete |
+| KB-01 | Phase 30 | Complete |
+| KB-02 | Phase 30 | Complete |
+| KB-03 | Phase 30 | Complete |
+| KB-04 | Phase 30 | Complete |
+| SEC-01 | Phase 30 | Complete |
+| SEC-02 | Phase 30 | Complete |
+| E2E-01 | Phase 31 | ✅ Closed 2026-05-28 |
+| E2E-02 | Phase 31 | ✅ Closed 2026-05-28 |
+| E2E-03 | Phase 31 | ✅ Closed 2026-05-28 |
 | DOC-01 | Phase 32 | Pending |
 | DOC-02 | Phase 32 | Pending |
 | DOC-03 | Phase 32 | Pending |
@@ -149,4 +149,4 @@ Which phases cover which requirements.
 
 ---
 *Requirements defined: 2026-05-27 (milestone vM014 kickoff)*
-*Last updated: 2026-05-27 — traceability filled in by gsd-roadmapper; all 24 requirements mapped to Phases 27–32*
+*Last updated: 2026-05-28 — CHAT-03, BRAND-04, KB-01..04, SEC-01..02 marked Complete per Phase 28–30 VERIFICATION.md evidence (vM014 milestone audit)*
