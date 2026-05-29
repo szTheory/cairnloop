@@ -258,3 +258,14 @@ _For current project status, see `.planning/STATE.md`_
 _vM014 roadmap formalized: 2026-05-27 from `.planning/threads/vM014-adoption-proof-assessment.md`_
 _Phase 28 plans created: 2026-05-27 â 3 plans, 3 waves (sequential dependency chain: data facade â channel+worker rewire â endpoint+ChatLive+README)_
 _Phase 29 plans created: 2026-05-27 â 3 plans, 3 waves (sequential dependency chain: land tokens in app.css â drop hex fallbacks + gate test â re-pin integration test assertions)_
+
+### Phase 32.1: Close gap: EditorHandoff dev config + REQUIREMENTS.md checkbox cleanup + BRAND-04 gate fix (INSERTED)
+
+**Goal:** Close the specific gaps identified in the vM014 milestone audit
+**Requirements**: [INT-BLOCKER-01, DOC-04, BRAND-04]
+**Depends on:** Phase 32
+**Plans:** 1 plan
+
+Plans:
+
+- [ ] 32.1-01-PLAN.md — Fix config, tests, and documentation
