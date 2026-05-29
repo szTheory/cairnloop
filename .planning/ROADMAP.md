@@ -155,12 +155,15 @@ Plans:
   4. `CHANGELOG.md` carries a vM014 entry summarizing the adopter-surface improvements (realistic demo, JTBD smoke test, brand-token extraction, KB editorial polish, T-10-09/T-10-11 closure, guides).
 
 **Plans:** 4 plans
-
 Plans:
+**Wave 1**
 
 - [ ] 32-01-PLAN.md — guides/01-quickstart.md + guides/04-troubleshooting.md (DOC-02; Wave 1)
 - [ ] 32-02-PLAN.md — guides/02-jtbd-walkthrough.md + guides/03-host-integration.md (DOC-02; Wave 1)
 - [ ] 32-03-PLAN.md — README.md Igniter-first restructure + CHANGELOG vM014 entry (DOC-01, DOC-04; Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 32-04-PLAN.md — mix.exs ExDoc wiring (extras + groups_for_extras + package :files) + mix docs/hex.build verification (DOC-03; Wave 2)
 
 **UI hint:** yes
