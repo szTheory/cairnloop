@@ -1,8 +1,8 @@
 ---
 phase: 31-golden-path-jtbd-smoke-test
-verified: 2026-05-28T17:45:00Z
-status: human_needed
-score: 7/8 must-haves verified
+verified: 2026-05-28T23:50:00Z
+status: passed
+score: 8/8 must-haves verified
 overrides_applied: 0
 human_verification:
   - test: "Run `mix test.integration test/integration/golden_path_test.exs` on a machine with dockerized Postgres + pgvector"
@@ -16,8 +16,8 @@ human_verification:
 # Phase 31: Golden-Path JTBD Smoke Test — Verification Report
 
 **Phase Goal:** The full JTBD round trip is locked into CI against real Postgres + pgvector via the existing integration harness — adopters who run the suite get a green light on the same path the two-tab demo walks. No browser-driver flake; no new test dependency.
-**Verified:** 2026-05-28T17:45:00Z
-**Status:** human_needed
+**Verified:** 2026-05-28T23:50:00Z
+**Status:** passed
 **Re-verification:** No — initial verification
 
 ---
@@ -35,9 +35,9 @@ human_verification:
 | 5 | Both tests are in `test/integration/` and receive `@moduletag :integration` automatically via ConnCase | VERIFIED | `conn_case.ex` line 12 sets `@moduletag :integration`; `mix.exs` line 70 alias runs `test/integration` with `--include integration` |
 | 6 | `mix compile --warnings-as-errors` exits 0 with both new test files present | VERIFIED | `mix compile --warnings-as-errors` exits 0; `mix test` runs 741 tests with only the pre-existing DraftTest baseline failure |
 | 7 | No `Oban.drain_queue`, no `SeedRun.run`, no Wallaby/PhoenixTest in either file | VERIFIED | `Oban.drain_queue` appears only in a comment on line 68 of widget_channel_test.exs ("D-09: never Oban.drain_queue"); `SeedRun.run` count = 0 in golden_path_test.exs |
-| 8 | `mix test.integration` exits 0 for both new test files (E2E-03: green in CI) | UNCERTAIN — HUMAN NEEDED | Requires dockerized Postgres + pgvector. REPO-UNAVAILABLE constraint: local workspace lacks `vector.control` extension. Compile passes; structural and API alignment verified against source. |
+| 8 | `mix test.integration` exits 0 for both new test files (E2E-03: green in CI) | VERIFIED | Both tests pass via Docker pgvector (PGPORT=5433): `2 tests, 0 failures`. Three gap-closure fixes applied: (1) `proposal_fixture` needed `conversation_id:` top-level key; (2) `Chat.resolve_conversation/2` DateTime.diff NaiveDateTime coercion; (3) `priv/test_host/migrations/.._add_conversation_slas.exs` created. |
 
-**Score:** 7/8 truths verified (truth #8 requires human execution in a CI-capable environment)
+**Score:** 8/8 truths verified
 
 ---
 
@@ -78,7 +78,7 @@ Both files are integration test files, not production components — they do not
 | No new test dependencies in `mix.exs` | `grep "Wallaby\|PhoenixTest" mix.exs` | No match | PASS |
 | `grep -c "Stage [1-9]:" golden_path_test.exs` returns 9 | grep -c | 9 | PASS |
 | `grep -c "defmodule StubRetrieval\|InlineTestTool\|StubContextProvider" golden_path_test.exs` returns 3 | grep -c | 3 | PASS |
-| `mix test.integration` passes against pgvector | Requires live DB | Cannot verify in this workspace | SKIP — human required |
+| `mix test.integration` passes against pgvector | `PGPORT=5433 MIX_ENV=test mix test --include integration ...` | `2 tests, 0 failures` | PASS |
 
 ---
 
@@ -92,9 +92,9 @@ No `probe-*.sh` scripts declared for Phase 31. N/A.
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|------------|-------------|--------|----------|
-| E2E-01 | 31-01-PLAN.md | `test/integration/golden_path_test.exs` covers full JTBD round trip (9 stages) | VERIFIED structurally; execution UNCERTAIN | File exists, 9 stages present, compiles clean; DB run requires human |
-| E2E-02 | 31-02-PLAN.md | `test/integration/widget_channel_test.exs` covers channel ingress + operator delivery | VERIFIED structurally; execution UNCERTAIN | File exists, all 5 steps present, compiles clean; DB run requires human |
-| E2E-03 | 31-01-PLAN.md + 31-02-PLAN.md | Both tests in `mix test.integration` lane, no Wallaby/PhoenixTest, no new dep | VERIFIED (structural); execution UNCERTAIN | `mix.exs` alias confirmed; no new deps; no browser driver; CI run requires human |
+| E2E-01 | 31-01-PLAN.md | `test/integration/golden_path_test.exs` covers full JTBD round trip (9 stages) | VERIFIED | Passes under Docker pgvector: `1 test, 0 failures` |
+| E2E-02 | 31-02-PLAN.md | `test/integration/widget_channel_test.exs` covers channel ingress + operator delivery | VERIFIED | Passes under Docker pgvector: `1 test, 0 failures` |
+| E2E-03 | 31-01-PLAN.md + 31-02-PLAN.md | Both tests in `mix test.integration` lane, no Wallaby/PhoenixTest, no new dep | VERIFIED | `mix.exs` alias confirmed; no new deps; no browser driver; both tests pass under Docker |
 
 **Note on E2E-01 wording vs implementation:** REQUIREMENTS.md E2E-01 states "per-recipient OutboundWorker jobs enqueued." The plan's interfaces section (31-01-PLAN.md line 115) explicitly documented that `bulk_trigger/2` creates `system_outbound` Message rows, not Oban OutboundWorker jobs — and declared that the Message rows satisfy the acceptance intent. The test asserts `BulkEnvelope` count + `system_outbound` Message rows accordingly. This is a documented intentional deviation that aligns with the actual implementation.
 
@@ -110,27 +110,21 @@ No `TBD`, `FIXME`, `XXX` debt markers. No `TODO`/`HACK`/`PLACEHOLDER` patterns. 
 
 ---
 
-### Human Verification Required
+### Human Verification
 
-#### 1. Full JTBD Round Trip Test Execution
+Both integration tests executed and confirmed green via Docker pgvector (PGPORT=5433) on 2026-05-28. Three gap-closure fixes were applied during the Docker run:
 
-**Test:** On a machine with dockerized Postgres + pgvector, run `mix test.integration test/integration/golden_path_test.exs`
-**Expected:** Exit code 0 — the single `test "full JTBD round trip"` passes all 9 stages against real Postgres + pgvector
-**Why human:** The local workspace lacks the `pgvector` extension (`vector.control` file missing from PostgreSQL@14). Both test files are tagged `# REPO-UNAVAILABLE` per CLAUDE.md convention. This is the documented constraint — CI with dockerized pgvector is the authoritative environment. All structural checks (compilation, API alignment, pitfall avoidance, stage counts) pass in this workspace.
-
-#### 2. Widget Channel Test Execution
-
-**Test:** On a machine with dockerized Postgres + pgvector, run `mix test.integration test/integration/widget_channel_test.exs`
-**Expected:** Exit code 0 — the channel join → push → ProcessMessage → InboxLive re-render test passes
-**Why human:** Same pgvector constraint. Additionally, the `socket/3` + `subscribe_and_join` pattern for `WidgetChannel` was assessed as MEDIUM confidence in RESEARCH.md (Pitfall 7 assumption about bypassing endpoint mount comes from training knowledge, not a run test). This is the highest-risk structural claim that needs live DB verification.
+1. **`proposal_fixture` missing `conversation_id:` FK** (`golden_path_test.exs` Stage 5) — `Governance.list_proposals_for_conversation` queries by `conversation_id`; fixture didn't set the top-level key. Added `conversation_id: conversation.id`.
+2. **`DateTime.diff/3` NaiveDateTime mismatch** (`lib/cairnloop/chat.ex:237`) — `timestamps()` defaults to `NaiveDateTime`; coercion to UTC DateTime via `DateTime.from_naive!/2` applied.
+3. **Missing `cairnloop_conversation_slas` table** — host-owned SLA table not in `priv/test_host/migrations`. Added `20260527070000_add_conversation_slas.exs`.
 
 ---
 
 ### Gaps Summary
 
-No blocking gaps. The phase delivered both test files with correct structure, complete stage coverage, all documented pitfalls honored, and warnings-clean build. The single unresolved item (E2E-03 "run green in CI") requires execution against a live Postgres + pgvector instance — a known environmental constraint explicitly documented as REPO-UNAVAILABLE by CLAUDE.md. All automated checks that can run in this workspace pass.
+No remaining gaps. All 8 must-haves verified, both integration tests pass under Docker pgvector, build is warnings-clean.
 
 ---
 
-_Verified: 2026-05-28T17:45:00Z_
-_Verifier: Claude (gsd-verifier)_
+_Verified: 2026-05-28T23:50:00Z (updated after Docker pgvector confirmation)_
+_Verifier: Claude (gsd-verifier + shift-left Docker run)_

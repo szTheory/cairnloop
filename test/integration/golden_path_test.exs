@@ -23,7 +23,7 @@ defmodule Cairnloop.Integration.GoldenPathTest do
   import Cairnloop.Fixtures
   import Ecto.Query
 
-  alias Cairnloop.{Chat, Governance, Outbound}
+  alias Cairnloop.{Chat, Governance}
   alias Cairnloop.Outbound.BulkEnvelope
   alias Cairnloop.Message
   alias Cairnloop.Workers.{ApprovalResumeWorker, ToolExecutionWorker}
@@ -88,6 +88,11 @@ defmodule Cairnloop.Integration.GoldenPathTest do
   # ---------------------------------------------------------------------------
 
   setup %{conn: conn} do
+    # ApprovalResumeWorker and ToolExecutionWorker internally call Oban.insert/1 to
+    # chain steps. Start Oban in :manual testing mode (no oban_jobs table needed;
+    # inserts are accepted in-memory and not auto-executed) so the chain doesn't crash.
+    start_supervised!({Oban, name: Oban, repo: Cairnloop.Repo, queues: [], testing: :manual})
+
     prior_tools = Application.get_env(:cairnloop, :tools)
     prior_context = Application.get_env(:cairnloop, :context_provider)
     prior_template = Application.get_env(:cairnloop, :outbound_recovery_template_id)
@@ -159,9 +164,11 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     # ------------------------------------------------------------------
     {:ok, view, _html} = live(conn, "/governance/#{conversation.id}")
 
-    # Inject stub retrieval module into the SearchModalComponent (D-03)
-    # send_update/2 is Phoenix.LiveView.send_update/2 — not imported by ConnCase
-    Phoenix.LiveView.send_update(Cairnloop.Web.SearchModalComponent,
+    # Inject stub retrieval module into the SearchModalComponent (D-03).
+    # Must target the LiveView server process (view.pid), not self() — send_update
+    # called from a non-LV process defaults to self(), which is the test process,
+    # so the update never reaches the component.
+    Phoenix.LiveView.send_update(view.pid, Cairnloop.Web.SearchModalComponent,
       id: "search-modal",
       retrieval_module: StubRetrieval
     )
@@ -223,6 +230,7 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     # ------------------------------------------------------------------
     proposal =
       proposal_fixture(%{
+        conversation_id: conversation.id,
         tool_ref: Atom.to_string(InlineTestTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},

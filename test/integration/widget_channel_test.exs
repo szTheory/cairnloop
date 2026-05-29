@@ -22,9 +22,7 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
   #   - assert_reply/2: Phoenix.LiveViewTest vs Phoenix.ChannelTest (channel reply)
   # Re-import the conflicting modules with `except:` so Phoenix.ChannelTest wins for all.
   import Phoenix.ChannelTest
-  import Plug.Conn, except: [push: 3]
   import Phoenix.LiveViewTest, except: [assert_reply: 2, assert_reply: 3]
-  import Cairnloop.Fixtures
 
   alias Cairnloop.Workers.ProcessMessage
 
@@ -33,6 +31,11 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
   # DO NOT redeclare — rely on the inherited attribute.
 
   setup %{conn: conn} do
+    # WidgetChannel.handle_in/3 calls Oban.insert/1 to enqueue ProcessMessage.
+    # The config/test.exs design uses no live Oban instance, so we start one in
+    # :manual testing mode — inserts succeed without an oban_jobs table or queue workers.
+    start_supervised!({Oban, name: Oban, repo: Cairnloop.Repo, queues: [], testing: :manual})
+
     # Build an authed operator conn for LiveView mounts.
     conn = Plug.Test.init_test_session(conn, %{"host_user_id" => "widget_operator"})
     %{conn: conn}
@@ -62,7 +65,7 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
     assert is_integer(conversation_id)
 
     # Step 3 — Push a customer message.
-    ref = push(channel_socket, "new_message", %{"content" => "Hello from the widget"})
+    ref = Phoenix.ChannelTest.push(channel_socket, "new_message", %{"content" => "Hello from the widget"})
     assert_reply ref, :ok
 
     # Step 4 — Process the enqueued job inline (D-09: never Oban.drain_queue).

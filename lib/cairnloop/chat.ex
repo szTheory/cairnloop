@@ -232,8 +232,17 @@ defmodule Cairnloop.Chat do
     conversation = repo().get!(Conversation, conversation_id)
     resolved_at = DateTime.utc_now()
 
-    # Safely handle missing inserted_at for old rows or test mock edge cases
-    inserted_at = conversation.inserted_at || resolved_at
+    # Safely handle missing inserted_at for old rows or test mock edge cases.
+    # timestamps() defaults to NaiveDateTime; coerce to UTC DateTime so DateTime.diff/3
+    # receives two DateTime structs (its 4th clause requires both have utc_offset).
+    raw_inserted_at = conversation.inserted_at || resolved_at
+
+    inserted_at =
+      case raw_inserted_at do
+        %DateTime{} = dt -> dt
+        %NaiveDateTime{} = ndt -> DateTime.from_naive!(ndt, "Etc/UTC")
+      end
+
     duration_seconds = DateTime.diff(resolved_at, inserted_at, :second)
 
     meta = %{
