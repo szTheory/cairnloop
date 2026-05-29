@@ -1,0 +1,20 @@
+{
+  "commit_docs": true,
+  "milestone_version": "vM015",
+  "milestone_name": "Operator Polish + Maintenance Gates",
+  "milestone_slug": "operator-polish-maintenance-gates",
+  "phase_count": 4,
+  "completed_phases": 4,
+  "all_phases_complete": true,
+  "archived_milestones": [],
+  "archive_count": 0,
+  "project_exists": true,
+  "roadmap_exists": true,
+  "state_exists": true,
+  "archive_exists": false,
+  "phases_dir_exists": true,
+  "project_root": "/Users/jon/projects/cairnloop",
+  "agents_installed": true,
+  "missing_agents": [],
+  "project_title": "Cairnloop Project"
+}
