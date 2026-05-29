@@ -9,7 +9,8 @@ This guide follows the example app at `examples/cairnloop_example/` as its refer
 - **Postgres 16+** with the `pgvector` extension installed
 
 The `pgvector` extension powers Cairnloop's Knowledge Base embeddings. If you need a
-containerized Postgres with pgvector, the example app ships a `docker-compose.yml`:
+containerized Postgres with pgvector, the repository ships a `docker-compose.yml` at the
+repo root. From the repo root run:
 
 ```bash
 docker compose up -d db
@@ -122,9 +123,11 @@ scope if you mount elsewhere.
 
 ## Boot
 
-Set up the database and start the server:
+The commands below are for the example app. Switch into it first, then set up the
+database and start the server:
 
 ```bash
+cd examples/cairnloop_example
 mix setup
 mix phx.server
 ```
