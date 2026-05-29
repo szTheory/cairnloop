@@ -7,10 +7,9 @@ last_updated: "2026-05-29T17:37:58.637Z"
 last_activity: 2026-05-29
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 5
-  completed_plans: 6
-  percent: 50
+  completed_phases: 4
+  percent: 100
+  note: "All vM015 phases (33–36) executed and released as v0.2.0. Milestone audit = gaps_found; remediated as v0.2.1 (branch, pending merge/release)."
 ---
 
 # Project State
@@ -24,9 +23,15 @@ See: `.planning/PROJECT.md` (updated 2026-05-29 — vM014 complete)
 
 ## Current Position
 
-Phase: 35
+Phase: 36 (all vM015 phases 33–36 executed)
 Plan: Complete
-Status: Phase 35 executed. Ready for next step.
+Status: vM015 fully executed and released as **v0.2.0**. The milestone audit
+(`.planning/vM015-MILESTONE-AUDIT.md`, verdict **gaps_found**) found three shipped
+defects — AUDIT-01 (audit log was a no-op stub), OPS-01/OPS-02 (health/metrics plugs
+mounted in no router), and REL-01 (CHANGELOG `[0.2.0]` section missing). All remediated
+as **v0.2.1** on branch `fix/v0.2.1-audit-ops-remediation` (commits 62b7989 + c839433;
+17 targeted tests pass, `mix compile --warnings-as-errors` clean). Awaiting merge +
+`v0.2.1` tag + hex publish (manual).
 Last activity: 2026-05-29
 
 ## Accumulated Context
@@ -51,7 +56,14 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 ### Blockers/Concerns
 
-- (None)
+- **v0.2.1 not yet merged/released** — remediation is committed on branch
+  `fix/v0.2.1-audit-ops-remediation`. Merge to main, tag `v0.2.1`, and `mix hex.publish`
+  are manual (outward-facing) steps.
+- **Verification debt** — phases 33/34/35 have no `VERIFICATION.md` (executed and released
+  without GSD verification artifacts). Nyquist `*-VALIDATION.md` missing for 33/34/35
+  (only 36 has one).
+- **Build gate** — confirm `mix compile --warnings-as-errors` + full `mix test` green in CI;
+  the DB-backed LiveView tests (incl. AuditLogLive) are not runnable in this workspace.
 
 ## Deferred Items
 
@@ -64,11 +76,16 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 ## Session Continuity
 
-Next step: `/gsd-plan-phase 36`
+Next step: land **v0.2.1** (PR → review → merge → tag → publish), then
+`/gsd-complete-milestone vM015` to archive. Optionally close verification debt first via
+`/gsd-verify-work 35` (and 33/34).
 
 ## Operator Next Steps
 
-- Run `/gsd-execute-phase 36` for the next phase.
+- Land the v0.2.1 remediation branch (`fix/v0.2.1-audit-ops-remediation`): create a clean
+  review PR with `/gsd-pr-branch`, then merge + tag `v0.2.1` + publish.
+- Then run `/gsd-complete-milestone vM015` to archive the milestone.
+- (Optional, before completing) `/gsd-verify-work 35` to backfill the missing VERIFICATION.md.
 
 ## Performance Metrics
 

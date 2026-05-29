@@ -52,7 +52,7 @@
   2. Contributor can find clear contribution guidelines in `CONTRIBUTING.md`.
   3. Adopter can understand system design via `docs/architecture.md`.
   4. Release v0.2.0 is published and documented in `CHANGELOG.md`.
-**Plans**: TBD
+**Plans**: 36-01
 
 ## Progress
 
@@ -61,4 +61,4 @@
 | 33. Security Domain Closure | 0/1 | Planned | - |
 | 34. Operator Settings Surface | 0/0 | Not started | - |
 | 35. Audit & Operations Support | 0/0 | Not started | - |
-| 36. Documentation & v0.2.0 Release | 0/0 | Not started | - |
+| 36. Documentation & v0.2.0 Release | 1/1 | Planned | - |
