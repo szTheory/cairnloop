@@ -164,7 +164,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 32-04-PLAN.md — mix.exs ExDoc wiring (extras + groups_for_extras + package :files) + mix docs/hex.build verification (DOC-03; Wave 2)
+- [x] 32-04-PLAN.md — mix.exs ExDoc wiring (extras + groups_for_extras + package :files) + mix docs/hex.build verification (DOC-03; Wave 2)
 
 **UI hint:** yes
 
@@ -236,7 +236,7 @@ Archive: `.planning/milestones/vM009-ROADMAP.md`
 | 29. Brand-Token CSS Extraction (D-10 Closure) | vM014 | 3/3 | Complete    | 2026-05-28 |
 | 30. KB Editorial Polish + T-10-09 / T-10-11 Closure | vM014 | 4/4 | Complete   | 2026-05-28 |
 | 31. Golden-Path JTBD Smoke Test | vM014 | 2/2 | Complete   | 2026-05-28 |
-| 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 3/4 | In Progress|  |
+| 32. README + ExDoc Guides + JTBD Walkthrough | vM014 | 4/4 | Complete   | 2026-05-29 |
 | 22. Outbound Foundation & Persistence | vM013 | 1/1 | Complete | 2026-05-26 |
 | 23. Delivery & Scheduling Engine | vM013 | 1/1 | Complete | 2026-05-26 |
 | 24. Individual Outbound UI | vM013 | 1/1 | Complete | 2026-05-26 |
