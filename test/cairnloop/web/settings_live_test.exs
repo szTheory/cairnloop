@@ -1,8 +1,19 @@
 defmodule Cairnloop.Web.SettingsLiveTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   import Phoenix.LiveViewTest
 
   alias Cairnloop.Web.SettingsLive
+
+  defmodule MockRepo do
+    def all(_query), do: []
+  end
+
+  setup do
+    original_repo = Application.get_env(:cairnloop, :repo)
+    Application.put_env(:cairnloop, :repo, MockRepo)
+    on_exit(fn -> Application.put_env(:cairnloop, :repo, original_repo) end)
+    :ok
+  end
 
   test "mount/3 stores host_user_id from the dashboard session" do
     {:ok, socket} =
@@ -18,6 +29,8 @@ defmodule Cairnloop.Web.SettingsLiveTest do
       priorities: [:low, :normal, :high, :urgent],
       notifier_health: "Healthy",
       retrieval_health: "Healthy",
+      tokens: [],
+      new_raw_token: nil,
       policies: [
         %{
           priority: :normal,

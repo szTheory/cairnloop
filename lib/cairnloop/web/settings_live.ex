@@ -1,6 +1,9 @@
 defmodule Cairnloop.Web.SettingsLive do
   use Phoenix.LiveView
 
+  import Ecto.Query
+  alias Cairnloop.MCP.Token
+
   def mount(_params, session, socket) do
     provider =
       Application.get_env(:cairnloop, :sla_policy_provider, Cairnloop.DefaultSLAPolicyProvider)
@@ -19,6 +22,9 @@ defmodule Cairnloop.Web.SettingsLive do
         {:error, msg} -> msg
       end
 
+    repo = Application.fetch_env!(:cairnloop, :repo)
+    tokens = repo.all(from t in Token, where: is_nil(t.revoked_at), order_by: [desc: t.inserted_at])
+
     socket =
       socket
       |> assign(:host_user_id, Map.get(session, "host_user_id"))
@@ -26,6 +32,8 @@ defmodule Cairnloop.Web.SettingsLive do
       |> assign(:priorities, [:low, :normal, :high, :urgent])
       |> assign(:notifier_health, notifier_health)
       |> assign(:retrieval_health, retrieval_health)
+      |> assign(:tokens, tokens)
+      |> assign(:new_raw_token, nil)
       |> load_policies()
 
     {:ok, socket}
@@ -59,6 +67,67 @@ defmodule Cairnloop.Web.SettingsLive do
   rescue
     _e in ArgumentError ->
       {:noreply, put_flash(socket, :error, "Invalid input values.")}
+  end
+
+  def handle_event("create_token", %{"name" => name}, socket) do
+    case Cairnloop.MCP.issue_token(%{name: name}) do
+      {:ok, token, raw_token} ->
+        socket =
+          socket
+          |> assign(:tokens, [token | socket.assigns.tokens])
+          |> assign(:new_raw_token, raw_token)
+          |> put_flash(:info, "MCP token created successfully.")
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to create MCP token.")}
+    end
+  end
+
+  def handle_event("update_token", %{"token_id" => id, "name" => new_name}, socket) do
+    token = Enum.find(socket.assigns.tokens, &(to_string(&1.id) == to_string(id)))
+
+    if token do
+      case Cairnloop.MCP.update_token(token, %{name: new_name}) do
+        {:ok, updated_token} ->
+          updated_tokens = Enum.map(socket.assigns.tokens, fn t ->
+            if t.id == updated_token.id, do: updated_token, else: t
+          end)
+
+          socket =
+            socket
+            |> assign(:tokens, updated_tokens)
+            |> put_flash(:info, "Token name updated.")
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to update token name.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Token not found.")}
+    end
+  end
+
+  def handle_event("revoke_token", %{"id" => id}, socket) do
+    token = Enum.find(socket.assigns.tokens, &(to_string(&1.id) == to_string(id)))
+
+    if token do
+      case Cairnloop.MCP.revoke_token(token) do
+        {:ok, _revoked} ->
+          remaining_tokens = Enum.reject(socket.assigns.tokens, &(to_string(&1.id) == to_string(id)))
+          socket =
+            socket
+            |> assign(:tokens, remaining_tokens)
+            |> assign(:new_raw_token, nil)
+            |> put_flash(:info, "Token revoked successfully.")
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to revoke token.")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Token not found.")}
+    end
   end
 
   defp load_policies(socket) do
@@ -115,6 +184,51 @@ defmodule Cairnloop.Web.SettingsLive do
             </span>
           </li>
         </ul>
+      </div>
+
+      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
+        <h2>MCP Authentication</h2>
+        
+        <%= if @new_raw_token do %>
+          <div class="alert alert-warning" style="background-color: var(--cl-warning-bg, #fff3cd); padding: 16px; margin-bottom: 16px; border-radius: 4px; border: 1px solid var(--cl-warning-border, #ffeeba);">
+            <strong>Important:</strong> Copy your new token now. It will not be shown again.
+            <br/><br/>
+            <code style="background: rgba(0,0,0,0.1); padding: 4px; border-radius: 4px; word-break: break-all;"><%= @new_raw_token %></code>
+          </div>
+        <% end %>
+
+        <%= if Enum.empty?(@tokens) do %>
+          <div class="empty-state" style="text-align: center; padding: 24px; color: var(--cl-text-muted);">
+            <h3>No MCP tokens active</h3>
+            <p>Add a token to enable external tool capabilities for this app.</p>
+          </div>
+        <% else %>
+          <ul style="list-style: none; padding: 0;">
+            <%= for token <- @tokens do %>
+              <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--cl-border); padding: 12px 0;">
+                <div>
+                  <form phx-submit="update_token" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <input type="hidden" name="token_id" value={token.id} />
+                    <input type="text" name="name" value={token.name} required style="padding: 4px; border: 1px solid var(--cl-border); border-radius: 4px;" />
+                    <button type="submit" class="cl-btn" style="padding: 4px 8px; font-size: 12px;">Save</button>
+                  </form>
+                  <div style="color: var(--cl-text-muted); font-size: 14px; margin-top: 4px;">
+                    cl_mcp_***
+                  </div>
+                </div>
+                <button type="button" phx-click="revoke_token" phx-value-id={token.id} data-confirm="Revoke Token: Are you sure? Active integrations using this token will fail immediately." class="cl-btn cl-btn-danger" style="padding: 6px 12px; background: var(--cl-danger, red); color: white; border: none; border-radius: 4px; cursor: pointer;">Revoke</button>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+
+        <div style="margin-top: 24px; border-top: 1px solid var(--cl-border); padding-top: 16px;">
+          <h3>Add New Token</h3>
+          <form phx-submit="create_token" style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" name="name" placeholder="Token Name" required style="padding: 8px; border: 1px solid var(--cl-border); border-radius: 4px; flex-grow: 1;" />
+            <button type="submit" class="cl-btn" style="padding: 8px 16px; background: var(--cl-primary, blue); color: white; border: none; border-radius: 4px; cursor: pointer;">Add MCP Token</button>
+          </form>
+        </div>
       </div>
 
       <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">

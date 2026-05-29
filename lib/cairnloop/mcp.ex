@@ -51,12 +51,33 @@ defmodule Cairnloop.MCP do
   def validate_token(_), do: {:error, :unauthorized}
 
   @doc """
+  Updates an existing token.
+  """
+  def update_token(%Token{} = token, attrs) do
+    token
+    |> Token.changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
   Revokes an active token.
   """
   def revoke_token(%Token{} = token) do
     token
     |> Token.changeset(%{revoked_at: DateTime.utc_now()})
     |> repo().update()
+  end
+
+  @doc """
+  Lists all active tokens.
+  """
+  def list_active_tokens do
+    repo().all(
+      from(t in Token,
+        where: is_nil(t.revoked_at),
+        order_by: [desc: t.inserted_at]
+      )
+    )
   end
 
   defp repo do
