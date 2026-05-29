@@ -42,9 +42,9 @@ Requirements for the vM015 release. Each maps to exactly one roadmap phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 33 | Complete |
-| SEC-02 | Phase 33 | Complete |
-| SEC-03 | Phase 33 | Complete |
+| SEC-01 | Phase 33 | Pending |
+| SEC-02 | Phase 33 | Pending |
+| SEC-03 | Phase 33 | Pending |
 | SET-01 | Phase 34 | Pending |
 | SET-02 | Phase 34 | Pending |
 | SET-03 | Phase 34 | Pending |

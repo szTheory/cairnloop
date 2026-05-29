@@ -46,3 +46,43 @@ None.
 ## Unregistered Flags
 
 None. The required summary files do not contain a `## Threat Flags` section.
+
+---
+
+# Security Verification: Phase 30 — KB Editorial Polish (T-10-09 + T-10-11 Closure)
+
+- Phase: `30` - `kb-editorial-polish-t-10-09-t-10-11-closure`
+- ASVS Level: `1`
+- block_on: `HIGH`
+- threats_total: `9`
+- threats_open: `0`
+
+## Threat Verification
+
+| Threat ID | Category | Component | Disposition | Status | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| T-10-09 | Repudiation | `record_editor_handoff/2` + `manual_edit_changeset/2` | mitigate | CLOSED | `record_editor_handoff/2` at `lib/cairnloop/knowledge_automation.ex:86-93` computes `now = now_fn(opts).()` and writes via `ArticleSuggestion.manual_edit_changeset(now) |> repo().update()`. `manual_edit_changeset/2` at `lib/cairnloop/knowledge_automation/article_suggestion.ex:89-91` casts only `:manual_edit_opened_at` (no heavy validate_required re-run). Overwrite-on-each-open idempotency proven by test at `test/cairnloop/knowledge_automation_test.exs:54`. End-to-end test at line 67 pins `now_fn` and asserts `changes.manual_edit_opened_at == pinned_ts`. Both minting entry points call `record_editor_handoff/2` before `sign/5`: `suggestion_review.ex:157` and `conversation_live.ex:174`. |
+| T-10-11 | Spoofing / Information disclosure | `EditorHandoff.verify!/2` + `assert_handoff_marker/1` | mitigate | CLOSED | `verify!/2` at `lib/cairnloop/web/knowledge_base_live/editor_handoff.ex:18-28` is a three-step `with` pipeline: (1) `Token.decode/1`, (2) `assert_handoff_marker(payload)` at line 30-33 requiring `is_binary(v) and v != ""` on `"manual_edit_opened_at"` in the decoded payload, (3) `non_marker_attrs` equality check excluding the marker. All `else` branches raise `Ecto.NoResultsError` fail-closed. Bare-URL tokens (no marker) fail step 2. Test at `test/cairnloop/web/knowledge_base_live/editor_handoff_test.exs:57-63` covers the no-marker `assert_raise` case. |
+| T-30-01 | Tampering | `EditorHandoff` token | mitigate | CLOSED | `decode/1` at `lib/cairnloop/knowledge_automation/editor_handoff.ex:11-13` is a single `Plug.Crypto.verify/4` call (constant-time HMAC). Tampered tokens return `{:error, _}`. `grep -c 'Token.verify' lib/cairnloop/web/knowledge_base_live/editor_handoff.ex` = 0 (no double-decode). All `else` branches in `verify!/2` raise `Ecto.NoResultsError` (fail-closed). |
+| T-30-02 | Elevation / replay | `EditorHandoff` token | mitigate | CLOSED | `@max_age 1800` at `lib/cairnloop/knowledge_automation/editor_handoff.ex:5` is passed as `max_age: @max_age` to `Plug.Crypto.verify` inside `decode/1` at line 12. Expired tokens decode to `{:error, :expired}`, which routes to the fail-closed `else` raise in `verify!/2`. |
+| T-30-03 | Information disclosure | cross-tenant read via new facades | mitigate | CLOSED | `record_editor_handoff/2` calls `get_article_suggestion!(suggestion_id, opts)` which threads `opts` through `apply_scope(opts)` (line 74) and `enforce_scope!(opts, ArticleSuggestion)` (line 77). `get_gap_candidate/2` wraps `get_gap_candidate!(id, opts)` which threads `opts` through `apply_scope(opts)` (line 55) and `enforce_scope!(opts, GapCandidate)` (line 59). `list_articles/1` at `lib/cairnloop/knowledge_base.ex:71-76` accepts `opts` for future tenant scope (Article has no tenant fields yet — reserved per D-09). |
+| T-10-10 | Tampering | authoring-target seam | accept (deferred) | CLOSED | Deferred to vM015 per STATE.md vM014 SECURITY split. No code mitigation required this phase. |
+| T-10-12 | Tampering | `suggest_article/2` gap-candidate prep | accept (deferred) | CLOSED | Deferred to vM015. No code mitigation required this phase. |
+| T-10-13 | Spoofing | `suggest_revision/2` stale gate inputs | accept (deferred) | CLOSED | Deferred to vM015. No code mitigation required this phase. |
+| T-30-SC | Tampering | npm/pip/cargo installs | n/a | CLOSED | Zero new package dependencies introduced this phase. |
+
+## Accepted Risks Log (Phase 30)
+
+| Risk ID | Threat | Rationale | Deferred To |
+| --- | --- | --- | --- |
+| T-10-10 | Authoring-target seam tampering | Domain-layer threat; out of scope for vM014 editorial polish phase per STATE.md vM014 SECURITY split | vM015 |
+| T-10-12 | `suggest_article/2` gap-candidate prep tampering | Out of scope for vM014 phase | vM015 |
+| T-10-13 | `suggest_revision/2` stale gate inputs spoofing | Out of scope for vM014 phase | vM015 |
+
+## Unregistered Flags (Phase 30)
+
+None. All `## Threat Flags` entries in the Phase 30 plan SUMMARYs mapped to existing threat IDs:
+- `record_editor_handoff/2` and `get_gap_candidate/2` threading `opts` through `apply_scope/enforce_scope` — mapped to T-30-03.
+- `list_articles/1` accepting scope opts (reserved) — mapped to T-30-03.
+- `verify!/2` rewrite — mapped to T-10-11.
+- Both Plan 03 and Plan 04 SUMMARY.md files report no new unplanned threat surface.

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: (none)
-milestone_name: (none)
-status: Milestone vM014 complete
-last_updated: "2026-05-29T15:35:00.000Z"
+milestone: vM015
+milestone_name: Operator Polish + Maintenance Gates
+status: Planning complete, ready for execution
+last_updated: "2026-05-29T16:00:00.000Z"
 last_activity: 2026-05-29
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 4
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 25
 ---
 
 # Project State
@@ -20,13 +20,13 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-29 — vM014 complete)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Ready for next milestone (run `/gsd-new-milestone`).
+**Current focus:** Execute vM015 Operator Polish + Maintenance Gates
 
 ## Current Position
 
 Phase: N/A
 Plan: N/A
-Status: Ready for next milestone
+Status: Ready to plan phase 34
 Last activity: 2026-05-29
 
 ## Accumulated Context
@@ -46,7 +46,7 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 ### Pending Todos
 
-- Root `SECURITY.md` carries 3 open threats (T-10-10, T-10-12, T-10-13) deferred to vM015 (domain layer in `knowledge_automation.ex`).
+- Ensure Phase 34 properly introduces the SettingsLive surface.
 
 ### Blockers/Concerns
 
@@ -56,16 +56,15 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Tech Debt | Root SECURITY.md threats T-10-10 / T-10-12 / T-10-13 (domain layer in `knowledge_automation.ex`) — defer to vM015 | Open | vM014 planning (2026-05-27) |
-| Tech Debt | AR-14-02: governed-actions rail lacks pagination (acceptable at current volume) | Open | vM011 Phase 14 |
+| Scope | Epic 13 Privacy-First Local AI (Nx/Bumblebee) | Deferred to vM016+ | vM015 planning |
+| Scope | Epic 12 Advanced Routing & Team Collaboration | Deferred to vM016+ | vM015 planning |
+| Scope | Epic 14 Mobile SDK Surface | Deferred to vM016+ | vM015 planning |
 | Tech Debt | Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear | Open | vM009 retrospective |
-| Scope | Real `SettingsLive` overhaul (MCP tokens / Notifier health / retrieval health / dark mode) | Deferred to vM015 | vM014 planning (2026-05-27) |
-| Scope | `/health` + `/metrics` HTTP endpoints | Deferred to vM015 | vM014 planning (2026-05-27) |
 
 ## Session Continuity
 
-Next step: `/gsd-new-milestone`
+Next step: `/gsd-plan-phase 34`
 
 ## Operator Next Steps
 
-- Run `/gsd-new-milestone` to pop the next Epic and define requirements.
+- Run `/gsd-plan-phase 34` to begin planning the next phase of vM015.

@@ -58,7 +58,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 33. Security Domain Closure | 1/1 | Complete | 2026-05-29 |
+| 33. Security Domain Closure | 0/1 | Planned | - |
 | 34. Operator Settings Surface | 0/0 | Not started | - |
 | 35. Audit & Operations Support | 0/0 | Not started | - |
 | 36. Documentation & v0.2.0 Release | 0/0 | Not started | - |
