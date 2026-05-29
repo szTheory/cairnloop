@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: vM014
 milestone_name: Adoption Proof
-status: executing
-stopped_at: Phase 32 context gathered
-last_updated: "2026-05-29T01:40:05.414Z"
+status: Phase 32.1 inserted (audit blocker closure)
+stopped_at: Phase 32.1 context gathered
+last_updated: "2026-05-29T12:34:51.901Z"
 last_activity: 2026-05-29
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 24
   completed_plans: 24
-  percent: 100
+  percent: 86
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-27 — vM014 Adoption Proof kicked off)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 32 — readme-exdoc-guides-jtbd-walkthrough
+**Current focus:** Phase 32.1 — close-gap-editorhandoff-dev-config (INSERTED — audit blocker)
 
 ## Current Position
 
-Phase: 32
+Phase: 32.1
 Plan: Not started
-Status: Executing Phase 32
+Status: Phase 32.1 inserted (audit blocker closure)
 Last activity: 2026-05-29
 
 ## Accumulated Context
@@ -56,9 +56,13 @@ Remaining carried decisions (milestone-scoped, not project-level):
 - Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear. (Carried from vM009.)
 - Root `SECURITY.md` carries 3 open threats (T-10-10, T-10-12, T-10-13) deferred to vM015 — T-10-09 + T-10-11 close in Phase 30.
 
+### Roadmap Evolution
+
+- Phase 32.1 inserted (URGENT) after Phase 32 — 2026-05-29: "Close gap: EditorHandoff dev config + REQUIREMENTS.md checkbox cleanup + BRAND-04 gate fix". Triggered by vM014 milestone audit (INT-BLOCKER-01: EditorHandoff secret_key_base not configured in example app dev/prod; SuggestionReview → Editor demo flow crashes at runtime).
+
 ### Blockers/Concerns
 
-(none — vM013 closed cleanly; vM014 roadmap formalized from assessment thread.)
+- **INT-BLOCKER-01 (Phase 32.1):** `EditorHandoff.secret_key_base/0` raises RuntimeError in dev/prod — no config in `examples/cairnloop_example/config/dev.exs` or `runtime.exs`. Fix: add 2-line config + troubleshooting guide note. Tests unaffected (persistent_term fallback in :test env).
 
 ## Deferred Items
 
@@ -78,8 +82,8 @@ Remaining carried decisions (milestone-scoped, not project-level):
 
 ## Session Continuity
 
-Last session: 2026-05-29T00:42:29.668Z
-Stopped at: Phase 32 context gathered
+Last session: 2026-05-29T12:34:51.897Z
+Stopped at: Phase 32.1 context gathered
 Next step: `/gsd:discuss-phase 27` (gather Phase 27 context) or `/gsd:plan-phase 27` (skip discussion, plan directly)
 
 ## Operator Next Steps
