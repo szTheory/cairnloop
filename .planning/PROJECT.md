@@ -8,9 +8,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 ## Current State
 
-**Latest shipped milestone:** `vM013 Support-Triggered Outbound Lifecycle` on 2026-05-27.
+**Latest shipped milestone: `vM014 Adoption Proof` on 2026-05-29.
 
-**What is now true (cumulative through vM013):**
+**What is now true (cumulative through vM014):**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence (vM008–vM009).
 - Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues (vM009).
 - Durable gap signals project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity (vM010).
@@ -28,25 +28,13 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Cairnloop has a sealed support-triggered outbound lane: `Cairnloop.Outbound.trigger/2` (single-conversation) + `bulk_trigger/2` (multi-conversation fan-out with `BulkEnvelope` audit row, `max_batch_size = 25` cap, Oban `unique:` at-most-once delivery), `system_outbound` messages appended to the `Conversation` timeline, `OutboundWorker` durably routing through `Cairnloop.Notifier` (Chimeway-backed) (vM013).
 - Operators see distinct outbound timeline bubbles with Pending/Sent/Failed chips in `ConversationLive`, can trigger resolved-only recovery from the sidebar, and can multi-select resolved conversations in `InboxLive` for bulk fan-out via a `<.focus_wrap>` confirmation modal with snapshotted body + first-5 recipient sample + fail-closed refusal banner for oversized cohorts (vM013).
 - Outbound observability is OpenInference-conformant: `Cairnloop.Outbound.Telemetry.Traces` on the disjoint `[:cairnloop, :outbound, :trace, …]` namespace; bounded-metrics spans on every terminal arm of `OutboundWorker.perform/1`, `trigger/2`, and `bulk_trigger/2`; narrow `Cairnloop.Governance` audit READ facade (`list_recent_bulk_outbound_envelopes/1`, `get_bulk_outbound_envelope/1`) (vM013).
+- Cairnloop includes realistic seeded fixtures covering the full JTBD lifecycle (conversations, KB articles, gaps, suggestions) and an integration test harness that proves the golden path against real Postgres (vM014).
+- The embedded `/chat` channel uses the real `WidgetChannel` ingress path, enabling a live two-tab local demo (vM014).
+- Brand-token CSS extraction is complete, providing a canonical `:root` contract with no inline hex fallbacks in the core render files (vM014).
+- The Knowledge Base features a unified editorial nav shell, missing creation affordances added, and auditable handoff markers for security closures (vM014).
+- Comprehensive ExDoc guides (Quickstart, JTBD Walkthrough, Host Integration, Troubleshooting) are shipped and integrated directly into the Hex docs (vM014).
 
-**Current milestone:** **vM014 Adoption Proof** — kicked off 2026-05-27 (see `.planning/threads/vM014-adoption-proof-assessment.md` for the canonical scope decision and `/Users/jon/.claude/plans/can-u-decide-this-greedy-balloon.md` for the multi-phase plan). Diminishing-returns line: end of vM015. vM016+ strategic optionality (Epic 12/13/14) is opt-in only when an adopter pulls.
-
-## Current Milestone: vM014 Adoption Proof
-
-**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI — closing the 15% adopter-surface gap that remains after vM013, with zero churn to sealed primitives.
-
-**Target features (6 phases, 27–32; additive-only):**
-- **FIX — Realistic demo fixtures.** 12–16 conversations spanning all JTBD states; 5+ KB articles with multiple revisions (one deprecated); 3+ GapCandidates with evidence; 1 ArticleSuggestion `:ready_for_review`. Embeddings drive through the live `ChunkRevision` Oban worker (self-test of M008 substrate).
-- **CHAT — Customer `/chat` wired to real ingress.** Mount `Cairnloop.Channels.WidgetSocket` in the example endpoint; Phoenix Channel JS hook; rewrite `chat_live.ex` to push through `WidgetChannel` and receive operator replies via PubSub; two-tab demo doc snippet.
-- **BRAND — D-10 brand-token CSS extraction.** Copy `prompts/cairnloop.css` `:root` block into example app + extend `@theme`. Drop the inline hex fallback (`var(--cl-token, #hex)` → `var(--cl-token)`). Re-pin 5 headless-token assertions to hex-free form. Add negative-grep gate.
-- **KB + SEC — Editorial polish + T-10-09/T-10-11 closure.** Shared editorial nav shell across 4 KB routes; "Create new article" affordance in Index; "View source gap" sidebar in Editor; calm copy on `SuggestionReview` "Open for manual edit". `EditorHandoff.verify!/2` requires `manual_edit_opened_at` timestamp marker; Editor preload of `proposed_markdown` requires that handoff marker.
-- **E2E — Golden-path JTBD smoke test in CI.** `test/integration/golden_path_test.exs` using `Phoenix.LiveViewTest` covers seed customer message → operator inbox → ConversationLive + cmd+k search + citation chip → approve AI draft → tool proposal approve → ToolExecutionWorker `:success` → resolve → `Outbound.trigger/2` → multi-select bulk recovery → `BulkEnvelope` row + per-recipient OutboundWorker jobs. Plus `widget_channel_test.exs` via `Phoenix.ChannelTest`. NOT Wallaby. NOT PhoenixTest dep.
-- **DOC — README + ExDoc guides + JTBD walkthrough.** README leads with `mix cairnloop.install`. Four guides under `guides/`: quickstart, JTBD walkthrough with PNG screenshots from the Phase-27-seeded example, host integration, troubleshooting. `mix.exs` package ships `guides/`. CHANGELOG vM014 entry.
-
-**Carried decisions for this milestone (informational; full list in `.planning/STATE.md`):**
-- Test harness: `Phoenix.LiveViewTest` + `Phoenix.ChannelTest` only — NOT Wallaby, NOT PhoenixTest dep.
-- D-10 closure: drop the hex fallback (Option B) — NOT migrate to named CSS classes (Option A).
-- Security split: T-10-09 + T-10-11 bundle with Phase 30 (same files); T-10-10 + T-10-12 + T-10-13 defer to vM015 (domain layer).
+**Current milestone:** (None — use `/gsd-new-milestone` to kick off next milestone). Diminishing-returns line: end of vM015. vM016+ strategic optionality (Epic 12/13/14) is opt-in only when an adopter pulls.
 
 ## Architectural Invariants
 
@@ -86,18 +74,17 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 - ✓ Distinct outbound timeline rendering with delivery status chips in `ConversationLive` — vM013 (UI-01, UI-02)
 - ✓ Bulk selection + bulk fan-out trigger workflow with cohort preview, batch cap, and at-most-once Oban semantics — vM013 (BULK-01, BULK-02, BULK-03, UI-03)
 - ✓ OpenInference-conformant outbound telemetry + bulk audit READ facade with auditor metadata shape regression — vM013 (OBS-01, OBS-02)
+- ✓ Realistic seeded fixtures spanning JTBD lifecycle — vM014 (FIX-01..FIX-04)
+- ✓ Customer `/chat` wired to real `WidgetChannel` ingress — vM014 (CHAT-01..CHAT-03)
+- ✓ D-10 brand-token CSS extraction and negative-grep gate — vM014 (BRAND-01..BRAND-04)
+- ✓ Shared editorial nav shell and security closures — vM014 (KB-01..KB-04, SEC-01..SEC-02)
+- ✓ Golden-path JTBD smoke test + WidgetChannel test in `mix test.integration` — vM014 (E2E-01..E2E-03)
+- ✓ ExDoc `guides/` (quickstart, JTBD walkthrough, etc.) and README update — vM014 (DOC-01..DOC-04)
+
 
 ### Active
 
-**Milestone vM014 — Adoption Proof** (full list in `.planning/REQUIREMENTS.md`):
-
-- [ ] **FIX-01..FIX-04** — Realistic seeded fixtures spanning JTBD lifecycle (conversations, KB articles + revisions, gap candidates, ready-for-review suggestion)
-- [ ] **CHAT-01..CHAT-03** — Customer `/chat` wired to real `WidgetChannel` ingress (socket mount, JS hook, two-tab demo)
-- [ ] **BRAND-01..BRAND-04** — D-10 brand-token CSS extraction, drop inline hex fallbacks, re-pin headless-token assertions, negative-grep gate
-- [ ] **KB-01..KB-04** — Shared editorial nav shell, "Create new article" affordance, "View source gap" sidebar, calm `SuggestionReview` copy
-- [ ] **SEC-01..SEC-02** — `EditorHandoff.verify!/2` requires `manual_edit_opened_at` marker; Editor preload requires that marker (closes T-10-09 + T-10-11)
-- [ ] **E2E-01..E2E-03** — Golden-path JTBD smoke test + WidgetChannel test in `mix test.integration`
-- [ ] **DOC-01..DOC-04** — README leads with `mix cairnloop.install`; ExDoc `guides/` (quickstart, JTBD walkthrough, host integration, troubleshooting); CHANGELOG entry
+(None)
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -142,6 +129,30 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 - D-10 brand-token CSS extraction deferred in vM013 Phase 26 — inline `var(--cl-<token>, <hex>)` strings remain the headless-test contract for v1.
 
 ## Previous Milestone Briefs
+
+<details>
+<summary>Archived vM014 brief</summary>
+
+### vM014 Adoption Proof
+
+**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI — closing the 15% adopter-surface gap that remains after vM013, with zero churn to sealed primitives.
+
+**Target features (6 phases, 27–32; additive-only):**
+- **FIX — Realistic demo fixtures.** 12–16 conversations spanning all JTBD states; 5+ KB articles with multiple revisions (one deprecated); 3+ GapCandidates with evidence; 1 ArticleSuggestion `:ready_for_review`. Embeddings drive through the live `ChunkRevision` Oban worker (self-test of M008 substrate).
+- **CHAT — Customer `/chat` wired to real ingress.** Mount `Cairnloop.Channels.WidgetSocket` in the example endpoint; Phoenix Channel JS hook; rewrite `chat_live.ex` to push through `WidgetChannel` and receive operator replies via PubSub; two-tab demo doc snippet.
+- **BRAND — D-10 brand-token CSS extraction.** Copy `prompts/cairnloop.css` `:root` block into example app + extend `@theme`. Drop the inline hex fallback (`var(--cl-token, #hex)` → `var(--cl-token)`). Re-pin 5 headless-token assertions to hex-free form. Add negative-grep gate.
+- **KB + SEC — Editorial polish + T-10-09/T-10-11 closure.** Shared editorial nav shell across 4 KB routes; "Create new article" affordance in Index; "View source gap" sidebar in Editor; calm copy on `SuggestionReview` "Open for manual edit". `EditorHandoff.verify!/2` requires `manual_edit_opened_at` timestamp marker; Editor preload of `proposed_markdown` requires that handoff marker.
+- **E2E — Golden-path JTBD smoke test in CI.** `test/integration/golden_path_test.exs` using `Phoenix.LiveViewTest` covers seed customer message → operator inbox → ConversationLive + cmd+k search + citation chip → approve AI draft → tool proposal approve → ToolExecutionWorker `:success` → resolve → `Outbound.trigger/2` → multi-select bulk recovery → `BulkEnvelope` row + per-recipient OutboundWorker jobs. Plus `widget_channel_test.exs` via `Phoenix.ChannelTest`. NOT Wallaby. NOT PhoenixTest dep.
+- **DOC — README + ExDoc guides + JTBD walkthrough.** README leads with `mix cairnloop.install`. Four guides under `guides/`: quickstart, JTBD walkthrough with PNG screenshots from the Phase-27-seeded example, host integration, troubleshooting. `mix.exs` package ships `guides/`. CHANGELOG vM014 entry.
+
+**Carried decisions for this milestone (informational; full list in `.planning/STATE.md`):**
+- Test harness: `Phoenix.LiveViewTest` + `Phoenix.ChannelTest` only — NOT Wallaby, NOT PhoenixTest dep.
+- D-10 closure: drop the hex fallback (Option B) — NOT migrate to named CSS classes (Option A).
+- Security split: T-10-09 + T-10-11 bundle with Phase 30 (same files); T-10-10 + T-10-12 + T-10-13 defer to vM015 (domain layer).
+
+**Shipped 2026-05-29 — all 24 v1 requirements satisfied across Phases 27-32.1.**
+
+</details>
 
 <details>
 <summary>Archived vM013 brief</summary>

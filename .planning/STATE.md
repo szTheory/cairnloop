@@ -1,32 +1,32 @@
 ---
 gsd_state_version: 1.0
-milestone: vM014
-milestone_name: Adoption Proof
-status: Phase 32.1 inserted (audit blocker closure)
-last_updated: "2026-05-29T14:59:59.639Z"
+milestone: (none)
+milestone_name: (none)
+status: Milestone vM014 complete
+last_updated: "2026-05-29T15:35:00.000Z"
 last_activity: 2026-05-29
 progress:
-  total_phases: 25
-  completed_phases: 7
-  total_plans: 25
-  completed_plans: 25
-  percent: 28
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-27 — vM014 Adoption Proof kicked off)
+See: `.planning/PROJECT.md` (updated 2026-05-29 — vM014 complete)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 32.1 — close-gap-editorhandoff-dev-config (INSERTED — audit blocker)
+**Current focus:** Ready for next milestone (run `/gsd-new-milestone`).
 
 ## Current Position
 
-Phase: 32.1
-Plan: Not started
-Status: Phase 32.1 inserted (audit blocker closure)
+Phase: N/A
+Plan: N/A
+Status: Ready for next milestone
 Last activity: 2026-05-29
 
 ## Accumulated Context
@@ -36,32 +36,21 @@ Last activity: 2026-05-29
 **5 patterns graduated to project-level architectural invariants 2026-05-27** — see `PROJECT.md` "## Architectural Invariants": (1) sealed-contract + additive-opts, (2) snapshot-at-decision, (3) fail-closed envelope-boundary cap, (4) three-layer at-most-once, (5) Governance-facade reads from the web layer. Subagents read these from `PROJECT.md`, not from this list.
 
 Remaining carried decisions (milestone-scoped, not project-level):
-
-- Workflow truth in Phoenix/Ecto/Oban; LiveView reflects persisted state and never owns execution. (vM011 → vM013 — consistently honored.)
+- Workflow truth in Phoenix/Ecto/Oban; LiveView reflects persisted state and never owns execution.
 - `ToolExecutionWorker` is the sole `run/3` caller for governed tools; new write-action types should follow this pattern.
-- `Tool.run/3` must NEVER be called from MCP handlers or from the Outbound facade — hard architectural constraint.
-- Integration harness (`MIX_ENV=test mix test.integration`) is available for DB-backed proof lanes; CI shift-left used to close vM013 Phase 25's former human-UAT gap. **vM014 Phase 31 will reuse this harness for the golden-path JTBD smoke test.**
+- `Tool.run/3` must NEVER be called from MCP handlers or from the Outbound facade.
 - Telemetry uses enum-only labels; no actor_id/conversation_id/payload in metric event names.
-- All approval-surface prose reads from snapshotted columns on `cairnloop_tool_proposals` — never call live `Preview.render` from approval or execution context.
-- **Audit row both-lanes pattern:** record both successful submissions and fail-closed refusals on the same audit table with a `status` enum (vM013 `BulkEnvelope` `:submitted | :refused_cap_exceeded`); OBS-02 reads see both lanes from one query.
-- **OI traces alongside, never replacing:** OpenInference traces emit in parallel with sealed `:telemetry.span/3` bounded-metrics on a disjoint 4-segment namespace. Mirrors vM011 Phase 17.
-- **CI shift-left after the fact:** former human-UAT items that needed a real Postgres host can be backfilled into the integration test lane within the milestone close window.
-- **vM014 test harness decision (2026-05-27):** `Phoenix.LiveViewTest` + `Phoenix.ChannelTest` for JTBD smoke tests. NOT Wallaby (avoids Selenium/Chrome-in-CI flake), NOT PhoenixTest dep. Proven path across 9 existing integration tests.
-- **vM014 D-10 closure path (2026-05-27):** Drop the hex fallback (Option B) in inline `var(--cl-token, #hex)` strings. NOT migrate to named CSS classes (Option A — bigger diff, churns sealed render code). Re-pin 5 headless-token assertions + add negative-grep gate.
-- **vM014 SECURITY split (2026-05-27):** T-10-09 + T-10-11 bundle with Phase 30 (same files: `editor.ex` + `suggestion_review.ex`). T-10-10 + T-10-12 + T-10-13 defer to vM015 (domain layer, different file: `knowledge_automation.ex`).
+- All approval-surface prose reads from snapshotted columns on `cairnloop_tool_proposals`.
+- **Audit row both-lanes pattern:** record both successful submissions and fail-closed refusals on the same audit table.
+- **OI traces alongside, never replacing:** OpenInference traces emit in parallel with sealed `:telemetry.span/3` bounded-metrics.
 
 ### Pending Todos
 
-- Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear. (Carried from vM009.)
-- Root `SECURITY.md` carries 3 open threats (T-10-10, T-10-12, T-10-13) deferred to vM015 — T-10-09 + T-10-11 close in Phase 30.
-
-### Roadmap Evolution
-
-- Phase 32.1 inserted (URGENT) after Phase 32 — 2026-05-29: "Close gap: EditorHandoff dev config + REQUIREMENTS.md checkbox cleanup + BRAND-04 gate fix". Triggered by vM014 milestone audit (INT-BLOCKER-01: EditorHandoff secret_key_base not configured in example app dev/prod; SuggestionReview → Editor demo flow crashes at runtime).
+- Root `SECURITY.md` carries 3 open threats (T-10-10, T-10-12, T-10-13) deferred to vM015 (domain layer in `knowledge_automation.ex`).
 
 ### Blockers/Concerns
 
-- **INT-BLOCKER-01 (Phase 32.1):** `EditorHandoff.secret_key_base/0` raises RuntimeError in dev/prod — no config in `examples/cairnloop_example/config/dev.exs` or `runtime.exs`. Fix: add 2-line config + troubleshooting guide note. Tests unaffected (persistent_term fallback in :test env).
+- (None)
 
 ## Deferred Items
 
@@ -70,23 +59,13 @@ Remaining carried decisions (milestone-scoped, not project-level):
 | Tech Debt | Root SECURITY.md threats T-10-10 / T-10-12 / T-10-13 (domain layer in `knowledge_automation.ex`) — defer to vM015 | Open | vM014 planning (2026-05-27) |
 | Tech Debt | AR-14-02: governed-actions rail lacks pagination (acceptable at current volume) | Open | vM011 Phase 14 |
 | Tech Debt | Centralize duplicated fail-closed search guards before more retrieval-adjacent surfaces appear | Open | vM009 retrospective |
-| Scope | Wallaby / Selenium browser-driven smoke tests | Out of Scope (vM014) | vM014 planning (2026-05-27) |
-| Scope | PhoenixTest as a new test dependency | Out of Scope (vM014) | vM014 planning (2026-05-27) |
-| Scope | Brand-token migration to named CSS classes (Option A) | Out of Scope (vM014) | vM014 planning (2026-05-27) |
 | Scope | Real `SettingsLive` overhaul (MCP tokens / Notifier health / retrieval health / dark mode) | Deferred to vM015 | vM014 planning (2026-05-27) |
 | Scope | `/health` + `/metrics` HTTP endpoints | Deferred to vM015 | vM014 planning (2026-05-27) |
-| Scope | Marketing/Newsletter drip campaigns | Out of Scope | vM013 planning |
-| Scope | In-browser rich text template editing | Out of Scope | vM013 planning |
-| Scope | SMS/WhatsApp delivery in the outbound lane | Out of Scope | vM013 planning |
 
 ## Session Continuity
 
-Last session: 2026-05-29T14:59:59.634Z
-Stopped at: Phase 32.1 context gathered
-Next step: `/gsd:discuss-phase 27` (gather Phase 27 context) or `/gsd:plan-phase 27` (skip discussion, plan directly)
+Next step: `/gsd-new-milestone`
 
 ## Operator Next Steps
 
-- Phase 27 (Realistic Demo Fixtures — FIX-01..FIX-04) is up next.
-- Canonical scope context for all vM014 subagents: `.planning/threads/vM014-adoption-proof-assessment.md` + `/Users/jon/.claude/plans/can-u-decide-this-greedy-balloon.md`.
-- 4-agent project research step skipped — research already done in the vM014 adoption-proof assessment cycle.
+- Run `/gsd-new-milestone` to pop the next Epic and define requirements.

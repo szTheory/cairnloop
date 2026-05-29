@@ -7,168 +7,28 @@
 - â **vM011 AI Tool Governance & MCP Integration** â Phases 13â17 (shipped 2026-05-25)
 - â **vM012 Public Release & MCP Write Surface** â Phases 18â21 (shipped 2026-05-26)
 - â **vM013 Support-Triggered Outbound Lifecycle** â Phases 22â26 (shipped 2026-05-27)
-- ð§ **vM014 Adoption Proof** â Phases 27â32 (active, kicked off 2026-05-27)
+- â **vM014 Adoption Proof** â Phases 27â32.1 (shipped 2026-05-29)
 
-## Current Milestone: vM014 Adoption Proof
+## Current Milestone: (None)
 
-**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI â closing the 15% adopter-surface gap that remains after vM013, with zero churn to sealed primitives.
-
-**Scope guard:** All work additive. `Cairnloop.Outbound.trigger/2`, `Cairnloop.Governance.propose/3`, MCP `tools/call`, three-layer at-most-once execution, `BulkEnvelope` envelope-boundary cap (`max_batch_size = 25`), and the approval state machine are byte-for-byte sealed. New behavior arrives only via new functions or optional opts.
-
-**Canonical context:** `.planning/threads/vM014-adoption-proof-assessment.md` + `/Users/jon/.claude/plans/can-u-decide-this-greedy-balloon.md`.
-
-### Phases
-
-- [x] **Phase 27: Realistic Demo Fixtures** â Replace the lonely 1-conversation seed with a JTBD-spanning fixture set that exercises the M008 substrate end-to-end. (completed 2026-05-27)
-- [x] **Phase 28: Customer `/chat` Wired to Real Ingress** â Replace the 51-LOC mock chat with a real `WidgetChannel` round trip so the two-tab demo proves the customerâoperator path. (completed 2026-05-27)
-- [x] **Phase 29: Brand-Token CSS Extraction (D-10 Closure)** â Land the canonical brand tokens in the example app, drop the inline hex fallbacks, and re-pin the headless-token test contract behind a negative-grep gate. (completed 2026-05-28)
-- [x] **Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure** â Tighten the KB editorial nav, add the missing affordances, calm the `SuggestionReview` copy, and close the two `editor.ex` / `suggestion_review.ex`-shaped SECURITY threats with an auditable handoff marker. (completed 2026-05-28)
-- [x] **Phase 31: Golden-Path JTBD Smoke Test** â Lock the full JTBD round trip and the new customer-ingress wiring into the `mix test.integration` lane (no Wallaby, no PhoenixTest dep).
-- [x] **Phase 32: README + ExDoc Guides + JTBD Walkthrough** â Make the front door match the shipped install path; ship four ExDoc guides + CHANGELOG entry so adopters can self-serve. (completed 2026-05-29)
-
-### Why this order
-
-The phases form an additive dependency chain dictated by the adopter-experience need, not arbitrary technical layering:
-
-1. **Phase 27 (fixtures) lands first** because every later phase consumes its data: the `/chat` two-tab demo (28) needs realistic conversations, the brand-token re-pin (29) needs rendered pages to verify against, the KB editorial polish (30) needs articles/revisions/gaps/suggestions to render through, the golden-path smoke (31) seeds from the same lifecycle the fixtures define, and the JTBD walkthrough PNG screenshots (32) come from the Phase-27-seeded example.
-2. **Phase 28 (chat ingress)** lands second because the golden-path smoke (31) and the JTBD walkthrough (32) both depend on the customer-ingress path actually working â the existing mock would let the smoke test pass against a fiction.
-3. **Phase 29 (brand tokens)** lands before the editorial polish (30) so the new KB nav shell renders against the canonical `:root` block instead of inheriting the 4-token placeholder; re-pinning the 5 headless-token assertions also stabilizes the test contract before Phase 30 touches the same files.
-4. **Phase 30 (KB polish + SEC)** bundles the two `editor.ex` / `suggestion_review.ex`-shaped threats because they touch the same files as the editorial polish work â splitting would force a 7th phase. The domain-layer threats (T-10-10/T-10-12/T-10-13) graduate to vM015.
-5. **Phase 31 (smoke test)** lands second-to-last because it locks the substrate of all prior phases into CI; running it before Phase 30 would either over-spec or under-spec the editorial paths.
-6. **Phase 32 (docs)** lands last because it captures screenshots from the now-real seeded example, references the now-locked golden path, and announces the now-shipped surface in CHANGELOG.
-
-### Phase Details
-
-#### Phase 27: Realistic Demo Fixtures
-
-**Goal:** An adopter who runs `mix setup` in the example app lands in a populated dashboard that already exercises every Jobs-To-Be-Done state â the example self-tests the M008 retrieval substrate on first boot rather than greeting them with one lonely conversation.
-**Depends on:** Nothing (foundation phase for vM014).
-**Requirements:** FIX-01, FIX-02, FIX-03, FIX-04.
-**Success Criteria** (what must be TRUE):
-
-  1. Operator opens example app after `mix setup` and the inbox shows 12â16 conversations spanning `:new`, `:open`, `:awaiting_customer`, and `:resolved` with realistic operator + customer messages and ContextProvider snippets â not the previous 1-conversation lonely demo.
-  2. KB Index shows at least 5 articles, and each article has multiple `KnowledgeBase.Revision` rows including at least one `:deprecated` revision; embeddings flow through the live `ChunkRevision` Oban worker into pgvector (self-test of the M008 substrate, not a fixture shortcut).
-  3. KB gap queue shows at least 3 `GapCandidate` rows on first boot, each with evidence linked to seeded conversations and inspectable in the ranked maintenance queue.
-  4. `SuggestionReview` LiveView shows at least 1 `ArticleSuggestion` in `:ready_for_review` state with citation-backed `proposed_markdown` â real review work available immediately, no manual setup.
-
-**Plans:** 8/8 plans complete
-
-  - [x] 27-01-PLAN.md â Skeleton seeds.exs rewrite: builder shells + idempotency helper + Oban drain wiring + sealed-enum reconciliation table in header.
-  - [x] 27-02-PLAN.md â `CairnloopExample.DemoContextProvider` module + headless test + config.exs wire (FIX-01 ContextProvider snippets; runs parallel to 27-01 in Wave 1).
-  - [x] 27-03-PLAN.md â `build_articles/0`: 5 articles via KnowledgeBase facade + article-5 multi-revision progression v1âarchivedâv2 (FIX-02 articles).
-  - [x] 27-04-PLAN.md â `build_conversations/1`: 16 conversations Ã 4 JTBD-derived cohorts with 3â6 messages each, brand-voice bodies (FIX-01 conversations).
-  - [x] 27-05-PLAN.md â `build_gaps/1`: 3 GapCandidates + RetrievalGapEvents + memberships, all operator-scoped (FIX-03).
-  - [x] 27-06-PLAN.md â `build_suggestion/2`: 1 ArticleSuggestion :ready + 2 evidence rows + companion ReviewTask via `ensure_review_task_for_suggestion/2` (FIX-04).
-  - [x] 27-07-PLAN.md â Final wiring of `SeedRun.run/0` orchestrator + adopter-facing IO summary (FIX-02 substrate self-test driven by drain).
-  - [x] 27-08-PLAN.md â Integration test `seeds_test.exs` pinning FIX-01..FIX-04 row counts + Oban drain non-empty chunks + idempotency (tagged `:requires_postgres`).
-
-**UI hint:** yes
-
-#### Phase 28: Customer `/chat` Wired to Real Ingress
-
-**Goal:** The two-tab demo (operator inbox + customer `/chat`) proves a real customerâoperatorâcustomer round trip through the host-owned channel layer, replacing the mock `Process.send_after` bot reply with the same `WidgetChannel` path adopters will use.
-**Depends on:** Phase 27 (needs realistic conversations + operators for the round trip to be meaningful).
-**Requirements:** CHAT-01, CHAT-02, CHAT-03.
-**Success Criteria** (what must be TRUE):
-
-  1. `examples/cairnloop_example/lib/cairnloop_example_web/endpoint.ex` mounts `Cairnloop.Channels.WidgetSocket` at its canonical socket path; the example endpoint is no longer missing the socket mount.
-  2. Customer types a message in `/chat`, it pushes through `WidgetChannel`, lands in an operator-side inbox conversation, and operator's reply broadcasts back into the customer's `/chat` LiveView via PubSub â no mock `Process.send_after(self(), :bot_reply, 1000)` path remains anywhere in `chat_live.ex`.
-  3. Example app README documents the two-tab demo (operator inbox + customer `/chat`) with the exact local-dev commands an adopter needs to reproduce the round trip.
-
-**Plans:** 3/3 plans complete
-
-  - [x] 28-01-PLAN.md â Chat-facade foundation: add `create_customer_conversation/1` + `ingest_widget_message/2`, additive `reply_to_conversation/4` post-commit broadcast (OQ-1), `ConversationLive` + `InboxLive` PubSub handle_info clauses, and `Cairnloop.PubSub` started in the example app supervisor (Pitfall 1).
-  - [x] 28-02-PLAN.md â Channel + worker rewire: `WidgetChannel.join("widget:lobby", ...)` creates the conversation via the new facade, `handle_in("new_message", ...)` reads conversation_id from `socket.assigns` (T-M001 input-trust mitigation), `ProcessMessage` rewritten with unique-option header + multi-clause `perform/1` preserving the EmailWebhookPlug stub (Pitfall 2 / OQ-2).
-  - [x] 28-03-PLAN.md â Endpoint mount + ChatLive rewrite + README: `/widget` socket mount on the example endpoint, full `chat_live.ex` rewrite with colocated `WidgetChat` JS hook + UI-SPEC compliance + role-dedup handle_info (Pitfall 7), additive `Cairnloop.Chat.get_message/1` read facade, README Â§Two-Tab Demo block verbatim from UI-SPEC Â§3.
-
-**UI hint:** yes
-
-#### Phase 29: Brand-Token CSS Extraction (D-10 Closure)
-
-**Goal:** The canonical brand tokens become the single source of truth for the example app and library render surfaces; inline hex fallbacks disappear; a gate prevents regression. D-10 (deferred at vM013 close) is closed via Option B (drop the fallback), not Option A (named CSS classes).
-**Depends on:** Phase 28 (the brand application is most observable once realistic seeded UI is rendering with the new ingress path).
-**Requirements:** BRAND-01, BRAND-02, BRAND-03, BRAND-04.
-**Success Criteria** (what must be TRUE):
-
-  1. `examples/cairnloop_example/assets/css/app.css` imports the canonical `:root` block from `prompts/cairnloop.css` (~30 semantic + ~15 primitive tokens) and the Tailwind `@theme` block extends them â replacing the previous 4-token + 6-raw-`--cl-*` placeholder.
-  2. Operator views `InboxLive` and `ConversationLive` in the example app and sees brand-correct rendering driven entirely by `var(--cl-<token>)` references; no inline `var(--cl-<token>, #<hex>)` fallback strings remain in `lib/cairnloop/web/inbox_live.ex` or `lib/cairnloop/web/conversation_live.ex`.
-  3. The 5 known `assert html =~ "var(--cl-primary, #A94F30)"` headless-token assertions across `test/cairnloop/web/inbox_live_test.exs`, `test/cairnloop/web/conversation_live_test.exs`, `test/integration/approval_footer_live_test.exs`, and `test/integration/tool_execution_outcome_live_test.exs` are re-pinned to the hex-free form and pass on `mix test`.
-  4. A negative-grep gate runs in the test lane and fails the build if `grep -r 'var(--cl-[a-z-]*, #' lib/cairnloop/web/` returns anything â the contract holds across future edits.
-
-**Plans:** 3/3 plans complete
-
-  - [x] 29-01-PLAN.md â BRAND-01: land canonical `:root` + `@theme` + dark overrides + `--cl-on-primary` alias in `examples/cairnloop_example/assets/css/app.css` (verbatim from `prompts/cairnloop.css`; replaces the 4-token stub).
-  - [x] 29-02-PLAN.md â BRAND-02 + BRAND-04: drop hex fallbacks across 4 sealed render files (`inbox_live.ex` + `conversation_live.ex` + `search_modal_component.ex` + example app `chat_live.ex`), rename `--cl-error` â `--cl-danger` in `chat_live.ex`, refresh `inbox_live.ex` moduledoc, land negative-grep gate test `test/cairnloop/web/brand_token_gate_test.exs`.
-  - [x] 29-03-PLAN.md â BRAND-03: re-pin all 6 hex-fallback assertions across 3 integration test files (`approval_footer_live_test.exs` + `tool_execution_outcome_live_test.exs` + `bulk_recovery_live_test.exs`) to bare `var(--cl-<token>)` form with closing-paren strictness.
-
-**UI hint:** yes
-
-#### Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure
-
-**Goal:** The four KB routes feel like one coherent editorial surface, operators can create / inspect / review without context-switching between unrelated layouts, calm reason-forward copy holds across affordances, and two of the five outstanding vM010 SECURITY threats close via an auditable handoff marker â without churning the sealed render code structure.
-**Depends on:** Phase 29 (the editorial nav shell + sidebar render against the canonical brand tokens rather than inheriting placeholder styles).
-**Requirements:** KB-01, KB-02, KB-03, KB-04, SEC-01, SEC-02.
-**Success Criteria** (what must be TRUE):
-
-  1. Operator navigates between `KnowledgeBase.Index`, `KnowledgeBase.Editor`, `SuggestionReview`, and the KB gap surface and sees a single shared editorial nav shell â no mid-task context-switch between unrelated layouts.
-  2. Operator on `KnowledgeBase.Index` can click an explicit "Create new article" button (with a real route) and reach the Editor for a fresh article; the affordance was missing previously.
-  3. When `KnowledgeBase.Editor` is opened via a `GapCandidate` handoff, a "View source gap" sidebar surfaces the originating evidence in-context; "Open for manual edit" on `SuggestionReview` uses calm, reason-forward copy per `prompts/cairnloop_brand_book.md` and never leaks raw Elixir terms or raw JSON to the operator.
-  4. `Cairnloop.KnowledgeAutomation.EditorHandoff.verify!/2` requires a `manual_edit_opened_at` timestamp marker on the handoff record; `KnowledgeBase.Editor` refuses to preload `proposed_markdown` from a bare URL `suggestion_id` parameter â only via the handoff marker (closes T-10-09 + T-10-11; T-10-10 / T-10-12 / T-10-13 remain deferred to vM015 per assessment thread).
-
-**Plans:** 4 plans
-
-  - [x] 30-01-PLAN.md â EditorHandoff double-layer gate (decode/1, sign/5 marker opts, 3-step verify!/2) + record_editor_handoff/2 + get_gap_candidate/2 + list_articles/1 + manual_edit_changeset/2 + pure gate tests (SEC-01, SEC-02, KB-02/KB-03 facades).
-  - [x] 30-02-PLAN.md â NavComponent.kb_nav/1 shared editorial nav + ReviewTaskPresenter 3-variant calm copy + pure nav/presenter tests (KB-01 component, KB-04).
-  - [x] 30-03-PLAN.md â Index (list_articles read, New article button, nav) + Editor (gap sidebar, mount rescue, nav) + updated knowledge_base_live_test.exs marker/rescue fixtures (KB-01/KB-02/KB-03, SEC-02 consumer).
-  - [x] 30-04-PLAN.md â SuggestionReview (record_editor_handoff + marker sign + nav) + Gaps nav + ConversationLive open_manual_draft gate fix + suggestion_review_test (KB-01, SEC-01 minting side).
-
-**UI hint:** yes
-
-#### Phase 31: Golden-Path JTBD Smoke Test ✅ COMPLETE (2026-05-28)
-
-**Goal:** The full JTBD round trip is locked into CI against real Postgres + pgvector via the existing integration harness â adopters who run the suite get a green light on the same path the two-tab demo walks. No browser-driver flake; no new test dependency.
-**Depends on:** Phase 30 (golden path traverses the editorial polish + the SEC-01/SEC-02 handoff marker added in Phase 30, plus the Phase 27 fixtures, the Phase 28 ingress wiring, and the Phase 29 brand-token contract).
-**Requirements:** E2E-01, E2E-02, E2E-03.
-**Success Criteria** (what must be TRUE):
-
-  1. `test/integration/golden_path_test.exs` (using `Phoenix.LiveViewTest`) drives the full JTBD round trip â seed customer message â operator inbox sees â ConversationLive + cmd+k search + citation chip â approve AI draft â tool proposal approve â `ToolExecutionWorker` `:success` â resolve â `Outbound.trigger/2` from sidebar â multi-select bulk recovery â `BulkEnvelope` row created + per-recipient `OutboundWorker` jobs enqueued â and passes against real Postgres + pgvector.
-  2. `test/integration/widget_channel_test.exs` (using `Phoenix.ChannelTest`) drives the customer-ingress side: customer message join â push through `WidgetChannel` â PubSub broadcast â operator-side delivery â proving the CHAT-01/CHAT-02 wiring end-to-end.
-  3. Both new tests are registered in the `mix test.integration` lane (dockerized Postgres + pgvector) and run green in CI on every push â no Wallaby, no PhoenixTest dep, no browser-driver flake.
-
-**Plans:** 2 plans
-
-Plans:
-
-- [x] 31-01-PLAN.md — golden_path_test.exs: single sequential 9-stage JTBD round trip (E2E-01)
-- [x] 31-02-PLAN.md — widget_channel_test.exs: channel join → push → ProcessMessage → operator inbox delivery (E2E-02)
-
-#### Phase 32: README + ExDoc Guides + JTBD Walkthrough
-
-**Goal:** The library's front door matches the shipped install path, and adopters have four task-shaped guides plus screenshots of the now-real seeded example so they can self-serve from clone to first integration without reading source.
-**Depends on:** Phase 31 (the JTBD walkthrough cites the locked-in golden path; screenshots come from the Phase-27-seeded example).
-**Requirements:** DOC-01, DOC-02, DOC-03, DOC-04.
-**Success Criteria** (what must be TRUE):
-
-  1. Root `README.md` leads with `mix cairnloop.install` (the shipped Igniter task at `lib/mix/tasks/cairnloop/install.ex`), not the previous `{:cairnloop, "~> 0.1.0"}` snippet â the install path adopters should actually use is the first one they see.
-  2. ExDoc `guides/` directory ships four guides: `01-quickstart.md`, `02-jtbd-walkthrough.md` (with PNG screenshots captured from the Phase-27-seeded example), `03-host-integration.md` (`ContextProvider`, `Notifier`, `AutomationPolicy`, `SLAPolicyProvider`), and `04-troubleshooting.md`.
-  3. `mix.exs` package config ships the `guides/` directory and `mix docs` surfaces them in the docs navigation alongside the API reference â the guides are visible on Hex.pm after the next release, not local-only.
-  4. `CHANGELOG.md` carries a vM014 entry summarizing the adopter-surface improvements (realistic demo, JTBD smoke test, brand-token extraction, KB editorial polish, T-10-09/T-10-11 closure, guides).
-
-**Plans:** 4/4 plans complete
-Plans:
-**Wave 1**
-
-- [x] 32-01-PLAN.md — guides/01-quickstart.md + guides/04-troubleshooting.md (DOC-02; Wave 1)
-- [x] 32-02-PLAN.md — guides/02-jtbd-walkthrough.md + guides/03-host-integration.md (DOC-02; Wave 1)
-- [x] 32-03-PLAN.md — README.md Igniter-first restructure + CHANGELOG vM014 entry (DOC-01, DOC-04; Wave 1)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 32-04-PLAN.md — mix.exs ExDoc wiring (extras + groups_for_extras + package :files) + mix docs/hex.build verification (DOC-03; Wave 2)
-
-**UI hint:** yes
+*(Use `/gsd-new-milestone` to begin planning)*
 
 ## Phases (Prior Milestones)
+
+<details>
+<summary>✅ vM014 Adoption Proof (Phases 27–32.1) — SHIPPED 2026-05-29</summary>
+
+- [x] Phase 27: Realistic Demo Fixtures (8/8 plans) — completed 2026-05-27
+- [x] Phase 28: Customer `/chat` Wired to Real Ingress (3/3 plans) — completed 2026-05-27
+- [x] Phase 29: Brand-Token CSS Extraction (3/3 plans) — completed 2026-05-28
+- [x] Phase 30: KB Editorial Polish + T-10-09 / T-10-11 Closure (4/4 plans) — completed 2026-05-28
+- [x] Phase 31: Golden-Path JTBD Smoke Test (2/2 plans) — completed 2026-05-28
+- [x] Phase 32: README + ExDoc Guides + JTBD Walkthrough (4/4 plans) — completed 2026-05-29
+- [x] Phase 32.1: Close gap: EditorHandoff dev config + REQUIREMENTS.md checkbox cleanup (1/1 plans) — completed 2026-05-29
+
+Archive: `.planning/milestones/vM014-ROADMAP.md`
+
+</details>
 
 <details>
 <summary>â vM013 Support-Triggered Outbound Lifecycle (Phases 22â26) â SHIPPED 2026-05-27</summary>
