@@ -264,8 +264,8 @@ _Phase 29 plans created: 2026-05-27 â 3 plans, 3 waves (sequential dependen
 **Goal:** Close the specific gaps identified in the vM014 milestone audit
 **Requirements**: [INT-BLOCKER-01, DOC-04, BRAND-04]
 **Depends on:** Phase 32
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 
-- [ ] 32.1-01-PLAN.md — Fix config, tests, and documentation
+- [x] 32.1-01-PLAN.md — Fix config, tests, and documentation
