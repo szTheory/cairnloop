@@ -30,6 +30,9 @@ config :cairnloop_example, CairnloopExampleWeb.Endpoint,
     tailwind: {Tailwind, :install_and_run, [:cairnloop_example, ~w(--watch)]}
   ]
 
+config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+  secret_key_base: "dev_only_64_byte_minimum_secret_for_editor_handoff_tokens_cairnloop"
+
 # ## SSL Support
 #
 # In order to use HTTPS in development, a self-signed

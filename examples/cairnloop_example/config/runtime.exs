@@ -53,6 +53,9 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
+  config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
+    secret_key_base: System.fetch_env!("CAIRNLOOP_HANDOFF_SECRET_KEY_BASE")
+
   host = System.get_env("PHX_HOST") || "example.com"
 
   config :cairnloop_example, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
