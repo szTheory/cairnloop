@@ -1,6 +1,8 @@
 defmodule CairnloopExampleWeb.Router do
   use CairnloopExampleWeb, :router
 
+  require Cairnloop.Router
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -33,6 +35,12 @@ defmodule CairnloopExampleWeb.Router do
 
     get "/", PageController, :home
     live "/chat", ChatLive
+  end
+
+  # Operations endpoints (OPS-01, OPS-02): GET /health and GET /metrics. Mounted
+  # outside the :browser pipeline so infrastructure can probe them without CSRF/session.
+  scope "/" do
+    Cairnloop.Router.cairnloop_operations()
   end
 
   # Other scopes may use custom stacks.

@@ -261,6 +261,55 @@ rather than raising — the support workflow continues without SLA enforcement.
 
 ---
 
+## Operations endpoints (health & metrics)
+
+Cairnloop ships two plain plugs for infrastructure monitoring, mounted with one router
+helper:
+
+- `GET /health` → `Cairnloop.Web.HealthPlug` — liveness/readiness probe; returns
+  `200` with `{"status": "ok"}`.
+- `GET /metrics` → `Cairnloop.Web.MetricsPlug` — Prometheus text exposition. Returns the
+  scrape when `:telemetry_metrics_prometheus_core` is running, or `501` until you add and
+  start it.
+
+**Mounting** (`MyAppWeb.Router`):
+
+```elixir
+defmodule MyAppWeb.Router do
+  use MyAppWeb, :router
+  require Cairnloop.Router
+
+  # Mount outside your auth pipeline so infrastructure can reach the probes.
+  scope "/" do
+    Cairnloop.Router.cairnloop_operations()
+  end
+end
+```
+
+Override the paths if `/health` or `/metrics` collide with your own routes:
+
+```elixir
+Cairnloop.Router.cairnloop_operations(health_path: "/healthz", metrics_path: "/internal/metrics")
+```
+
+**Enabling `/metrics`:** add the optional dependency and start the reporter in your
+supervision tree so the plug has metrics to scrape:
+
+```elixir
+# mix.exs
+{:telemetry_metrics_prometheus_core, "~> 1.2"}
+```
+
+```elixir
+# application.ex children
+{TelemetryMetricsPrometheus.Core, metrics: MyApp.Telemetry.metrics()}
+```
+
+Without the reporter, `/health` still works and `/metrics` returns `501` with guidance
+rather than crashing.
+
+---
+
 ## Telemetry (observability only)
 
 Cairnloop emits `:telemetry` events for observability. Per the project's architecture
