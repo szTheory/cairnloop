@@ -33,3 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key
 - Bounded `[:cairnloop, :retrieval, …]` and `Cairnloop.Governance.Telemetry` event namespaces
 - Read-only MCP seam (`tools/list`, `initialize`) via optional `Cairnloop.Web.MCP.Router` Plug
+
+[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/szTheory/cairnloop/releases/tag/v0.1.0
