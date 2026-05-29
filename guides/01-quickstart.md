@@ -75,7 +75,7 @@ import Cairnloop.Router, only: [cairnloop_dashboard: 2]
 scope "/support", MyAppWeb do
   pipe_through :browser
 
-  cairnloop_dashboard("/", host_user_id: "demo_operator")
+  cairnloop_dashboard("/", session: %{"host_user_id" => "demo_operator"})
 end
 ```
 
