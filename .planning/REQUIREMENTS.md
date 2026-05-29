@@ -45,20 +45,20 @@ Requirements for the vM015 release. Each maps to exactly one roadmap phase.
 | SEC-01 | Phase 33 | Complete |
 | SEC-02 | Phase 33 | Complete |
 | SEC-03 | Phase 33 | Complete |
-| SET-01 | Phase 34 | Pending |
-| SET-02 | Phase 34 | Pending |
-| SET-03 | Phase 34 | Pending |
-| SET-04 | Phase 34 | Pending |
-| AUDIT-01 | Phase 35 | Pending |
-| OPS-01 | Phase 35 | Pending |
-| OPS-02 | Phase 35 | Pending |
-| TECH-01 | Phase 35 | Pending |
-| DOC-01 | Phase 36 | Pending |
-| DOC-02 | Phase 36 | Pending |
-| DOC-03 | Phase 36 | Pending |
-| DOC-04 | Phase 36 | Pending |
-| REL-01 | Phase 36 | Pending |
-| REL-02 | Phase 36 | Pending |
+| SET-01 | Phase 34 | Complete |
+| SET-02 | Phase 34 | Complete |
+| SET-03 | Phase 34 | Complete |
+| SET-04 | Phase 34 | Complete |
+| AUDIT-01 | Phase 35 | Complete (repaired in v0.2.1 — was a no-op stub at v0.2.0; see vM015-MILESTONE-AUDIT.md) |
+| OPS-01 | Phase 35 | Complete (mountable via `cairnloop_operations/1` as of v0.2.1; plug was unrouted at v0.2.0) |
+| OPS-02 | Phase 35 | Complete (mountable via `cairnloop_operations/1` as of v0.2.1; plug was unrouted at v0.2.0) |
+| TECH-01 | Phase 35 | Complete |
+| DOC-01 | Phase 36 | Complete |
+| DOC-02 | Phase 36 | Complete |
+| DOC-03 | Phase 36 | Complete |
+| DOC-04 | Phase 36 | Complete |
+| REL-01 | Phase 36 | Complete (CHANGELOG `[0.2.0]` section was missing at release; written in v0.2.1) |
+| REL-02 | Phase 36 | Complete |
 
 **Coverage:**
 - v1 requirements: 17 total
