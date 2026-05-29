@@ -154,7 +154,15 @@ Plans:
   3. `mix.exs` package config ships the `guides/` directory and `mix docs` surfaces them in the docs navigation alongside the API reference â the guides are visible on Hex.pm after the next release, not local-only.
   4. `CHANGELOG.md` carries a vM014 entry summarizing the adopter-surface improvements (realistic demo, JTBD smoke test, brand-token extraction, KB editorial polish, T-10-09/T-10-11 closure, guides).
 
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+
+- [ ] 32-01-PLAN.md — guides/01-quickstart.md + guides/04-troubleshooting.md (DOC-02; Wave 1)
+- [ ] 32-02-PLAN.md — guides/02-jtbd-walkthrough.md + guides/03-host-integration.md (DOC-02; Wave 1)
+- [ ] 32-03-PLAN.md — README.md Igniter-first restructure + CHANGELOG vM014 entry (DOC-01, DOC-04; Wave 1)
+- [ ] 32-04-PLAN.md — mix.exs ExDoc wiring (extras + groups_for_extras + package :files) + mix docs/hex.build verification (DOC-03; Wave 2)
+
 **UI hint:** yes
 
 ## Phases (Prior Milestones)
