@@ -4,7 +4,7 @@ defmodule Cairnloop.MixProject do
   def project do
     [
       app: :cairnloop,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -31,6 +31,8 @@ defmodule Cairnloop.MixProject do
           {"guides/02-jtbd-walkthrough.md", title: "JTBD Walkthrough"},
           {"guides/03-host-integration.md", title: "Host Integration"},
           {"guides/04-troubleshooting.md", title: "Troubleshooting"},
+          {"guides/05-mcp-clients.md", title: "MCP Clients"},
+          {"guides/06-extending.md", title: "Extending Cairnloop"},
           "README.md",
           "CHANGELOG.md"
         ],
