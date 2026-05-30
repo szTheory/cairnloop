@@ -63,7 +63,12 @@ config :cairnloop_example, Oban,
 config :cairnloop,
   repo: CairnloopExample.Repo,
   tools: [Cairnloop.Tools.InternalNote],
-  context_provider: CairnloopExample.DemoContextProvider
+  context_provider: CairnloopExample.DemoContextProvider,
+  # The /support/audit-log timeline reads through a pluggable auditor. This is the library
+  # default, shown explicitly so adopters see the knob: `Cairnloop.Auditor.Governance` surfaces
+  # durable ToolActionEvent rows via the Governance facade. Point it at your own module to source
+  # the timeline elsewhere.
+  auditor: Cairnloop.Auditor.Governance
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

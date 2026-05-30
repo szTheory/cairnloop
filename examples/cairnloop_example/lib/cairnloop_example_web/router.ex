@@ -16,18 +16,16 @@ defmodule CairnloopExampleWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/support", alias: false, as: false do
+  # Cairnloop operator dashboard. Dogfood the shipped `cairnloop_dashboard/2` router macro — the
+  # exact one-liner adopters use — instead of hand-copying its route list. This guarantees every
+  # shipped surface (including `/support/audit-log`) is mounted and reachable here, so the example
+  # app proves the macro rather than drifting from it.
+  scope "/" do
     pipe_through :browser
 
-    live_session :cairnloop_dashboard, session: %{"host_user_id" => "demo_operator"} do
-      live("/", Cairnloop.Web.InboxLive, :index, as: :cairnloop_inbox)
-      live("/knowledge-base", Cairnloop.Web.KnowledgeBaseLive.Index, :index)
-      live("/knowledge-base/gaps", Cairnloop.Web.KnowledgeBaseLive.Gaps, :index)
-      live("/knowledge-base/suggestions", Cairnloop.Web.KnowledgeBaseLive.SuggestionReview, :index)
-      live("/knowledge-base/:id/edit", Cairnloop.Web.KnowledgeBaseLive.Editor, :edit)
-      live("/settings", Cairnloop.Web.SettingsLive, :index, as: :cairnloop_settings)
-      live("/:id", Cairnloop.Web.ConversationLive, :show, as: :cairnloop_conversation)
-    end
+    Cairnloop.Router.cairnloop_dashboard("/support",
+      session: %{"host_user_id" => "demo_operator"}
+    )
   end
 
   scope "/", CairnloopExampleWeb do

@@ -30,7 +30,7 @@ defmodule Cairnloop.Router do
   defmacro cairnloop_dashboard(path, opts \\ []) do
     quote bind_quoted: [path: path, opts: opts] do
       scope path, alias: false, as: false do
-        import Phoenix.LiveView.Router, only: [live: 4, live_session: 3]
+        import Phoenix.LiveView.Router, only: [live: 3, live: 4, live_session: 3]
 
         # Host apps should provide `host_user_id` in the live session payload so
         # dashboard surfaces can keep operator search tenant-scoped.
