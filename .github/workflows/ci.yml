@@ -51,6 +51,11 @@ jobs:
           test/cairnloop/web/conversation_live_test.exs
           test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
           test/cairnloop/knowledge_base/workers/chunk_revision_test.exs
+          test/cairnloop/web/health_plug_test.exs
+          test/cairnloop/web/metrics_plug_test.exs
+          test/cairnloop/web/health_metrics_route_test.exs
+          test/cairnloop/auditor_test.exs
+          test/cairnloop/governance_test.exs
 
   # DB-backed integration suite: exercises the real Postgres + Oban-worker + LiveView legs
   # that the headless suite cannot (Phase 15 approval flow). Tagged :integration and run
