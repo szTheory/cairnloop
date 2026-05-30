@@ -11,9 +11,21 @@ config :cairnloop_example, CairnloopExample.Repo,
   password: "postgres",
   hostname: "localhost",
   database: "cairnloop_example_test#{System.get_env("MIX_TEST_PARTITION")}",
-  port: 5433,
+  # Honor PGPORT (matches dev.exs + the library's config/test.exs). Defaults to 5433.
+  port: String.to_integer(System.get_env("PGPORT") || "5433"),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
+
+# Quiet Chimeway's auto-started Repo in tests too (see dev.exs for why). The demo doesn't use it;
+# it just needs a valid connection so it doesn't log connection errors during the suite.
+config :chimeway, Chimeway.Repo,
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "cairnloop_example_test#{System.get_env("MIX_TEST_PARTITION")}",
+  port: String.to_integer(System.get_env("PGPORT") || "5433"),
+  pool: Ecto.Adapters.SQL.Sandbox,
+  pool_size: 2
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

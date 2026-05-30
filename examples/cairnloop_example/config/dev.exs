@@ -6,10 +6,24 @@ config :cairnloop_example, CairnloopExample.Repo,
   password: "postgres",
   hostname: "localhost",
   database: "cairnloop_example_dev",
-  port: 5433,
+  # Honor PGPORT (matches docker-compose.yml + the library's config/test.exs) so the
+  # demo DB port is overridable without editing config. Defaults to 5433.
+  port: String.to_integer(System.get_env("PGPORT") || "5433"),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
+
+# Chimeway (a transitive Cairnloop dependency) unconditionally starts its own Repo. The demo
+# doesn't use it, but without a database it floods the dev log (and the browser console, via
+# LiveView dev log forwarding) with "missing the :database key" errors. Point it at the demo DB
+# so it connects quietly and stays idle.
+config :chimeway, Chimeway.Repo,
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "cairnloop_example_dev",
+  port: String.to_integer(System.get_env("PGPORT") || "5433"),
+  pool_size: 2
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -20,7 +34,8 @@ config :cairnloop_example, CairnloopExample.Repo,
 config :cairnloop_example, CairnloopExampleWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
+  # Honor PORT (default 4000) so the demo can sidestep a port already in use.
+  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,

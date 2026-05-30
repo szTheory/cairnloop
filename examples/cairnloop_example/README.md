@@ -29,6 +29,16 @@ To start the demo app:
    mix phx.server
    ```
 
+## Demo Index
+
+Start at the guided demo index: **http://localhost:4000**. It frames the Trailmark scenario
+(a small dev-tools SaaS support desk) and links to every stage of the JTBD lifecycle. The seed
+places 20 conversations across all lifecycle states — including four pre-positioned in specific
+JTBD states (a pending AI draft, an action awaiting approval, an executed action, and an outbound
+follow-up) — so every screen is live and clickable with no setup.
+
+> **Port in use?** `PORT=4010 mix phx.server` (and `PGPORT=...` if Postgres isn't on 5433).
+
 ## Two-Tab Demo
 
 Open two browser tabs after running `mix setup && mix phx.server` in the
@@ -40,6 +50,19 @@ Open two browser tabs after running `mix setup && mix phx.server` in the
 Type a message in the customer chat tab. The message lands in the operator
 inbox as a new conversation. Open the conversation and reply. The reply
 appears in the customer chat tab.
+
+## Screenshots
+
+The PNGs in the library's `guides/` (the JTBD walkthrough) are captured from this app's seeded
+state by the Playwright tool in [`screenshots/`](screenshots/). To refresh them:
+
+```bash
+mix ecto.reset && mix phx.server          # boot the seeded demo
+cd screenshots && npm install && npm run capture
+```
+
+The capture is **non-gating** — it asserts nothing and is not part of CI. The deterministic
+`test/integration/golden_path_test.exs` (`Phoenix.LiveViewTest`) remains the source of CI truth.
 
 ## Included Integrations
 
