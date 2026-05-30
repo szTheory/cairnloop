@@ -112,6 +112,7 @@ defmodule Cairnloop.MixProject do
       {:igniter, "~> 0.5"},
       {:phoenix_live_view, "~> 1.0"},
       {:jason, "~> 1.2"},
+      {:nimble_options, "~> 1.0"},
       {:oban, "~> 2.17"},
       {:mailglass, "~> 0.2"},
       {:hackney, "~> 1.9"},
