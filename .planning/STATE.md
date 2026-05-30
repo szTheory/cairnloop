@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: null
 milestone_name: null
 status: milestone_complete
-last_updated: "2026-05-30T13:35:00.000Z"
+last_updated: "2026-05-30T15:15:00.000Z"
 last_activity: 2026-05-30
 progress:
   total_phases: 0
   completed_phases: 0
   percent: 100
-  note: "vM015 (phases 33–36) complete and ARCHIVED. Shipped as cairnloop v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. No active milestone — diminishing-returns line reached; vM016+ is adoption + maintenance only."
+  note: "vM015 (phases 33–36) complete and ARCHIVED. Latest release: cairnloop v0.3.0 on Hex.pm (v0.2.0→0.2.1→0.2.2→0.2.3→0.3.0). No active milestone — diminishing-returns line reached; vM016+ is adoption + maintenance only. Post-close maintenance (Tier 0/1/2 DX + quality hardening) complete."
 ---
 
 # Project State
@@ -24,15 +24,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-30 — vM015 complete)
 ## Current Position
 
 No active milestone. **vM015 Operator Polish + Maintenance Gates is shipped and archived** —
-published as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm via the release-please pipeline.
-All 17 v1 requirements satisfied across Phases 33–36 (4 satisfied via post-v0.2.0 remediation:
-AUDIT-01, OPS-01/02, REL-01). Milestone tagged `vM015`.
+all 17 v1 requirements satisfied across Phases 33–36 (4 via post-v0.2.0 remediation: AUDIT-01,
+OPS-01/02, REL-01). Milestone tagged `vM015`.
+
+**Latest release: `cairnloop` v0.3.0 on Hex.pm.** Release history since close: v0.2.0 → v0.2.1
+(audit-remediation) → v0.2.2 (integration suite green) → v0.2.3 (`cairnloop_dashboard/2` compile
+fix + verify-before-publish hardening) → v0.3.0 (Tier-2 DX: `mix cairnloop.doctor`,
+NimbleOptions-validated router opts + `:live_session_name`, installer next-steps).
 
 Future releases flow through release-please automatically: commit `fix:`/`feat:` to `main` → bot
-PR → auto-tag + `publish-hex`. `release_gate` now gates on BOTH the headless suite AND the
-green DB-backed `integration` suite.
+PR → auto-tag + `publish-hex`. `release_gate` gates the headless suite, the green DB-backed
+`integration` suite, AND the static `quality` lane (credo --strict + docs --warnings-as-errors +
+hex.build + deps.audit). `publish-hex` also asserts packaged-tarball contents before publish.
 
-Last activity: 2026-05-30 (milestone close)
+Last activity: 2026-05-30 (v0.3.0 published; post-close maintenance complete)
 
 ## Accumulated Context
 
@@ -76,17 +81,28 @@ for already-correct domain code; `release_gate` gates on the green integration s
 
 ## Session Continuity
 
-vM015 is shipped (v0.2.2 on Hex.pm) and archived. There is no active milestone. Per the
-diminishing-returns posture, do not auto-start a new milestone — wait for a real adopter signal,
-then `/gsd-new-milestone`.
+vM015 is shipped and archived; latest release is **v0.3.0** on Hex.pm. There is no active
+milestone. The post-close maintenance arc is complete (see below). Per the diminishing-returns
+posture, do not auto-start a new milestone — wait for a real adopter signal, then
+`/gsd-new-milestone`.
+
+## Post-close maintenance (complete)
+
+All shipped via the protected-`main` PR flow; nothing outstanding:
+
+- **Tier 0** — vM015 close-out: 33/34/35 verification artifacts backfilled, vM014
+  MILESTONES/RETROSPECTIVE record backfilled, phase dirs archived via `/gsd-cleanup` (PR #8).
+- **Tier 1** — verify-before-publish (v0.2.3): fixed the `cairnloop_dashboard/2` compile break,
+  added `dashboard_wiring_test.exs`, confirmed `RELEASE_PLEASE_TOKEN`, added the packaged-artifact
+  contents check to `publish-hex` (PR #9).
+- **Tier 2** — DX + quality (v0.3.0): credo --strict + mix_audit + docs `quality` CI lane (PR #11);
+  `mix cairnloop.doctor`, NimbleOptions router opts + `:live_session_name`, installer next-steps
+  (PR #12). Quality gate caught + fixed 2 HIGH CVEs (postgrex/plug) and 5 doc warnings.
+- **Deferred (opt-in only):** dialyzer, sobelow, excoveralls, ex_check, full installer
+  auto-router-injection. Plan archived at `~/.claude/plans/i-follow-ur-recommendations-kind-balloon.md`.
 
 ## Operator Next Steps
 
-- **No action required** — the milestone is closed and the close-out is complete (33/34/35
-  verification artifacts backfilled, vM014 record backfilled, phase dirs archived via cleanup).
-- **In flight (Tier 1 hardening):** dogfood `cairnloop_dashboard/2` + `/audit-log` in the example
-  app, add `test/integration/dashboard_wiring_test.exs`, confirm `RP_PAT` secret, make the
-  release-please publish dry-run/poll assertive (`mix hex.build --unpack`). See
-  `~/.claude/plans/i-follow-ur-recommendations-kind-balloon.md`.
+- **No action required** — project is idle in maintenance mode; working tree clean, no open PRs.
 - Releases: commit `fix:`/`feat:` to `main` — release-please cuts + publishes automatically.
 - New feature work: `/gsd-new-milestone` only when an adopter pulls (Epics 12/13/14 stay opt-in).
