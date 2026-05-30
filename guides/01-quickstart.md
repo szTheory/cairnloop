@@ -132,10 +132,17 @@ mix setup
 mix phx.server
 ```
 
-Then visit [http://localhost:4000/support](http://localhost:4000/support).
+Then visit [http://localhost:4000](http://localhost:4000) for the guided demo index — it frames
+the Trailmark scenario and links to every stage of the [JTBD Walkthrough](02-jtbd-walkthrough.html).
+Or jump straight to the operator inbox at
+[http://localhost:4000/support](http://localhost:4000/support).
 
-You should see the Cairnloop operator inbox. If you have the example app's seeded
-fixtures, 12–16 conversations across all lifecycle states are already there.
+You should see the Cairnloop operator inbox. The example app's seed places 20 conversations across
+all lifecycle states — including ones pre-positioned in each JTBD state — so every screen is live
+and clickable immediately.
+
+> **Port already in use?** Start the server with a different port: `PORT=4010 mix phx.server`
+> (and set `PGPORT` if your Postgres isn't on 5433). The example honors both.
 
 ## Next Steps
 

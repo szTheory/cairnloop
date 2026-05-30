@@ -12,6 +12,9 @@ defmodule CairnloopExample.SeedsTest do
 
   alias Cairnloop.Conversation
   alias Cairnloop.Message
+  alias Cairnloop.Automation.Draft
+  alias Cairnloop.Governance.ToolActionEvent
+  alias Cairnloop.Governance.ToolApproval
   alias Cairnloop.KnowledgeBase.Article
   alias Cairnloop.KnowledgeBase.Chunk
   alias Cairnloop.KnowledgeBase.Revision
@@ -52,6 +55,7 @@ defmodule CairnloopExample.SeedsTest do
       # FIX-01: 16 conversations across 4 JTBD-derived cohorts (D-03).
       # D-03: :new/:open/:awaiting_customer → status :open (sealed enum); :resolved → status :resolved.
       # All 12 non-resolved conversations share status :open.
+      # 16 cohort conversations (demo-01..16) + 4 showcase conversations (demo-17..20).
       assert Repo.aggregate(Conversation, :count) >= 16
 
       assert Repo.aggregate(from(c in Conversation, where: c.status == :open), :count) >= 12,
@@ -74,8 +78,10 @@ defmodule CairnloopExample.SeedsTest do
       assert Repo.aggregate(Message, :count) >= 48,
              "Expected ≥48 messages across all 16 conversations (FIX-01)"
 
-      assert Repo.aggregate(Message, :count) <= 80,
-             "Expected ≤80 messages — upper bound guards against runaway-loop regressions (FIX-01)"
+      # Upper bound raised from 80 → 95 to absorb the showcase conversations' messages
+      # (demo-17..20 add ~12 messages, incl. the executed action's internal note).
+      assert Repo.aggregate(Message, :count) <= 95,
+             "Expected ≤95 messages — upper bound guards against runaway-loop regressions (FIX-01 + showcase)"
 
       # FIX-02: ≥5 articles, ≥6 revisions (article 5 has v1+v2+1 archived = at least 3 for that article alone),
       # ≥1 revision with state :archived (D-05 — spec "deprecated" maps to :archived).
@@ -163,6 +169,41 @@ defmodule CairnloopExample.SeedsTest do
     end
 
     # -------------------------------------------------------------------------
+    # Test 3b: Showcase states — JTBD stages 4/5/6/8 pre-positioned via the real facades
+    # -------------------------------------------------------------------------
+    test "seeds the frozen showcase states for JTBD stages 4/5/6/8" do
+      assert :ok == run_seed!()
+
+      # Stage 4 (demo-17): a pending AI draft awaiting operator approval.
+      assert Repo.aggregate(from(d in Draft, where: d.status == :pending), :count) >= 1,
+             "Expected ≥1 :pending AI draft (showcase stage 4 / demo-17)"
+
+      # Stage 5 (demo-18): a governed action waiting in the approval lane.
+      assert Repo.aggregate(from(a in ToolApproval, where: a.status == :pending), :count) >= 1,
+             "Expected ≥1 :pending ToolApproval (showcase stage 5 / demo-18)"
+
+      # Stage 6 (demo-19): a governed action that was approved and executed.
+      assert Repo.aggregate(from(a in ToolApproval, where: a.status == :executed), :count) >= 1,
+             "Expected ≥1 :executed ToolApproval (showcase stage 6 / demo-19)"
+
+      # The governance facade path generates a durable audit trail (the audit log renders from these).
+      assert Repo.aggregate(ToolActionEvent, :count) >= 1,
+             "Expected ToolActionEvents from the governed-action showcase — the audit log would be empty otherwise"
+
+      # The executed action wrote an internal_note carrying its run_key (idempotency column the
+      # example app must add via migration — see add_run_key_to_messages).
+      assert Repo.aggregate(
+               from(m in Message, where: m.role == :internal_note and not is_nil(m.run_key)),
+               :count
+             ) >= 1,
+             "Expected ≥1 internal_note with a run_key from the executed governed action (demo-19)"
+
+      # Stage 8 (demo-20): a durable outbound recovery message pending delivery.
+      assert Repo.aggregate(from(m in Message, where: m.role == :system_outbound), :count) >= 1,
+             "Expected ≥1 :system_outbound message (showcase stage 8 / demo-20)"
+    end
+
+    # -------------------------------------------------------------------------
     # Test 4: D-02 idempotency — running the seed TWICE produces stable row counts
     # -------------------------------------------------------------------------
     test "D-02 idempotency: running the seed twice produces stable row counts" do
@@ -176,7 +217,10 @@ defmodule CairnloopExample.SeedsTest do
         gap_candidates: Repo.aggregate(GapCandidate, :count),
         memberships: Repo.aggregate(GapCandidateMembership, :count),
         suggestions: Repo.aggregate(ArticleSuggestion, :count),
-        review_tasks: Repo.aggregate(ReviewTask, :count)
+        review_tasks: Repo.aggregate(ReviewTask, :count),
+        drafts: Repo.aggregate(Draft, :count),
+        approvals: Repo.aggregate(ToolApproval, :count),
+        action_events: Repo.aggregate(ToolActionEvent, :count)
       }
 
       # Second run — must be a complete no-op (D-02: idempotent seeds via natural-key guards).
@@ -190,7 +234,10 @@ defmodule CairnloopExample.SeedsTest do
         gap_candidates: Repo.aggregate(GapCandidate, :count),
         memberships: Repo.aggregate(GapCandidateMembership, :count),
         suggestions: Repo.aggregate(ArticleSuggestion, :count),
-        review_tasks: Repo.aggregate(ReviewTask, :count)
+        review_tasks: Repo.aggregate(ReviewTask, :count),
+        drafts: Repo.aggregate(Draft, :count),
+        approvals: Repo.aggregate(ToolApproval, :count),
+        action_events: Repo.aggregate(ToolActionEvent, :count)
       }
 
       assert counts_after_run_1 == counts_after_run_2,

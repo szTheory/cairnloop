@@ -58,10 +58,12 @@
 # the drain). Do not run this script while `mix phx.server` holds port 4000.
 #
 # ----------------------------------------------------------------------------
-# SCHEMA MIGRATION CAVEAT (Pitfall 5)
+# RUN_KEY COLUMN (formerly Pitfall 5)
 # ----------------------------------------------------------------------------
-# Never set `Cairnloop.Message.run_key` to a non-nil value — the example app's
-# migration does not add the column.
+# `Cairnloop.Message.run_key` IS available: migration 20260525201624 adds the
+# column (it is host-owned — the library only declares the field). The executed
+# governed-action showcase below relies on it, since `Cairnloop.Tools.InternalNote`
+# writes a run_key for at-most-once idempotency.
 #
 # ============================================================================
 
@@ -79,6 +81,11 @@ defmodule CairnloopExample.SeedRun do
   alias Cairnloop.KnowledgeAutomation.GapCandidateMembership
   alias Cairnloop.Retrieval.GapEvent
 
+  # Showcase-state builders (JTBD stages 4/5/6/8) go through the real facades.
+  alias Cairnloop.Automation
+  alias Cairnloop.Governance
+  alias Cairnloop.Workers.{ApprovalResumeWorker, ToolExecutionWorker}
+
   # --------------------------------------------------------------------------
   # Public entry point
   # --------------------------------------------------------------------------
@@ -86,14 +93,15 @@ defmodule CairnloopExample.SeedRun do
   def run do
     IO.puts("Seeding Cairnloop example app demo data...")
 
-    articles      = build_articles()
+    articles = build_articles()
     conversations = build_conversations(articles)
-    gaps          = build_gaps(conversations)
+    showcase = build_showcase_states()
+    gaps = build_gaps(conversations)
     {suggestion, _review_task} = build_suggestion(articles, conversations)
 
     drain_summary = drain_embedding_pipeline()
 
-    emit_seed_summary(articles, conversations, gaps, suggestion, drain_summary)
+    emit_seed_summary(articles, conversations ++ showcase, gaps, suggestion, drain_summary)
     :ok
   end
 
@@ -121,12 +129,17 @@ defmodule CairnloopExample.SeedRun do
     # -------------------------------------------------------------------------
     # Article 1: Resetting your Trailmark API key
     # -------------------------------------------------------------------------
-    api_key_article = get_or_insert!(Article, :title, %{
-      title: "Resetting your Trailmark API key",
-      status: :draft
-    })
+    api_key_article =
+      get_or_insert!(Article, :title, %{
+        title: "Resetting your Trailmark API key",
+        status: :draft
+      })
 
-    unless Repo.one(from r in Revision, where: r.article_id == ^api_key_article.id and r.state == :published, limit: 1) do
+    unless Repo.one(
+             from r in Revision,
+               where: r.article_id == ^api_key_article.id and r.state == :published,
+               limit: 1
+           ) do
       body = """
       ## Reset steps
 
@@ -155,12 +168,17 @@ defmodule CairnloopExample.SeedRun do
     # -------------------------------------------------------------------------
     # Article 2: Updating your billing email
     # -------------------------------------------------------------------------
-    billing_email_article = get_or_insert!(Article, :title, %{
-      title: "Updating your billing email",
-      status: :draft
-    })
+    billing_email_article =
+      get_or_insert!(Article, :title, %{
+        title: "Updating your billing email",
+        status: :draft
+      })
 
-    unless Repo.one(from r in Revision, where: r.article_id == ^billing_email_article.id and r.state == :published, limit: 1) do
+    unless Repo.one(
+             from r in Revision,
+               where: r.article_id == ^billing_email_article.id and r.state == :published,
+               limit: 1
+           ) do
       body = """
       ## Update your billing email
 
@@ -184,12 +202,17 @@ defmodule CairnloopExample.SeedRun do
     # -------------------------------------------------------------------------
     # Article 3: Adding a team seat
     # -------------------------------------------------------------------------
-    seat_article = get_or_insert!(Article, :title, %{
-      title: "Adding a team seat",
-      status: :draft
-    })
+    seat_article =
+      get_or_insert!(Article, :title, %{
+        title: "Adding a team seat",
+        status: :draft
+      })
 
-    unless Repo.one(from r in Revision, where: r.article_id == ^seat_article.id and r.state == :published, limit: 1) do
+    unless Repo.one(
+             from r in Revision,
+               where: r.article_id == ^seat_article.id and r.state == :published,
+               limit: 1
+           ) do
       body = """
       ## Invite a teammate
 
@@ -220,12 +243,17 @@ defmodule CairnloopExample.SeedRun do
     # -------------------------------------------------------------------------
     # Article 4: Why a CI run was skipped
     # -------------------------------------------------------------------------
-    ci_skipped_article = get_or_insert!(Article, :title, %{
-      title: "Why a CI run was skipped",
-      status: :draft
-    })
+    ci_skipped_article =
+      get_or_insert!(Article, :title, %{
+        title: "Why a CI run was skipped",
+        status: :draft
+      })
 
-    unless Repo.one(from r in Revision, where: r.article_id == ^ci_skipped_article.id and r.state == :published, limit: 1) do
+    unless Repo.one(
+             from r in Revision,
+               where: r.article_id == ^ci_skipped_article.id and r.state == :published,
+               limit: 1
+           ) do
       body = """
       ## Why this happens
 
@@ -261,24 +289,29 @@ defmodule CairnloopExample.SeedRun do
     # Idempotency: skip entire progression if v2 marker found in a :published revision
     #              AND at least one :archived revision exists.
     # -------------------------------------------------------------------------
-    token_rotation_article = get_or_insert!(Article, :title, %{
-      title: "Rotating an expired token",
-      status: :draft
-    })
+    token_rotation_article =
+      get_or_insert!(Article, :title, %{
+        title: "Rotating an expired token",
+        status: :draft
+      })
 
-    archived_count = Repo.aggregate(
-      from(r in Revision, where: r.article_id == ^token_rotation_article.id and r.state == :archived),
-      :count
-    )
+    archived_count =
+      Repo.aggregate(
+        from(r in Revision,
+          where: r.article_id == ^token_rotation_article.id and r.state == :archived
+        ),
+        :count
+      )
 
-    v2_exists = Repo.one(
-      from r in Revision,
-        where:
-          r.article_id == ^token_rotation_article.id and
-          r.state == :published and
-          like(r.content, ^"%#{@v2_marker}%"),
-        limit: 1
-    )
+    v2_exists =
+      Repo.one(
+        from r in Revision,
+          where:
+            r.article_id == ^token_rotation_article.id and
+              r.state == :published and
+              like(r.content, ^"%#{@v2_marker}%"),
+          limit: 1
+      )
 
     unless archived_count >= 1 and v2_exists do
       v1_body = """
@@ -361,9 +394,19 @@ defmodule CairnloopExample.SeedRun do
     %{n: 8, cohort: :open, topic: :ci_skipped, host_user_id: "demo_user_umbrella_ci"},
     # cohort: :awaiting_customer  (status :open, has :agent reply, last msg :agent; 4 rows)
     %{n: 9, cohort: :awaiting_customer, topic: :seat, host_user_id: "demo_user_globex_seats"},
-    %{n: 10, cohort: :awaiting_customer, topic: :billing_email, host_user_id: "demo_user_initech_billing"},
+    %{
+      n: 10,
+      cohort: :awaiting_customer,
+      topic: :billing_email,
+      host_user_id: "demo_user_initech_billing"
+    },
     %{n: 11, cohort: :awaiting_customer, topic: :api_key, host_user_id: "demo_user_acme_billing"},
-    %{n: 12, cohort: :awaiting_customer, topic: :ci_skipped, host_user_id: "demo_user_umbrella_ci"},
+    %{
+      n: 12,
+      cohort: :awaiting_customer,
+      topic: :ci_skipped,
+      host_user_id: "demo_user_umbrella_ci"
+    },
     # cohort: :resolved  (status :resolved, resolved_at set, last msg :agent or :system_outbound; 4 rows)
     # Rows 13/14/15 close with :agent (no template_id required).
     # Row 16 closes with :system_outbound + metadata.template_id = "demo_resolve_confirm" (Pitfall 6).
@@ -412,7 +455,10 @@ defmodule CairnloopExample.SeedRun do
   # Conversation matched on subject (natural key, "[demo-NN]" prefix — D-02).
   # Messages are only inserted when the conversation is newly created; re-runs skip them.
   defp seed_conversation_row(row, _articles) do
-    subject = "[demo-#{String.pad_leading(Integer.to_string(row.n), 2, "0")}] " <> topic_subject(row.topic)
+    subject =
+      "[demo-#{String.pad_leading(Integer.to_string(row.n), 2, "0")}] " <>
+        topic_subject(row.topic)
+
     attrs = conversation_attrs(row, subject)
 
     case Repo.get_by(Conversation, subject: subject) do
@@ -473,9 +519,12 @@ defmodule CairnloopExample.SeedRun do
   # n=5 and n=13 also receive 1 :internal_note message after the first :agent reply (D-18).
   defp insert_messages_for_cohort(conv, row) do
     messages = build_message_list(row)
+
     Enum.each(messages, fn msg_attrs ->
       %Message{}
-      |> Message.changeset(Map.merge(%{role: :user, metadata: %{}, conversation_id: conv.id}, msg_attrs))
+      |> Message.changeset(
+        Map.merge(%{role: :user, metadata: %{}, conversation_id: conv.id}, msg_attrs)
+      )
       |> Repo.insert!()
     end)
   end
@@ -498,7 +547,11 @@ defmodule CairnloopExample.SeedRun do
 
     # n=5: add :internal_note after first :agent reply (D-18 carve-out)
     if n == 5 do
-      [hd(base), Enum.at(base, 1), %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))]
+      [
+        hd(base),
+        Enum.at(base, 1),
+        %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))
+      ]
     else
       base
     end
@@ -537,7 +590,11 @@ defmodule CairnloopExample.SeedRun do
 
     # n=13: add :internal_note after first :agent reply (D-18 carve-out)
     if n == 13 do
-      [hd(base), Enum.at(base, 1), %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))]
+      [
+        hd(base),
+        Enum.at(base, 1),
+        %{role: :internal_note, content: internal_note(topic)} | tl(tl(base))
+      ]
     else
       base
     end
@@ -1221,7 +1278,8 @@ defmodule CairnloopExample.SeedRun do
   defp drain_embedding_pipeline do
     IO.puts("Draining embedding pipeline (Oban :default queue)...")
 
-    %{success: success, failure: failure} = result =
+    %{success: success, failure: failure} =
+      result =
       Oban.drain_queue(queue: :default, with_recursion: true)
 
     if failure > 0 do
@@ -1238,12 +1296,12 @@ defmodule CairnloopExample.SeedRun do
   # Prints a single adopter-facing summary line summarising what was seeded.
   # Gives concrete evidence of what `mix setup` produced (T-27-22 mitigation).
   defp emit_seed_summary(articles, conversations, gaps, suggestion, drain_summary) do
-    article_count      = map_size(articles)
+    article_count = map_size(articles)
     conversation_count = length(conversations)
-    gap_count          = length(gaps)
-    suggestion_count   = if suggestion, do: 1, else: 0
-    drained            = drain_summary.success
-    failures           = drain_summary.failure
+    gap_count = length(gaps)
+    suggestion_count = if suggestion, do: 1, else: 0
+    drained = drain_summary.success
+    failures = drain_summary.failure
 
     IO.puts(
       "Seeded #{conversation_count} conversation(s), #{article_count} article(s), " <>
@@ -1251,6 +1309,227 @@ defmodule CairnloopExample.SeedRun do
         "drained #{drained} embedding job(s) (#{failures} failure(s))."
     )
   end
+
+  # --------------------------------------------------------------------------
+  # Showcase states — frozen JTBD end-states for the click-around tour + screenshots
+  # --------------------------------------------------------------------------
+  # The cohort conversations above (demo-01..16) carry messages but no governance
+  # artifacts, so JTBD stages 4/5/6/8 have nothing to render. These four dedicated
+  # conversations (demo-17..20) are each pre-positioned in one end-state, reached
+  # through the REAL facades (Automation.create_draft, Governance.propose/
+  # request_approval/approve, the execution workers, a durable :system_outbound
+  # message) so the demo + captured screenshots show truthful state, and the audit
+  # log + governance rail populate from genuine ToolActionEvents.
+  #
+  # Idempotency (D-02): keyed on the "[demo-NN]" subject; all side effects run only
+  # when the conversation is first created, exactly like insert_messages_for_cohort/2.
+  # Determinism: governance enqueue is a no-op (enqueue_fn) and the resume/execution
+  # workers are performed synchronously here, so re-running the seed never double-writes
+  # and never depends on async Oban timing.
+
+  @internal_note_ref Atom.to_string(Cairnloop.Tools.InternalNote)
+  @showcase_operator "demo_operator"
+
+  defp build_showcase_states do
+    [
+      showcase_draft_pending(),
+      showcase_action_pending(),
+      showcase_action_executed(),
+      showcase_outbound_pending()
+    ]
+  end
+
+  # Stage 4 — a pending AI draft awaiting operator approval.
+  defp showcase_draft_pending do
+    new_showcase_conversation(
+      n: 17,
+      subject: "Refund for a double charge this month",
+      host_user_id: "demo_user_acme_billing",
+      messages: [
+        %{
+          role: :user,
+          content: "Hi — it looks like I was charged twice for the Team plan this month."
+        },
+        %{
+          role: :user,
+          content: "Could you refund the duplicate charge? It's the card ending 4242."
+        }
+      ],
+      after_fn: fn conv ->
+        {:ok, _draft} =
+          Automation.create_draft(conv.id, %{
+            proposal_type: :reply,
+            customer_reply:
+              "Thanks for flagging this, Riya. I can see two identical $48.00 charges dated " <>
+                "2026-05-12 — the second is a duplicate. I've started a refund for it now; it " <>
+                "should land back on the card ending 4242 within 5–10 business days. I'll keep " <>
+                "this ticket open until you confirm it arrives.",
+            status: :pending
+          })
+
+        :ok
+      end
+    )
+  end
+
+  # Stage 5 — a governed action proposed and waiting in the approval lane.
+  defp showcase_action_pending do
+    new_showcase_conversation(
+      n: 18,
+      subject: "CI pipeline stuck — needs an internal escalation note",
+      host_user_id: "demo_user_umbrella_ci",
+      messages: [
+        %{role: :user, content: "Our CI has skipped three runs in a row and I can't tell why."},
+        %{
+          role: :user,
+          content: "This is blocking a hotfix deploy — can someone take a closer look?"
+        }
+      ],
+      after_fn: fn conv ->
+        {:ok, proposal} =
+          Governance.propose(@internal_note_ref, @showcase_operator, %{
+            conversation_id: to_string(conv.id),
+            scopes: [],
+            tool_params: %{
+              conversation_id: to_string(conv.id),
+              content:
+                "Escalating to platform on-call: 3 consecutive skipped runs for umbrella, " <>
+                  "last at 2026-05-25T18:22Z. Suspected stuck runner, not a customer config issue."
+            }
+          })
+
+        {:ok, _approval} = Governance.request_approval(proposal, enqueue_fn: &noop_enqueue/1)
+        :ok
+      end
+    )
+  end
+
+  # Stage 6 — a governed action that has been approved and executed (:executed).
+  defp showcase_action_executed do
+    new_showcase_conversation(
+      n: 19,
+      subject: "Team seat invite approved and applied",
+      host_user_id: "demo_user_globex_seats",
+      messages: [
+        %{role: :user, content: "Please add my teammate Dana to our Globex account."},
+        %{
+          role: :agent,
+          content:
+            "Happy to help. Adding a seat is a governed action, so it goes through approval first."
+        }
+      ],
+      after_fn: fn conv ->
+        {:ok, proposal} =
+          Governance.propose(@internal_note_ref, @showcase_operator, %{
+            conversation_id: to_string(conv.id),
+            scopes: [],
+            tool_params: %{
+              conversation_id: to_string(conv.id),
+              content:
+                "Seat invite for dana@globex.example approved under the team-seat policy; recorded for audit."
+            }
+          })
+
+        {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: &noop_enqueue/1)
+
+        {:ok, _approved} =
+          Governance.approve(approval.id, @showcase_operator, enqueue_fn: &noop_enqueue/1)
+
+        # Drive the resume + execution chain synchronously (mirrors the golden-path test) so the
+        # action lands in :executed deterministically, independent of async Oban draining.
+        :ok = ApprovalResumeWorker.perform(%Oban.Job{args: %{"approval_id" => approval.id}})
+
+        :ok =
+          ToolExecutionWorker.perform(%Oban.Job{
+            attempt: 1,
+            max_attempts: 3,
+            args: %{"approval_id" => approval.id}
+          })
+
+        :ok
+      end
+    )
+  end
+
+  # Stage 8 — a resolved conversation with a durable outbound recovery follow-up pending delivery.
+  defp showcase_outbound_pending do
+    new_showcase_conversation(
+      n: 20,
+      subject: "Following up after your token rotation",
+      host_user_id: "demo_user_hooli_tokens",
+      status: :resolved,
+      resolved_at: DateTime.add(DateTime.utc_now(), -2, :day),
+      csat_rating: :positive,
+      messages: [
+        %{role: :user, content: "My API token was expiring — what's the safe way to rotate it?"},
+        %{
+          role: :agent,
+          content:
+            "Rotate from Settings > API Keys: generate the new key, update integrations, then revoke the old one."
+        },
+        %{role: :user, content: "Done — new key is live and everything still works. Thanks!"},
+        %{
+          role: :agent,
+          content: "Great. I've marked this resolved; your new token is valid for 90 days."
+        },
+        %{
+          role: :system_outbound,
+          content:
+            "Just checking in — your new Trailmark API token has been active for a week with no " <>
+              "errors on our side. Reply here if anything looks off and we'll jump back in.",
+          metadata: %{"template_id" => "demo_recovery_v1", "status" => "pending"}
+        }
+      ],
+      after_fn: fn _conv -> :ok end
+    )
+  end
+
+  # Idempotent showcase-conversation seeder. Conversation matched on the "[demo-NN]" subject
+  # (natural key — D-02). Messages + after_fn side effects run ONLY on first creation.
+  defp new_showcase_conversation(opts) do
+    n = Keyword.fetch!(opts, :n)
+
+    subject =
+      "[demo-#{String.pad_leading(Integer.to_string(n), 2, "0")}] " <>
+        Keyword.fetch!(opts, :subject)
+
+    conv_attrs =
+      %{
+        status: Keyword.get(opts, :status, :open),
+        subject: subject,
+        host_user_id: Keyword.fetch!(opts, :host_user_id)
+      }
+      |> maybe_put(:resolved_at, Keyword.get(opts, :resolved_at))
+      |> maybe_put(:csat_rating, Keyword.get(opts, :csat_rating))
+
+    case Repo.get_by(Conversation, subject: subject) do
+      nil ->
+        conv =
+          %Conversation{}
+          |> Conversation.changeset(conv_attrs)
+          |> Repo.insert!()
+
+        Enum.each(Keyword.get(opts, :messages, []), fn msg_attrs ->
+          %Message{}
+          |> Message.changeset(
+            Map.merge(%{role: :user, metadata: %{}, conversation_id: conv.id}, msg_attrs)
+          )
+          |> Repo.insert!()
+        end)
+
+        after_fn = Keyword.get(opts, :after_fn, fn _ -> :ok end)
+        after_fn.(conv)
+        conv
+
+      existing ->
+        existing
+    end
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp noop_enqueue(_job), do: :ok
 
   # --------------------------------------------------------------------------
   # Idempotency helper (D-02)

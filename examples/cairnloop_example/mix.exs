@@ -81,11 +81,40 @@ defmodule CairnloopExample.MixProject do
   #
   # See the documentation for `Mix` for more info on aliases.
   defp aliases do
+    # Cairnloop ships its migrations under its own priv/. Resolve their path in a way that works
+    # in BOTH modes: as a hex dep (`deps/cairnloop/...`, the adopter flow) and as the local path
+    # dep used for development (`{:cairnloop, path: "../.."}`), where Mix does not populate
+    # `deps/cairnloop` so we fall back to the source tree. Keeps `mix setup` bootable either way.
+    cairnloop_migrations =
+      if File.dir?("deps/cairnloop/priv/repo/migrations"),
+        do: "deps/cairnloop/priv/repo/migrations",
+        else: "../../priv/repo/migrations"
+
+    # Migrations run as TWO ordered phases: the example's own host tables first (conversations,
+    # messages, drafts), then Cairnloop's library tables — several of which reference the
+    # host-owned conversations table, so they must come after it (merging both paths into one
+    # call would sort by version globally and run a library migration before its host dependency).
+    # Mix runs a task only once per invocation, so the second `ecto.migrate` would be silently
+    # skipped; reenable it between the phases.
+    reenable_migrate = fn _ -> Mix.Task.reenable("ecto.migrate") end
+
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "ecto.migrate --migrations-path deps/cairnloop/priv/repo/migrations", "run priv/repo/seeds.exs"],
+      "ecto.setup": [
+        "ecto.create",
+        "ecto.migrate",
+        reenable_migrate,
+        "ecto.migrate --migrations-path #{cairnloop_migrations}",
+        "run priv/repo/seeds.exs"
+      ],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "ecto.migrate --migrations-path deps/cairnloop/priv/repo/migrations --quiet", "test"],
+      test: [
+        "ecto.create --quiet",
+        "ecto.migrate --quiet",
+        reenable_migrate,
+        "ecto.migrate --migrations-path #{cairnloop_migrations} --quiet",
+        "test"
+      ],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind cairnloop_example", "esbuild cairnloop_example"],
       "assets.deploy": [
