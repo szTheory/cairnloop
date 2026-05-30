@@ -37,6 +37,21 @@ defmodule Cairnloop.DashboardWiringTest do
     end
   end
 
+  # A second mount with a custom live_session name + custom operations paths — proves the
+  # collision-avoidance opt and that non-Cairnloop opts forward to live_session / the plugs.
+  defmodule CustomRouter do
+    use Phoenix.Router
+    require Cairnloop.Router
+
+    scope "/" do
+      Cairnloop.Router.cairnloop_dashboard("/ops", live_session_name: :cairnloop_ops_dashboard)
+    end
+
+    scope "/" do
+      Cairnloop.Router.cairnloop_operations(health_path: "/healthz", metrics_path: "/prom")
+    end
+  end
+
   # Map each path to the module that actually handles it: the LiveView module for `live` routes
   # (it lives in metadata, since `route.plug` is `Phoenix.LiveView.Plug`), or the plug itself for
   # `forward` routes.
@@ -83,5 +98,42 @@ defmodule Cairnloop.DashboardWiringTest do
 
     assert conn.status == 200
     assert conn.resp_body =~ "ok"
+  end
+
+  test "cairnloop_dashboard honors a custom :live_session_name (multi-mount collision fix)" do
+    live_session_names =
+      CustomRouter.__routes__()
+      |> Enum.flat_map(fn route ->
+        case route.metadata do
+          %{phoenix_live_view: {_lv, _action, _opts, %{name: name}}} -> [name]
+          _ -> []
+        end
+      end)
+      |> Enum.uniq()
+
+    assert live_session_names == [:cairnloop_ops_dashboard]
+  end
+
+  test "cairnloop_operations forwards custom paths" do
+    by_path =
+      Map.new(CustomRouter.__routes__(), fn route -> {route.path, route.plug} end)
+
+    assert by_path["/healthz"] == Cairnloop.Web.HealthPlug
+    assert by_path["/prom"] == Cairnloop.Web.MetricsPlug
+  end
+
+  test "invalid :live_session_name raises a clear error at compile time (NimbleOptions)" do
+    assert_raise NimbleOptions.ValidationError, fn ->
+      Code.compile_string("""
+      defmodule Cairnloop.DashboardWiringTest.BadRouter do
+        use Phoenix.Router
+        require Cairnloop.Router
+
+        scope "/" do
+          Cairnloop.Router.cairnloop_dashboard("/x", live_session_name: "not-an-atom")
+        end
+      end
+      """)
+    end
   end
 end

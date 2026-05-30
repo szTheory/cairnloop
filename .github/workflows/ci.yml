@@ -57,6 +57,7 @@ jobs:
           test/cairnloop/web/health_metrics_route_test.exs
           test/cairnloop/auditor_test.exs
           test/cairnloop/governance_test.exs
+          test/cairnloop/doctor_test.exs
 
   # Static quality gate (mirrors the `mix check` alias): credo --strict, ex_doc with
   # warnings-as-errors, the packaged-tarball build, and a dependency CVE audit. Runs in the
