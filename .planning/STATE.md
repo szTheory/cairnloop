@@ -29,10 +29,15 @@ Status: vM015 fully executed and released as **v0.2.0**. The milestone audit
 (`.planning/vM015-MILESTONE-AUDIT.md`, verdict **gaps_found**) found three shipped
 defects — AUDIT-01 (audit log was a no-op stub), OPS-01/OPS-02 (health/metrics plugs
 mounted in no router), and REL-01 (CHANGELOG `[0.2.0]` section missing). All remediated
-as **v0.2.1** on branch `fix/v0.2.1-audit-ops-remediation` (commits 62b7989 + c839433;
-17 targeted tests pass, `mix compile --warnings-as-errors` clean). Awaiting merge +
-`v0.2.1` tag + hex publish (manual).
-Last activity: 2026-05-29
+as **v0.2.1** on branch `fix/v0.2.1-audit-ops-remediation` (5 commits; 218-test headless
+CI suite passes, `mix compile --warnings-as-errors` + `mix format --check-formatted` clean).
+**Shipped as PR #1** (https://github.com/szTheory/cairnloop/pull/1) from clean PR branch
+`fix/v0.2.1-audit-ops-remediation-pr` — transient `.planning/` filtered out (55 files /
+0 transient vs base; code tree byte-identical to the feature branch). During ship, the
+already-tagged but unpushed **v0.2.0** history (13 commits) was fast-forwarded to
+`origin/main`, de-dangling the `v0.2.0` tag and rebasing the PR's effective base onto it.
+Awaiting review/merge + `v0.2.1` tag + hex publish (manual).
+Last activity: 2026-05-30
 
 ## Accumulated Context
 
