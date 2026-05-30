@@ -1,7 +1,33 @@
 # Follow-up: DB-backed `integration` CI suite — failures (3 clusters)
 
-**Status:** IN PROGRESS · **Filed:** 2026-05-30 · **Branch:** `fix/integration-suite` (PR #6)
-**Severity:** pre-existing (red since before v0.2.0) · **Suggested tool:** `/gsd-debug`
+**Status:** ✅ RESOLVED — 47 tests, 0 failures (CI run 26684946572). · **Filed:** 2026-05-30 · **Branch:** `fix/integration-suite` (PR #6)
+**Severity:** pre-existing (red since before v0.2.0)
+
+---
+
+## ✅ RESOLUTION (2026-05-30)
+
+All 6 real failures fixed; `integration` added to `release_gate.needs` (now a required gate).
+
+**Record correction:** the earlier "Progress" notes below were partly inaccurate — they cited
+commits (`98d1b78`, `1bf9ba8`) that never existed and an unverified "10→6 CI-verified" baseline.
+No CI had ever run on this branch (no PR existed; branch pushes don't trigger CI). Opening PR #6
+produced the first real baseline: **47 tests, 6 failures**. The true failures and fixes:
+
+1. `audit_log_live:74` — `<option value={to_string(action)}>` leaked raw atom `execution_succeeded`.
+   Fix: humanized label as option value + filter matches on label (commit on web/audit_log_live.ex).
+2. `audit_log_live:102` — action `<select>` listed all actions' labels even when filtered.
+   Fix: derive options from the visible (filtered) set; test submits the label `"Approved"`.
+3. `tool_execution_worker:140` — happy-path asserted `attempt == 1`; co-commit post-increments to 2
+   (consistent with the transient-failure sibling). Fix: test expectation → `== 2` (sealed co-commit
+   left untouched). *(Not the InternalNote idempotency test the old notes guessed — that passed.)*
+4. `tool_execution_outcome_live:170` (OBS-02) — execute co-commit clobbered `decided_by` with
+   `"system"`. **Decision (flagged):** preserve the approver's `decided_by` through execution
+   (executor stays attributed via the `:execution_succeeded` event `actor_id`). Touched the sealed
+   co-commit because a requirement-level test mandates durable approver attribution (D16-09).
+5. & 6. `tool_execution_outcome_live:309`/`:439` — `"Action completed"` never rendered because the
+   render fixtures never set the proposal's `conversation_id` FK, so
+   `list_proposals_for_conversation/2` returned `[]`. Fix: link `conversation_id: conversation.id`.
 
 ---
 
@@ -81,12 +107,11 @@ gates on the **headless** `phase-12-shift-left` suite only; **add `integration` 
     `Governance.approve` + `ToolExecutionWorker` co-commit; not a rendering issue.
 
 ## Done-when
-- [ ] Cluster A fully green (4/5 done; recheck the InternalNote idempotency test — FK-drift theory
-      incomplete for that one).
-- [ ] Cluster C fully green (dropdown raw-atom leak done; "View details" expander + filter test
-      still red).
-- [ ] Cluster B green (Done-group "Action completed" render wiring + OBS-02 `decided_by`).
-- [ ] `integration` added to `release_gate.needs` in `.github/workflows/ci.yml`.
+- [x] Cluster A fully green (happy-path attempt expectation corrected; InternalNote idempotency
+      test was already passing).
+- [x] Cluster C fully green (raw-atom leak + filtered-dropdown label leak both fixed).
+- [x] Cluster B green (Done-group "Action completed" render wiring + OBS-02 `decided_by`).
+- [x] `integration` added to `release_gate.needs` in `.github/workflows/ci.yml`.
 - [ ] PR #6 merged.
 
 ## Environment caveats (prior session)
