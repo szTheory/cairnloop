@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/szTheory/cairnloop/compare/v0.2.3...v0.3.0) (2026-05-30)
+
+
+### Features
+
+* add mix cairnloop.doctor wiring diagnostic ([24e71f9](https://github.com/szTheory/cairnloop/commit/24e71f9268124f2547d0ddc7b7ea62829047319e))
+* **installer:** print router/auditor/doctor next steps after install ([bcacf69](https://github.com/szTheory/cairnloop/commit/bcacf69482c284b397689996eeac9243e2bdf396))
+* mix cairnloop.doctor + validated router opts + installer next-steps (Tier 2 DX) ([7f559c2](https://github.com/szTheory/cairnloop/commit/7f559c2c2837c2d25a1f92499243ed2169f5d96b))
+* **router:** validated, self-documenting macro options + live_session name ([5524e82](https://github.com/szTheory/cairnloop/commit/5524e82eb3afe2b163a044e50659cbe3c1d03510))
+
 ## [0.2.3](https://github.com/szTheory/cairnloop/compare/v0.2.2...v0.2.3) (2026-05-30)
 
 
