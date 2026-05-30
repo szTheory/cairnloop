@@ -117,18 +117,22 @@ jobs:
 
   # Single required status check for branch protection (solo-OSS true CI/CD).
   # Branch protection requires only `release_gate`; this job's `needs:` is the real
-  # contract. Currently gates on the headless suite. The `integration` leg has
-  # pre-existing failures (tracked follow-up) — add it to `needs` once it is green.
+  # contract. Gates on both the headless shift-left suite and the DB-backed
+  # `integration` suite (greened on PR #6 — both must be green to ship).
   release_gate:
     name: release_gate
     runs-on: ubuntu-latest
-    needs: [phase-12-shift-left]
+    needs: [phase-12-shift-left, integration]
     if: ${{ always() }}
     steps:
       - name: Gate on required jobs
         run: |
           if [ "${{ needs.phase-12-shift-left.result }}" != "success" ]; then
             echo "Required job 'phase-12-shift-left' did not succeed (got: ${{ needs.phase-12-shift-left.result }})."
+            exit 1
+          fi
+          if [ "${{ needs.integration.result }}" != "success" ]; then
+            echo "Required job 'integration' did not succeed (got: ${{ needs.integration.result }})."
             exit 1
           fi
           echo "All required jobs passed."

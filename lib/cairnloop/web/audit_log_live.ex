@@ -58,23 +58,29 @@ defmodule Cairnloop.Web.AuditLogLive do
       |> Enum.filter(&P.matches?(&1, query))
       |> Enum.filter(&action_matches?(&1, action_filter))
 
-    assign(socket, visible_events: visible, action_options: action_options(events))
+    # Options derive from the VISIBLE (filtered) set so a filtered-out action's label
+    # never persists in the dropdown — and so no raw action atom ever leaks as an
+    # <option value> (brand §5.6: humanized labels only to operators).
+    assign(socket, visible_events: visible, action_options: action_options(visible))
   end
 
   defp action_matches?(_event, "all"), do: true
 
   defp action_matches?(event, action_filter) do
-    to_string(Map.get(event, :action)) == action_filter
+    # Filter on the humanized label — the operator-facing value the <select> submits
+    # (never the raw action atom, which must not appear in rendered HTML).
+    P.action_label(Map.get(event, :action)) == action_filter
   end
 
-  # Distinct actions present in the loaded set, as {value, label} for the <select>.
+  # Distinct humanized action labels present in the set — used as BOTH the <option>
+  # value and display text so no raw atom leaks (brand §5.6).
   defp action_options(events) do
     events
     |> Enum.map(&Map.get(&1, :action))
     |> Enum.reject(&is_nil/1)
+    |> Enum.map(&P.action_label/1)
     |> Enum.uniq()
-    |> Enum.map(fn action -> {to_string(action), P.action_label(action)} end)
-    |> Enum.sort_by(fn {_value, label} -> label end)
+    |> Enum.sort()
   end
 
   def render(assigns) do
@@ -101,8 +107,8 @@ defmodule Cairnloop.Web.AuditLogLive do
           Action
           <select name="action">
             <option value="all" selected={@action_filter == "all"}>All actions</option>
-            <%= for {value, label} <- @action_options do %>
-              <option value={value} selected={@action_filter == value}><%= label %></option>
+            <%= for label <- @action_options do %>
+              <option value={label} selected={@action_filter == label}><%= label %></option>
             <% end %>
           </select>
         </label>

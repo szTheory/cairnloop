@@ -188,13 +188,17 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     result_summary = humanize_result(outcome)
     new_attempt = attempt + 1
 
+    # OBS-02: preserve the approver as decided_by — execution is performed by the
+    # system worker (attributed via the :execution_succeeded ToolActionEvent's
+    # actor_id), but the denormalized approval.decided_by must keep identifying the
+    # human who approved, surviving the execute co-commit (durable attribution, D16-09).
     approval_cs =
       ToolApproval.decision_changeset(
         approval,
         :executed,
         "executed",
         result_summary,
-        "system",
+        approval.decided_by,
         DateTime.utc_now()
       )
 
@@ -290,13 +294,14 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         metadata: %{attempt: new_attempt}
       }
 
+      # OBS-02: keep the approver as decided_by (executor is in the event trail).
       approval_cs =
         ToolApproval.decision_changeset(
           approval,
           :execution_failed,
           "execution_failed",
           humanized,
-          "system",
+          approval.decided_by,
           DateTime.utc_now()
         )
 
@@ -398,13 +403,14 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # - {:ok, :ok} → {:cancel, humanized} (terminal write committed, Oban discards job)
   # - {:error, _} → {:error, :persist_failed} (write failed, Oban retries)
   defp record_terminal_failure(approval, proposal, new_status, humanized) do
+    # OBS-02: keep the approver as decided_by (executor is in the event trail).
     approval_cs =
       ToolApproval.decision_changeset(
         approval,
         new_status,
         Atom.to_string(new_status),
         humanized,
-        "system",
+        approval.decided_by,
         DateTime.utc_now()
       )
 
