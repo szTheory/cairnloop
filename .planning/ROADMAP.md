@@ -1,64 +1,52 @@
-# Cairnloop vM015 Roadmap
+# Roadmap: Cairnloop
+
+## Milestones
+
+- ✅ **vM015 Operator Polish + Maintenance Gates** — Phases 33–36 (shipped 2026-05-30, v0.2.0→v0.2.2)
+- ✅ **vM014 Adoption Proof** — Phases 27–32.1 (shipped 2026-05-29)
+- ✅ **vM013 Support-Triggered Outbound Lifecycle** — Phases 22–26 (shipped 2026-05-27)
+- ✅ **vM012 Public Release & MCP Write Surface** — Phases 18–21 (shipped 2026-05-26)
+- ✅ **vM011 AI Tool Governance & MCP Integration** — Phases 13–17 (shipped 2026-05-25)
+- ✅ **vM010 KB AI Maintenance** — (shipped 2026-05-23)
+- ✅ **vM009 Retrieval-First Support Answers & Search Ops** — (shipped 2026-05-21)
+- ✅ **vM003–vM008** — foundational milestones (archived)
+
+> **Diminishing-returns line reached at vM015 close.** Cairnloop is "done enough for stated
+> scope." There is no active milestone. vM016+ is adoption + maintenance — start a new milestone
+> with `/gsd-new-milestone` only when a real adopter signal pulls for it (Epics 12/13/14 stay out
+> of scope until then).
 
 ## Phases
 
-- [ ] **Phase 33: Security Domain Closure** - Enforce immutable evidence and state for knowledge automation.
-- [x] **Phase 34: Operator Settings Surface** - Real settings interface for MCP tokens, health, and theming.
-- [x] **Phase 35: Audit & Operations Support** - HTTP health/metrics endpoints, UI audit log, and rail pagination.
-- [ ] **Phase 36: Documentation & v0.2.0 Release** - Architecture docs, guides, and package release.
+<details>
+<summary>✅ vM015 Operator Polish + Maintenance Gates (Phases 33–36) — SHIPPED 2026-05-30</summary>
 
-## Phase Details
+- [x] Phase 33: Security Domain Closure (1/1 plans) — completed 2026-05-29
+- [x] Phase 34: Operator Settings Surface (2/2 plans) — completed 2026-05-29
+- [x] Phase 35: Audit & Operations Support (2/2 plans) — completed 2026-05-29
+- [x] Phase 36: Documentation & v0.2.0 Release (1/1 plan) — completed 2026-05-29
 
-### Phase 33: Security Domain Closure
-**Goal**: System enforces domain-layer security invariants for knowledge automation unconditionally, rejecting spoofed or invalid inputs.
-**Depends on**: Phase 32.1
-**Requirements**: SEC-01, SEC-02, SEC-03
-**Success Criteria**:
-  1. System rejects creating new suggestions targeting already published articles.
-  2. Gap-candidate suggestions strictly derive from immutable system evidence, ignoring external caller payloads.
-  3. Stale revision checks rely solely on database events and canonical grounding, rejecting spoofed inputs.
-**Plans**: 1/1 plans complete
-  - [ ] 33-01-PLAN.md — Enforce immutable evidence and state for knowledge automation (closes T-10-10, T-10-12, T-10-13)
+Released as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. Full detail:
+`.planning/milestones/vM015-ROADMAP.md`.
 
-### Phase 34: Operator Settings Surface
-**Goal**: Operators can configure integrations, monitor connection health, and customize their interface securely.
-**Depends on**: Phase 33
-**Requirements**: SET-01, SET-02, SET-03, SET-04
-**Success Criteria**:
-  1. Operator can add, edit, and validate MCP tokens securely from the Settings UI.
-  2. Operator can visually confirm whether Notifiers and retrieval systems are healthy.
-  3. Operator can toggle dark mode and see the application theme update immediately.
-**Plans**: TBD
-**UI hint**: yes
+</details>
 
-### Phase 35: Audit & Operations Support
-**Goal**: Adopters and operators have clear visibility into system health, performance metrics, and historical actions.
-**Depends on**: Phase 34
-**Requirements**: AUDIT-01, OPS-01, OPS-02, TECH-01
-**Success Criteria**:
-  1. Operator can view, search, and filter a timeline of system actions in the new Audit Log UI.
-  2. Operator can page through long lists of governed actions in the conversation sidebar without layout breakage.
-  3. Adopter infrastructure can poll `/health` to verify application liveness.
-  4. Adopter infrastructure can scrape `/metrics` to gather telemetry data.
-**Plans**: TBD
-**UI hint**: yes
+<details>
+<summary>✅ vM003–vM014 — SHIPPED (archived)</summary>
 
-### Phase 36: Documentation & v0.2.0 Release
-**Goal**: Adopters have comprehensive architectural guidance and can pull the v0.2.0 milestone release.
-**Depends on**: Phase 35
-**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, REL-01, REL-02
-**Success Criteria**:
-  1. Adopter can read ExDoc guides covering MCP clients and extending Cairnloop on HexDocs.
-  2. Contributor can find clear contribution guidelines in `CONTRIBUTING.md`.
-  3. Adopter can understand system design via `docs/architecture.md`.
-  4. Release v0.2.0 is published and documented in `CHANGELOG.md`.
-**Plans**: 36-01
+Earlier milestone roadmaps are archived under `.planning/milestones/` (e.g.
+`vM014-ROADMAP.md`, `vM013-ROADMAP.md`, …). See `.planning/MILESTONES.md` for the shipped
+summary of every milestone and `.planning/PROJECT.md` for the cumulative product state.
+
+</details>
 
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 33. Security Domain Closure | 1/1 | Complete | 2026-05-29 |
-| 34. Operator Settings Surface | 2/2 | Complete | 2026-05-29 |
-| 35. Audit & Operations Support | 2/2 | Complete | 2026-05-29 |
-| 36. Documentation & v0.2.0 Release | 1/1 | Planned | - |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 33. Security Domain Closure | vM015 | 1/1 | Complete | 2026-05-29 |
+| 34. Operator Settings Surface | vM015 | 2/2 | Complete | 2026-05-29 |
+| 35. Audit & Operations Support | vM015 | 2/2 | Complete | 2026-05-29 |
+| 36. Documentation & v0.2.0 Release | vM015 | 1/1 | Complete | 2026-05-29 |
+
+_Phases 1–32.1 (vM001–vM014) are complete and archived — see `.planning/milestones/`._

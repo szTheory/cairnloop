@@ -4,6 +4,7 @@
 
 | Milestone | Date | Phases | Plans |
 |-----------|------|--------|-------|
+| vM015     | 2026-05-30 | 4 | 6 |
 | vM013     | 2026-05-27 | 5 | 9 |
 | vM012     | 2026-05-26 | 4 | 7 |
 | vM011     | 2026-05-25 | 5 | 17 |
@@ -14,6 +15,45 @@
 | M001      | -    | -      | -     |
 | M002      | -    | -      | -     |
 | M003      | 2024-05-11 | 3      | 3     |
+
+## Milestone: vM015 — Operator Polish + Maintenance Gates
+
+**Shipped:** 2026-05-30 (v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm)
+**Phases:** 4 (33–36) | **Plans:** 6
+
+### What Was Built
+- Final KnowledgeAutomation security closure (T-10-10/12/13) — pinned with regression tests; the domain already enforced the invariants, so no production logic changed.
+- `SettingsLive` operator cockpit: MCP token CRUD (masking/validation, raw shown once), Notifier reachability, retrieval health (pgvector + Oban failed jobs), persisted dark-mode toggle.
+- `Cairnloop.Web.AuditLogLive` (`/audit-log`), `HealthPlug` (`/health`), `MetricsPlug` (`/metrics`, Prometheus), `Auditor.list_events/1`, and governed-actions rail pagination (TECH-01).
+- ExDoc guides 05 (MCP clients) + 06 (extending), `CONTRIBUTING.md`, `docs/architecture.md`.
+- Migration onto the canonical szTheory release-please pipeline; integration CI suite greened and added to `release_gate`.
+
+### What Worked
+- The same-day `/gsd-audit-milestone` pass caught three broken/partial shipped features (AUDIT-01 no-op stub, OPS-01/02 unrouted plugs) and a falsely-claimed CHANGELOG (REL-01) that the phase summaries had reported as done — the audit was the safety net that turned a defective v0.2.0 into a clean v0.2.1.
+- release-please made the remediation cycle cheap: a `fix:` commit on `main` cut and published v0.2.1 and v0.2.2 with zero manual tag/publish steps.
+- Treating the security closure as test-only pinning (rather than refactoring already-correct domain code) honored the "seal completed phases" posture and avoided churn.
+
+### What Was Inefficient
+- **Released-with-defects:** v0.2.0 shipped AUDIT-01/OPS-01/OPS-02 broken and REL-01 unmet. Phase 35/36 were marked complete and the package was tagged/published *before* any verification — the audit ran after release, so the defects were post-release rather than caught pre-ship.
+- **Verification debt (recurring):** phases 33/34/35 have no `VERIFICATION.md`; only phase 36 has a `*-VALIDATION.md`. Same "ship without GSD verification artifacts" gap flagged in prior retrospectives.
+- **Inaccurate summary:** `36-01-SUMMARY.md` claimed the `[0.2.0]` CHANGELOG section was added when it was not — a summary that can't be trusted at face value undermines the audit-aggregation step.
+- **Stale planning state at close (recurring):** REQUIREMENTS.md checkboxes, STATE.md "next step", and the vM015-ROADMAP progress table were all stale vs reality at close time — the exact drift pattern called out in the vM013 retrospective. Reality also advanced past STATE.md (v0.2.2 + integration-suite-green) before this close ran.
+- **Lightweight-close debt (recurring):** vM014 never got a MILESTONES.md or RETROSPECTIVE.md entry (nor a trends-table row) — the same untracked-close debt vM012 incurred. Surfaced again here at vM015 close.
+
+### Patterns Established
+- **Audit-after-ship as a real gate:** `/gsd-audit-milestone` against live source (not summaries) is load-bearing — run it *before* tagging, not after. Phase summaries are claims, not evidence.
+- **release-please remediation loop:** post-release defects are remediated by a `fix:` commit on `main`; the bot handles versioning, tagging, CHANGELOG, and hex publish. No manual release steps survive.
+- **Test-only security closure:** when the domain already enforces an invariant, close the threat by pinning it with regression tests rather than refactoring — preserves sealed-path stability.
+
+### Key Lessons
+- **Verify before you publish.** A hex release is effectively irreversible (yank ≠ undo). Phase verification + milestone audit must precede the release tag, not follow it. v0.2.0's three broken features would have been caught by a pre-release audit.
+- **Don't trust a SUMMARY's completion claims** — REL-01 was reported done and wasn't. The milestone audit must check claims against live source/tree, which is exactly what caught it.
+- **The stale-state-at-close pattern is now chronic** (vM011, vM013, vM015). A phase-completion gate that flips REQUIREMENTS boxes + reconciles STATE/ROADMAP at phase close (not milestone close) is overdue.
+- **Always run `/gsd-complete-milestone` end-to-end** — vM012 and vM014 both incurred lightweight-close debt (missing archives / MILESTONES / RETROSPECTIVE entries) that the next close had to absorb.
+
+### Cost Observations
+- Model mix: ~95% opus (4.7–4.8 / 1M context), small sonnet/haiku spot-checks
+- Notable: the remediation arc (audit → fix → re-release → integration-suite green) spanned three same-day hex releases (0.2.0 → 0.2.1 → 0.2.2); release-please kept the marginal cost of each near zero.
 
 ## Milestone: vM013 — Support-Triggered Outbound Lifecycle
 

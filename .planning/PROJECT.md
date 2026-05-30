@@ -8,9 +8,9 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 
 ## Current State
 
-**Latest shipped milestone: `vM014 Adoption Proof` on 2026-05-29.
+**Latest shipped milestone: `vM015 Operator Polish + Maintenance Gates` on 2026-05-30 — published as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm.**
 
-**What is now true (cumulative through vM014):**
+**What is now true (cumulative through vM015):**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence (vM008–vM009).
 - Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues (vM009).
 - Durable gap signals project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity (vM010).
@@ -33,8 +33,13 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Brand-token CSS extraction is complete, providing a canonical `:root` contract with no inline hex fallbacks in the core render files (vM014).
 - The Knowledge Base features a unified editorial nav shell, missing creation affordances added, and auditable handoff markers for security closures (vM014).
 - Comprehensive ExDoc guides (Quickstart, JTBD Walkthrough, Host Integration, Troubleshooting) are shipped and integrated directly into the Hex docs (vM014).
+- The remaining vM010 domain-layer security debt is closed: `Cairnloop.KnowledgeAutomation` unconditionally rejects spoofed, already-published, and caller-supplied-grounding inputs (T-10-10/12/13), pinned with regression tests (vM015).
+- Operators have a real `SettingsLive` cockpit: MCP token CRUD (masking, validation, raw shown once), Notifier reachability, retrieval health (pgvector index + Oban failed jobs), and a persisted dark-mode toggle (vM015).
+- Adopters and operators have operability surfaces: `Cairnloop.Web.AuditLogLive` (`/audit-log`), `/health` (`HealthPlug`) and `/metrics` (`MetricsPlug`, Prometheus via optional `telemetry_metrics_prometheus_core`) mountable via `cairnloop_operations/1`, `Auditor.list_events/1`, and governed-actions rail pagination (vM015).
+- Adopters have MCP-client and extension guides (`guides/05-mcp-clients.md`, `guides/06-extending.md`), `CONTRIBUTING.md`, and `docs/architecture.md` (vM015).
+- The repo ships releases through the canonical szTheory **release-please** pipeline (`fix:`/`feat:` commit on `main` → bot PR → auto-tag + `publish-hex`), gated on a now-green DB-backed integration suite in `release_gate` (vM015).
 
-**Current milestone:** (None — use `/gsd-new-milestone` to kick off next milestone). Diminishing-returns line: end of vM015. vM016+ strategic optionality (Epic 12/13/14) is opt-in only when an adopter pulls.
+**Current milestone:** None. **The diminishing-returns line was reached at vM015 close** — Cairnloop is "done enough for stated scope." vM016+ is adoption + maintenance, not features; use `/gsd-new-milestone` only when a real adopter signal pulls. Epic 12/13/14 strategic optionality stays opt-in only.
 
 ## Architectural Invariants
 
@@ -80,6 +85,10 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 - ✓ Shared editorial nav shell and security closures — vM014 (KB-01..KB-04, SEC-01..SEC-02)
 - ✓ Golden-path JTBD smoke test + WidgetChannel test in `mix test.integration` — vM014 (E2E-01..E2E-03)
 - ✓ ExDoc `guides/` (quickstart, JTBD walkthrough, etc.) and README update — vM014 (DOC-01..DOC-04)
+- ✓ Domain-layer security closure for KnowledgeAutomation (T-10-10/12/13) — vM015 (SEC-01..SEC-03)
+- ✓ Operator Settings cockpit: MCP token CRUD, Notifier + retrieval health, dark mode — vM015 (SET-01..SET-04)
+- ✓ Audit Log surface, `/health` + `/metrics` endpoints, governed-actions rail pagination — vM015 (AUDIT-01, OPS-01, OPS-02, TECH-01)
+- ✓ MCP-client + extension guides, CONTRIBUTING.md, architecture doc, v0.2.x release — vM015 (DOC-01..DOC-04, REL-01, REL-02)
 
 
 ### Active
@@ -113,22 +122,46 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 | Oban `unique:` keys `(conversation_id, template_id, bulk_envelope_id)` for at-most-once delivery — `nil` envelope id for single-conversation callers | vM013 | ✓ Good — Phase 24 + Phase 25 callers share the same dedup lane |
 | Cohort eligibility reads from the web layer go through narrow `Cairnloop.Governance` facade; D-14 negative-grep gate pins this | vM013 | ✓ Good — no direct `Conversation \|> where(...)` queries in `InboxLive`; gate held through close |
 | OpenInference traces emitted alongside (never replacing) sealed bounded-metrics spans; disjoint 4-segment namespace | vM013 | ✓ Good — mirrors vM011 Phase 17 pattern verbatim; zero churn to existing telemetry |
+| Adopt canonical szTheory release-please pipeline; releases via `fix:`/`feat:` commit on `main` → bot PR → auto-tag + publish-hex | vM015 | ✓ Good — made the v0.2.0→0.2.1→0.2.2 remediation arc near-zero marginal cost |
+| Run `/gsd-audit-milestone` against live source (not phase summaries) as the milestone gate | vM015 | ⚠️ Revisit — caught 3 broken features + a false CHANGELOG claim, but only *after* v0.2.0 shipped; move the gate before the release tag |
+| Close KnowledgeAutomation security threats by pinning with regression tests rather than refactoring already-correct domain code | vM015 | ✓ Good — honored "seal completed phases"; zero churn to sealed paths |
+| Gate hex releases on a green DB-backed integration suite in `release_gate` (after greening it) | vM015 | ✓ Good — turned a chronically-red suite into a release gate |
 
 ## Context
 
-**Codebase at vM013 close:** ~42.4k LOC Elixir / Phoenix / LiveView / Ecto / Oban / OpenInference telemetry / pgvector. Tests: 676/677 (1 documented baseline failure — `Automation.DraftTest` M005 drift).
+**Codebase at vM015 close:** ~43k LOC Elixir / Phoenix / LiveView / Ecto / Oban / OpenInference telemetry / pgvector. Published as `cairnloop` v0.2.2 on Hex.pm. Releases flow through the release-please pipeline; the headless `mix test` suite + the DB-backed `integration` suite both gate `release_gate` in CI (integration suite greened in vM015). Baseline: `Automation.DraftTest` M005-drift failure remains documented/known.
 
-**Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, Chimeway, OpenInference telemetry, ExDoc, Hex.pm.
+**Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, Chimeway, OpenInference telemetry, ExDoc, Hex.pm, release-please.
 
-**Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free. Phase 25 CI shift-left tests landed 2026-05-27 — former Phase 25 human-UAT items now run in `mix test` + the integration lane.
+**Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free. As of vM015 the integration suite is green and gated in `release_gate`.
 
 **Known tech debt:**
-- Root `SECURITY.md` carries 5 open threats (T-10-09..T-10-13) from vM010 — pre-existing, untouched.
-- AR-14-02: governed-actions rail has no pagination — re-evaluate when outbound + action volume grows.
+- **Verification debt (vM015):** phases 33/34/35 shipped without `VERIFICATION.md`; Nyquist `*-VALIDATION.md` exists only for phase 36. Code is green in CI through v0.2.2 but GSD verification artifacts were never produced. Backfill via `/gsd-verify-work` if required.
 - Centralize duplicated fail-closed search guards (pre-existing from vM009).
-- D-10 brand-token CSS extraction deferred in vM013 Phase 26 — inline `var(--cl-<token>, <hex>)` strings remain the headless-test contract for v1.
+- **Process:** the milestone audit gate ran *after* the v0.2.0 release tag, so 3 broken features + 1 false CHANGELOG claim shipped as post-release defects (remediated in v0.2.1). Move audit/verification before the release tag.
+
+**Closed since prior milestone:** all five vM010 `SECURITY.md` threats (T-10-09/11 in vM014; T-10-10/12/13 in vM015); AR-14-02 governed-actions rail pagination (vM015 TECH-01); D-10 brand-token CSS extraction (vM014).
 
 ## Previous Milestone Briefs
+
+<details>
+<summary>Archived vM015 brief</summary>
+
+### vM015 Operator Polish + Maintenance Gates
+
+**Goal:** Close the operator-facing rough edges and remaining vM010 security debt to bring the
+library to "done enough for stated scope" — a real operator settings + audit surface, production
+`/health` + `/metrics` endpoints, final domain-layer security closure, expanded guides, and the
+v0.2.0 package release.
+
+**Shipped 2026-05-30 — all 17 v1 requirements satisfied across Phases 33–36.** Released as
+`cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. A same-day milestone audit caught three broken
+Phase-35 features (AUDIT-01 no-op stub; OPS-01/02 unrouted plugs) and a missing `[0.2.0]`
+CHANGELOG (REL-01); all four remediated in v0.2.1, integration-suite green + governance fix in
+v0.2.2. Repo migrated to the release-please pipeline. See `milestones/vM015-ROADMAP.md` and
+`milestones/vM015-MILESTONE-AUDIT.md`.
+
+</details>
 
 <details>
 <summary>Archived vM014 brief</summary>
@@ -245,4 +278,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Post-done mode (vM016+)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
 
 ---
-*Last updated: 2026-05-29 — vM014 Phase 32 complete: README + ExDoc guides + CHANGELOG + mix.exs publishing wiring. Four adopter guides shipped (`guides/01-quickstart.md`, `02-jtbd-walkthrough.md`, `03-host-integration.md`, `04-troubleshooting.md`). README restructured as Igniter-first front door. CHANGELOG `[Unreleased]` populated with vM014 Phase 27-32 summary. All four guides wired to HexDocs via `mix.exs` extras/groups and included in the Hex tarball via `:files`. DOC-01 through DOC-04 satisfied. 741 root tests, 1 known pre-existing failure (Automation.DraftTest, M005 drift).*
+*Last updated: 2026-05-30 after vM015 milestone — Operator Polish + Maintenance Gates shipped as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. All 17 v1 requirements satisfied across Phases 33–36: KnowledgeAutomation security closure (T-10-10/12/13), `SettingsLive` operator cockpit, Audit Log + `/health` + `/metrics` + rail pagination, MCP/extending guides + CONTRIBUTING + architecture docs. Repo migrated to the release-please pipeline; DB-backed integration suite greened and gated. **Diminishing-returns line reached — Cairnloop is "done enough for stated scope"; vM016+ is adoption + maintenance.** Open: verification debt for phases 33/34/35 (no VERIFICATION.md).*
