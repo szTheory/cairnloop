@@ -327,9 +327,7 @@ defmodule Cairnloop.Outbound do
         # columns; this is a structured diagnostic for ops, not operator copy.
         require Logger
 
-        Logger.error(
-          "BulkEnvelope refusal insert failed: #{inspect(changeset.errors)}"
-        )
+        Logger.error("BulkEnvelope refusal insert failed: #{inspect(changeset.errors)}")
 
         Cairnloop.Telemetry.execute(
           [:outbound, :bulk, :triggered],
@@ -347,9 +345,7 @@ defmodule Cairnloop.Outbound do
         # symmetric so OBS-02 can detect the gap regardless of failure mode.
         require Logger
 
-        Logger.error(
-          "BulkEnvelope refusal insert returned unexpected shape: #{inspect(other)}"
-        )
+        Logger.error("BulkEnvelope refusal insert returned unexpected shape: #{inspect(other)}")
 
         Cairnloop.Telemetry.execute(
           [:outbound, :bulk, :triggered],
@@ -369,7 +365,15 @@ defmodule Cairnloop.Outbound do
   # D-13 happy path. Single `Ecto.Multi`: envelope insert + per-recipient
   # `build_trigger_multi/2` merge + auditor step. Wrapped in a telemetry span with
   # enum-only labels (D-B / Pitfall 5).
-  defp bulk_trigger_submit(conversation_ids, template_id, rendered_body, actor, auditor, cap, opts) do
+  defp bulk_trigger_submit(
+         conversation_ids,
+         template_id,
+         rendered_body,
+         actor,
+         auditor,
+         cap,
+         opts
+       ) do
     envelope_id = Ecto.UUID.generate()
     count = length(conversation_ids)
 
@@ -396,58 +400,62 @@ defmodule Cairnloop.Outbound do
 
     # D-B / Pitfall 5: telemetry metadata is enum-only — no template_id, no actor,
     # no recipient identifiers in labels.
-    Cairnloop.Telemetry.span([:outbound, :bulk, :triggered], %{outcome: :submitted, count: count}, fn ->
-      multi =
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
-        |> Ecto.Multi.merge(fn %{envelope: env} ->
-          Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
-            recipient_opts =
-              per_recipient_opts
-              |> Keyword.put(:bulk_envelope_id, env.id)
-              |> Keyword.put(:multi_key_prefix, cid)
+    Cairnloop.Telemetry.span(
+      [:outbound, :bulk, :triggered],
+      %{outcome: :submitted, count: count},
+      fn ->
+        multi =
+          Ecto.Multi.new()
+          |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+          |> Ecto.Multi.merge(fn %{envelope: env} ->
+            Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
+              recipient_opts =
+                per_recipient_opts
+                |> Keyword.put(:bulk_envelope_id, env.id)
+                |> Keyword.put(:multi_key_prefix, cid)
 
-            Ecto.Multi.append(acc, build_trigger_multi(cid, recipient_opts))
+              Ecto.Multi.append(acc, build_trigger_multi(cid, recipient_opts))
+            end)
           end)
-        end)
-        |> auditor.audit(:bulk_outbound_trigger, actor, %{
+          |> auditor.audit(:bulk_outbound_trigger, actor, %{
+            bulk_envelope_id: envelope_id,
+            count: count,
+            template_id: template_id
+          })
+
+        result = repo().transaction(multi)
+
+        # WR-01 / WR-02: derive both the OI trace event and the bounded-metrics
+        # `:stop` outcome from the actual transaction result. Previously the
+        # submit lane unconditionally reported `outcome: :submitted` on both the
+        # OI trace (`:bulk_submitted`) and the bounded-metrics `:stop` metadata
+        # even when `repo().transaction(multi)` returned an `Ecto.Multi` 4-tuple
+        # failure. That contradicted the CLAUDE.md "telemetry is observability
+        # only" posture (an observability lane that lies about failure is worse
+        # than no lane at all) and made the OI lane disagree with the symmetric
+        # `trigger/2` lane which already branches on result. Now both lanes
+        # honestly distinguish submitted from failed.
+        trace_attrs = %{
           bulk_envelope_id: envelope_id,
-          count: count,
-          template_id: template_id
-        })
+          template_id: template_id,
+          actor_id: actor,
+          conversation_id: nil
+        }
 
-      result = repo().transaction(multi)
+        stop_outcome =
+          case result do
+            {:ok, _changes} ->
+              Traces.emit(:bulk_submitted, Map.put(trace_attrs, :outcome, :submitted))
+              :submitted
 
-      # WR-01 / WR-02: derive both the OI trace event and the bounded-metrics
-      # `:stop` outcome from the actual transaction result. Previously the
-      # submit lane unconditionally reported `outcome: :submitted` on both the
-      # OI trace (`:bulk_submitted`) and the bounded-metrics `:stop` metadata
-      # even when `repo().transaction(multi)` returned an `Ecto.Multi` 4-tuple
-      # failure. That contradicted the CLAUDE.md "telemetry is observability
-      # only" posture (an observability lane that lies about failure is worse
-      # than no lane at all) and made the OI lane disagree with the symmetric
-      # `trigger/2` lane which already branches on result. Now both lanes
-      # honestly distinguish submitted from failed.
-      trace_attrs = %{
-        bulk_envelope_id: envelope_id,
-        template_id: template_id,
-        actor_id: actor,
-        conversation_id: nil
-      }
+            _failure ->
+              Traces.emit(:bulk_failed, Map.put(trace_attrs, :outcome, :failed))
+              :failed
+          end
 
-      stop_outcome =
-        case result do
-          {:ok, _changes} ->
-            Traces.emit(:bulk_submitted, Map.put(trace_attrs, :outcome, :submitted))
-            :submitted
-
-          _failure ->
-            Traces.emit(:bulk_failed, Map.put(trace_attrs, :outcome, :failed))
-            :failed
-        end
-
-      # Telemetry metadata for the :stop event stays enum-only (D-B).
-      {result, %{outcome: stop_outcome, count: count}}
-    end)
+        # Telemetry metadata for the :stop event stays enum-only (D-B).
+        {result, %{outcome: stop_outcome, count: count}}
+      end
+    )
   end
 end

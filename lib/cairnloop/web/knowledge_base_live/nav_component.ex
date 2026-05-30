@@ -20,7 +20,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
 
   use Phoenix.Component
 
-  attr :current, :atom, required: true
+  attr(:current, :atom, required: true)
 
   def kb_nav(assigns) do
     ~H"""
@@ -35,9 +35,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
     """
   end
 
-  attr :to, :string, required: true
-  attr :label, :string, required: true
-  attr :active, :boolean, default: false
+  attr(:to, :string, required: true)
+  attr(:label, :string, required: true)
+  attr(:active, :boolean, default: false)
 
   defp kb_nav_link(assigns) do
     ~H"""

@@ -23,7 +23,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.0"
+          elixir-version: "1.19.5"
           otp-version: "27.2"
 
       - name: Restore Mix cache
@@ -92,7 +92,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.0"
+          elixir-version: "1.19.5"
           otp-version: "27.2"
 
       - name: Restore Mix cache

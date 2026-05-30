@@ -7,7 +7,7 @@ defmodule Cairnloop.Web.HealthPlugTest do
 
   test "returns 200 with status ok" do
     conn = conn(:get, "/health")
-    
+
     conn = HealthPlug.call(conn, HealthPlug.init([]))
 
     assert conn.status == 200

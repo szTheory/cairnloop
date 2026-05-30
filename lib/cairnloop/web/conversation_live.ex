@@ -17,7 +17,11 @@ defmodule Cairnloop.Web.ConversationLive do
 
     socket =
       socket
-      |> assign(form: to_form(%{"content" => ""}), pending_discard_draft_id: nil, governed_actions_limit: 10)
+      |> assign(
+        form: to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        governed_actions_limit: 10
+      )
       |> reload_conversation_with_context(id)
 
     {:ok, socket}
@@ -369,7 +373,9 @@ defmodule Cairnloop.Web.ConversationLive do
     quick_fix_card = load_quick_fix_card(conversation)
     # D-09: load governed_actions via the narrow facade (never direct schema query from web layer)
     limit = socket.assigns[:governed_actions_limit] || 10
-    governed_actions = Cairnloop.Governance.list_proposals_for_conversation(conversation_id, limit: limit)
+
+    governed_actions =
+      Cairnloop.Governance.list_proposals_for_conversation(conversation_id, limit: limit)
 
     assign(socket,
       conversation: conversation,

@@ -160,6 +160,7 @@ defmodule Cairnloop.OutboundTest do
     test "supports schedule_in option" do
       assert {:ok, results} = Outbound.trigger(1, template_id: "recovery_v1", schedule_in: 3600)
       assert job = results.delivery_job
+
       # In MockRepo, we'd need to check if schedule_in was passed correctly if we mocked Oban.Job better,
       # but for now we just check it exists.
       assert job.worker == "Cairnloop.Workers.OutboundWorker"
@@ -201,8 +202,8 @@ defmodule Cairnloop.OutboundTest do
 
     test "integrates with auditor" do
       defmodule TestAuditor do
-  @impl true
-  def list_events(_opts), do: []
+        @impl true
+        def list_events(_opts), do: []
 
         @behaviour Cairnloop.Auditor
         def audit(multi, action, actor, metadata) do
@@ -212,7 +213,9 @@ defmodule Cairnloop.OutboundTest do
         end
       end
 
-      assert {:ok, results} = Outbound.trigger(1, template_id: "test", actor: "system", auditor: TestAuditor)
+      assert {:ok, results} =
+               Outbound.trigger(1, template_id: "test", actor: "system", auditor: TestAuditor)
+
       assert results.audit.action == :outbound_trigger
       assert results.audit.actor == "system"
       assert results.audit.metadata == %{conversation_id: 1, template_id: "test"}
@@ -612,6 +615,7 @@ defmodule Cairnloop.OutboundTest do
 
       assert_receive {:trace_metadata, meta}, 500
       assert meta["openinference.span.kind"] == "GUARDRAIL"
+
       assert meta[:outcome] == :exception,
              "rescue branch must emit outcome: :exception so the OI lane reflects the raise"
     end
@@ -655,8 +659,10 @@ defmodule Cairnloop.OutboundTest do
       assert_receive {:trace_metadata, meta}, 500
       assert meta["openinference.span.kind"] == "GUARDRAIL"
       assert meta[:outcome] == :refused_cap_exceeded
+
       assert meta[:effective_cap] == 25,
              ":effective_cap must be on :bulk_refused metadata (RESEARCH OQ3)"
+
       assert is_binary(meta[:bulk_envelope_id])
       assert meta[:template_id] == "recovery_v1"
       assert meta[:actor_id] == "op_99"
@@ -736,8 +742,8 @@ defmodule Cairnloop.OutboundTest do
     # `MockNotifier.on_outbound_triggered/2` pattern in
     # `test/cairnloop/workers/outbound_worker_test.exs`.
     defmodule MapShapeAuditor do
-  @impl true
-  def list_events(_opts), do: []
+      @impl true
+      def list_events(_opts), do: []
 
       @behaviour Cairnloop.Auditor
       def audit(multi, action, actor, metadata) do
@@ -757,7 +763,8 @@ defmodule Cairnloop.OutboundTest do
                  auditor: MapShapeAuditor
                )
 
-      assert_receive {:audited, %{action: :outbound_trigger, actor: "system", metadata: metadata}},
+      assert_receive {:audited,
+                      %{action: :outbound_trigger, actor: "system", metadata: metadata}},
                      500
 
       assert Map.keys(metadata) |> Enum.sort() == [:conversation_id, :template_id]

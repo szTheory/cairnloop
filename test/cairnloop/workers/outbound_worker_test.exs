@@ -28,10 +28,10 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
 
   defmodule MockNotifier do
     @behaviour Cairnloop.Notifier
-    
+
     def on_conversation_resolved(_, _), do: :ok
     def on_sla_breach(_, _, _), do: :ok
-    
+
     def on_outbound_triggered(message, conversation) do
       send(self(), {:notified, message.id, conversation.id})
       :ok
@@ -77,7 +77,8 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
     test "handles notifier error and updates status to failed" do
       Application.put_env(:cairnloop, :notifier, ErrorNotifier)
 
-      assert {:error, {:error, :delivery_failed}} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
+      assert {:error, {:error, :delivery_failed}} =
+               OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
     end
   end
 
