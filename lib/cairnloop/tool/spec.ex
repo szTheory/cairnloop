@@ -19,6 +19,15 @@ defmodule Cairnloop.Tool.Spec do
   with no behaviour or database involvement.
   """
 
+  @type t :: %__MODULE__{
+          risk_tier: atom(),
+          approval_mode: atom(),
+          idempotency: atom() | map() | nil,
+          result_states: [atom()] | nil,
+          title: String.t() | nil,
+          description: String.t() | nil
+        }
+
   @enforce_keys [:risk_tier, :approval_mode]
   defstruct [
     # atom — :read_only | :low_write | :high_write | :destructive

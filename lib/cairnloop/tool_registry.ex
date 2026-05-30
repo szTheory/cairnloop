@@ -3,8 +3,8 @@ defmodule Cairnloop.ToolRegistry do
   Manages registration and advisory filtering of host-injected governed tools.
 
   Boot-time validation (`validate_configured_tools!/0`) ensures every declared tool
-  implements `Cairnloop.Tool` and exposes a valid `__tool_spec__/0`. Call this from
-  `Cairnloop.Application.start/2` so a misconfigured tool fails fast at boot.
+  implements `Cairnloop.Tool` and exposes a valid `__tool_spec__/0`. Call this during your
+  application's start callback so a misconfigured tool fails fast at boot.
 
   `get_available_tools/2` is an **advisory UX filter only** — it applies `scope/0`
   and `authorize/2` as a convenience to hide unavailable tools from the UI. The

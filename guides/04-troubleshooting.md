@@ -167,7 +167,7 @@ Or simply wait a few seconds after seeding and refresh the search. Once the
 **Symptom:** Clicking "Open for manual edit" in the KB suggestions list crashes with a
 500 error in dev, or the app fails to start in production with `RuntimeError: ...secret_key_base`.
 
-**Cause:** `Cairnloop.KnowledgeAutomation.EditorHandoff` requires a `secret_key_base` in
+**Cause:** the Cairnloop.KnowledgeAutomation.EditorHandoff module requires a `secret_key_base` in
 application config. In the `:test` environment a persistent_term fallback is used; all other
 environments require explicit config.
 
