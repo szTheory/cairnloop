@@ -22,15 +22,20 @@ isn't installed; a Phase-16 migration does `CREATE EXTENSION vector`). **CI is t
   `to_string(conversation.id)`. (Non-inserting FailOnceTool tests `conv-transient`/`conv-retry`
   unchanged — they never reach the FK.) Commits `98d1b78`, `bc663f1`, `cc9b874`.
 
-- **Cluster C — `audit_log_live_test.exs` (2) — FIXED (pending CI confirm), commit `1bf9ba8`.**
-  Both `refute`s leaked via the action-filter dropdown. (1) `<option value={action}>` emitted the
-  raw atom (`execution_succeeded`) → now `value={Presenter.action_label(action)}` and the filter
-  matcher compares the humanized label; the filter test now submits `"Approved"` (what the
-  humanized control emits), not raw `"approved"`. (2) `action_options` was derived from ALL events
-  so a filtered-out action's label persisted → derive from the FILTERED set. Also repaired the
-  metadata expander: `<details :if={has_metadata?(event.action) && false}>` (wrong arg + dead
-  `&& false`) meant "View details" never rendered — collapsed the doubled `<details>` into one
-  keyed on `event.metadata`.
+- **Cluster C — `audit_log_live_test.exs` (2) — PARTIALLY fixed, commit `1bf9ba8`. STILL RED.**
+  The action-filter raw-atom leak IS fixed (CI-confirmed: test :62 now fails LATER, at line 78,
+  not at the `refute "execution_succeeded"` on line 74). What's done: `<option value={action}>`
+  → `value={Presenter.action_label(action)}`; the filter matcher compares the humanized label;
+  the filter test submits `"Approved"` not raw `"approved"`; `action_options` now derived from the
+  FILTERED set so a filtered-out action's label doesn't persist.
+  **STILL FAILING:** `assert html =~ "View details"` (test :62, line 78) and the filter test
+  (:95). The metadata expander at `audit_log_live.ex:158` LOOKS correct
+  (`<details :if={Presenter.has_metadata?(event.metadata)}><summary>View details</summary>`) and
+  the MockAuditor events carry non-empty metadata (`%{proposal_id: 1}`), so `has_metadata?` should
+  be true — yet "View details" doesn't render. **Next:** add a temporary CI render-trace (or check
+  for a SECOND stray `<details … && false>` / event-shape issue) to find why `has_metadata?(
+  event.metadata)` is false at render. Don't trust local greps — the dev shell corrupted output
+  this session; use the `Read` tool.
 
 - **Cluster B — `tool_execution_outcome_live_test.exs` (3) — NOT FIXED (real logic work).**
   - **2× `assert html =~ "Action completed"`** (Done-group + chip-text tests, mounting
