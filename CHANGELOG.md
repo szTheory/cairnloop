@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2](https://github.com/szTheory/cairnloop/compare/v0.2.1...v0.2.2) (2026-05-30)
+
+
+### Bug Fixes
+
+* **governance:** preserve approver as decided_by through execute co-commit ([607eaa5](https://github.com/szTheory/cairnloop/commit/607eaa550bb15f55c3aeee5828cc9a7d2123e156))
+* **integration:** green the DB-backed integration CI suite ([9d4fedd](https://github.com/szTheory/cairnloop/commit/9d4feddf69e36036ca108488c23caa5def70599d))
+* **web:** humanize audit-log action-filter options — no raw atom leak ([a6eb451](https://github.com/szTheory/cairnloop/commit/a6eb4511d80621e7aa03597de8c5fe22c04d44fa))
+
 ## [0.2.1](https://github.com/szTheory/cairnloop/compare/v0.2.0...v0.2.1) (2026-05-30)
 
 
