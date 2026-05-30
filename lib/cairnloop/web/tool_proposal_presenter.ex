@@ -197,7 +197,7 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
 
   Handles:
   - nil → nil
-  - {:missing_scopes, scopes} → "Missing scopes: scope1, scope2"
+  - `{:missing_scopes, scopes}` → "Missing scopes: scope1, scope2"
   - known atom → human-readable label from @reason_labels
   - unknown atom → humanize via capitalize-and-replace
   - string → pass through

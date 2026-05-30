@@ -1238,7 +1238,7 @@ defmodule Cairnloop.GovernanceTest do
       # No events should have been written
       events = Process.get(:tool_action_events, [])
       rejected_events = Enum.filter(events, fn e -> e.event_type == :rejected end)
-      assert length(rejected_events) == 0
+      assert rejected_events == []
     end
 
     test "reject does NOT enqueue any resume worker" do
@@ -1283,7 +1283,7 @@ defmodule Cairnloop.GovernanceTest do
 
       events = Process.get(:tool_action_events, [])
       deferred_events = Enum.filter(events, fn e -> e.event_type == :deferred end)
-      assert length(deferred_events) == 0
+      assert deferred_events == []
     end
   end
 

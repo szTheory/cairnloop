@@ -53,16 +53,16 @@ defmodule Mix.Tasks.Cairnloop.Gen.Notifier do
     if File.exists?(config_file) do
       content = File.read!(config_file)
 
-      unless String.contains?(content, "#{app_module}.CairnloopNotifier") do
-        File.write!(config_file, content <> config_snippet)
-        Mix.shell().info([:green, "* injecting ", :reset, "config/config.exs"])
-      else
+      if String.contains?(content, "#{app_module}.CairnloopNotifier") do
         Mix.shell().info([
           :yellow,
           "* skipped ",
           :reset,
           "config/config.exs (already configured)"
         ])
+      else
+        File.write!(config_file, content <> config_snippet)
+        Mix.shell().info([:green, "* injecting ", :reset, "config/config.exs"])
       end
     else
       Mix.shell().info([
