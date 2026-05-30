@@ -82,14 +82,20 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
   setup do
     Application.put_env(:cairnloop, :tools, [NoteWriteTool])
     on_exit(fn -> Application.delete_env(:cairnloop, :tools) end)
-    :ok
+
+    # A real conversation row: cairnloop_messages.conversation_id is an integer FK to
+    # cairnloop_conversations, so a governed-write run/3 must reference a row that exists.
+    # Tests that insert a Message reference `to_string(conversation.id)` in input_snapshot.
+    conversation = conversation_fixture()
+    {:ok, conversation: conversation}
   end
 
   # ---------------------------------------------------------------------------
   # Happy path: approved lane → ToolExecutionWorker → :executed + 1 message row
   # ---------------------------------------------------------------------------
 
-  test "happy path: :execution_pending → :executed writes exactly one internal_note row" do
+  test "happy path: :execution_pending → :executed writes exactly one internal_note row",
+       %{conversation: conversation} do
     test_pid = self()
 
     capture = fn job ->
@@ -102,7 +108,7 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
-        input_snapshot: %{conversation_id: "conv-001", content: "hello"}
+        input_snapshot: %{conversation_id: to_string(conversation.id), content: "hello"}
       })
 
     # Open the approval lane
@@ -143,7 +149,8 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
   # Idempotency: replaying a completed job is a terminal no-op (T-16-01)
   # ---------------------------------------------------------------------------
 
-  test "replaying an :executed approval is an idempotent no-op — no second message row" do
+  test "replaying an :executed approval is an idempotent no-op — no second message row",
+       %{conversation: conversation} do
     test_pid = self()
 
     capture = fn job ->
@@ -156,7 +163,7 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
-        input_snapshot: %{conversation_id: "conv-002", content: "replay test"}
+        input_snapshot: %{conversation_id: to_string(conversation.id), content: "replay test"}
       })
 
     assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: capture)
@@ -358,7 +365,8 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
   # REPO-UNAVAILABLE: Repo.get! and Repo.aggregate require a Postgres round-trip.
   # ---------------------------------------------------------------------------
 
-  test "terminal-guard no-op: :executed approval second perform/1 leaves status :executed and no new row" do
+  test "terminal-guard no-op: :executed approval second perform/1 leaves status :executed and no new row",
+       %{conversation: conversation} do
     test_pid = self()
 
     capture = fn job ->
@@ -371,7 +379,10 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
-        input_snapshot: %{conversation_id: "conv-terminal-guard", content: "terminal guard test"}
+        input_snapshot: %{
+          conversation_id: to_string(conversation.id),
+          content: "terminal guard test"
+        }
       })
 
     assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: capture)
@@ -490,14 +501,18 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
   # REPO-UNAVAILABLE: Repo.aggregate and the run_key column lookup require Postgres.
   # ---------------------------------------------------------------------------
 
-  test "InternalNote.run/3 idempotency: same run_key yields one row, second call returns idempotent: true" do
+  test "InternalNote.run/3 idempotency: same run_key yields one row, second call returns idempotent: true",
+       %{conversation: conversation} do
     alias Cairnloop.Tools.InternalNote
 
     run_key = "test-run-key-idempotent-#{System.unique_integer([:positive])}"
     context = %{run_idempotency_key: run_key}
 
     note_struct =
-      struct(InternalNote, %{conversation_id: "conv-idem", content: "idempotent note"})
+      struct(InternalNote, %{
+        conversation_id: to_string(conversation.id),
+        content: "idempotent note"
+      })
 
     # REPO-UNAVAILABLE: assertions below only pass under mix test.integration
 
