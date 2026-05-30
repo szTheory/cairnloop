@@ -65,8 +65,12 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
     assert is_integer(conversation_id)
 
     # Step 3 — Push a customer message.
-    ref = Phoenix.ChannelTest.push(channel_socket, "new_message", %{"content" => "Hello from the widget"})
-    assert_reply ref, :ok
+    ref =
+      Phoenix.ChannelTest.push(channel_socket, "new_message", %{
+        "content" => "Hello from the widget"
+      })
+
+    assert_reply(ref, :ok)
 
     # Step 4 — Process the enqueued job inline (D-09: never Oban.drain_queue).
     # ProcessMessage.perform/1 calls Chat.ingest_widget_message/2 which:

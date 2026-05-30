@@ -6,6 +6,7 @@ on:
       - main
       - master
   pull_request:
+  workflow_dispatch:
 
 # Opt into Node.js 24 for all actions (actions/checkout, actions/cache, etc.)
 # GitHub forces this default on June 2, 2026 — opting in early avoids surprise breakage.
@@ -23,7 +24,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.0"
+          elixir-version: "1.19.5"
           otp-version: "27.2"
 
       - name: Restore Mix cache
@@ -51,6 +52,11 @@ jobs:
           test/cairnloop/web/conversation_live_test.exs
           test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
           test/cairnloop/knowledge_base/workers/chunk_revision_test.exs
+          test/cairnloop/web/health_plug_test.exs
+          test/cairnloop/web/metrics_plug_test.exs
+          test/cairnloop/web/health_metrics_route_test.exs
+          test/cairnloop/auditor_test.exs
+          test/cairnloop/governance_test.exs
 
   # DB-backed integration suite: exercises the real Postgres + Oban-worker + LiveView legs
   # that the headless suite cannot (Phase 15 approval flow). Tagged :integration and run
@@ -87,7 +93,7 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.0"
+          elixir-version: "1.19.5"
           otp-version: "27.2"
 
       - name: Restore Mix cache
@@ -108,3 +114,21 @@ jobs:
 
       - name: Run integration suite (creates DBs, migrates, runs test/integration)
         run: mix test.integration
+
+  # Single required status check for branch protection (solo-OSS true CI/CD).
+  # Branch protection requires only `release_gate`; this job's `needs:` is the real
+  # contract. Currently gates on the headless suite. The `integration` leg has
+  # pre-existing failures (tracked follow-up) — add it to `needs` once it is green.
+  release_gate:
+    name: release_gate
+    runs-on: ubuntu-latest
+    needs: [phase-12-shift-left]
+    if: ${{ always() }}
+    steps:
+      - name: Gate on required jobs
+        run: |
+          if [ "${{ needs.phase-12-shift-left.result }}" != "success" ]; then
+            echo "Required job 'phase-12-shift-left' did not succeed (got: ${{ needs.phase-12-shift-left.result }})."
+            exit 1
+          fi
+          echo "All required jobs passed."

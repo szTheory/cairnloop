@@ -168,8 +168,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
        )}
     else
       _ ->
-        {:noreply,
-         put_flash(socket, :error, "Unable to open the editor right now. Try again.")}
+        {:noreply, put_flash(socket, :error, "Unable to open the editor right now. Try again.")}
     end
   end
 

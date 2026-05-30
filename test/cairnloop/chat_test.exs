@@ -271,8 +271,8 @@ defmodule Cairnloop.ChatTest do
 
   describe "auditor integration" do
     defmodule TestAuditor do
-  @impl true
-  def list_events(_opts), do: []
+      @impl true
+      def list_events(_opts), do: []
 
       @behaviour Cairnloop.Auditor
 
@@ -316,7 +316,12 @@ defmodule Cairnloop.ChatTest do
 
   describe "create_customer_conversation/1" do
     test "inserts conversation with status :open, subject default \"Customer chat\", and host_user_id from attrs" do
-      assert {:ok, %Cairnloop.Conversation{status: :open, subject: "Customer chat", host_user_id: "demo_customer"}} =
+      assert {:ok,
+              %Cairnloop.Conversation{
+                status: :open,
+                subject: "Customer chat",
+                host_user_id: "demo_customer"
+              }} =
                Chat.create_customer_conversation(%{host_user_id: "demo_customer"})
     end
 
@@ -328,7 +333,10 @@ defmodule Cairnloop.ChatTest do
 
     test "accepts a custom subject when provided" do
       assert {:ok, %Cairnloop.Conversation{subject: "Help me"}} =
-               Chat.create_customer_conversation(%{host_user_id: "demo_customer", subject: "Help me"})
+               Chat.create_customer_conversation(%{
+                 host_user_id: "demo_customer",
+                 subject: "Help me"
+               })
     end
 
     # Test 3 (error branch) not implemented in headless suite: would require

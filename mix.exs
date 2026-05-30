@@ -37,7 +37,7 @@ defmodule Cairnloop.MixProject do
           "CHANGELOG.md"
         ],
         groups_for_extras: [
-          "Guides": ~r/^guides\//
+          Guides: ~r/^guides\//
         ],
         # assets: "guides/assets"  # uncomment once PNG screenshots are captured
         groups_for_modules: [

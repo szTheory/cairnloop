@@ -99,6 +99,7 @@ defmodule Cairnloop.Integration.GoldenPathTest do
 
     Application.put_env(:cairnloop, :tools, [InlineTestTool])
     Application.put_env(:cairnloop, :context_provider, StubContextProvider)
+
     # Required so the stage-8 `trigger_recovery_follow_up` button renders (conversation_live.ex:1773)
     Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
 
@@ -132,7 +133,11 @@ defmodule Cairnloop.Integration.GoldenPathTest do
 
   test "full JTBD round trip", %{conn: conn} do
     test_pid = self()
-    capture = fn job -> send(test_pid, {:enqueued, job}); {:ok, job} end
+
+    capture = fn job ->
+      send(test_pid, {:enqueued, job})
+      {:ok, job}
+    end
 
     # ------------------------------------------------------------------
     # Stage 1: Seed — conversation row + customer message
@@ -245,7 +250,9 @@ defmodule Cairnloop.Integration.GoldenPathTest do
     assert_received {:enqueued, _expiry_job}
 
     # enqueue_fn required — Governance.approve/3 enqueues ApprovalResumeWorker (Pitfall 8)
-    assert {:ok, _approved} = Governance.approve(approval.id, "golden_operator", enqueue_fn: capture)
+    assert {:ok, _approved} =
+             Governance.approve(approval.id, "golden_operator", enqueue_fn: capture)
+
     assert_received {:enqueued, _resume_job}
 
     # ------------------------------------------------------------------

@@ -983,6 +983,31 @@ defmodule Cairnloop.Governance do
   end
 
   @doc """
+  Returns `ToolActionEvent` records across all proposals as a newest-first timeline,
+  with their `tool_proposal` preloaded for display context.
+
+  This is the facade read that backs the operator audit log (AUDIT-01). The web layer
+  MUST go through this function rather than querying `ToolActionEvent` directly (D-30).
+
+  Options:
+  - `:limit` — cap the number of rows returned (default `100`). Use for pagination.
+  - `:offset` — skip this many rows (default `0`).
+
+  Goes through the `repo()` indirection — never `Cairnloop.Repo` directly (D-30).
+  """
+  def list_action_events(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 100)
+    offset = Keyword.get(opts, :offset, 0)
+
+    ToolActionEvent
+    |> order_by([e], desc: e.inserted_at, desc: e.id)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> preload(:tool_proposal)
+    |> repo().all()
+  end
+
+  @doc """
   Returns all `ToolProposal` records for a given conversation_id, ordered newest-first,
   with their `events` preloaded in ascending inserted_at order.
 

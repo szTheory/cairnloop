@@ -28,3 +28,6 @@ cairnloop-*.tar
 # GSD scratch files (transient planning I/O).
 .gsd_*
 
+
+# Local Claude Code agent state (not part of the library)
+.claude/

@@ -50,7 +50,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     def record_editor_handoff(suggestion_id, opts) do
       send(self(), {:record_editor_handoff, suggestion_id, opts})
       now = DateTime.utc_now()
-      {:ok, %ArticleSuggestion{id: suggestion_id, manual_edit_opened_at: now}, DateTime.to_iso8601(now)}
+
+      {:ok, %ArticleSuggestion{id: suggestion_id, manual_edit_opened_at: now},
+       DateTime.to_iso8601(now)}
     end
 
     def ensure_review_task_for_suggestion(suggestion_id, _opts \\ []) do
@@ -656,6 +658,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     html = render_html(socket.assigns)
 
     assert html =~ "Publish"
+
     # task 22 is a :revision suggestion (non-failed, non-article) → "Open for manual edit" (KB-04)
     assert html =~ "Open for manual edit"
     assert html =~ "Reject"
@@ -668,6 +671,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     html = render_html(socket.assigns)
 
     assert html =~ "Manual draft required"
+
     # blocked_quick_fix.status == :failed → action_label returns "Review and draft manually" (KB-04)
     assert html =~ "Review and draft manually"
     assert html =~ "policy guard"

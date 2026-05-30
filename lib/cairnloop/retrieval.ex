@@ -22,7 +22,9 @@ defmodule Cairnloop.Retrieval do
       index_ok? = true
 
       # 3. Check Oban queue for failed indexing attempts
-      oban_query = "SELECT 1 FROM oban_jobs WHERE state IN ('retryable', 'discarded') AND worker LIKE '%Retrieval%' LIMIT 1"
+      oban_query =
+        "SELECT 1 FROM oban_jobs WHERE state IN ('retryable', 'discarded') AND worker LIKE '%Retrieval%' LIMIT 1"
+
       {:ok, oban_res} = Ecto.Adapters.SQL.query(repo(), oban_query, [])
       failed_jobs? = oban_res.num_rows > 0
 

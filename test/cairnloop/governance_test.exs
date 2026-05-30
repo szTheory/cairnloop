@@ -781,6 +781,7 @@ defmodule Cairnloop.GovernanceTest do
           scopes: [],
           conversation_id: conversation_id
         }
+
         assert {:ok, _} = Governance.propose(tool_ref, "user_1", context)
       end
 
@@ -789,7 +790,9 @@ defmodule Cairnloop.GovernanceTest do
       assert length(results) == 3
 
       # With limit: 2, gets 2
-      limited_results = apply(Governance, :list_proposals_for_conversation, [conversation_id, [limit: 2]])
+      limited_results =
+        apply(Governance, :list_proposals_for_conversation, [conversation_id, [limit: 2]])
+
       assert length(limited_results) == 2
     end
   end
@@ -1791,9 +1794,7 @@ defmodule Cairnloop.GovernanceTest do
     @tag :integration
     # REPO-UNAVAILABLE
     test "facade reads return real envelope rows after bulk_trigger/2 persisted submit + refused lanes" do
-      flunk(
-        "integration-only: requires Cairnloop.Repo + cairnloop_outbound_bulk_envelopes table"
-      )
+      flunk("integration-only: requires Cairnloop.Repo + cairnloop_outbound_bulk_envelopes table")
     end
   end
 end

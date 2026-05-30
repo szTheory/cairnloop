@@ -63,7 +63,11 @@ defmodule Cairnloop.Workers.OutboundWorker do
 
   use Oban.Worker,
     queue: :default,
-    unique: [period: :infinity, fields: [:worker, :args], keys: [:conversation_id, :template_id, :bulk_envelope_id]]
+    unique: [
+      period: :infinity,
+      fields: [:worker, :args],
+      keys: [:conversation_id, :template_id, :bulk_envelope_id]
+    ]
 
   alias Cairnloop.{Chat, Message}
   alias Cairnloop.Outbound.Telemetry.Traces

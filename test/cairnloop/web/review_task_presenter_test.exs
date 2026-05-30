@@ -155,6 +155,7 @@ defmodule Cairnloop.Web.ReviewTaskPresenterTest do
       for task <- tasks do
         label = ReviewTaskPresenter.action_label(:open_for_edit, task)
         assert is_binary(label), "Expected string, got: #{inspect(label)}"
+
         refute String.starts_with?(label, ":"),
                "Label must not be a raw atom, got: #{inspect(label)}"
       end

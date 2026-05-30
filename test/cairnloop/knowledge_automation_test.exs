@@ -69,7 +69,10 @@ defmodule Cairnloop.KnowledgeAutomationTest do
         grounding_metadata: %{"authoring_article_id" => "published_id"}
       })
 
-      result = KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(1, knowledge_base_module: MockKB)
+      result =
+        KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(1,
+          knowledge_base_module: MockKB
+        )
 
       assert {:ok, "new_draft_id"} = result
       assert_received {:create_article, %{status: :draft, title: "Test Suggestion"}}
@@ -85,14 +88,23 @@ defmodule Cairnloop.KnowledgeAutomationTest do
         grounding_metadata: %{"authoring_article_id" => "draft_id"}
       })
 
-      assert {:ok, "draft_id"} = KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(2, knowledge_base_module: MockKB)
+      assert {:ok, "draft_id"} =
+               KnowledgeAutomation.create_or_reuse_authoring_article_for_suggestion(2,
+                 knowledge_base_module: MockKB
+               )
     end
   end
 
   defmodule MockRetrieval do
     def ground_for_draft(_params, _opts) do
       %{
-        evidence: [%{source_type: :knowledge_base, trust_level: :canonical, content: "Mocked candidate evidence"}],
+        evidence: [
+          %{
+            source_type: :knowledge_base,
+            trust_level: :canonical,
+            content: "Mocked candidate evidence"
+          }
+        ],
         metadata: %{"hydrated" => true}
       }
     end
@@ -102,20 +114,36 @@ defmodule Cairnloop.KnowledgeAutomationTest do
     def build_revision_gate(article_id, base_revision_id, opts) do
       # Track what opts were passed so we can assert on them
       send(self(), {:build_revision_gate, article_id, base_revision_id, opts})
-      %{ready?: true, blocked_reason: nil, signal_count: 1, reason: :mock_reason, fresh_canonical_snapshot?: true}
+
+      %{
+        ready?: true,
+        blocked_reason: nil,
+        signal_count: 1,
+        reason: :mock_reason,
+        fresh_canonical_snapshot?: true
+      }
     end
   end
 
   describe "suggest_article/2 (SEC-02)" do
     test "gap candidate suggestions disregard caller-supplied evidence and grounding_bundle" do
-      candidate = %GapCandidate{id: 99, host_user_id: "host_1", title: "Gap Title", retrieval_gap_events: [], memberships: []}
+      candidate = %GapCandidate{
+        id: 99,
+        host_user_id: "host_1",
+        title: "Gap Title",
+        retrieval_gap_events: [],
+        memberships: []
+      }
+
       Process.put(:gap_lookup, candidate)
 
       attrs = %{
         gap_candidate_id: 99,
         title: "Caller Title",
         evidence: [%{source_type: :knowledge_base, trust_level: :canonical, content: "SPOOFED"}],
-        evidence_snapshot: [%{source_type: :knowledge_base, trust_level: :canonical, content: "SPOOFED_SNAPSHOT"}],
+        evidence_snapshot: [
+          %{source_type: :knowledge_base, trust_level: :canonical, content: "SPOOFED_SNAPSHOT"}
+        ],
         grounding_metadata: %{"spoofed" => true}
       }
 
@@ -133,7 +161,7 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       snapshot = changes.evidence_snapshot
       assert length(snapshot) == 1
       assert Ecto.Changeset.get_field(hd(snapshot), :excerpt) == "Mocked candidate evidence"
-      
+
       metadata = changes.grounding_metadata
       refute Map.has_key?(metadata, "spoofed")
     end
@@ -158,15 +186,15 @@ defmodule Cairnloop.KnowledgeAutomationTest do
 
       # Ensure build_revision_gate received the internally hydrated inputs, NOT the spoofed ones
       assert_received {:build_revision_gate, "article_1", 10, gate_opts}
-      
+
       # gap_events from article_linked_gap_events/3 (which queries DB, empty since mock repo returns [])
       assert gate_opts[:gap_events] == []
-      
+
       # grounding_bundle from fresh_revision_grounding_bundle
       bundle = gate_opts[:grounding_bundle]
       assert length(bundle.evidence) == 1
       assert hd(bundle.evidence).content == "Mocked candidate evidence"
-      
+
       # Now check the inserted suggestion to ensure grounding came from the fresh bundle
       assert_received {:inserted, _applied, changes}
       snapshot = changes.evidence_snapshot

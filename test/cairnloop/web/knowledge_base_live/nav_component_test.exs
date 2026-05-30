@@ -24,7 +24,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponentTest do
 
       # aria-current="page" should appear exactly once
       occurrences = html |> String.split("aria-current=\"page\"") |> length()
-      assert occurrences == 2, "Expected aria-current=\"page\" exactly once, got #{occurrences - 1}"
+
+      assert occurrences == 2,
+             "Expected aria-current=\"page\" exactly once, got #{occurrences - 1}"
 
       # The Knowledge base link (href /knowledge-base") should be near the active marker
       # Simple check: Knowledge base text should appear in the rendered output alongside aria-current

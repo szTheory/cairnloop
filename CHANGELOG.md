@@ -7,8 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-29
+
 ### Added
 
+- Security domain closure: `Cairnloop.KnowledgeAutomation` strictly rejects spoofed,
+  already-published, and caller-supplied-grounding inputs — suggestions reuse only non-published
+  targets, gap-candidate grounding derives exclusively from hydrated evidence, and stale-gate
+  inputs load only from repo-backed `GapEvent` rows (Phase 33, SEC-01/02/03)
+- Operator Settings Surface: `SettingsLive` gains real MCP token management (CRUD, masking,
+  validation), Notifier and retrieval health indicators, and a persisted dark-mode toggle
+  (Phase 34, SET-01/02/03/04)
+- Audit & operations support: operator Audit Log view and governed-actions rail pagination
+  (Phase 35, AUDIT-01, TECH-01)
+- HTTP `/health` and `/metrics` endpoints via `Cairnloop.Web.HealthPlug` and
+  `Cairnloop.Web.MetricsPlug` (Phase 35, OPS-01, OPS-02)
+- Documentation: `guides/05-mcp-clients.md`, `guides/06-extending.md`, root `CONTRIBUTING.md`,
+  and `docs/architecture.md` (Phase 36, DOC-01/02/03/04)
 - Realistic demo fixtures: 12–16 seeded conversations spanning all JTBD states, 5 KB articles with revisions, 3 GapCandidates, 1 ArticleSuggestion ready for review (Phase 27)
 - Customer `/chat` widget wired to real ingress via `Cairnloop.Channels.WidgetSocket` + `WidgetChannel`; two-tab demo (Phase 28)
 - Brand-token CSS extraction: `prompts/cairnloop.css` `:root` block in example app; `var(--cl-token)` without hex fallback; negative-grep gate (Phase 29, D-10 closure)
@@ -36,11 +51,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/szTheory/cairnloop/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/szTheory/cairnloop/releases/tag/v0.1.0
-resume, expiry, and deferral paths
-- Three-layer at-most-once execution: Oban unique + terminal guard + SHA-256 per-attempt run key
-- Bounded `[:cairnloop, :retrieval, …]` and `Cairnloop.Governance.Telemetry` event namespaces
-- Read-only MCP seam (`tools/list`, `initialize`) via optional `Cairnloop.Web.MCP.Router` Plug
-
-[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/szTheory/cairnloop/releases/tag/v0.1.0
