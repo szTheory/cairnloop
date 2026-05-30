@@ -1,5 +1,65 @@
 # Milestones
 
+## vM015 — Operator Polish + Maintenance Gates (Shipped: 2026-05-30)
+
+**Released as:** `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm (release-please pipeline)
+
+**Phases completed:** 4 phases (33–36), 6 plans
+
+**Key accomplishments:**
+
+- **Security domain closure (Phase 33, SEC-01/02/03):** pinned (with new regression tests) that `Cairnloop.KnowledgeAutomation` already enforced T-10-10/12/13 at the domain layer — new-article suggestions reuse only non-published authoring targets, gap-candidate grounding derives exclusively from hydrated evidence (caller-supplied grounding overwritten + stripped), stale-gate inputs load only from repo-backed `GapEvent` rows plus fresh canonical grounding. No production logic change; the gap was missing tests.
+- **Operator Settings cockpit (Phase 34, SET-01/02/03/04):** `SettingsLive` gained real MCP token CRUD (masking, validation, raw token shown once at creation), Notifier reachability indicators, retrieval health (pgvector index status + Oban failed-queue jobs via `Cairnloop.Retrieval`), and a persisted inline dark-mode toggle with no JS hook.
+- **Audit & operations support (Phase 35, AUDIT-01/OPS-01/OPS-02/TECH-01):** `Cairnloop.Web.AuditLogLive` at `/audit-log`; `Cairnloop.Web.HealthPlug` (`/health`) + `Cairnloop.Web.MetricsPlug` (`/metrics`, Prometheus via optional `telemetry_metrics_prometheus_core`); `Cairnloop.Auditor` behaviour extended with `list_events/1`; governed-actions rail pagination via `Governance.list_proposals_for_conversation/2` `:limit` + `load_more_actions`.
+- **Documentation & release (Phase 36, DOC-01..04/REL-01/REL-02):** `guides/05-mcp-clients.md`, `guides/06-extending.md`, root `CONTRIBUTING.md`, `docs/architecture.md`; milestone release cut and published.
+- **Release-please pipeline adopted:** repo migrated to the canonical szTheory pipeline (`release-please-config.json`, `.github/workflows/release-please.yml`, `release_gate` in `ci.yml`). Future releases are a `fix:`/`feat:` commit on `main` → bot PR → auto-tag + `publish-hex`.
+- **Integration CI suite greened + gated:** the DB-backed integration suite (red since before v0.2.0, 3 clusters) was fixed and added to `release_gate` — shipped as v0.2.2.
+
+**Release arc (audit-driven remediation):** v0.2.0 shipped first, but the same-day milestone audit (`milestones/vM015-MILESTONE-AUDIT.md`) found AUDIT-01 (no-op stub audit log), OPS-01/02 (plugs mounted in no router), and REL-01 (missing `## [0.2.0]` CHANGELOG, falsely claimed done). All four remediated and republished as **v0.2.1**. Integration-suite fixes + governance `decided_by` preservation shipped as **v0.2.2**.
+
+**Stats:**
+
+- Phases: 4 (33–36) · Plans: 6
+- Hex releases: v0.2.0 (2026-05-29) → v0.2.1 (2026-05-30) → v0.2.2 (2026-05-30)
+- Git: includes PRs #2 (remediation), #4 (workflow cleanup), #5 (state reconcile), #6 (integration suite green), #7 (release-please 0.2.2)
+
+**Known deferred items at close:** verification debt — phases 33/34/35 shipped without `VERIFICATION.md`; Nyquist `*-VALIDATION.md` exists only for phase 36 (code is green in CI through v0.2.2). Backfill via `/gsd-verify-work` if required. Pre-existing vM014 open artifacts (phases 27/28 verification, 27/31 UAT) acknowledged as deferred — see STATE.md Deferred Items.
+
+> **Diminishing-returns line reached.** Cairnloop hits "done enough for stated scope" at vM015 close. vM016+ is adoption + maintenance, not features (Epics 12/13/14 stay out of scope until an adopter pulls).
+
+---
+
+## vM014 — Adoption Proof (Shipped: 2026-05-29)
+
+*(Record reconstructed after the fact at vM015 close — vM014 was archived without a MILESTONES.md
+entry, a "lightweight-close" gap. Dates/counts from `milestones/vM014-ROADMAP.md` + phase summaries.)*
+
+**Phases completed:** 7 phases (27–32, +32.1 close-gap), 25 plans
+
+**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two
+browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI —
+closing the adopter-surface gap remaining after vM013, with zero churn to sealed primitives.
+
+**Key accomplishments:**
+
+- **Realistic demo fixtures (Phase 27, FIX-01..04):** JTBD-spanning seed set (12–16 conversations across all states, 5 KB articles with revisions, GapCandidates with evidence, an ArticleSuggestion ready for review) driving embeddings through the live `ChunkRevision` Oban worker — the example self-tests the M008 retrieval substrate on first boot.
+- **Customer `/chat` wired to real ingress (Phase 28, CHAT-01..03):** replaced the mock chat with a real `Cairnloop.Channels.WidgetSocket` + `WidgetChannel` round trip; two-tab operator↔customer demo.
+- **Brand-token CSS extraction / D-10 closure (Phase 29, BRAND-01..04):** canonical `:root` brand tokens in the example app, inline hex fallbacks dropped (`var(--cl-token)`), headless-token assertions re-pinned behind a negative-grep gate.
+- **KB editorial polish + T-10-09/T-10-11 closure (Phase 30, KB-01..04, SEC-01..02):** shared editorial nav shell across 4 KB routes, "Create new article" affordance, gap-evidence sidebar, calm SuggestionReview copy, and an `EditorHandoff` double-layer gate (DB `manual_edit_opened_at` marker) closing the two `editor.ex`/`suggestion_review.ex`-shaped threats.
+- **Golden-path JTBD smoke test in CI (Phase 31, E2E-01..03):** `golden_path_test.exs` + `widget_channel_test.exs` under `mix test.integration` (Phoenix.LiveViewTest/ChannelTest — no Wallaby, no PhoenixTest dep).
+- **README + ExDoc guides + JTBD walkthrough (Phase 32, DOC-01..04):** README as an Igniter-first front door; four guides (quickstart, JTBD walkthrough, host integration, troubleshooting) wired to HexDocs; CHANGELOG `[Unreleased]` populated.
+
+**Known open artifacts at close (accepted, not backfilled):** phase 27 & 31 HUMAN-UAT pending
+scenarios; phase 28 & 30 VERIFICATION human_needed. Per the SATD decision rule, archived per-phase
+analysis is documented-and-accepted rather than reconstructed (see STATE.md Deferred Items).
+
+**Stats:**
+
+- Phases: 7 (27–32 + 32.1) · Plans: 25 · v1 requirements: 24 (all satisfied)
+- Timeline: 2026-05-27 → 2026-05-29
+
+---
+
 ## vM013 Support-Triggered Outbound Lifecycle (Shipped: 2026-05-27)
 
 **Phases completed:** 2 phases, 6 plans, 15 tasks
