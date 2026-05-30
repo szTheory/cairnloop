@@ -307,7 +307,8 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
   # only passes under `MIX_ENV=test mix test.integration`.
   # ---------------------------------------------------------------------------
 
-  test "at-most-once: two perform/1 calls with same approval_id write exactly one message row" do
+  test "at-most-once: two perform/1 calls with same approval_id write exactly one message row",
+       %{conversation: conversation} do
     test_pid = self()
 
     capture = fn job ->
@@ -320,7 +321,10 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
-        input_snapshot: %{conversation_id: "conv-atmost-once", content: "at-most-once test"}
+        input_snapshot: %{
+          conversation_id: to_string(conversation.id),
+          content: "at-most-once test"
+        }
       })
 
     assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: capture)
