@@ -53,10 +53,9 @@ for already-correct domain code; `release_gate` gates on the green integration s
 
 ### Blockers/Concerns
 
-- **Verification debt** — phases 33/34/35 shipped without `VERIFICATION.md`; Nyquist
-  `*-VALIDATION.md` exists only for phase 36. Code is green in CI through v0.2.2. Backfill via
-  `/gsd-verify-work 33|34|35` if GSD verification artifacts are required. (Carried as accepted
-  tech debt at milestone close.)
+- ~~Verification debt (33/34/35 missing VERIFICATION/VALIDATION)~~ — **RESOLVED:** backfilled at
+  vM015 close by transcribing the existing green tests (`33-VALIDATION.md`, `34-VALIDATION.md`,
+  `35-VERIFICATION.md`), now archived under `milestones/vM015-phases/`.
 - ~~Integration CI suite red~~ — **RESOLVED in vM015 (v0.2.2):** suite greened and added to
   `release_gate`.
 
@@ -64,9 +63,9 @@ for already-correct domain code; `release_gate` gates on the green integration s
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| Verification | Phases 33/34/35 missing VERIFICATION.md (+ Nyquist VALIDATION.md) | Open — backfill via `/gsd-verify-work` if needed | vM015 close |
-| Process | vM014 never got a MILESTONES.md / RETROSPECTIVE.md entry (lightweight-close debt) | Open — backfill if a clean historical record is wanted | noted vM015 close |
-| UAT (vM014) | Phase 27 `27-HUMAN-UAT.md` — 2 pending scenarios | Acknowledged/deferred | vM015 close |
+| ~~Verification~~ | ~~Phases 33/34/35 missing VERIFICATION/VALIDATION~~ | ✅ Resolved — backfilled at vM015 close | — |
+| ~~Process~~ | ~~vM014 missing MILESTONES/RETROSPECTIVE entry~~ | ✅ Resolved — record backfilled at vM015 close | — |
+| UAT (vM014) | Phase 27 `27-HUMAN-UAT.md` — 2 pending scenarios | Acknowledged/deferred (SATD: archived, not reconstructed) | vM015 close |
 | UAT (vM014) | Phase 31 `31-HUMAN-UAT.md` — resolved (0 pending) | Resolved | vM015 close |
 | Verification (vM014) | Phase 28 `28-VERIFICATION.md` — human_needed | Acknowledged/deferred | vM015 close |
 | Verification (vM014) | Phase 30 `30-VERIFICATION.md` — human_needed | Acknowledged/deferred | vM015 close |
@@ -83,8 +82,11 @@ then `/gsd-new-milestone`.
 
 ## Operator Next Steps
 
-- **No action required** — the milestone is closed. Cairnloop is at "done enough for stated scope."
-- (Optional) `/gsd-verify-work 33` / `34` / `35` to backfill missing VERIFICATION.md.
-- (Optional) Backfill the missing vM014 MILESTONES.md / RETROSPECTIVE.md entries for a complete record.
+- **No action required** — the milestone is closed and the close-out is complete (33/34/35
+  verification artifacts backfilled, vM014 record backfilled, phase dirs archived via cleanup).
+- **In flight (Tier 1 hardening):** dogfood `cairnloop_dashboard/2` + `/audit-log` in the example
+  app, add `test/integration/dashboard_wiring_test.exs`, confirm `RP_PAT` secret, make the
+  release-please publish dry-run/poll assertive (`mix hex.build --unpack`). See
+  `~/.claude/plans/i-follow-ur-recommendations-kind-balloon.md`.
 - Releases: commit `fix:`/`feat:` to `main` — release-please cuts + publishes automatically.
 - New feature work: `/gsd-new-milestone` only when an adopter pulls (Epics 12/13/14 stay opt-in).

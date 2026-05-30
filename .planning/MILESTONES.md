@@ -29,6 +29,37 @@
 
 ---
 
+## vM014 — Adoption Proof (Shipped: 2026-05-29)
+
+*(Record reconstructed after the fact at vM015 close — vM014 was archived without a MILESTONES.md
+entry, a "lightweight-close" gap. Dates/counts from `milestones/vM014-ROADMAP.md` + phase summaries.)*
+
+**Phases completed:** 7 phases (27–32, +32.1 close-gap), 25 plans
+
+**Goal:** A reasonable adopter clones cairnloop, runs `mix setup` in the example app, opens two
+browser tabs, walks the full Jobs-To-Be-Done lifecycle live, and the same path is locked into CI —
+closing the adopter-surface gap remaining after vM013, with zero churn to sealed primitives.
+
+**Key accomplishments:**
+
+- **Realistic demo fixtures (Phase 27, FIX-01..04):** JTBD-spanning seed set (12–16 conversations across all states, 5 KB articles with revisions, GapCandidates with evidence, an ArticleSuggestion ready for review) driving embeddings through the live `ChunkRevision` Oban worker — the example self-tests the M008 retrieval substrate on first boot.
+- **Customer `/chat` wired to real ingress (Phase 28, CHAT-01..03):** replaced the mock chat with a real `Cairnloop.Channels.WidgetSocket` + `WidgetChannel` round trip; two-tab operator↔customer demo.
+- **Brand-token CSS extraction / D-10 closure (Phase 29, BRAND-01..04):** canonical `:root` brand tokens in the example app, inline hex fallbacks dropped (`var(--cl-token)`), headless-token assertions re-pinned behind a negative-grep gate.
+- **KB editorial polish + T-10-09/T-10-11 closure (Phase 30, KB-01..04, SEC-01..02):** shared editorial nav shell across 4 KB routes, "Create new article" affordance, gap-evidence sidebar, calm SuggestionReview copy, and an `EditorHandoff` double-layer gate (DB `manual_edit_opened_at` marker) closing the two `editor.ex`/`suggestion_review.ex`-shaped threats.
+- **Golden-path JTBD smoke test in CI (Phase 31, E2E-01..03):** `golden_path_test.exs` + `widget_channel_test.exs` under `mix test.integration` (Phoenix.LiveViewTest/ChannelTest — no Wallaby, no PhoenixTest dep).
+- **README + ExDoc guides + JTBD walkthrough (Phase 32, DOC-01..04):** README as an Igniter-first front door; four guides (quickstart, JTBD walkthrough, host integration, troubleshooting) wired to HexDocs; CHANGELOG `[Unreleased]` populated.
+
+**Known open artifacts at close (accepted, not backfilled):** phase 27 & 31 HUMAN-UAT pending
+scenarios; phase 28 & 30 VERIFICATION human_needed. Per the SATD decision rule, archived per-phase
+analysis is documented-and-accepted rather than reconstructed (see STATE.md Deferred Items).
+
+**Stats:**
+
+- Phases: 7 (27–32 + 32.1) · Plans: 25 · v1 requirements: 24 (all satisfied)
+- Timeline: 2026-05-27 → 2026-05-29
+
+---
+
 ## vM013 Support-Triggered Outbound Lifecycle (Shipped: 2026-05-27)
 
 **Phases completed:** 2 phases, 6 plans, 15 tasks

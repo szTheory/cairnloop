@@ -5,6 +5,7 @@
 | Milestone | Date | Phases | Plans |
 |-----------|------|--------|-------|
 | vM015     | 2026-05-30 | 4 | 6 |
+| vM014     | 2026-05-29 | 7 | 25 |
 | vM013     | 2026-05-27 | 5 | 9 |
 | vM012     | 2026-05-26 | 4 | 7 |
 | vM011     | 2026-05-25 | 5 | 17 |
@@ -54,6 +55,42 @@
 ### Cost Observations
 - Model mix: ~95% opus (4.7–4.8 / 1M context), small sonnet/haiku spot-checks
 - Notable: the remediation arc (audit → fix → re-release → integration-suite green) spanned three same-day hex releases (0.2.0 → 0.2.1 → 0.2.2); release-please kept the marginal cost of each near zero.
+
+## Milestone: vM014 — Adoption Proof
+
+*(Section reconstructed after the fact at vM015 close — vM014 shipped without a RETROSPECTIVE entry.
+Reconstructed from `milestones/vM014-ROADMAP.md`, phase summaries, and the PROJECT.md archived brief.)*
+
+**Shipped:** 2026-05-29
+**Phases:** 7 (27–32, +32.1) | **Plans:** 25
+
+### What Was Built
+- JTBD-spanning demo fixtures that drive the live `ChunkRevision` embedding worker (Phase 27).
+- Customer `/chat` wired to the real `WidgetSocket`/`WidgetChannel` ingress; two-tab demo (Phase 28).
+- D-10 brand-token CSS extraction — canonical `:root`, hex fallbacks dropped, negative-grep gate (Phase 29).
+- KB editorial nav shell + affordances + `EditorHandoff` double-layer gate closing T-10-09/T-10-11 (Phase 30).
+- Golden-path JTBD + WidgetChannel integration smoke tests in `mix test.integration` (Phase 31).
+- Igniter-first README + four ExDoc guides wired to HexDocs (Phase 32).
+
+### What Worked
+- Phase ordering was dependency-correct: fixtures (27) first so every later phase had realistic data to render/test against; chat ingress (28) before the smoke test so the golden path tested reality, not the mock.
+- Closing the two file-shaped SECURITY threats (T-10-09/11) in the same phase that touched those files (30) avoided a 7th phase; the domain-layer threats (T-10-10/12/13) were deliberately graduated to vM015.
+- The integration harness from vM011 absorbed the new golden-path + channel tests with no new dependency (no Wallaby, no PhoenixTest).
+
+### What Was Inefficient
+- **Lightweight close (recurring):** vM014 was archived (roadmap + requirements + tag) but never got a MILESTONES.md or RETROSPECTIVE.md entry — the same untracked-close debt vM012 incurred. Surfaced and backfilled at vM015 close. This is exactly the lesson vM013's retrospective warned about.
+- Per-phase verification artifacts were uneven (27/28/30/31 carry open/incomplete UAT/VERIFICATION items) — accepted as documented debt at vM015 close rather than reconstructed.
+
+### Patterns Established
+- **Example-app-as-proof:** the example app + a golden-path integration test is the adopter-surface proof. (vM015 extends this with example-app dogfooding of the dashboard macro.)
+- **Graduate domain threats across milestones:** file-shaped threats close where the files are touched; domain-layer threats move to a dedicated security-closure phase (→ vM015 Phase 33).
+
+### Key Lessons
+- Always run `/gsd-complete-milestone` end-to-end — the missing MILESTONES/RETROSPECTIVE entries became debt the next close had to absorb. (Reinforces the vM012/vM013 lesson; motivated the vM015 "close is atomic" recommendation.)
+- The example app must exercise what ships — a mock (`/chat`) or an unmounted surface lets tests pass against a fiction. (Directly foreshadowed the vM015 v0.2.0 unrouted-plug defect.)
+
+### Cost Observations
+- Reconstructed record — per-session cost data not captured at the time.
 
 ## Milestone: vM013 — Support-Triggered Outbound Lifecycle
 
