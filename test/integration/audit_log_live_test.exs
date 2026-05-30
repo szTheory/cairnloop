@@ -96,7 +96,8 @@ defmodule Cairnloop.Integration.AuditLogLiveTest do
     Application.put_env(:cairnloop, :auditor, MockAuditor)
     {:ok, view, _html} = live(conn, "/audit-log")
 
-    html = render_change(view, "filter", %{"action" => "approved"})
+    # The <select> submits the humanized label as the option value (no raw atom leaks).
+    html = render_change(view, "filter", %{"action" => "Approved"})
 
     assert html =~ "user_123"
     refute html =~ "Executed"
