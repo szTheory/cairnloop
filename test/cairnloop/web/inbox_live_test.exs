@@ -75,12 +75,13 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
   describe "checkbox visibility (Task 1 — D-01 / D-03)" do
     test "Test 3: only resolved rows render a checkbox; open rows have no checkbox" do
-      assigns = build_assigns(
-        conversations: [
-          %Cairnloop.Conversation{id: 1, subject: "Resolved A", status: :resolved},
-          %Cairnloop.Conversation{id: 2, subject: "Open B", status: :open}
-        ]
-      )
+      assigns =
+        build_assigns(
+          conversations: [
+            %Cairnloop.Conversation{id: 1, subject: "Resolved A", status: :resolved},
+            %Cairnloop.Conversation{id: 2, subject: "Open B", status: :open}
+          ]
+        )
 
       html = render_html(assigns)
 
@@ -355,7 +356,8 @@ defmodule Cairnloop.Web.InboxLiveTest do
       # Confirm send is either absent or disabled.
       cond do
         String.contains?(html, "Confirm send") ->
-          assert html =~ ~r/Confirm send[^<]*<[^>]*disabled/i or html =~ ~r/disabled[^>]*>[^<]*Confirm send/i
+          assert html =~ ~r/Confirm send[^<]*<[^>]*disabled/i or
+                   html =~ ~r/disabled[^>]*>[^<]*Confirm send/i
 
         true ->
           :ok
@@ -851,7 +853,8 @@ defmodule Cairnloop.Web.InboxLiveTest do
              "InboxLive must not call Ecto.Query.from/1,2 (D-14)."
 
       # Keyword query macros that Ecto.Query exports under `import`.
-      refute non_comment =~ ~r/\|>\s*(?:join|select|order_by|group_by|having|preload|distinct|limit|offset)\b/,
+      refute non_comment =~
+               ~r/\|>\s*(?:join|select|order_by|group_by|having|preload|distinct|limit|offset)\b/,
              "InboxLive must not pipe into Ecto.Query macros (D-14)."
     end
 

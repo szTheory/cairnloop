@@ -34,6 +34,8 @@ defmodule Cairnloop.Notifier.Chimeway do
 
     idempotency_key = "outbound_message_#{message.id}"
 
-    Chimeway.trigger(Cairnloop.Chimeway.OutboundNotifier, payload, idempotency_key: idempotency_key)
+    Chimeway.trigger(Cairnloop.Chimeway.OutboundNotifier, payload,
+      idempotency_key: idempotency_key
+    )
   end
 end

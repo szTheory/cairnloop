@@ -32,7 +32,9 @@ defmodule Cairnloop.Workers.ProcessMessage do
   require Logger
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"channel" => "widget", "conversation_id" => id, "content" => content}}) do
+  def perform(%Oban.Job{
+        args: %{"channel" => "widget", "conversation_id" => id, "content" => content}
+      }) do
     # D-07: widget branch — delegate to Chat facade (ingest_widget_message/2 creates
     # the Message row and fires two PubSub broadcasts post-commit).
     # Does NOT call reply_to_conversation/4 — D-06 explicit prohibition (that function

@@ -4,7 +4,12 @@ defmodule Cairnloop.Message do
 
   schema "cairnloop_messages" do
     field(:content, :string)
-    field(:role, Ecto.Enum, values: [:user, :agent, :system, :internal_note, :system_outbound], default: :user)
+
+    field(:role, Ecto.Enum,
+      values: [:user, :agent, :system, :internal_note, :system_outbound],
+      default: :user
+    )
+
     field(:metadata, :map, default: %{})
     # Phase 16 run-level idempotency key (D16-05).
     # Added by test-host migration 20260525000001_add_run_key_to_messages.exs.

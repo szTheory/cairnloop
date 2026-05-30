@@ -9,7 +9,7 @@ defmodule Cairnloop.Web.MetricsPlugTest do
     start_supervised!({TelemetryMetricsPrometheus.Core, metrics: []})
 
     conn = conn(:get, "/metrics")
-    
+
     # TelemetryMetricsPrometheus.Core is loaded because it's in mix.exs
     opts = MetricsPlug.init([])
     conn = MetricsPlug.call(conn, opts)
@@ -21,13 +21,16 @@ defmodule Cairnloop.Web.MetricsPlugTest do
 
   test "returns 501 when dependency is not loaded" do
     conn = conn(:get, "/metrics")
-    
+
     # Pass a module that definitely doesn't exist
     opts = MetricsPlug.init(prom_module: MissingPrometheusModule)
     conn = MetricsPlug.call(conn, opts)
 
     assert conn.status == 501
-    assert conn.resp_body == "Metrics not available. Add :telemetry_metrics_prometheus_core to your dependencies."
+
+    assert conn.resp_body ==
+             "Metrics not available. Add :telemetry_metrics_prometheus_core to your dependencies."
+
     assert get_resp_header(conn, "content-type") == ["text/plain; charset=utf-8"]
   end
 end

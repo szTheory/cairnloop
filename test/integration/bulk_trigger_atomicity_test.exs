@@ -24,8 +24,8 @@ defmodule Cairnloop.Integration.BulkTriggerAtomicityTest do
   import Cairnloop.Fixtures
 
   defmodule FailingAuditor do
-  @impl true
-  def list_events(_opts), do: []
+    @impl true
+    def list_events(_opts), do: []
 
     @behaviour Cairnloop.Auditor
 

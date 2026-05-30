@@ -48,7 +48,9 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
   describe "changeset/2" do
     test "is valid when all required fields are present (Test 1)" do
       changeset = BulkEnvelope.changeset(%BulkEnvelope{}, valid_attrs())
-      assert changeset.valid?, "expected valid changeset; got errors: #{inspect(changeset.errors)}"
+
+      assert changeset.valid?,
+             "expected valid changeset; got errors: #{inspect(changeset.errors)}"
     end
 
     test "is invalid when any required field is missing (Test 2)" do
@@ -60,6 +62,7 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
         changeset = BulkEnvelope.changeset(%BulkEnvelope{}, attrs)
 
         refute changeset.valid?, "expected invalid changeset when #{field} is missing"
+
         assert Keyword.has_key?(changeset.errors, field),
                "expected error on field #{field}; got #{inspect(changeset.errors)}"
       end
@@ -96,7 +99,10 @@ defmodule Cairnloop.Outbound.BulkEnvelopeTest do
         })
 
       changeset = BulkEnvelope.changeset(%BulkEnvelope{}, attrs)
-      assert changeset.valid?, "expected valid refusal changeset; got #{inspect(changeset.errors)}"
+
+      assert changeset.valid?,
+             "expected valid refusal changeset; got #{inspect(changeset.errors)}"
+
       applied = Ecto.Changeset.apply_changes(changeset)
       assert applied.status == :refused_cap_exceeded
       assert applied.refused_reason == "Batch exceeds the safe send limit of 25."

@@ -115,7 +115,7 @@ defmodule Cairnloop.MCPTest do
       {:ok, token, _raw} = MCP.issue_token(%{name: "Old Name"})
       assert {:ok, updated_token} = MCP.update_token(token, %{name: "New Name"})
       assert updated_token.name == "New Name"
-      
+
       [db_token] = Process.get(:mcp_tokens)
       assert db_token.name == "New Name"
     end

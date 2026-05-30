@@ -9,8 +9,10 @@ defmodule Cairnloop.Web.SettingsLive do
       Application.get_env(:cairnloop, :sla_policy_provider, Cairnloop.DefaultSLAPolicyProvider)
 
     notifier = Application.get_env(:cairnloop, :notifier)
+
     notifier_health =
-      if notifier && Code.ensure_loaded?(notifier) && function_exported?(notifier, :on_conversation_resolved, 2) do
+      if notifier && Code.ensure_loaded?(notifier) &&
+           function_exported?(notifier, :on_conversation_resolved, 2) do
         "Healthy"
       else
         "Unreachable / Degraded"
@@ -23,7 +25,9 @@ defmodule Cairnloop.Web.SettingsLive do
       end
 
     repo = Application.fetch_env!(:cairnloop, :repo)
-    tokens = repo.all(from t in Token, where: is_nil(t.revoked_at), order_by: [desc: t.inserted_at])
+
+    tokens =
+      repo.all(from(t in Token, where: is_nil(t.revoked_at), order_by: [desc: t.inserted_at]))
 
     socket =
       socket
@@ -77,6 +81,7 @@ defmodule Cairnloop.Web.SettingsLive do
           |> assign(:tokens, [token | socket.assigns.tokens])
           |> assign(:new_raw_token, raw_token)
           |> put_flash(:info, "MCP token created successfully.")
+
         {:noreply, socket}
 
       {:error, _changeset} ->
@@ -90,14 +95,16 @@ defmodule Cairnloop.Web.SettingsLive do
     if token do
       case Cairnloop.MCP.update_token(token, %{name: new_name}) do
         {:ok, updated_token} ->
-          updated_tokens = Enum.map(socket.assigns.tokens, fn t ->
-            if t.id == updated_token.id, do: updated_token, else: t
-          end)
+          updated_tokens =
+            Enum.map(socket.assigns.tokens, fn t ->
+              if t.id == updated_token.id, do: updated_token, else: t
+            end)
 
           socket =
             socket
             |> assign(:tokens, updated_tokens)
             |> put_flash(:info, "Token name updated.")
+
           {:noreply, socket}
 
         {:error, _changeset} ->
@@ -114,12 +121,15 @@ defmodule Cairnloop.Web.SettingsLive do
     if token do
       case Cairnloop.MCP.revoke_token(token) do
         {:ok, _revoked} ->
-          remaining_tokens = Enum.reject(socket.assigns.tokens, &(to_string(&1.id) == to_string(id)))
+          remaining_tokens =
+            Enum.reject(socket.assigns.tokens, &(to_string(&1.id) == to_string(id)))
+
           socket =
             socket
             |> assign(:tokens, remaining_tokens)
             |> assign(:new_raw_token, nil)
             |> put_flash(:info, "Token revoked successfully.")
+
           {:noreply, socket}
 
         {:error, _changeset} ->
