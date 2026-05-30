@@ -81,7 +81,17 @@ defmodule Cairnloop.MixProject do
       ],
       # Default `mix test` stays DB-free and excludes :integration (fast inner loop).
       # Run the DB-backed suite explicitly with `mix test.integration`.
-      "test.integration": ["test.setup", "test --include integration test/integration"]
+      "test.integration": ["test.setup", "test --include integration test/integration"],
+      # Static quality gate (mirrors the CI `quality` job). Tests are NOT bundled here —
+      # they run via the `phase-12-shift-left` + `integration` CI jobs (a bare headless
+      # `mix test` carries the documented Automation.DraftTest M005-drift baseline failure).
+      check: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "credo --strict",
+        "docs --warnings-as-errors",
+        "deps.audit"
+      ]
     ]
   end
 
@@ -113,7 +123,9 @@ defmodule Cairnloop.MixProject do
       # phoenix_live_view 1.1 uses lazy_html (not floki) as its test-time HTML parser
       # for Phoenix.LiveViewTest element/form helpers.
       {:lazy_html, ">= 0.1.0", only: :test},
-      {:ex_doc, "~> 0.34", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 end
