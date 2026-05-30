@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1](https://github.com/szTheory/cairnloop/compare/v0.2.0...v0.2.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* **0.2.1:** repair AUDIT-01 audit log + OPS endpoints; adopt release-please ([bb74b1a](https://github.com/szTheory/cairnloop/commit/bb74b1af1dcd89573d070d0c3bb20eacb3cfe4e3))
+* **0.2.1:** repair AUDIT-01 audit log + OPS health/metrics mounting ([62b7989](https://github.com/szTheory/cairnloop/commit/62b7989b00bd6f1f82b3c5abc1ebbf81026a795a))
+
 ## [Unreleased]
 
 ## [0.2.0] - 2026-05-29
