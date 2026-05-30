@@ -39,7 +39,7 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
     # In a real implementation, we would verify the signature of the provider.
     case get_req_header(conn, "x-webhook-token") do
       ["secret-token"] -> {:ok, :verified}
-      # For the sake of development and simple passing of this, 
+      # For the sake of development and simple passing of this,
       # we assume the request is valid if it has any token or we just allow it if no token checking is enforced yet.
       # To be secure, let's strictly require the header.
       _ -> {:error, :unauthorized}

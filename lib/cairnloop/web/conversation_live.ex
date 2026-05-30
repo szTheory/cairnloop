@@ -997,7 +997,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
       assigns = assign(assigns, :schema_fields, schema_fields)
 
-      if length(schema_fields) == 0 do
+      if schema_fields == [] do
         ~H"""
         <button phx-click="execute_tool" phx-value-tool={inspect(@tool)} style="width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer;">
           <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>

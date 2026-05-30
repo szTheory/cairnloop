@@ -350,6 +350,6 @@ defmodule Cairnloop.Integration.GoldenPathTest do
       |> where([m], m.conversation_id == ^conversation.id and m.role == :system_outbound)
       |> Cairnloop.Repo.all()
 
-    assert length(system_outbound_messages) >= 1
+    assert system_outbound_messages != []
   end
 end

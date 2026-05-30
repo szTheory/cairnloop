@@ -225,7 +225,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
     test "returns a list of rows for a simple flat map" do
       rows = apply(@presenter, :input_rows, [%{order_id: "ord_123"}])
       assert is_list(rows)
-      assert length(rows) >= 1
+      assert rows != []
     end
 
     test "never dumps raw nested maps — returns humanized rows or 'Unsupported value' sentinel (D-22)" do
