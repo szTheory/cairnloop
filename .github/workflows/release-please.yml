@@ -74,6 +74,22 @@ jobs:
       - name: Publish dry run
         run: mix hex.publish --dry-run
 
+      # Verify the packaged tarball actually contains the files we promise in `:files`, before the
+      # irreversible publish. A Hex release is permanent after a ~60-minute revert window, so a
+      # `:files`-glob regression (e.g. dropping `guides` or `priv`) must fail here, not after ship.
+      - name: Verify packaged artifact contents
+        run: |
+          mix hex.build
+          tarball="$(ls cairnloop-*.tar | head -1)"
+          echo "Inspecting packaged artifact: $tarball"
+          paths="$(tar -xOf "$tarball" contents.tar.gz | tar -tz | sed 's|/.*||' | sort -u)"
+          echo "$paths"
+          for expected in lib priv guides mix.exs README.md LICENSE CHANGELOG.md; do
+            echo "$paths" | grep -qx "$expected" \
+              || { echo "::error::packaged artifact is missing expected path: $expected"; exit 1; }
+          done
+          echo "Packaged artifact contains all expected top-level paths."
+
       - name: Publish package
         run: mix hex.publish --yes
 
