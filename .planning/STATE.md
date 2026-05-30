@@ -54,13 +54,10 @@ for already-correct domain code; `release_gate` gates on the green integration s
 
 ### Pending Todos
 
-- **Review + commit the vM016 demo-polish / visual-proof work** (currently uncommitted working-tree
-  changes). See `.planning/threads/vM016-demo-visual-proof.md`. Sharpened the example demo into one
-  coherent Trailmark story, added frozen JTBD showcase states to the seed, a guided demo-index page,
-  a non-gating Playwright screenshot harness (`examples/cairnloop_example/screenshots/`), and 14 PNGs
-  wired into `guides/` (closes D-01). Also fixed several latent example-app boot bugs (migration alias
-  run-once, missing `run_key` column, hard-coded `PORT`/`PGPORT`, Chimeway boot spam). All green:
-  example suite 26/0, gating golden-path 2/0, `mix docs --warnings-as-errors` clean.
+- None. (The vM016 demo/visual-proof work shipped via **PR #15** — merged to `main` 2026-05-30,
+  merge commit `b625634`; CI green incl. `release_gate`. See `.planning/threads/vM016-demo-visual-proof.md`.
+  Intentionally release-neutral — `chore`/`docs` only, no `lib/` change, so no release-please bump;
+  the 14 screenshots reach hexdocs on the next `feat`/`fix` release.)
 
 ### Blockers/Concerns
 
