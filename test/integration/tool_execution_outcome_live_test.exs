@@ -23,7 +23,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
   use Cairnloop.ConnCase, async: false
 
   alias Cairnloop.Governance
-  alias Cairnloop.Governance.{ToolActionEvent, ToolApproval, ToolProposal}
+  alias Cairnloop.Governance.{ToolApproval, ToolProposal}
   alias Cairnloop.Workers.{ApprovalResumeWorker, ToolExecutionWorker}
 
   import Cairnloop.Fixtures
@@ -281,6 +281,9 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
+        # Link the proposal to the conversation so it surfaces in
+        # list_proposals_for_conversation/2 (the FK column the rail query filters on).
+        conversation_id: conversation.id,
         input_snapshot: %{conversation_id: to_string(conversation.id), content: "render test"},
         policy_snapshot: %{outcome: :proposed},
         title: "Add Internal Note",
@@ -343,6 +346,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
+        conversation_id: conversation.id,
         input_snapshot: %{conversation_id: to_string(conversation.id), content: "failure test"},
         policy_snapshot: %{outcome: :proposed},
         title: "Add Internal Note (failure test)"
@@ -414,6 +418,7 @@ defmodule Cairnloop.Integration.ToolExecutionOutcomeLiveTest do
         tool_ref: Atom.to_string(NoteWriteTool),
         approval_mode: :requires_approval,
         scope_snapshot: %{scopes: []},
+        conversation_id: conversation.id,
         input_snapshot: %{conversation_id: to_string(conversation.id), content: "chip test"},
         policy_snapshot: %{outcome: :proposed},
         title: "Add Internal Note"
