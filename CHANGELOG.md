@@ -7,30 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-05-29
-
-### Fixed
-
-- **Audit Log (AUDIT-01):** `Cairnloop.Web.AuditLogLive` now surfaces the governance
-  action-event trail by default instead of rendering an empty list. It defaults to the new
-  `Cairnloop.Auditor.Governance` auditor (host auditors can still override `:cairnloop, :auditor`),
-  adds free-text search and action filtering, paginates with "Load more", and humanizes all
-  output through `Cairnloop.Web.AuditLogPresenter` — no raw Elixir terms are shown to operators;
-  metadata is only revealed behind an explicit expander.
-- **Health & metrics endpoints (OPS-01, OPS-02):** `Cairnloop.Web.HealthPlug` and
-  `Cairnloop.Web.MetricsPlug` are now mountable via the new `Cairnloop.Router.cairnloop_operations/1`
-  router macro (previously the plugs were reachable from no router). Wired into the example app and
-  documented in the host-integration guide.
-
-### Added
-
-- `Cairnloop.Governance.list_action_events/1` — facade read returning the newest-first
-  `ToolActionEvent` timeline (paginated via `:limit`/`:offset`) for the operator audit log.
-- `Cairnloop.Auditor.Governance` — default `Cairnloop.Auditor` implementation backed by the
-  governance trail.
-- `Cairnloop.Router.cairnloop_operations/1` — host router macro that mounts `/health` and
-  `/metrics` (paths configurable).
-
 ## [0.2.0] - 2026-05-29
 
 ### Added
@@ -73,7 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bounded `[:cairnloop, :retrieval, …]` and `Cairnloop.Governance.Telemetry` event namespaces
 - Read-only MCP seam (`tools/list`, `initialize`) via optional `Cairnloop.Web.MCP.Router` Plug
 
-[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.2.1...HEAD
-[0.2.1]: https://github.com/szTheory/cairnloop/compare/v0.2.0...v0.2.1
+[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/szTheory/cairnloop/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/szTheory/cairnloop/releases/tag/v0.1.0
