@@ -6,7 +6,7 @@ defmodule Cairnloop.Fixtures do
   """
   alias Cairnloop.Repo
   alias Cairnloop.Conversation
-  alias Cairnloop.Governance.{ToolApproval, ToolProposal}
+  alias Cairnloop.Governance.{ToolActionEvent, ToolApproval, ToolProposal}
   alias Cairnloop.Message
 
   def conversation_fixture(attrs \\ %{}) do
@@ -59,6 +59,32 @@ defmodule Cairnloop.Fixtures do
       |> Repo.insert()
 
     approval
+  end
+
+  @doc """
+  Inserts an append-only `ToolActionEvent` row for a proposal via `Repo`.
+
+  Defaults to an `:approved` event (an approval-lifecycle type, so `to_status` stays nil
+  and is not required — see `ToolActionEvent` changeset). Used by the audit-log integration
+  test to seed the governance trail the default `Cairnloop.Auditor.Governance` surfaces.
+  """
+  def action_event_fixture(proposal, attrs \\ %{}) do
+    attrs = Map.new(attrs)
+
+    defaults = %{
+      tool_proposal_id: proposal.id,
+      event_type: :approved,
+      actor_id: "operator_1",
+      reason: nil,
+      metadata: %{}
+    }
+
+    {:ok, event} =
+      %ToolActionEvent{}
+      |> ToolActionEvent.changeset(Map.merge(defaults, attrs))
+      |> Repo.insert()
+
+    event
   end
 
   @doc """
