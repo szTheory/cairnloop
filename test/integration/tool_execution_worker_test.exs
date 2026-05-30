@@ -137,7 +137,9 @@ defmodule Cairnloop.Integration.ToolExecutionWorkerTest do
 
     updated_proposal = Repo.get!(ToolProposal, proposal.id)
     assert updated_proposal.result_state == :succeeded
-    assert updated_proposal.attempt == 1
+    # The co-commit post-increments attempt (job attempt 1 → 2), consistent with the
+    # transient-failure path; `attempt` tracks the next attempt number, not the count.
+    assert updated_proposal.attempt == 2
 
     # Exactly one internal_note message row
     assert Repo.aggregate(Message, :count) == 1
