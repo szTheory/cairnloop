@@ -1,58 +1,59 @@
-# Follow-up: DB-backed `integration` CI suite — 10 failures (3 clusters)
+# Follow-up: DB-backed `integration` CI suite — failures (3 clusters)
 
-**Status:** OPEN · **Filed:** 2026-05-30 · **Severity:** pre-existing (red since before v0.2.0)
-**Owner:** unassigned · **Suggested tool:** `/gsd-debug`
+**Status:** IN PROGRESS · **Filed:** 2026-05-30 · **Branch:** `fix/integration-suite` (PR #6)
+**Severity:** pre-existing (red since before v0.2.0) · **Suggested tool:** `/gsd-debug`
 
 ## Why this exists
 
 The `integration` job in `.github/workflows/ci.yml` (run via `mix test.integration`,
-pgvector Postgres) reports **47 tests, 10 failures**. This has been red on every recent CI
-run going back to 2026-05-27 — i.e. **v0.2.0 was published with it red**, because the old
-tag-triggered `release.yml` never gated on CI.
+pgvector Postgres) was **47 tests, 10 failures**, red since before v0.2.0 (which shipped
+under the same condition because the old tag-publish never gated on CI). `release_gate`
+gates on the **headless** suite only; **add `integration` to `release_gate.needs` once green.**
 
-As of the v0.2.1 release-automation work, `release_gate` (the single required status check
-for branch protection) gates on the **headless** `phase-12-shift-left` suite only (218 tests,
-green). **Once this suite is green, add `integration` to `release_gate.needs` in `ci.yml`** so
-the gate becomes comprehensive.
+NOTE: this suite cannot run in the dev workspace (Postgres is up but the `vector` extension
+isn't installed; a Phase-16 migration does `CREATE EXTENSION vector`). **CI is the only verifier.**
 
-The headless suite passing is a real signal: the v0.2.1 fixes (AUDIT-01 presenter, OPS
-plugs/router macro, TECH-01 pagination) are covered there and pass. These 10 failures are in
-the DB-backed legs and are **not** a v0.2.1 regression.
+## Progress
 
-## The 3 clusters (investigated 2026-05-30, not yet fixed)
+- **Cluster A — `tool_execution_worker_test.exs` (5) — FIXED (CI-verified 10→6).**
+  Fixture drift: `cairnloop_messages.conversation_id` is an integer FK; tests used hardcoded
+  string ids (`"conv-001"`) with no Conversation row → `{:error, "conversation_id: is invalid"}`.
+  Fix: shared `setup` inserts a `conversation_fixture()`; the 5 message-inserting tests use
+  `to_string(conversation.id)`. (Non-inserting FailOnceTool tests `conv-transient`/`conv-retry`
+  unchanged — they never reach the FK.) Commits `98d1b78`, `bc663f1`, `cc9b874`.
 
-### Cluster A — `test/integration/tool_execution_worker_test.exs` (5 failures)
-Lines 92, 146, 167, 361, 493. All fail `assert :ok = …` / `assert {:ok, _} = InternalNote.run(…)`
-with `right: {:error, "conversation_id: is invalid"}`.
+- **Cluster C — `audit_log_live_test.exs` (2) — FIXED (pending CI confirm), commit `1bf9ba8`.**
+  Both `refute`s leaked via the action-filter dropdown. (1) `<option value={action}>` emitted the
+  raw atom (`execution_succeeded`) → now `value={Presenter.action_label(action)}` and the filter
+  matcher compares the humanized label; the filter test now submits `"Approved"` (what the
+  humanized control emits), not raw `"approved"`. (2) `action_options` was derived from ALL events
+  so a filtered-out action's label persisted → derive from the FILTERED set. Also repaired the
+  metadata expander: `<details :if={has_metadata?(event.action) && false}>` (wrong arg + dead
+  `&& false`) meant "View details" never rendered — collapsed the doubled `<details>` into one
+  keyed on `event.metadata`.
 
-**Root cause:** fixture drift. The proposals built here use
-`input_snapshot: %{conversation_id: "conv-001", …}` (hardcoded strings) but never insert a
-matching `Conversation`, so the `cairnloop_messages.conversation_id` FK
-(`priv/test_host/migrations/20260101000000_create_host_owned_tables.exs`) rejects the insert →
-changeset error surfaced as `"conversation_id: is invalid"`.
-**Fix sketch:** add a `conversation_fixture/1` to the shared `setup` block (~lines 82-86) and
-reference `to_string(conversation.id)` in each proposal's `input_snapshot` — the pattern
-`tool_execution_outcome_live_test.exs` already uses correctly (its ~lines 120-128). ~1 file.
-The `[warning] Oban enqueue failed: No Oban instance named Oban` lines are **by-design noise**
-(the library ships no Oban; `lib/cairnloop/application.ex` rescues the enqueue), not the cause.
-
-### Cluster B — `test/integration/tool_execution_outcome_live_test.exs` (3 failures)
-Lines 112/170 (`assert executed_approval.decided_by == "operator_42"`), 268/309 & 402/439
-(`assert html =~ "Action completed"`). These DO create conversations and drive the worker via
-`perform/1`. Needs its own root-cause: either real attribution/copy drift (does `decided_by`
-persist through execute? does the Done-group card render "Action completed"?) or a fixture/
-harness mismatch. **Unknown size.**
-
-### Cluster C — `test/integration/audit_log_live_test.exs` (2 failures)
-Line 74 (`refute html =~ "execution_succeeded"`) and line 102 (after filtering by "approved",
-`refute html =~ "Executed"`). Uses an in-test `MockAuditor`; no conversations/worker.
-`Cairnloop.Web.AuditLogPresenter` is **pure, total, and correct** — so the leak is in the
-**AuditLogLive view template**, not the presenter: most likely the action-filter `<option>`
-list emitting the raw atom name `execution_succeeded`, and the action filter not actually
-narrowing rendered rows. Real-but-contained LiveView-wiring bug; modest size. (NOT the
-systemic raw-term leak AUDIT-01 addressed — that path goes through the presenter, which is clean.)
+- **Cluster B — `tool_execution_outcome_live_test.exs` (3) — NOT FIXED (real logic work).**
+  - **2× `assert html =~ "Action completed"`** (Done-group + chip-text tests, mounting
+    `/governance/:id`): the string **"Action completed" exists nowhere in `lib/`**. Either the
+    governed-action Done-group card must render that chip text for an `:executed` approval and
+    doesn't (impl gap — add it to the card/`tool_proposal_presenter.ex`), or the tests assert the
+    wrong copy. Needs: read `lib/cairnloop/web/conversation_live.ex` Done-group card +
+    `lib/cairnloop/web/tool_proposal_presenter.ex` chip/status functions; decide the canonical
+    executed-state chip text and make card + test agree (brand: name the state, not color-alone).
+  - **1× `assert executed_approval.decided_by == "operator_42"`** (OBS-02): real attribution
+    logic — does `Governance.approve(approval.id, "operator_42", ...)` persist `decided_by`
+    through the resume→execute co-commit? Investigate `Governance.approve` + `ToolExecutionWorker`
+    co-commit; not a rendering issue.
 
 ## Done-when
-- [ ] All 3 clusters green under `mix test.integration`.
+- [ ] Cluster B green (Done-group chip text + OBS-02 `decided_by`).
+- [x] Cluster A green (CI-verified).
+- [ ] Cluster C green (awaiting CI on `1bf9ba8`).
 - [ ] `integration` added to `release_gate.needs` in `.github/workflows/ci.yml`.
-- [ ] (Optional) factor the conversation-fixture pattern so worker tests can't drift again.
+- [ ] PR #6 merged.
+
+## Environment caveats (this session)
+Network was flaky (`gh` intermittently failing) and shell output intermittently corrupted
+(NUL/ANSI, garbled line numbers, even a fabricated grep line). Use the `Read` tool for source,
+not shell `grep`/`cat`; verify CI via `gh run view --log-failed` then read the saved file.
+Cluster B was deferred rather than risk unverifiable edits under these conditions.
