@@ -39,7 +39,7 @@ defmodule Cairnloop.MixProject do
         groups_for_extras: [
           Guides: ~r/^guides\//
         ],
-        # assets: "guides/assets"  # uncomment once PNG screenshots are captured
+        assets: %{"guides/assets" => "assets"},
         groups_for_modules: [
           Governance: [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
           "Knowledge Base": [~r/^Cairnloop\.KnowledgeBase/, ~r/^Cairnloop\.KnowledgeAutomation/],
