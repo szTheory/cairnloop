@@ -254,4 +254,110 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_disclosure patch-safe native disclosure (UIC-03 / D-03) ---
+
+  test "cl_disclosure open=true renders <details with phx-update=ignore, stable id, open attr, and classes" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="inputs-scope" open={true}>
+        <:summary>Inputs &amp; scope</:summary>
+        <p>body content</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="inputs-scope")
+    assert html =~ "open"
+    assert html =~ "cl-details"
+    assert html =~ "cl-disclosure"
+    assert html =~ "cl-details__summary"
+    assert html =~ "Inputs"
+    assert html =~ "body content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure open=false (default) omits the open attribute but retains phx-update=ignore and id" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="x">
+        <:summary>Hidden section</:summary>
+        <p>details</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="x")
+    # open=false — HEEx boolean-attr must NOT emit the open attribute
+    refute html =~ ~r/\bopen\b/
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="token-test">
+        <:summary>Summary</:summary>
+        <p>content</p>
+      </.cl_disclosure>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_fact_list label/value list (UIC-04 / D-05) ---
+
+  test "cl_fact_list renders a <dl> with dt/dd pairs for each fact" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}, %{label: "Risk tier", value: "Low"}]} />
+      """)
+
+    assert html =~ ~s(<dl class="cl-fact-list">)
+    assert html =~ "cl-fact-list__row"
+    assert html =~ ~s(<dt class="cl-fact-list__label">Plan</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Pro</dd>)
+    assert html =~ ~s(<dt class="cl-fact-list__label">Risk tier</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Low</dd>)
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list with inner_block renders custom rows inside the <dl>" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}]}>
+        <div class="custom-row">Extra info</div>
+      </.cl_fact_list>
+      """)
+
+    assert html =~ "cl-fact-list"
+    assert html =~ "Plan"
+    assert html =~ "Pro"
+    assert html =~ "custom-row"
+    assert html =~ "Extra info"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Account", value: "Acme Corp"}]} />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
