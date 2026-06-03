@@ -564,9 +564,9 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
           
           <%= if length(@available_tools) > 0 do %>
-            <div class="actions-section" style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+            <div class="actions-section">
               <h3>Actions</h3>
-              <div class="tools-list" style="display: flex; flex-direction: column; gap: 16px;">
+              <div class="tools-list">
                 <%= for tool <- @available_tools do %>
                   <.tool_renderer tool={tool} actor_id={@actor_id} context={@context} socket={@socket} />
                 <% end %>
@@ -634,19 +634,22 @@ defmodule Cairnloop.Web.ConversationLive do
       assigns = assign(assigns, :custom_ui, custom_ui)
 
       ~H"""
-      <div class="tool-custom-ui" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
+      <div class="tool-card tool-custom-ui">
         <%= live_render(@socket, @custom_ui, id: "tool-#{inspect(@tool)}", session: %{"actor_id" => @actor_id, "context" => @context}) %>
       </div>
       """
     else
       schema_fields = assigns.tool.__schema__(:fields) -- [:id]
 
-      assigns = assign(assigns, :schema_fields, schema_fields)
+      assigns =
+        assigns
+        |> assign(:schema_fields, schema_fields)
+        |> assign(:tool_title, tool_title(assigns.tool))
 
       if schema_fields == [] do
         ~H"""
-        <button phx-click="execute_tool" phx-value-tool={inspect(@tool)} style="width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer;">
-          <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>
+        <button class="tool-card tool-trigger" phx-click="execute_tool" phx-value-tool={inspect(@tool)}>
+          <strong class="tool-title"><%= @tool_title %></strong>
         </button>
         """
       else
@@ -654,17 +657,17 @@ defmodule Cairnloop.Web.ConversationLive do
         assigns = assign(assigns, :form, to_form(params, as: :tool_params))
 
         ~H"""
-        <div class="tool-form" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
-          <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>
-          <.form for={@form} phx-submit="execute_tool" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+        <div class="tool-card tool-form">
+          <strong class="tool-title"><%= @tool_title %></strong>
+          <.form for={@form} phx-submit="execute_tool" class="tool-form-fields">
             <input type="hidden" name="tool" value={inspect(@tool)} />
             <%= for field <- @schema_fields do %>
-              <div>
-                <label style="display: block; font-size: 0.85em; margin-bottom: 4px; color: #4b5563;"><%= humanize_context_label(field) %></label>
-                <input type="text" name={@form[field].name} value={@form[field].value} style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" />
+              <div class="cl-field">
+                <label class="cl-label tool-field-label"><%= humanize_context_label(field) %></label>
+                <input type="text" class="cl-input" name={@form[field].name} value={@form[field].value} />
               </div>
             <% end %>
-            <button type="submit" style="padding: 6px 12px; background: var(--cl-primary); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Propose</button>
+            <.cl_button type="submit" variant="primary" class="cl-button--sm tool-propose">Propose</.cl_button>
           </.form>
         </div>
         """
@@ -674,6 +677,15 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp last_module_part(module) do
     module |> Module.split() |> List.last()
+  end
+
+  # Prefer the tool's declared human title (e.g. "Add internal note"); fall back to a
+  # humanized module name. Never surfaces the raw module atom to operators.
+  defp tool_title(tool) do
+    case tool.__tool_spec__() do
+      %{title: title} when is_binary(title) and title != "" -> title
+      _ -> humanize_context_label(last_module_part(tool))
+    end
   end
 
   defp message_role_label(:user), do: "Customer"
@@ -708,10 +720,10 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def context_section(assigns) do
     ~H"""
-    <div class="context-section" style="margin-bottom: 16px;">
-      <h4 style="margin-bottom: 8px; font-size: 0.9em; text-transform: uppercase; color: #6b7280;"><%= humanize_context_label(@label) %></h4>
+    <div class="context-section">
+      <h4 class="context-section-label"><%= humanize_context_label(@label) %></h4>
       <%= if is_map(@value) do %>
-        <div class="context-subsection" style="padding-left: 12px; border-left: 2px solid #e5e7eb;">
+        <div class="context-subsection">
           <%= for {k, v} <- normalize_context_sections(@value) do %>
             <.context_field label={k} value={v} />
           <% end %>
@@ -1117,7 +1129,10 @@ defmodule Cairnloop.Web.ConversationLive do
     label
     |> to_string()
     |> String.replace("_", " ")
-    |> String.split(" ")
+    # Split CamelCase boundaries so module-derived names humanize correctly
+    # (e.g. "InternalNote" -> "Internal Note", not "Internalnote").
+    |> String.replace(~r/([a-z0-9])([A-Z])/, "\\1 \\2")
+    |> String.split(" ", trim: true)
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end

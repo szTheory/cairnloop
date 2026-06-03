@@ -484,7 +484,10 @@ defmodule Cairnloop.Web.ToolProposalPresenter do
     label
     |> to_string()
     |> String.replace("_", " ")
-    |> String.split(" ")
+    # Split CamelCase boundaries so module-derived names humanize correctly
+    # (e.g. "InternalNote" -> "Internal Note", not "Internalnote").
+    |> String.replace(~r/([a-z0-9])([A-Z])/, "\\1 \\2")
+    |> String.split(" ", trim: true)
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end

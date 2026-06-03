@@ -56,15 +56,49 @@ seed data that fully expresses every screen. Repeatable/resumable so future pass
       global `prefers-reduced-motion` handling in cairnloop.css. Advanced brand motifs (route-line
       draw, marker-travel via phx-hook+WAAPI) deferred as optional future polish — lower ROI, needs
       browser verification.
-- [ ] Pass 5 — seed enrichment (DB-gated; can't verify in this workspace). Remaining.
-- [ ] Pass 6 — visual-QA loop (DB-gated). capture.mjs routes updated + Home/KB-suggestions/editor
-      shots added, ready to run where a DB + the example app are available.
+- [x] Pass 5 — seed enrichment. DONE (no new data needed). Booted the example app against the now-
+      available local Postgres (PG 14.17 on :5432, PGPORT override; pgvector 0.8.0) and confirmed via
+      the screenshot loop that the existing 1,553-line `seeds.exs` already fully expresses every
+      screen (20 convos across all lifecycle states, 5 articles incl. multi-revision, 3 gaps w/
+      evidence, 1 ready suggestion + review task, 4 governed-action showcase states). No padding added
+      (per plan: don't pad data the screens don't surface).
+- [x] Pass 6 — visual-QA loop. DONE. Regenerated all 17 shots in `guides/assets/` against the
+      redesigned app (replaced the stale May-30 set; old `02-operator-inbox.png` superseded by
+      `02-cockpit-home.png` + `02b-operator-inbox.png` and was removed). Reviewed every screen.
+      Result: 16/17 fully polished + well-seeded out of the gate. The one defect cluster was the
+      **conversation workspace right rail** (the "lighter touch" screen) — fixed (see decision below).
 
 ## Remaining work (clear handoff for a follow-up session)
 - **Pass 5 seed enrichment** + **Pass 6 screenshot run** — need Postgres + the example app booting.
 - Optional: advanced motion motifs; nav count badges (currently labels-only for cheap per-screen nav).
 
 ## Decisions log
+
+### Conversation right-rail polish (Pass 6 finding) — DONE
+Visual QA surfaced that the conversation workspace's center timeline + layout were on-system, but
+every right-rail INNER class was unstyled (only the `.cl-card` wrapper applied) → run-on/plain
+panels. Fixes (warnings-clean, 142 touched-area tests green):
+- **`priv/static/cairnloop.css`** — added a self-contained "Conversation rail" component layer
+  (additive, token-driven, baked `var(--cl-*, #hex)` fallbacks): message cards, Customer Context
+  (eyebrow section-labels + label/value fields), Actions proposer (`tool-card`/`tool-form`),
+  KB-maintenance `quick-fix-*` (eyebrow + structured layer rows + status rail), outbound-recovery
+  card, AI-draft card, and governed-actions rail (eyebrows, section dividers, risk/status **chips**,
+  mono trace `dl`, footer). Most governed-action structural classes had no inline styles, so this is
+  purely additive — heavily-tested approval markup untouched.
+- **`conversation_live.ex`** — `tool_renderer` now uses the tool's declared title
+  (`__tool_spec__().title` → "Add internal note") instead of a broken module-name humanization that
+  produced **"Internalnote"**; replaced the proposer's hardcoded-hex inline styles + `context_section`
+  inline hex with the new classes. `humanize_context_label/1` now splits CamelCase boundaries.
+- **`tool_proposal_presenter.ex`** — mirrored the CamelCase fix so the proposal-snapshot "Tool:" line
+  reads "Internal Note" (the residual raw `inspect(@tool)` is machine-only `phx-value`, not display).
+
+### Test-isolation note (pre-existing, not from this work)
+Full `mix test` = 794 tests, **2 failures** (unchanged from baseline). `OutboundWorkerTest:93` is the
+deterministic static source-grep baseline. The SECOND failure FLOATS by seed among LiveView
+mount/session tests (e.g. `Automation.DraftTest`, `Web.SettingsLiveTest`) — each passes in isolation,
+so it's a pre-existing cross-test ordering/pollution issue, independent of the UI work. (Supersedes
+the earlier memory note that pinned the 2nd failure specifically to DraftTest.)
+
 
 ### Motion tokens (research: Emil Kowalski great-animations) — ADOPTED
 Durations: instant 100 / micro 140 / ui 180 / panel 260 / exit 160 (exits faster than entrances) /
