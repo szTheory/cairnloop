@@ -5,11 +5,11 @@ defmodule Cairnloop.Web.BrandTokenGateTest do
   Asserts that no `var(--cl-<token>, #<hex>)` hex-fallback strings remain in
   `lib/cairnloop/web/` or `examples/cairnloop_example/lib/cairnloop_example_web/live/`.
 
-  The canonical token definitions live in
-  `examples/cairnloop_example/assets/css/app.css` (copied from
-  `prompts/cairnloop.css`). All sealed render files must use bare
-  `var(--cl-<token>)` form. Re-introducing a hex fallback will fail this test
-  and therefore fail the default `mix test` build.
+  The canonical token definitions live in the shipped, self-contained
+  `priv/static/cairnloop.css` (the hex-packaged design system; the example app
+  imports it via `examples/cairnloop_example/assets/css/app.css`). All sealed
+  render files must use bare `var(--cl-<token>)` form. Re-introducing a hex
+  fallback will fail this test and therefore fail the default `mix test` build.
 
   Non-hex rgba(...) fallbacks (e.g., `var(--cl-shadow, rgba(...))`) are
   explicitly out of scope for this gate — the regex requires `#` after the
@@ -47,8 +47,8 @@ defmodule Cairnloop.Web.BrandTokenGateTest do
            BRAND-04 contract violated — hex fallbacks found in sealed render files.
 
            Phase 29 D-10 closure requires bare var(--cl-<token>) form.
-           Canonical token source: examples/cairnloop_example/assets/css/app.css
-                                   (copied from prompts/cairnloop.css)
+           Canonical token source: priv/static/cairnloop.css
+                                   (imported by examples/.../assets/css/app.css)
 
            Violations:
            #{Enum.map_join(violations, "\n", fn {file, line_no, line} -> "  #{file}:#{line_no} — #{line}" end)}

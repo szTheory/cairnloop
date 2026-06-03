@@ -1,6 +1,11 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
+/* Cairnloop design system — single source of truth (shipped in the hex package
+   at priv/static/cairnloop.css). The :root token block below mirrors it for the
+   Tailwind @theme primitives; keep both in sync with priv/static/cairnloop.css. */
+@import "../../../../priv/static/cairnloop.css";
+
 @import "tailwindcss" source(none);
 
 @theme {
