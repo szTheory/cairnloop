@@ -401,4 +401,45 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_status_cell table-cell chip wrapper (UIC-04 / D-07) ---
+
+  test "cl_status_cell renders .cl-status-cell wrapping cl-chip--success with label and icon" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="success" label="Approved" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "cl-chip--success"
+    assert html =~ "Approved"
+    assert html =~ "<svg"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell with default neutral variant renders label without error" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell label="Pending review" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "Pending review"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="warning" label="Needs attention" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end

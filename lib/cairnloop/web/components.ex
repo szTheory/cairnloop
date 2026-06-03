@@ -255,6 +255,27 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  Thin table-cell wrapper that delegates directly to `cl_chip` (no re-authored chip markup).
+  Provides a stable `.cl-status-cell` container for table column alignment.
+
+  `label` is always required and visible (never color alone — brand §7.5). The icon is
+  resolved automatically from the variant via `cl_chip`'s existing `status_icon/1` map
+  unless overridden. Variant and label are passed directly by callers (tone-mapping is
+  added in P38/P40 at adoption time; this primitive is tone-agnostic by design).
+  """
+  attr(:variant, :string, values: @status_variants, default: "neutral")
+  attr(:label, :string, required: true)
+  attr(:icon, :string, default: nil)
+
+  def cl_status_cell(assigns) do
+    ~H"""
+    <span class="cl-status-cell">
+      <.cl_chip variant={@variant} label={@label} icon={@icon} />
+    </span>
+    """
+  end
+
+  @doc """
   Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
   optional actions slot right-aligned in the header, optional subnav between header and
   body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
