@@ -125,7 +125,7 @@ defmodule Cairnloop.Web.Components do
   `calm?` renders the count in the success hue (used for the all-caught-up zero state).
   """
   attr(:job, :string, required: true)
-  attr(:count, :any, required: true)
+  attr(:count, :integer, required: true)
   attr(:meta, :string, default: nil)
   attr(:href, :string, default: nil)
   attr(:cta, :string, default: nil)
@@ -145,6 +145,72 @@ defmodule Cairnloop.Web.Components do
       <span :if={@cta} class="cl-stat__meta">{@cta} &rarr;</span>
       {render_slot(@inner_block)}
     </.link>
+    """
+  end
+
+  @doc """
+  Primary-count hero tile — Fraunces copper count (~2–3× heavier than `cl_stat`) with a
+  verb-led job label, an optional quiet `:detail` sub-line, and a primary CTA.
+
+  CTA precedence: when an `:inner_block` CTA slot is provided it wins; otherwise when
+  `@cta` is set, renders `<.cl_button variant="primary">`. Both are optional.
+  `calm?` switches the count to `--cl-success` (zero / all-caught-up state).
+  """
+  attr(:count, :integer, required: true)
+  attr(:job, :string, required: true)
+  attr(:href, :string, default: nil)
+  attr(:cta, :string, default: nil)
+  attr(:calm?, :boolean, default: false)
+  slot(:detail)
+  slot(:cta_slot)
+  slot(:inner_block)
+
+  def cl_hero(assigns) do
+    ~H"""
+    <section class="cl-hero">
+      <span class="cl-hero__job">{@job}</span>
+      <span class={["cl-hero__count", @calm? && "cl-hero__count--calm"]}>{@count}</span>
+      <div :if={@detail != []} class="cl-hero__detail">{render_slot(@detail)}</div>
+      <div :if={@cta_slot != []} class="cl-hero__cta">{render_slot(@cta_slot)}</div>
+      <div :if={@cta_slot == [] && @cta} class="cl-hero__cta">
+        <.link navigate={@href} class="cl-button cl-button--primary">{@cta}</.link>
+      </div>
+    </section>
+    """
+  end
+
+  @doc """
+  Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
+  optional actions slot right-aligned in the header, optional subnav between header and
+  body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
+
+  `width` drives `.cl-page--wide` (default, 1200px max) or `.cl-page--reading`
+  (352px rail — for conversation/detail views, P38+).
+  """
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:width, :string, values: ~w(wide reading), default: "wide")
+  slot(:actions)
+  slot(:breadcrumb)
+  slot(:subnav)
+  slot(:inner_block, required: true)
+
+  def cl_page(assigns) do
+    ~H"""
+    <div class={["cl-page", "cl-page--#{@width}"]}>
+      <header class="cl-page__header">
+        <div :if={@breadcrumb != []}>{render_slot(@breadcrumb)}</div>
+        <div class="cl-row cl-row--between">
+          <div>
+            <h1 class="cl-page__title">{@title}</h1>
+            <p :if={@subtitle} class="cl-page__subtitle">{@subtitle}</p>
+          </div>
+          <div :if={@actions != []}>{render_slot(@actions)}</div>
+        </div>
+      </header>
+      <div :if={@subnav != []} class="cl-page__subnav">{render_slot(@subnav)}</div>
+      <div class="cl-page__body">{render_slot(@inner_block)}</div>
+    </div>
     """
   end
 
