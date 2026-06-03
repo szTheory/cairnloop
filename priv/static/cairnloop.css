@@ -132,6 +132,13 @@
   --cl-control-h-md: 36px; --cl-control-px-md: 14px;
   --cl-control-h-lg: 44px; --cl-control-px-lg: 20px;
 
+  /* ---- Layout tokens (D-09, UIC-05) -------------------------------------- */
+  /* Note: var() is illegal inside @media conditions — these tokens drive     */
+  /* max-width values only, never breakpoint conditions (that work is P43).   */
+  --cl-content-max: 1200px;  /* matches existing .cl-main max-width */
+  --cl-rail-width:  352px;   /* matches existing .evidence-rail width */
+  --cl-page-gutter: var(--cl-space-5);  /* = 16px; inner padding for cl_page shell */
+
   /* ---- Motion (Emil Kowalski: ease-out default, fast, transform+opacity) - */
   --cl-dur-instant: 100ms;  /* press feedback, toggles */
   --cl-dur-micro:   140ms;  /* tooltips, hover, icon swap */
@@ -425,6 +432,10 @@
 .cl-row--wrap { flex-wrap: wrap; }
 .cl-stack { display: flex; flex-direction: column; gap: var(--cl-space-3, 8px); }
 .cl-stack--lg { gap: var(--cl-space-5, 16px); }
+/* ---- Inert utility escape hatches (D-10, UIC-05) — use .cl-row/.cl-stack composites first */
+.cl-gap-2          { gap: var(--cl-space-2); }
+.cl-align-center   { align-items: center; }
+.cl-justify-between { justify-content: space-between; }
 .cl-grow { flex: 1; }
 .cl-mt-5 { margin-top: var(--cl-space-5, 16px); }
 .cl-mb-7 { margin-bottom: var(--cl-space-7, 24px); }
@@ -432,6 +443,10 @@
 .cl-list-row { border-bottom: 1px solid var(--cl-border, #D8D0BF); padding: var(--cl-space-4, 12px) 0; }
 .cl-list-row:last-child { border-bottom: 0; }
 .cl-code-block { font-family: var(--cl-font-mono); font-size: var(--cl-font-code, 13px); background: var(--cl-surface-sunken, #EFE9DC); padding: var(--cl-space-3, 8px); border-radius: var(--cl-radius-sm, 6px); word-break: break-all; display: block; }
+/* ---- Accessible table scroll wrapper (D-11, UIC-05) -------------------- */
+/* role="region" + tabindex="0" + aria-label must be set at each call site. */
+.cl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cl-table-scroll:focus-visible { box-shadow: var(--cl-focus-ring); border-radius: var(--cl-radius-xs); }
 
 /* ---- Toolbar ------------------------------------------------------------ */
 .cl-toolbar {
