@@ -419,6 +419,20 @@
 @media (min-width: 640px)  { .cl-home-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1024px) { .cl-home-grid { grid-template-columns: repeat(3, 1fr); } }
 
+/* ---- Layout utilities (keep templates inline-style-free) ---------------- */
+.cl-row { display: flex; align-items: center; gap: var(--cl-space-3, 8px); }
+.cl-row--between { justify-content: space-between; }
+.cl-row--wrap { flex-wrap: wrap; }
+.cl-stack { display: flex; flex-direction: column; gap: var(--cl-space-3, 8px); }
+.cl-stack--lg { gap: var(--cl-space-5, 16px); }
+.cl-grow { flex: 1; }
+.cl-mt-5 { margin-top: var(--cl-space-5, 16px); }
+.cl-mb-7 { margin-bottom: var(--cl-space-7, 24px); }
+.cl-divider { border: 0; border-top: 1px solid var(--cl-border, #D8D0BF); margin: var(--cl-space-5, 16px) 0; }
+.cl-list-row { border-bottom: 1px solid var(--cl-border, #D8D0BF); padding: var(--cl-space-4, 12px) 0; }
+.cl-list-row:last-child { border-bottom: 0; }
+.cl-code-block { font-family: var(--cl-font-mono); font-size: var(--cl-font-code, 13px); background: var(--cl-surface-sunken, #EFE9DC); padding: var(--cl-space-3, 8px); border-radius: var(--cl-radius-sm, 6px); word-break: break-all; display: block; }
+
 /* ---- Toolbar ------------------------------------------------------------ */
 .cl-toolbar {
   display: flex; align-items: center; gap: var(--cl-space-3, 8px); flex-wrap: wrap;

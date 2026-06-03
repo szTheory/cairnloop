@@ -42,8 +42,11 @@ defmodule Cairnloop.Web.SettingsLiveTest do
 
     html = render_html(assigns)
 
-    assert html =~ "SLA Policies"
-    assert html =~ "Active Policies"
+    assert html =~ "SLA policies"
+    assert html =~ "Active policies"
+    # persistent nav shell present with a "you are here" cue on Settings
+    assert html =~ "cl-nav"
+    assert html =~ "aria-current=\"page\""
     assert html =~ "data-host-surface=\"settings\""
     assert html =~ "data-host-user-id=\"user_42\""
     assert html =~ "data-current-path=\"/settings\""
