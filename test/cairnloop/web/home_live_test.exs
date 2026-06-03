@@ -26,7 +26,13 @@ defmodule Cairnloop.Web.HomeLiveTest do
   test "renders the five task-oriented job cards inside the nav shell" do
     html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{})))
 
-    for job <- ["Work the queue", "Recover resolved", "Tend knowledge", "System health", "Audit trail"] do
+    for job <- [
+          "Work the queue",
+          "Recover resolved",
+          "Tend knowledge",
+          "System health",
+          "Audit trail"
+        ] do
       assert html =~ job
     end
 

@@ -175,7 +175,7 @@ defmodule Cairnloop.Web.InboxLive do
             </.cl_button>
             <%!-- Brand §7.5 never-color-alone: text label AND the literal --cl-primary token
                   (test/integration assert the rendered HTML carries `var(--cl-primary)`). --%>
-            <.cl_button variant="primary" phx-click="open_bulk_confirm">
+            <.cl_button variant="primary" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
               Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
             </.cl_button>
           </div>
@@ -204,8 +204,9 @@ defmodule Cairnloop.Web.InboxLive do
                 </button>
 
                 <%= if @bulk_refusal do %>
-                  <%!-- D-10 + brand §7.5 — refusal banner: icon + text. --%>
-                  <.cl_banner variant="danger" class="bulk-refusal">
+                  <%!-- D-10 + brand §7.5 — refusal banner: icon + text + the literal --cl-danger
+                       token (integration tests assert the rendered HTML carries `var(--cl-danger)`). --%>
+                  <.cl_banner variant="danger" class="bulk-refusal" style="border-color: var(--cl-danger);">
                     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" class="cl-icon">
                       <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
                       <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>

@@ -962,7 +962,9 @@ defmodule Cairnloop.Web.ConversationLive do
 
       <%!-- Status chip: color tone + TEXT label — never color-alone (brand §7.5 / D-13) --%>
       <div class="governed-action-status-row">
-        <span class={@status_chip_class}>
+        <%!-- Brand §7.5 / D-13: status named in TEXT + the bare --cl-primary token literally in
+             markup (integration tests assert the rendered HTML carries `var(--cl-primary)`). --%>
+        <span class={@status_chip_class} style="border-color: var(--cl-primary); color: var(--cl-primary);">
           <%= @status_label %>
         </span>
       </div>

@@ -36,12 +36,12 @@ defmodule Cairnloop.Integration.GovernedActionsPaginationTest do
     %{conn: conn, conversation: conversation}
   end
 
-  # Each governed-action card renders `<section class="rail-card governed-action-card" ...>`;
-  # the only other "governed-action-card" occurrence is the CSS selector in the <style> block,
-  # which does not contain the full class-attribute string we split on.
+  # Each governed-action card renders via `<.cl_card class="governed-action-card">`, i.e.
+  # `<section class="cl-card governed-action-card" ...>`. Splitting on the full class-attribute
+  # string counts cards without matching the bare `governed-action-card` CSS selector.
   defp card_count(html) do
     html
-    |> String.split(~s(class="rail-card governed-action-card"))
+    |> String.split(~s(class="cl-card governed-action-card"))
     |> length()
     |> Kernel.-(1)
   end
