@@ -98,16 +98,21 @@ jobs:
 
       - name: Verify HexDocs release
         run: |
+          # Authoritative check: the docs are retrievable from Hex's docs store. If this
+          # fails, docs were genuinely not published — fail the step.
           mix hex.docs fetch cairnloop "${{ needs.release-please.outputs.version }}"
-          for attempt in 1 2 3 4 5; do
+
+          # Best-effort: wait for the public hexdocs.pm CDN to propagate. This step runs AFTER
+          # an already-successful publish, so CDN propagation lag must NOT fail a shipped
+          # release — warn and pass instead of flapping red.
+          for attempt in $(seq 1 10); do
             if curl --fail --silent --show-error --location \
-              "https://hexdocs.pm/cairnloop/${{ needs.release-please.outputs.version }}/"; then
+              "https://hexdocs.pm/cairnloop/${{ needs.release-please.outputs.version }}/" >/dev/null; then
+              echo "HexDocs is live."
               exit 0
             fi
-
-            if [ "$attempt" -lt 5 ]; then
-              sleep 15
-            fi
+            sleep 30
           done
 
-          exit 1
+          echo "::warning::HexDocs CDN not yet propagated for ${{ needs.release-please.outputs.version }} after ~5m; docs were published to Hex (fetch succeeded above). Propagation lag, not a publish failure."
+          exit 0
