@@ -474,6 +474,16 @@
   box-shadow: var(--cl-shadow-modal);
 }
 
+/* ---- Details / disclosure ----------------------------------------------- */
+.cl-details > summary {
+  cursor: pointer; color: var(--cl-info, #3F6F80); font-size: var(--cl-font-small, 13px);
+  list-style: none;
+}
+.cl-details > summary::-webkit-details-marker { display: none; }
+.cl-details dl { margin: var(--cl-space-3, 8px) 0 0; font-size: var(--cl-font-small, 13px); }
+.cl-details dt { color: var(--cl-text-muted, #677066); font-size: var(--cl-font-micro, 12px); }
+.cl-details dd { margin: 0 0 var(--cl-space-3, 8px); }
+
 /* ---- Pagination --------------------------------------------------------- */
 .cl-pagination { display: flex; align-items: center; gap: var(--cl-space-2, 4px); justify-content: center; padding: var(--cl-space-5, 16px) 0; }
 
