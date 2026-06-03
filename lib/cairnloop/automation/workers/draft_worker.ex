@@ -57,7 +57,12 @@ defmodule Cairnloop.Automation.Workers.DraftWorker do
     grounding_bundle = retrieval.ground_for_draft(draft_context, retrieval_opts)
     _ = maybe_record_grounding_gap(grounding_bundle, draft_context)
 
-    case Cairnloop.Automation.ScoriaEngine.generate_draft(conversation_id, grounding_bundle) do
+    # Host-swappable draft engine (defaults to the deterministic ScoriaEngine; hosts can
+    # configure Cairnloop.Automation.DraftGenerator.Anthropic for model-composed replies).
+    generator =
+      Application.get_env(:cairnloop, :draft_generator, Cairnloop.Automation.ScoriaEngine)
+
+    case generator.generate_draft(conversation_id, grounding_bundle) do
       {:ok, proposal} ->
         case proposal.proposal_type do
           :reply -> apply_policy_and_create_draft(conversation_id, proposal)

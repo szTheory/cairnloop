@@ -49,6 +49,9 @@ jobs:
           test/cairnloop/knowledge_automation/article_suggestion_test.exs
           test/cairnloop/knowledge_automation/review_task_test.exs
           test/cairnloop/retrieval/telemetry_test.exs
+          test/cairnloop/automation/scoria_engine_test.exs
+          test/cairnloop/automation/draft_generator/anthropic_test.exs
+          test/cairnloop/automation/workers/draft_worker_test.exs
           test/cairnloop/web/conversation_live_test.exs
           test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
           test/cairnloop/knowledge_base/workers/chunk_revision_test.exs

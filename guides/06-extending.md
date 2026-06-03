@@ -76,6 +76,37 @@ Configure it in your `config.exs`:
 config :cairnloop, :embedder, MyApp.CustomEmbedder
 ```
 
+### `Cairnloop.Automation.DraftGenerator`
+
+Cairnloop turns a retrieval **grounding bundle** into an operator-reviewable reply draft through a swappable engine. The library default, `Cairnloop.Automation.ScoriaEngine`, is deterministic and dependency-free: it needs no API key and never calls out to a model, composing a citation-anchored reply from the canonical Knowledge Base evidence (and asking for the missing detail or recommending a handoff when grounding is weak).
+
+To have a real model compose the customer-facing reply, configure the bundled Anthropic adapter:
+
+```elixir
+# config.exs — choose the engine
+config :cairnloop, :draft_generator, Cairnloop.Automation.DraftGenerator.Anthropic
+
+# runtime.exs — read the secret at boot, never compile it in
+config :cairnloop, :anthropic_api_key, System.fetch_env!("ANTHROPIC_API_KEY")
+```
+
+Optional knobs: `:anthropic_model` (default `"claude-sonnet-4-6"`) and `:anthropic_max_tokens` (default `1024`). The API key is also read from the `ANTHROPIC_API_KEY` environment variable when not set in config.
+
+The adapter is **fail-closed by design**. It only asks Claude to compose a reply when the grounding assessment is `:strong`; for `:clarification`/`:escalation` grounding, a missing API key, or any API error it transparently delegates to `ScoriaEngine` — so a model never guesses past the available evidence, and a draft always appears for the operator. Every draft is still human-in-the-loop: it lands as a `:pending` draft an operator reviews (and `Cairnloop.AutomationPolicy` decides whether it can be auto-sent) before anything reaches the customer.
+
+To build your own engine (a different provider, a local model, or custom prompting), implement the one-callback behaviour:
+
+```elixir
+@callback generate_draft(conversation_id :: String.t(), grounding_bundle :: map()) ::
+            {:ok, proposal :: map()} | {:error, term()}
+```
+
+```elixir
+config :cairnloop, :draft_generator, MyApp.CustomDraftGenerator
+```
+
+Return a proposal map with `:proposal_type`, `:operator_summary`, `:customer_reply`, `:content`, `:evidence`, `:grounding_metadata`, and `:clarification_attempts`. See `Cairnloop.Automation.DraftGenerator` for the full contract and trust posture.
+
 ### `Cairnloop.Auditor`
 
 Cairnloop maintains a rigorous audit trail of all governance decisions, tool executions, and system events. If you need to route these audit logs to an external compliance system (like Datadog, AWS CloudTrail, or an internal SIEM), implement the `Cairnloop.Auditor` behaviour.
