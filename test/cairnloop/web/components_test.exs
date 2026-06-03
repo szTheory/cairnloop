@@ -130,4 +130,71 @@ defmodule Cairnloop.Web.ComponentsTest do
     assert html =~ "cl-stat__count--calm"
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_page shell component (UIC-01 / D-08) ---
+
+  test "cl_page renders title as h1 and emits cl-page--wide by default" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Audit Log">
+        <p>content</p>
+      </.cl_page>
+      """)
+
+    assert html =~ ~s(<h1 class="cl-page__title">Audit Log</h1>)
+    assert html =~ "cl-page--wide"
+    assert html =~ "content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page with width='reading' renders cl-page--reading" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Conversation" width="reading">
+        <p>body</p>
+      </.cl_page>
+      """)
+
+    assert html =~ "cl-page--reading"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page renders breadcrumb, actions, subnav slots and subtitle when provided" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Inbox" subtitle="Manage your queue">
+        <:breadcrumb><nav>Home / Inbox</nav></:breadcrumb>
+        <:actions><button>New</button></:actions>
+        <:subnav><ul><li>Filter</li></ul></:subnav>
+        <p>main content</p>
+      </.cl_page>
+      """)
+
+    assert html =~ "cl-page__subtitle"
+    assert html =~ "Manage your queue"
+    assert html =~ "Home / Inbox"
+    assert html =~ "New"
+    assert html =~ "Filter"
+    assert html =~ "main content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page token-pure: no hex in default render" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Settings">
+        <p>content</p>
+      </.cl_page>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end

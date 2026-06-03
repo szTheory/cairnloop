@@ -149,6 +149,41 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
+  optional actions slot right-aligned in the header, optional subnav between header and
+  body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
+
+  `width` drives `.cl-page--wide` (default, 1200px max) or `.cl-page--reading`
+  (352px rail — for conversation/detail views, P38+).
+  """
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:width, :string, values: ~w(wide reading), default: "wide")
+  slot(:actions)
+  slot(:breadcrumb)
+  slot(:subnav)
+  slot(:inner_block, required: true)
+
+  def cl_page(assigns) do
+    ~H"""
+    <div class={["cl-page", "cl-page--#{@width}"]}>
+      <header class="cl-page__header">
+        <div :if={@breadcrumb != []}>{render_slot(@breadcrumb)}</div>
+        <div class="cl-row cl-row--between">
+          <div>
+            <h1 class="cl-page__title">{@title}</h1>
+            <p :if={@subtitle} class="cl-page__subtitle">{@subtitle}</p>
+          </div>
+          <div :if={@actions != []}>{render_slot(@actions)}</div>
+        </div>
+      </header>
+      <div :if={@subnav != []} class="cl-page__subnav">{render_slot(@subnav)}</div>
+      <div class="cl-page__body">{render_slot(@inner_block)}</div>
+    </div>
+    """
+  end
+
+  @doc """
   Persistent navigation shell. Pass `current` (a destination key) so the active link
   gets a 3-cue "you are here" state (weight + copper underline + fill, never color alone).
   `destinations` is a list of `%{key, label, href, icon, count}` maps.
