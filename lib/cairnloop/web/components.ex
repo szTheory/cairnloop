@@ -125,7 +125,7 @@ defmodule Cairnloop.Web.Components do
   `calm?` renders the count in the success hue (used for the all-caught-up zero state).
   """
   attr(:job, :string, required: true)
-  attr(:count, :any, required: true)
+  attr(:count, :integer, required: true)
   attr(:meta, :string, default: nil)
   attr(:href, :string, default: nil)
   attr(:cta, :string, default: nil)

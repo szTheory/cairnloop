@@ -100,4 +100,34 @@ defmodule Cairnloop.Web.ComponentsTest do
     assert html =~ "polyline" or html =~ "path"
     assert html =~ ~s(aria-hidden="true")
   end
+
+  # --- cl_stat numeric contract (UIC-02 / D-01) ---
+
+  test "cl_stat renders an integer count inside .cl-stat__count" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_stat job="Triage replies" count={42} href="/inbox" />
+      """)
+
+    assert html =~ ~s(cl-stat__count)
+    assert html =~ "42"
+    assert html =~ "Triage replies"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_stat preserves job label and href with integer count" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_stat job="Open conversations" count={0} href="/inbox" calm?={true} />
+      """)
+
+    assert html =~ "Open conversations"
+    assert html =~ ~s(href="/inbox")
+    assert html =~ "cl-stat__count--calm"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
