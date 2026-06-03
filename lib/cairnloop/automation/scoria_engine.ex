@@ -1,12 +1,22 @@
 defmodule Cairnloop.Automation.ScoriaEngine do
   @moduledoc """
-  Mock execution engine for Scoria integration.
-  Generates structured grounded proposals for operator review.
+  Deterministic, zero-dependency reply-draft engine — the library default
+  `Cairnloop.Automation.DraftGenerator`.
+
+  Generates structured grounded proposals for operator review without calling any
+  external model: strong grounding yields a citation-anchored reply built from the
+  primary canonical evidence, while weaker grounding asks for the missing detail
+  (`:clarification`) or recommends a human handoff (`:escalation`). Hosts that want
+  model-composed replies configure `Cairnloop.Automation.DraftGenerator.Anthropic`
+  (which falls back to this engine when grounding is weak or no API key is set).
   """
+
+  @behaviour Cairnloop.Automation.DraftGenerator
 
   @doc """
   Builds a structured proposal from the retrieval grounding bundle.
   """
+  @impl Cairnloop.Automation.DraftGenerator
   def generate_draft(conversation_id, grounding_bundle) do
     assessment = grounding_bundle.grounding_assessment
     evidence = Map.get(grounding_bundle, :evidence, [])

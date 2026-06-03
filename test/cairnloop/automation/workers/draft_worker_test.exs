@@ -76,6 +76,26 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
     end
   end
 
+  defmodule StubGenerator do
+    @behaviour Cairnloop.Automation.DraftGenerator
+    @impl true
+    def generate_draft(conversation_id, grounding_bundle) do
+      send(self(), {:stub_generator_called, conversation_id})
+
+      {:ok,
+       %{
+         proposal_type: :reply,
+         operator_summary: "stub summary",
+         customer_reply: "stub reply",
+         content: "stub reply",
+         evidence: Map.get(grounding_bundle, :evidence, []),
+         grounding_metadata: %{grounding_status: :strong, reason: :stub, query: "q"},
+         clarification_attempts: 0,
+         conversation_id: conversation_id
+       }}
+    end
+  end
+
   defmodule DraftOnlyPolicy do
     @behaviour Cairnloop.AutomationPolicy
     def decide(_proposal, _opts), do: :draft_only
@@ -121,6 +141,7 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
       Application.delete_env(:cairnloop, :retrieval_module)
       Application.delete_env(:cairnloop, :conversation_lookup)
       Application.delete_env(:cairnloop, :gap_recorder)
+      Application.delete_env(:cairnloop, :draft_generator)
       Process.delete(:latest_draft)
       :telemetry.detach(handler_id)
     end)
@@ -174,6 +195,18 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
 
     assert :ok = DraftWorker.perform(%Oban.Job{args: %{"conversation_id" => 126}})
 
+    assert_receive {:draft_created, 999}, 1000
+  end
+
+  test "Worker uses the configured :draft_generator seam (defaults to ScoriaEngine)" do
+    Application.put_env(:cairnloop, :automation_policy, DraftOnlyPolicy)
+    Application.put_env(:cairnloop, :draft_generator, StubGenerator)
+    Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:128")
+
+    assert :ok = DraftWorker.perform(%Oban.Job{args: %{"conversation_id" => 128}})
+
+    # The configured generator was invoked for this conversation, not the hardcoded engine.
+    assert_received {:stub_generator_called, 128}
     assert_receive {:draft_created, 999}, 1000
   end
 
