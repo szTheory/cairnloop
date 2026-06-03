@@ -360,4 +360,137 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_switch role=switch toggle (UIC-04 / D-04) ---
+
+  test "cl_switch renders role=switch, string aria-checked=false, label, and phx-click passthrough" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Draft mode" phx-click="toggle" />
+      """)
+
+    assert html =~ ~s(role="switch")
+    assert html =~ ~s(aria-checked="false")
+    assert html =~ "Draft mode"
+    assert html =~ ~s(phx-click="toggle")
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch checked={true} renders aria-checked=true (string, not boolean attr)" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={true} label="Notifications" />
+      """)
+
+    assert html =~ ~s(aria-checked="true")
+    assert html =~ "Notifications"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Dark theme" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_status_cell table-cell chip wrapper (UIC-04 / D-07) ---
+
+  test "cl_status_cell renders .cl-status-cell wrapping cl-chip--success with label and icon" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="success" label="Approved" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "cl-chip--success"
+    assert html =~ "Approved"
+    assert html =~ "<svg"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell with default neutral variant renders label without error" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell label="Pending review" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "Pending review"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="warning" label="Needs attention" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_source_card status surface (UIC-04 / D-06) ---
+
+  test "cl_source_card source_variant=success renders cl-source-card--success with icon and title" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="success">
+        <:title>KB Article: Refund Policy</:title>
+        <p>Refunds are processed within 5 business days.</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--success"
+    assert html =~ "<svg"
+    assert html =~ "KB Article: Refund Policy"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card source_variant=info renders cl-source-card--info, resolves info icon, and renders optional :meta slot" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="info">
+        <:title>Documentation reference</:title>
+        <:meta>v1.2.3 · 3 weeks ago</:meta>
+        <p>body content</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--info"
+    assert html =~ "<svg"
+    assert html =~ "cl-source-card__meta"
+    assert html =~ "v1.2.3"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="neutral">
+        <:title>Source title</:title>
+      </.cl_source_card>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
