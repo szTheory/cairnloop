@@ -442,4 +442,55 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_source_card status surface (UIC-04 / D-06) ---
+
+  test "cl_source_card source_variant=success renders cl-source-card--success with icon and title" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="success">
+        <:title>KB Article: Refund Policy</:title>
+        <p>Refunds are processed within 5 business days.</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--success"
+    assert html =~ "<svg"
+    assert html =~ "KB Article: Refund Policy"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card source_variant=info renders cl-source-card--info, resolves info icon, and renders optional :meta slot" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="info">
+        <:title>Documentation reference</:title>
+        <:meta>v1.2.3 · 3 weeks ago</:meta>
+        <p>body content</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--info"
+    assert html =~ "<svg"
+    assert html =~ "cl-source-card__meta"
+    assert html =~ "v1.2.3"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="neutral">
+        <:title>Source title</:title>
+      </.cl_source_card>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end

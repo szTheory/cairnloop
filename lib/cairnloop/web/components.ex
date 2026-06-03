@@ -255,6 +255,42 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  Status surface keyed by `source_variant` — a card with a distinct-silhouette header icon,
+  a required `:title` slot, an optional body, and an optional `:meta` footer row.
+
+  Mirrors `cl_banner`'s variant+icon+slot shape but provides a card-style container for
+  KB sources, retrieved evidence, and citation cards. The header icon is resolved from the
+  variant via the existing `status_icon/1` map (REUSE — no hand-authored SVG).
+
+  Drift-map alignment (P40): `source_variant="success"` replaces inline `#4A6238`;
+  `source_variant="info"` replaces inline `#3F6F80`. Icon MUST always be present
+  (never color alone — brand §7.5).
+  """
+  attr(:source_variant, :string, values: ~w(success info neutral warning danger ai), default: "neutral")
+  attr(:icon, :string, default: nil)
+  slot(:title, required: true)
+  slot(:meta)
+  slot(:inner_block)
+
+  def cl_source_card(assigns) do
+    assigns =
+      assign_new(assigns, :resolved_icon, fn ->
+        assigns[:icon] || status_icon(assigns.source_variant)
+      end)
+
+    ~H"""
+    <div class={["cl-source-card", "cl-source-card--#{@source_variant}"]}>
+      <header class="cl-source-card__header">
+        <.cl_icon name={@resolved_icon} class="cl-source-card__icon" />
+        {render_slot(@title)}
+      </header>
+      <div class="cl-source-card__body">{render_slot(@inner_block)}</div>
+      <div :if={@meta != []} class="cl-source-card__meta">{render_slot(@meta)}</div>
+    </div>
+    """
+  end
+
+  @doc """
   Thin table-cell wrapper that delegates directly to `cl_chip` (no re-authored chip markup).
   Provides a stable `.cl-status-cell` container for table column alignment.
 
