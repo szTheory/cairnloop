@@ -152,9 +152,9 @@ defmodule Cairnloop.Web.Components do
   Primary-count hero tile — Fraunces copper count (~2–3× heavier than `cl_stat`) with a
   verb-led job label, an optional quiet `:detail` sub-line, and a primary CTA.
 
-  CTA precedence: when an `:inner_block` CTA slot is provided it wins; otherwise when
-  `@cta` is set, renders `<.cl_button variant="primary">`. Both are optional.
-  `calm?` switches the count to `--cl-success` (zero / all-caught-up state).
+  CTA precedence: when a `:cta_slot` is provided it wins; otherwise when `@cta` is set,
+  renders a `<.link navigate={@href}>` styled as `cl-button cl-button--primary`. Both are
+  optional. `calm?` switches the count to `--cl-success` (zero / all-caught-up state).
   """
   attr(:count, :integer, required: true)
   attr(:job, :string, required: true)
@@ -163,7 +163,6 @@ defmodule Cairnloop.Web.Components do
   attr(:calm?, :boolean, default: false)
   slot(:detail)
   slot(:cta_slot)
-  slot(:inner_block)
 
   def cl_hero(assigns) do
     ~H"""
