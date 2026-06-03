@@ -55,6 +55,7 @@ This is an owner-pulled **iteration/polish** milestone on the already-shipped op
 - The repo ships releases through the canonical szTheory **release-please** pipeline (`fix:`/`feat:` commit on `main` → bot PR → auto-tag + `publish-hex`), gated on a now-green DB-backed integration suite in `release_gate` (vM015).
 
 **Current milestone:** `vM016 Operator UI/UX Iteration` (phases 37–45) — an owner-pulled iteration/polish pass on the already-shipped operator dashboard (see "## Current Milestone" above and `.planning/vM016-UI-ITERATION-BRIEF.md`). Cairnloop remains "done enough for stated scope" at the product level; vM016 deepens adoption quality (consistency, IA threading, drift-proofing), not product scope. Epic 12/13/14 strategic optionality stays opt-in only.
+- **Phase 37 — Component Primitives** complete (2026-06-03): the component library now has all eight iteration primitives (`cl_page`, `cl_hero`, de-polymorphized `cl_stat`, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch`) plus layout tokens, inert utilities, and accessible `.cl-table-scroll` wrappers on all four operator tables — purely additive to `components.ex` + `cairnloop.css`, warnings-clean, 42 headless tests. Adoption (page-shell migration) begins Phase 38.
 
 ## Architectural Invariants
 
@@ -109,7 +110,7 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 ### Active
 
 **vM016 Operator UI/UX Iteration** (REQ-IDs in `.planning/REQUIREMENTS.md`):
-- Component primitives + layout tokens + inert-utility/`.cl-table` fixes (UIC-*)
+- ✓ Component primitives + layout tokens + inert-utility/`.cl-table` fixes (UIC-*) — Phase 37 complete (2026-06-03)
 - Shared page-shell migration + cross-screen threading (SHELL-*, THREAD-*)
 - Home two-tier primacy redesign / D1 (HOME-*)
 - Drift remediation + brand-token gate hardening (DRIFT-*, GATE-*)
