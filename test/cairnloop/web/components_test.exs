@@ -312,4 +312,52 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_fact_list label/value list (UIC-04 / D-05) ---
+
+  test "cl_fact_list renders a <dl> with dt/dd pairs for each fact" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}, %{label: "Risk tier", value: "Low"}]} />
+      """)
+
+    assert html =~ ~s(<dl class="cl-fact-list">)
+    assert html =~ "cl-fact-list__row"
+    assert html =~ ~s(<dt class="cl-fact-list__label">Plan</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Pro</dd>)
+    assert html =~ ~s(<dt class="cl-fact-list__label">Risk tier</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Low</dd>)
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list with inner_block renders custom rows inside the <dl>" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}]}>
+        <div class="custom-row">Extra info</div>
+      </.cl_fact_list>
+      """)
+
+    assert html =~ "cl-fact-list"
+    assert html =~ "Plan"
+    assert html =~ "Pro"
+    assert html =~ "custom-row"
+    assert html =~ "Extra info"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Account", value: "Acme Corp"}]} />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
