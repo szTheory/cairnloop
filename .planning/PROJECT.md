@@ -6,9 +6,24 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
+## Current Milestone: vM016 Operator UI/UX Iteration
+
+**Goal:** Take the operator dashboard from "design system shipped (v0.4.0)" to a consistent, branded, intuitively-threaded cockpit — harvest componentization dividends, stop the off-system drift in bespoke screens, fix the IA so the screens stop "feeling disjoint," fully express every screen's states, and lock the gains in with a hardened brand-token gate. Operator/admin surface only (NOT the customer chat widget or demo index).
+
+**Target features (phases 37–45; design directions D1–D3 ratified in `.planning/vM016-UI-ITERATION-BRIEF.md`):**
+- **Component primitives** — `cl_page`, `cl_hero`/`cl_stat` split, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch` + layout tokens + inert-utility and `.cl-table` scroll-wrapper fixes.
+- **Shared page-shell migration + cross-screen threading** — Home/Inbox/Audit/Settings/KB onto `cl_page` with wired breadcrumbs; next-in-queue, audit↔conversation, action↔audit, article→originating-conversation.
+- **Home primacy redesign (D1)** — two-tier hero ("work the queue") + calmer secondary band; health-as-chip; count-color semantics fix; Recover-resolved filter CTA fix.
+- **Drift remediation + brand-token gate hardening (paired)** — hex→token in `conversation_live`/`search_modal`; gate fails on inline `style="…#hex…"`, raw `rgba()`, helper-returned hex; complementary Credo check.
+- **Conversation rail progressive disclosure (D2)** — safety-pinned native-`<details>` accordion (decisions first; never collapse pending/safety signals).
+- **Responsive (D3)** — desktop-first cockpit authored mobile-first; 768 tablet breakpoint; accessible table scrollers.
+- **Restrained motion** (brand §15, reduced-motion-safe) + **seed enrichment + light/dark screenshot regen + verification sweep**.
+
+This is an owner-pulled **iteration/polish** milestone on the already-shipped operator surface — it deepens adoption quality, not product scope. Epics 12/13/14 (advanced routing, local AI, mobile SDK) stay out of scope, honoring the diminishing-returns posture.
+
 ## Current State
 
-**Latest shipped milestone: `vM015 Operator Polish + Maintenance Gates` on 2026-05-30 — published as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm.**
+**Latest shipped milestone: `vM015 Operator Polish + Maintenance Gates` on 2026-05-30. Since then, three releases shipped outside formal GSD milestone numbering — `v0.4.0` (operator UI rebuilt on a shipped design system: `priv/static/cairnloop.css` + `Cairnloop.Web.Components` + Cockpit Home/nav), `v0.5.0` (`Cairnloop.Automation.DraftGenerator` seam + Anthropic adapter — the draft path is no longer a pure mock), and `v0.5.1` (operator-identity auth fix + installer fix). Current published version: `cairnloop` v0.5.1 on Hex.pm. Active milestone: `vM016 Operator UI/UX Iteration` (phases 37+).**
 
 **What is now true (cumulative through vM015):**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence (vM008–vM009).
@@ -39,7 +54,7 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Adopters have MCP-client and extension guides (`guides/05-mcp-clients.md`, `guides/06-extending.md`), `CONTRIBUTING.md`, and `docs/architecture.md` (vM015).
 - The repo ships releases through the canonical szTheory **release-please** pipeline (`fix:`/`feat:` commit on `main` → bot PR → auto-tag + `publish-hex`), gated on a now-green DB-backed integration suite in `release_gate` (vM015).
 
-**Current milestone:** None. **The diminishing-returns line was reached at vM015 close** — Cairnloop is "done enough for stated scope." vM016+ is adoption + maintenance, not features; use `/gsd-new-milestone` only when a real adopter signal pulls. Epic 12/13/14 strategic optionality stays opt-in only.
+**Current milestone:** `vM016 Operator UI/UX Iteration` (phases 37–45) — an owner-pulled iteration/polish pass on the already-shipped operator dashboard (see "## Current Milestone" above and `.planning/vM016-UI-ITERATION-BRIEF.md`). Cairnloop remains "done enough for stated scope" at the product level; vM016 deepens adoption quality (consistency, IA threading, drift-proofing), not product scope. Epic 12/13/14 strategic optionality stays opt-in only.
 
 ## Architectural Invariants
 
@@ -93,7 +108,15 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 
 ### Active
 
-(None)
+**vM016 Operator UI/UX Iteration** (REQ-IDs in `.planning/REQUIREMENTS.md`):
+- Component primitives + layout tokens + inert-utility/`.cl-table` fixes (UIC-*)
+- Shared page-shell migration + cross-screen threading (SHELL-*, THREAD-*)
+- Home two-tier primacy redesign / D1 (HOME-*)
+- Drift remediation + brand-token gate hardening (DRIFT-*, GATE-*)
+- Conversation rail progressive disclosure / D2 (RAIL-*)
+- Responsive desktop-first cockpit / D3 (RESP-*)
+- Restrained motion (MOTION-*)
+- Seed enrichment + light/dark screenshot regen + verification sweep (SEED-*, VERIFY-*)
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -278,4 +301,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Post-done mode (vM016+)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
 
 ---
-*Last updated: 2026-05-30 after vM015 milestone — Operator Polish + Maintenance Gates shipped as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. All 17 v1 requirements satisfied across Phases 33–36: KnowledgeAutomation security closure (T-10-10/12/13), `SettingsLive` operator cockpit, Audit Log + `/health` + `/metrics` + rail pagination, MCP/extending guides + CONTRIBUTING + architecture docs. Repo migrated to the release-please pipeline; DB-backed integration suite greened and gated. **Diminishing-returns line reached — Cairnloop is "done enough for stated scope"; vM016+ is adoption + maintenance.** Open: verification debt for phases 33/34/35 (no VERIFICATION.md).*
+*Last updated: 2026-06-03 — started milestone **vM016 Operator UI/UX Iteration** (phases 37–45) from the ratified `.planning/vM016-UI-ITERATION-BRIEF.md`. Reconciled stale planning state: since vM015 close, `v0.4.0` (operator design system: `cairnloop.css` + `Cairnloop.Web.Components` + Cockpit Home/nav), `v0.5.0` (`Automation.DraftGenerator` seam + Anthropic adapter), and `v0.5.1` (operator-identity + installer fix) shipped outside formal milestone numbering — current published version is `cairnloop` v0.5.1 on Hex.pm. vM016 iterates the already-shipped operator surface (consistency, IA threading, drift-proofing); product remains "done enough for stated scope," Epics 12/13/14 stay opt-in. Earlier open item: verification debt for phases 33/34/35 (no VERIFICATION.md) — see STATE.md.*
