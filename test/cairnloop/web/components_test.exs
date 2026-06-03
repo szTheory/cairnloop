@@ -360,4 +360,45 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_switch role=switch toggle (UIC-04 / D-04) ---
+
+  test "cl_switch renders role=switch, string aria-checked=false, label, and phx-click passthrough" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Draft mode" phx-click="toggle" />
+      """)
+
+    assert html =~ ~s(role="switch")
+    assert html =~ ~s(aria-checked="false")
+    assert html =~ "Draft mode"
+    assert html =~ ~s(phx-click="toggle")
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch checked={true} renders aria-checked=true (string, not boolean attr)" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={true} label="Notifications" />
+      """)
+
+    assert html =~ ~s(aria-checked="true")
+    assert html =~ "Notifications"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Dark theme" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end

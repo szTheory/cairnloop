@@ -228,6 +228,33 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  ARIA switch toggle control. A real `<button role="switch">` (NOT a checkbox) with
+  server-owned checked state. `aria-checked` is rendered as the literal string `"true"`
+  or `"false"` via `to_string/1` — a raw boolean would emit a present/absent HTML boolean
+  attribute that assistive tech cannot announce as "off".
+
+  `label` is always visible (never color alone — brand §7.5). The 44px tap target and
+  checked visual (`[aria-checked="true"]` track fill + thumb translate) live in
+  `cairnloop.css`. Pass LiveView wiring via `:rest` — `phx-value-*` are included in the
+  allowlist because they are not default Phoenix.Component globals.
+  """
+  attr(:checked, :boolean, required: true)
+  attr(:label, :string, required: true)
+
+  attr(:rest, :global,
+    include: ~w(phx-click phx-value-id phx-value-key disabled form name value)
+  )
+
+  def cl_switch(assigns) do
+    ~H"""
+    <button type="button" class="cl-switch" role="switch" aria-checked={to_string(@checked)} {@rest}>
+      <span class="cl-switch__track"><span class="cl-switch__thumb"></span></span>
+      <span class="cl-switch__label">{@label}</span>
+    </button>
+    """
+  end
+
+  @doc """
   Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
   optional actions slot right-aligned in the header, optional subnav between header and
   body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
