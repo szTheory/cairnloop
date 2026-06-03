@@ -254,4 +254,62 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_disclosure patch-safe native disclosure (UIC-03 / D-03) ---
+
+  test "cl_disclosure open=true renders <details with phx-update=ignore, stable id, open attr, and classes" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="inputs-scope" open={true}>
+        <:summary>Inputs &amp; scope</:summary>
+        <p>body content</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="inputs-scope")
+    assert html =~ "open"
+    assert html =~ "cl-details"
+    assert html =~ "cl-disclosure"
+    assert html =~ "cl-details__summary"
+    assert html =~ "Inputs"
+    assert html =~ "body content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure open=false (default) omits the open attribute but retains phx-update=ignore and id" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="x">
+        <:summary>Hidden section</:summary>
+        <p>details</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="x")
+    # open=false — HEEx boolean-attr must NOT emit the open attribute
+    refute html =~ ~r/\bopen\b/
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="token-test">
+        <:summary>Summary</:summary>
+        <p>content</p>
+      </.cl_disclosure>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
