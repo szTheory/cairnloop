@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/szTheory/cairnloop/compare/v0.3.0...v0.4.0) (2026-06-03)
+
+
+### Features
+
+* **ui:** add Cockpit Home + persistent nav shell (IA orientation layer) ([fa24f9d](https://github.com/szTheory/cairnloop/commit/fa24f9d69cc792f16fc2b5875ecdaeccf4d3d13c))
+* **ui:** design-system + IA elevation for the operator UI ([ebed003](https://github.com/szTheory/cairnloop/commit/ebed003a29798f4f39aec7f1ed18d3d7c70ed41b))
+* **ui:** finish Conversation Workspace rail on the design system (Pass 6) ([d680ca4](https://github.com/szTheory/cairnloop/commit/d680ca4dd27cc22e50996c0980f1afeb07bab4da))
+* **ui:** rebuild Audit Log on the design system (Pass 3, screen 2) ([517da98](https://github.com/szTheory/cairnloop/commit/517da9854b1046d941db1efca33e36dee8d2058b))
+* **ui:** rebuild Conversation Workspace on the design system (Pass 3) ([8b4c362](https://github.com/szTheory/cairnloop/commit/8b4c362affb6e195881a1aafd9bcc3129c76c459))
+* **ui:** rebuild Settings on the design system (Pass 3, screen 1) ([71ad202](https://github.com/szTheory/cairnloop/commit/71ad20218eeb32f46f26adba7a9d0068c43e86ce))
+* **ui:** rebuild the Knowledge Base cluster on the design system (Pass 3) ([f543de4](https://github.com/szTheory/cairnloop/commit/f543de4a6bf8acc5a24924602e1ae962bb76f4bd))
+* **ui:** rebuild the operator Inbox on the design system (Pass 3) ([e40dc55](https://github.com/szTheory/cairnloop/commit/e40dc5596e0f23130de2fb21c8fd986183f9ccf4))
+* **ui:** ship cairnloop.css design system + shared component library ([0c96516](https://github.com/szTheory/cairnloop/commit/0c96516ec6b68b2c9521a153a838d4e7d261505a))
+
+
+### Bug Fixes
+
+* **ui:** green the integration gate — restore bare brand tokens ([eb73bb2](https://github.com/szTheory/cairnloop/commit/eb73bb2057d0bd867498dabf4a8542741e39ad0c))
+
 ## [0.3.0](https://github.com/szTheory/cairnloop/compare/v0.2.3...v0.3.0) (2026-05-30)
 
 
