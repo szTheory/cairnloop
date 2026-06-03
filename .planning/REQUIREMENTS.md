@@ -11,11 +11,11 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Component Primitives (UIC)
 
-- [ ] **UIC-01**: A `cl_page` shell component exists with `title`/`subtitle`/`:actions`/`:breadcrumb`/`:subnav` slots and `:wide`/`:reading` width options, rendering consistent inner page framing.
-- [ ] **UIC-02**: `cl_stat` is de-polymorphized to numeric-only, and a `cl_hero` (or `cl_stat variant="hero"` + `:detail` slot) renders a primary hero count.
-- [ ] **UIC-03**: A reusable `cl_disclosure`/`cl_details` primitive wraps native `<details>`/`<summary>` for SSR/patch-safe progressive disclosure with no server-assigns open state.
-- [ ] **UIC-04**: `cl_fact_list`, `cl_source_card` (with `source_variant`), `cl_status_cell`, and `cl_switch` (real `role="switch"`) components exist and are token-pure.
-- [ ] **UIC-05**: Layout tokens (`--cl-content-max`, `--cl-rail-width`, `--cl-page-gutter`) are added, the previously-inert utilities (`cl-gap-2`/`cl-align-center`/`cl-justify-between`) are defined in CSS, and every `.cl-table` has an accessible `overflow-x:auto` scroll wrapper.
+- [x] **UIC-01**: A `cl_page` shell component exists with `title`/`subtitle`/`:actions`/`:breadcrumb`/`:subnav` slots and `:wide`/`:reading` width options, rendering consistent inner page framing.
+- [x] **UIC-02**: `cl_stat` is de-polymorphized to numeric-only, and a `cl_hero` (or `cl_stat variant="hero"` + `:detail` slot) renders a primary hero count.
+- [x] **UIC-03**: A reusable `cl_disclosure`/`cl_details` primitive wraps native `<details>`/`<summary>` for SSR/patch-safe progressive disclosure with no server-assigns open state.
+- [x] **UIC-04**: `cl_fact_list`, `cl_source_card` (with `source_variant`), `cl_status_cell`, and `cl_switch` (real `role="switch"`) components exist and are token-pure.
+- [x] **UIC-05**: Layout tokens (`--cl-content-max`, `--cl-rail-width`, `--cl-page-gutter`) are added, the previously-inert utilities (`cl-gap-2`/`cl-align-center`/`cl-justify-between`) are defined in CSS, and every `.cl-table` has an accessible `overflow-x:auto` scroll wrapper.
 
 ### Shared Page-Shell Migration (SHELL)
 
@@ -100,11 +100,11 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UIC-01 | Phase 37 | Pending |
-| UIC-02 | Phase 37 | Pending |
-| UIC-03 | Phase 37 | Pending |
-| UIC-04 | Phase 37 | Pending |
-| UIC-05 | Phase 37 | Pending |
+| UIC-01 | Phase 37 | Complete |
+| UIC-02 | Phase 37 | Complete |
+| UIC-03 | Phase 37 | Complete |
+| UIC-04 | Phase 37 | Complete |
+| UIC-05 | Phase 37 | Complete |
 | SHELL-01 | Phase 38 | Pending |
 | SHELL-02 | Phase 38 | Pending |
 | HOME-01 | Phase 39 | Pending |

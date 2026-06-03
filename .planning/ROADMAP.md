@@ -24,7 +24,7 @@
 
 ### vM016 Operator UI/UX Iteration (Phases 37–45) — ACTIVE
 
-- [ ] **Phase 37 — Component Primitives** — `cl_page`, `cl_hero`/`cl_stat` split, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch` + layout tokens + inert-utility and `.cl-table` scroll-wrapper fixes
+- [x] **Phase 37 — Component Primitives** — `cl_page`, `cl_hero`/`cl_stat` split, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch` + layout tokens + inert-utility and `.cl-table` scroll-wrapper fixes (completed 2026-06-03)
 - [ ] **Phase 38 — Shared Page-Shell Migration** — All operator screens (Home/Inbox/Audit/Settings/KB) rendered through `cl_page`; `cl_breadcrumb` wired on the deep KB-from-conversation path
 - [ ] **Phase 39 — Home Primacy Redesign (D1)** — Two-tier hero + calmer secondary band; health-as-chip; count-color semantics fix; Recover-resolved filter CTA fix; zero-state; count queries + throttle
 - [ ] **Phase 40 — Drift Remediation + Brand-Token Gate Hardening** — hex→token in `conversation_live`/`search_modal`; hardened gate fails on inline `style="…#hex…"`, raw `rgba()`, helper-returned hex; complementary Credo check
@@ -175,7 +175,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 37. Component Primitives | vM016 | 5/5 | Complete   | 2026-06-03 |
+| 37. Component Primitives | vM016 | 5/5 | Complete    | 2026-06-03 |
 | 38. Shared Page-Shell Migration | vM016 | 0/? | Not started | — |
 | 39. Home Primacy Redesign (D1) | vM016 | 0/? | Not started | — |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 0/? | Not started | — |
