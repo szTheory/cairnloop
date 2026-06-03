@@ -2124,9 +2124,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       html = render_html(failed_bubble_assigns("sent"))
 
       assert html =~ ~s(aria-label="Outbound recovery")
-      # Pin the actual rendered <section class="rail-card outbound-action-card">
+      # Pin the actual rendered <section class="cl-card outbound-action-card">
       # (the bare class name appears in the embedded CSS regardless of render).
-      assert html =~ ~s(class="rail-card outbound-action-card")
+      assert html =~ ~s(class="cl-card outbound-action-card")
     end
 
     test "Test 6: outbound_recovery_card hidden on non-resolved conversation" do

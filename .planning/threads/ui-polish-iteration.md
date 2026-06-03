@@ -61,12 +61,6 @@ seed data that fully expresses every screen. Repeatable/resumable so future pass
       shots added, ready to run where a DB + the example app are available.
 
 ## Remaining work (clear handoff for a follow-up session)
-- **Conversation workspace** (`conversation_live.ex`, 1793 lines) — the most heavily-iterated screen
-  (lowest priority per owner). Not yet on `cl_shell`/`.cl-*`; has its own inline `<style>` block.
-  Lighter-touch refactor recommended (wrap in shell, swap status/buttons to components, keep the
-  rail layout).
-- **Shared `knowledge_base_live/nav_component.ex`** (KB sub-nav) + **`search_modal_component.ex`**
-  (the ⌘K palette, 638 lines) — still old styling; restyle to `.cl-tabs` / `.cl-*`.
 - **Pass 5 seed enrichment** + **Pass 6 screenshot run** — need Postgres + the example app booting.
 - Optional: advanced motion motifs; nav count badges (currently labels-only for cheap per-screen nav).
 
@@ -127,6 +121,14 @@ detail views end with next-step; bi-directional). No dead-ends, no modal traps.
 Full `mix test` shows 2 failures, both in files untouched by this work:
 1. `Cairnloop.Automation.DraftTest` — the documented M005-drift baseline (per memory).
 2. `Cairnloop.Workers.OutboundWorkerTest:93` — static source-grep test for D-11 `unique:` keys;
+   independent of UI. (Memory only recorded #1; #2 is also pre-existing — UI diff can't affect it.)
+My changes are isolated to web/CSS/router; all web + new tests pass.
+
+## Open questions / risks
+- CSS delivery to adopter runtime: ship at `priv/static/cairnloop.css`; document host serving
+  (Plug.Static from dep priv, or bundler import, or Igniter copy). Decide in Pass 1.
+- Single-source-of-truth for tokens vs the example app's Tailwind `@theme` block (avoid drift).
+ `Cairnloop.Workers.OutboundWorkerTest:93` — static source-grep test for D-11 `unique:` keys;
    independent of UI. (Memory only recorded #1; #2 is also pre-existing — UI diff can't affect it.)
 My changes are isolated to web/CSS/router; all web + new tests pass.
 

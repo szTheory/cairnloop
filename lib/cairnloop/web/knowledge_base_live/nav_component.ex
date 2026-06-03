@@ -12,10 +12,6 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
     <.kb_nav current={:editor} />
 
   The `:editor` value renders no active marker — Editor has no top-level nav entry.
-
-  All CSS uses bare `var(--cl-<token>)` — no hex fallbacks (BRAND-04 gate).
-  Active route is paired with `aria-current="page"` AND a primary border-bottom
-  (never color alone — brand §7.5).
   """
 
   use Phoenix.Component
@@ -26,7 +22,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
     ~H"""
     <nav
       aria-label="Knowledge base"
-      style="background: var(--cl-surface); border-bottom: 1px solid var(--cl-border); padding: 0 24px; height: 48px; display: flex; align-items: center; gap: 8px;"
+      class="cl-tabs"
+      style="padding: 0 24px; background: var(--cl-surface);"
     >
       <.kb_nav_link to="/knowledge-base" label="Knowledge base" active={@current == :index} />
       <.kb_nav_link to="/knowledge-base/suggestions" label="Suggestions" active={@current == :suggestions} />
@@ -44,18 +41,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
     <.link
       navigate={@to}
       aria-current={if @active, do: "page"}
-      style={nav_link_style(@active)}
+      aria-selected={to_string(@active)}
+      class="cl-tab"
     >
       {@label}
     </.link>
     """
-  end
-
-  defp nav_link_style(true) do
-    "padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--cl-text); text-decoration: none; border-bottom: 2px solid var(--cl-primary); letter-spacing: 0.015em;"
-  end
-
-  defp nav_link_style(false) do
-    "padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--cl-text-muted); text-decoration: none; border-bottom: 2px solid transparent; letter-spacing: 0.015em;"
   end
 end

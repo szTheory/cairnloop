@@ -494,3 +494,18 @@
   .cl-nav { gap: var(--cl-space-3, 8px); padding: 0 var(--cl-space-4, 12px); }
   .cl-nav__link { padding: var(--cl-space-2, 4px) var(--cl-space-3, 8px); }
 }
+
+/* ---- Modals & Inbox Specific -------------------------------------------- */
+.cl-modal-backdrop { justify-content: center; align-items: flex-start; padding: 64px 16px; }
+.cl-modal-dialog { position: relative; background: var(--cl-surface); color: var(--cl-text); border-radius: var(--cl-radius-lg, 14px); width: min(640px, 92vw); max-height: 78vh; overflow: hidden; display: flex; flex-direction: column; gap: var(--cl-space-3, 8px); padding: var(--cl-space-7, 24px); }
+.cl-modal-close { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0; }
+.cl-inbox-bulk-bar { position: sticky; bottom: 0; background: var(--cl-surface-raised, #FFF); border-top: 1px solid var(--cl-border); padding: var(--cl-space-4, 12px); z-index: 1100; }
+
+/* ---- Conversation Layout ------------------------------------------------ */
+.conversation-layout { display: flex; flex-direction: column; gap: var(--cl-space-8, 32px); }
+@media (min-width: 1024px) {
+  .conversation-layout { flex-direction: row; }
+  .message-timeline { flex: 1; }
+  .evidence-rail { width: 352px; flex-shrink: 0; }
+}
+.evidence-rail { display: flex; flex-direction: column; gap: var(--cl-space-7, 24px); }

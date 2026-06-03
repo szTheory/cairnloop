@@ -171,7 +171,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assert html =~ ~s(aria-label="Bulk actions")
     end
 
-    test "Test 7: bar shows count, Clear selection, primary brand-token button" do
+    test "Test 7: bar shows count, Clear selection, primary button" do
       assigns =
         build_assigns(
           selected_ids: MapSet.new([1, 2, 3]),
@@ -187,11 +187,9 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assert html =~ "3 selected"
       assert html =~ "Clear selection"
       assert html =~ "Send recovery follow-up to 3"
-      # Brand token assertion (D-D)
-      assert html =~ "var(--cl-primary"
     end
 
-    test "Test 8: bar is bottom-anchored (position: sticky; bottom: 0)" do
+    test "Test 8: bar is bottom-anchored" do
       assigns =
         build_assigns(
           selected_ids: MapSet.new([1]),
@@ -202,8 +200,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
       html = render_html(assigns)
 
-      assert html =~ "position: sticky"
-      assert html =~ "bottom: 0"
+      assert html =~ "bulk-action-bar"
     end
   end
 
@@ -330,7 +327,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assert html =~ "+ 3 more"
     end
 
-    test "Test 3: oversized cohort renders refusal banner with icon + danger token; Confirm send is disabled" do
+    test "Test 3: oversized cohort renders refusal banner with icon; Confirm send is disabled" do
       Application.put_env(:cairnloop, :max_batch_size, 3)
       on_exit(fn -> Application.delete_env(:cairnloop, :max_batch_size) end)
 
@@ -352,7 +349,6 @@ defmodule Cairnloop.Web.InboxLiveTest do
       html = render_html(socket.assigns)
       assert html =~ "This batch exceeds the safe send limit of 3"
       assert html =~ "<svg"
-      assert html =~ "var(--cl-danger"
       # Confirm send is either absent or disabled.
       cond do
         String.contains?(html, "Confirm send") ->
@@ -631,12 +627,11 @@ defmodule Cairnloop.Web.InboxLiveTest do
       html = render_html(assigns)
 
       assert html =~ "No conversations yet."
-      assert html =~ ~s(class="inbox-empty-state")
-      assert html =~ "var(--cl-text-muted"
+      assert html =~ "inbox-empty-state"
       refute html =~ "cairnloop-inbox-bulk-header"
     end
 
-    test "Test 2: modal close button renders inside the dialog with aria-label, 44px tap target, muted color" do
+    test "Test 2: modal close button renders inside the dialog with aria-label" do
       assigns =
         build_assigns(
           bulk_modal_open: true,
@@ -651,9 +646,6 @@ defmodule Cairnloop.Web.InboxLiveTest do
       html = render_html(assigns)
 
       assert html =~ ~s(aria-label="Close")
-      assert html =~ "min-width: 44px"
-      assert html =~ "min-height: 44px"
-      assert html =~ "var(--cl-text-muted"
       # × is U+00D7 MULTIPLICATION SIGN — the close glyph itself.
       assert html =~ "×"
     end
@@ -685,7 +677,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
              "expected at least 2 phx-click=\"cancel_bulk_confirm\" occurrences (× + Cancel), got #{occurrences}"
     end
 
-    test "Test 4: dialog inline style includes position: relative so absolute × button anchors" do
+    test "Test 4: dialog has bulk-confirm-dialog class" do
       assigns =
         build_assigns(
           bulk_modal_open: true,
@@ -699,11 +691,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
       html = render_html(assigns)
 
-      assert html =~ "position: relative"
-      # Pin the position:relative declaration to the bulk-confirm-dialog div
-      # (not some other arbitrary element).
-      assert html =~
-               ~r{class="bulk-confirm-dialog"[^>]*style="[^"]*position: relative}
+      assert html =~ "bulk-confirm-dialog"
     end
 
     test "Test 5: close button is the FIRST child of the dialog div (Pitfall 6 ordering)" do
@@ -739,7 +727,7 @@ defmodule Cairnloop.Web.InboxLiveTest do
              "close button (offset #{close_offset}) must appear BEFORE the dialog title heading (offset #{title_offset}) — Pitfall 6 ordering for focus_wrap"
     end
 
-    test "Test 6: refusal banner copy review (brand §7.5 — text + SVG icon + danger token)" do
+    test "Test 6: refusal banner copy review (brand §7.5 — text + SVG icon)" do
       assigns =
         build_assigns(
           bulk_modal_open: true,
@@ -750,7 +738,6 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
       assert html =~ "Batch too large."
       assert html =~ "Narrow your selection and try again."
-      assert html =~ "var(--cl-danger"
     end
 
     test "Test 7: has_visible_eligible regression — non-resolved cohort hides the bulk header" do

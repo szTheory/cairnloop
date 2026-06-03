@@ -125,10 +125,7 @@ defmodule Cairnloop.Web.InboxLive do
 
         <%= if @conversations == [] do %>
           <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
-          <p
-            class="inbox-empty-state"
-            style="margin-top: var(--cl-space-4); font-size: var(--cl-font-small); color: var(--cl-text-muted);"
-          >
+          <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
             No conversations yet.
           </p>
         <% end %>
@@ -170,8 +167,7 @@ defmodule Cairnloop.Web.InboxLive do
           <div
             role="region"
             aria-label="Bulk actions"
-            class="bulk-action-bar cl-row cl-row--wrap"
-            style="position: sticky; bottom: 0; background: var(--cl-surface-raised); border-top: 1px solid var(--cl-border); padding: var(--cl-space-4); z-index: 10;"
+            class="bulk-action-bar cl-inbox-bulk-bar cl-row cl-row--wrap"
           >
             <span><%= MapSet.size(@selected_ids) %> selected</span>
             <.cl_button variant="ghost" phx-click="clear_selection">
@@ -179,14 +175,9 @@ defmodule Cairnloop.Web.InboxLive do
             </.cl_button>
             <%!-- Brand §7.5 never-color-alone: text label AND the literal --cl-primary token
                   (test/integration assert the rendered HTML carries `var(--cl-primary)`). --%>
-            <button
-              type="button"
-              phx-click="open_bulk_confirm"
-              class="cl-button cl-button--primary"
-              style="background: var(--cl-primary); color: var(--cl-on-primary);"
-            >
+            <.cl_button variant="primary" phx-click="open_bulk_confirm">
               Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
-            </button>
+            </.cl_button>
           </div>
         <% end %>
 
@@ -196,89 +187,81 @@ defmodule Cairnloop.Web.InboxLive do
             role="dialog"
             aria-modal="true"
             aria-labelledby="bulk-confirm-title"
-            class="bulk-confirm-backdrop cl-overlay cl-row"
-            style="justify-content: center; align-items: flex-start; padding: 64px 16px;"
+            class="bulk-confirm-backdrop cl-overlay cl-row cl-modal-backdrop"
             phx-window-keydown="cancel_bulk_confirm"
             phx-key="Escape"
           >
             <.focus_wrap id="bulk-confirm-wrap">
-              <div
-                class="bulk-confirm-dialog"
-                style="position: relative; background: var(--cl-surface); color: var(--cl-text); border-radius: var(--cl-radius-lg); width: min(640px, 92vw); max-height: 78vh; overflow: hidden; display: flex; flex-direction: column; gap: var(--cl-space-3); padding: var(--cl-space-7);"
-              >
+              <div class="bulk-confirm-dialog cl-modal-dialog">
                 <%!-- Phase 26 D-08: visible close affordance. Escape already works via phx-window-keydown. Anchored by position:relative on the dialog div. --%>
                 <button
                   type="button"
                   phx-click="cancel_bulk_confirm"
                   aria-label="Close"
-                  style="position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0;"
+                  class="cl-modal-close"
                 >
                   ×
                 </button>
 
                 <%= if @bulk_refusal do %>
-                  <%!-- D-10 + brand §7.5 — refusal banner: icon + text + danger token. --%>
+                  <%!-- D-10 + brand §7.5 — refusal banner: icon + text. --%>
                   <.cl_banner variant="danger" class="bulk-refusal">
-                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--cl-danger); margin-top: 2px;">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" class="cl-icon">
                       <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
                       <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
-                    <h2 id="bulk-confirm-title" style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 600;">
-                      Batch too large.
-                    </h2>
-                    <p style="margin: 6px 0 0;">
-                      This batch exceeds the safe send limit of <%= @bulk_refusal.max %>.
-                      Narrow your selection and try again.
-                    </p>
+                    <div class="cl-stack">
+                      <h2 id="bulk-confirm-title" class="cl-text-panel">
+                        Batch too large.
+                      </h2>
+                      <p>
+                        This batch exceeds the safe send limit of <%= @bulk_refusal.max %>.
+                        Narrow your selection and try again.
+                      </p>
+                    </div>
                   </.cl_banner>
 
-                  <div class="bulk-confirm-actions cl-row" style="justify-content: flex-end;">
+                  <div class="bulk-confirm-actions cl-row">
                     <.cl_button variant="ghost" phx-click="cancel_bulk_confirm">
                       Cancel
                     </.cl_button>
-                    <button
-                      type="button"
-                      disabled
-                      aria-disabled="true"
-                      class="cl-button cl-button--primary"
-                      style="cursor: not-allowed; opacity: 0.6;"
-                    >
+                    <.cl_button variant="primary" disabled aria-disabled="true">
                       Confirm send
-                    </button>
+                    </.cl_button>
                   </div>
                 <% else %>
-                  <h2 id="bulk-confirm-title" style="margin: 0 0 8px; font-size: 22px; line-height: 1.2; font-weight: 600;">
+                  <h2 id="bulk-confirm-title" class="cl-text-title">
                     Send recovery follow-up
                   </h2>
-                  <p style="margin: 0 0 16px;">
+                  <p>
                     You're about to send to <strong><%= @bulk_preview.count %></strong> conversation(s).
                   </p>
 
-                  <section aria-label="First 5 recipients" style="margin-bottom: 16px;">
-                    <ul class="cl-stack" style="list-style: none; padding: 0; margin: 0;">
+                  <section aria-label="First 5 recipients">
+                    <ul class="cl-stack">
                       <%= for label <- @bulk_preview.sample do %>
                         <li><%= label %></li>
                       <% end %>
                     </ul>
                     <%= if @bulk_preview.more > 0 do %>
-                      <p class="cl-text-muted cl-text-small" style="margin: 8px 0 0;">
+                      <p class="cl-text-muted cl-text-small">
                         + <%= @bulk_preview.more %> more
                       </p>
                     <% end %>
                   </section>
 
-                  <section aria-label="Message body" class="cl-card" style="margin-bottom: 24px;">
+                  <section aria-label="Message body" class="cl-card">
                     <div class="cl-card__body">
-                      <h3 class="cl-text-muted cl-text-small" style="margin: 0 0 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">
+                      <h3 class="cl-text-muted cl-text-small">
                         Message body
                       </h3>
-                      <p style="margin: 0; white-space: pre-wrap;">
+                      <p class="cl-mono">
                         <%= @bulk_preview.rendered_body %>
                       </p>
                     </div>
                   </section>
 
-                  <div class="bulk-confirm-actions cl-row" style="justify-content: flex-end;">
+                  <div class="bulk-confirm-actions cl-row">
                     <.cl_button variant="ghost" phx-click="cancel_bulk_confirm">
                       Cancel
                     </.cl_button>
