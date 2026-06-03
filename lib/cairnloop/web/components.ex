@@ -180,6 +180,32 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  Patch-safe native disclosure panel. Wraps native `<details>` with `phx-update="ignore"`
+  and a required stable `id` so a LiveView PubSub re-render cannot snap the panel shut.
+
+  The `open` attribute is rendered ONLY as the static HTML boolean attribute at initial
+  mount — it is NEVER bound to a server assign after that. Open/close state is owned
+  100% by the browser's native `<details>` toggle.
+
+  Forward-compat guardrail (P41): the `phx-update="ignore"` subtree freezes child content
+  from server diffs after mount. Any live-updating content must be placed OUTSIDE the
+  `<details>` element, not inside the `inner_block`.
+  """
+  attr(:id, :string, required: true)
+  attr(:open, :boolean, default: false)
+  slot(:summary, required: true)
+  slot(:inner_block, required: true)
+
+  def cl_disclosure(assigns) do
+    ~H"""
+    <details class="cl-details cl-disclosure" id={@id} phx-update="ignore" open={@open}>
+      <summary class="cl-details__summary">{render_slot(@summary)}</summary>
+      {render_slot(@inner_block)}
+    </details>
+    """
+  end
+
+  @doc """
   Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
   optional actions slot right-aligned in the header, optional subnav between header and
   body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
