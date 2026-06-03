@@ -149,6 +149,37 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc """
+  Primary-count hero tile — Fraunces copper count (~2–3× heavier than `cl_stat`) with a
+  verb-led job label, an optional quiet `:detail` sub-line, and a primary CTA.
+
+  CTA precedence: when an `:inner_block` CTA slot is provided it wins; otherwise when
+  `@cta` is set, renders `<.cl_button variant="primary">`. Both are optional.
+  `calm?` switches the count to `--cl-success` (zero / all-caught-up state).
+  """
+  attr(:count, :integer, required: true)
+  attr(:job, :string, required: true)
+  attr(:href, :string, default: nil)
+  attr(:cta, :string, default: nil)
+  attr(:calm?, :boolean, default: false)
+  slot(:detail)
+  slot(:cta_slot)
+  slot(:inner_block)
+
+  def cl_hero(assigns) do
+    ~H"""
+    <section class="cl-hero">
+      <span class="cl-hero__job">{@job}</span>
+      <span class={["cl-hero__count", @calm? && "cl-hero__count--calm"]}>{@count}</span>
+      <div :if={@detail != []} class="cl-hero__detail">{render_slot(@detail)}</div>
+      <div :if={@cta_slot != []} class="cl-hero__cta">{render_slot(@cta_slot)}</div>
+      <div :if={@cta_slot == [] && @cta} class="cl-hero__cta">
+        <.link navigate={@href} class="cl-button cl-button--primary">{@cta}</.link>
+      </div>
+    </section>
+    """
+  end
+
+  @doc """
   Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
   optional actions slot right-aligned in the header, optional subnav between header and
   body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.

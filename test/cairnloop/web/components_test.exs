@@ -197,4 +197,61 @@ defmodule Cairnloop.Web.ComponentsTest do
 
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
+
+  # --- cl_hero primary-count component (UIC-02 / D-02) ---
+
+  test "cl_hero renders integer count inside .cl-hero__count and job label" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={128} job="Work the queue" />
+      """)
+
+    assert html =~ "cl-hero__count"
+    assert html =~ "128"
+    assert html =~ "cl-hero__job"
+    assert html =~ "Work the queue"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero with calm?={true} renders .cl-hero__count--calm" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={0} job="Work the queue" calm?={true} />
+      """)
+
+    assert html =~ "cl-hero__count--calm"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero with cta and href renders a cl_button primary CTA; detail slot renders cl-hero__detail" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={5} job="Work the queue" cta="Open inbox" href="/inbox">
+        <:detail>2 recovered recently</:detail>
+      </.cl_hero>
+      """)
+
+    assert html =~ "cl-button--primary"
+    assert html =~ "Open inbox"
+    assert html =~ "cl-hero__detail"
+    assert html =~ "2 recovered recently"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={42} job="Recover resolved" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
 end
