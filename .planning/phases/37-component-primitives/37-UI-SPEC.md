@@ -1,10 +1,11 @@
 ---
 phase: 37
 slug: component-primitives
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-03
+reviewed_at: 2026-06-03
 ---
 
 # Phase 37 — UI Design Contract: Component Primitives
