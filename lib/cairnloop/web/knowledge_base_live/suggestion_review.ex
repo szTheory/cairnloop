@@ -217,6 +217,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           </p>
         </.cl_empty>
 
+        <div class="cl-table-scroll" role="region" tabindex="0" aria-label="Suggested KB edits">
         <table :if={@review_tasks != []} class="cl-table">
           <thead>
             <tr><th>Suggestion</th><th>Suggestion status</th><th>Summary</th></tr>
@@ -236,6 +237,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
             </tr>
           </tbody>
         </table>
+        </div>
       </.cl_card>
 
       <%= if @selected_task do %>

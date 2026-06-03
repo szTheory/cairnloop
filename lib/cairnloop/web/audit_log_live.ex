@@ -126,6 +126,7 @@ defmodule Cairnloop.Web.AuditLogLive do
           <p class="cl-text-muted">Governed actions and their outcomes will appear here as operators work.</p>
         </.cl_empty>
 
+        <div class="cl-table-scroll" role="region" tabindex="0" aria-label="Audit log">
         <table :if={@visible_events != []} class="cl-table">
           <thead>
             <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Details</th></tr>
@@ -155,6 +156,7 @@ defmodule Cairnloop.Web.AuditLogLive do
             </tr>
           </tbody>
         </table>
+        </div>
 
         <div :if={@visible_events != [] and @maybe_more?} class="cl-pagination">
           <.cl_button type="button" phx-click="load_more" variant="ghost">Load more</.cl_button>
