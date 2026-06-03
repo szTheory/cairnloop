@@ -217,8 +217,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           </p>
         </.cl_empty>
 
-        <div class="cl-table-scroll" role="region" tabindex="0" aria-label="Suggested KB edits">
-        <table :if={@review_tasks != []} class="cl-table">
+        <div :if={@review_tasks != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Suggested KB edits">
+        <table class="cl-table">
           <thead>
             <tr><th>Suggestion</th><th>Suggestion status</th><th>Summary</th></tr>
           </thead>

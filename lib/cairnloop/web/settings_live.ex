@@ -243,8 +243,8 @@ defmodule Cairnloop.Web.SettingsLive do
         <.cl_empty :if={@policies == []} title="No active SLA policies" icon="clock">
           <p class="cl-text-muted">Set a target below to start tracking response and resolution time.</p>
         </.cl_empty>
-        <div class="cl-table-scroll" role="region" tabindex="0" aria-label="Policies">
-        <table :if={@policies != []} class="cl-table cl-mb-7">
+        <div :if={@policies != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Policies">
+        <table class="cl-table cl-mb-7">
           <thead>
             <tr><th>Priority</th><th>First response</th><th>Resolution</th></tr>
           </thead>

@@ -75,8 +75,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
           <p class="cl-text-muted">Create the first article to start building your knowledge base.</p>
         </.cl_empty>
 
-        <div class="cl-table-scroll" role="region" tabindex="0" aria-label="Knowledge base articles">
-        <table :if={@articles != []} class="cl-table">
+        <div :if={@articles != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Knowledge base articles">
+        <table class="cl-table">
           <thead>
             <tr><th>Title</th><th>Status</th><th>Actions</th></tr>
           </thead>
