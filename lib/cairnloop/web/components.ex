@@ -27,12 +27,16 @@ defmodule Cairnloop.Web.Components do
   @status_variants ~w(success info warning danger ai neutral)
 
   @doc "Primary/secondary/danger/ghost button. Buttons and inputs share token heights."
-  attr :variant, :string, default: "default", values: ~w(default primary danger ghost)
-  attr :size, :string, default: "md", values: ~w(sm md lg)
-  attr :type, :string, default: "button"
-  attr :class, :string, default: nil
-  attr :rest, :global, include: ~w(disabled form name value phx-click phx-value-id phx-disable-with data-confirm)
-  slot :inner_block, required: true
+  attr(:variant, :string, default: "default", values: ~w(default primary danger ghost))
+  attr(:size, :string, default: "md", values: ~w(sm md lg))
+  attr(:type, :string, default: "button")
+  attr(:class, :string, default: nil)
+
+  attr(:rest, :global,
+    include: ~w(disabled form name value phx-click phx-value-id phx-disable-with data-confirm)
+  )
+
+  slot(:inner_block, required: true)
 
   def cl_button(assigns) do
     ~H"""
@@ -43,11 +47,11 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc "Surface card. Optional `:header` slot renders a bordered title row; `route_active` adds the copper rail marker."
-  attr :class, :string, default: nil
-  attr :route_active, :boolean, default: false
-  attr :rest, :global
-  slot :header
-  slot :inner_block, required: true
+  attr(:class, :string, default: nil)
+  attr(:route_active, :boolean, default: false)
+  attr(:rest, :global)
+  slot(:header)
+  slot(:inner_block, required: true)
 
   def cl_card(assigns) do
     ~H"""
@@ -62,15 +66,16 @@ defmodule Cairnloop.Web.Components do
   Status chip — color + icon + text together (never color alone). `label` or an
   inner block supplies the text; the icon is chosen from the variant unless overridden.
   """
-  attr :variant, :string, default: "neutral", values: @status_variants
-  attr :label, :string, default: nil
-  attr :icon, :string, default: nil
-  attr :class, :string, default: nil
-  attr :rest, :global
-  slot :inner_block
+  attr(:variant, :string, default: "neutral", values: @status_variants)
+  attr(:label, :string, default: nil)
+  attr(:icon, :string, default: nil)
+  attr(:class, :string, default: nil)
+  attr(:rest, :global)
+  slot(:inner_block)
 
   def cl_chip(assigns) do
-    assigns = assign_new(assigns, :resolved_icon, fn -> assigns.icon || status_icon(assigns.variant) end)
+    assigns =
+      assign_new(assigns, :resolved_icon, fn -> assigns.icon || status_icon(assigns.variant) end)
 
     ~H"""
     <span class={["cl-chip", "cl-chip--#{@variant}", @class]} {@rest}>
@@ -81,14 +86,15 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc "Persistent, region-level status banner (use for actionable status, not transient confirmations)."
-  attr :variant, :string, default: "neutral", values: @status_variants
-  attr :icon, :string, default: nil
-  attr :class, :string, default: nil
-  attr :rest, :global
-  slot :inner_block, required: true
+  attr(:variant, :string, default: "neutral", values: @status_variants)
+  attr(:icon, :string, default: nil)
+  attr(:class, :string, default: nil)
+  attr(:rest, :global)
+  slot(:inner_block, required: true)
 
   def cl_banner(assigns) do
-    assigns = assign_new(assigns, :resolved_icon, fn -> assigns.icon || status_icon(assigns.variant) end)
+    assigns =
+      assign_new(assigns, :resolved_icon, fn -> assigns.icon || status_icon(assigns.variant) end)
 
     ~H"""
     <div class={["cl-banner", "cl-banner--#{@variant}", @class]} role="status" {@rest}>
@@ -99,10 +105,10 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc "Calm, reassuring empty state. `:icon` slot optional; `title` + inner block carry the copy."
-  attr :title, :string, required: true
-  attr :icon, :string, default: "compass"
-  attr :class, :string, default: nil
-  slot :inner_block
+  attr(:title, :string, required: true)
+  attr(:icon, :string, default: "compass")
+  attr(:class, :string, default: nil)
+  slot(:inner_block)
 
   def cl_empty(assigns) do
     ~H"""
@@ -118,15 +124,15 @@ defmodule Cairnloop.Web.Components do
   Cockpit Home job card — a verb-led job, ONE actionable "needs-you" count, and a CTA.
   `calm?` renders the count in the success hue (used for the all-caught-up zero state).
   """
-  attr :job, :string, required: true
-  attr :count, :any, required: true
-  attr :meta, :string, default: nil
-  attr :href, :string, default: nil
-  attr :cta, :string, default: nil
-  attr :icon, :string, default: nil
-  attr :calm?, :boolean, default: false
-  attr :rest, :global
-  slot :inner_block
+  attr(:job, :string, required: true)
+  attr(:count, :any, required: true)
+  attr(:meta, :string, default: nil)
+  attr(:href, :string, default: nil)
+  attr(:cta, :string, default: nil)
+  attr(:icon, :string, default: nil)
+  attr(:calm?, :boolean, default: false)
+  attr(:rest, :global)
+  slot(:inner_block)
 
   def cl_stat(assigns) do
     ~H"""
@@ -147,10 +153,10 @@ defmodule Cairnloop.Web.Components do
   gets a 3-cue "you are here" state (weight + copper underline + fill, never color alone).
   `destinations` is a list of `%{key, label, href, icon, count}` maps.
   """
-  attr :current, :atom, default: nil
-  attr :destinations, :list, required: true
-  attr :brand, :string, default: "Cairnloop"
-  slot :inner_block, required: true
+  attr(:current, :atom, default: nil)
+  attr(:destinations, :list, required: true)
+  attr(:brand, :string, default: "Cairnloop")
+  slot(:inner_block, required: true)
 
   def cl_shell(assigns) do
     ~H"""
@@ -180,7 +186,10 @@ defmodule Cairnloop.Web.Components do
   end
 
   @doc "Breadcrumb trail (renders after the user goes a level deep)."
-  attr :items, :list, required: true, doc: "list of %{label, href} (last item is current, no href)"
+  attr(:items, :list,
+    required: true,
+    doc: "list of %{label, href} (last item is current, no href)"
+  )
 
   def cl_breadcrumb(assigns) do
     ~H"""
@@ -198,10 +207,10 @@ defmodule Cairnloop.Web.Components do
   Self-contained inline-SVG icon. Distinct silhouettes so status reads without color
   (colorblind-safe, grayscale-safe). 16px default; `size` overrides.
   """
-  attr :name, :string, required: true
-  attr :size, :string, default: "16"
-  attr :class, :string, default: nil
-  attr :rest, :global
+  attr(:name, :string, required: true)
+  attr(:size, :string, default: "16")
+  attr(:class, :string, default: nil)
+  attr(:rest, :global)
 
   def cl_icon(assigns) do
     ~H"""
@@ -242,24 +251,28 @@ defmodule Cairnloop.Web.Components do
 
   # Minimal stroke-icon set (feather-style). Distinct silhouettes for a11y.
   defp icon_paths("check-circle"),
-    do: ~s(<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>)
+    do:
+      ~s(<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>)
 
   defp icon_paths("x-circle"),
-    do: ~s(<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>)
+    do:
+      ~s(<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>)
 
   defp icon_paths("alert-triangle"),
     do:
       ~s(<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>)
 
   defp icon_paths("info"),
-    do: ~s(<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>)
+    do:
+      ~s(<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>)
 
   defp icon_paths("clock"),
     do: ~s(<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>)
 
   # waypoint / route marker (brand motif) — a pin on a path
   defp icon_paths("waypoint"),
-    do: ~s(<circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/>)
+    do:
+      ~s(<circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.4 8 12 8 12s8-6.6 8-12a8 8 0 0 0-8-8z"/>)
 
   # cairn (brand mark) — stacked stones
   defp icon_paths("cairn"),
@@ -267,10 +280,12 @@ defmodule Cairnloop.Web.Components do
       ~s(<ellipse cx="12" cy="19" rx="6" ry="2"/><rect x="8" y="12" width="8" height="4" rx="1.5"/><rect x="9.5" y="7.5" width="5" height="3.5" rx="1.3"/><rect x="10.5" y="4" width="3" height="3" rx="1"/>)
 
   defp icon_paths("compass"),
-    do: ~s(<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>)
+    do:
+      ~s(<circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>)
 
   defp icon_paths("home"),
-    do: ~s(<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>)
+    do:
+      ~s(<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>)
 
   defp icon_paths("inbox"),
     do:
@@ -291,7 +306,10 @@ defmodule Cairnloop.Web.Components do
     do: ~s(<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>)
 
   defp icon_paths("chevron-right"), do: ~s(<polyline points="9 18 15 12 9 6"/>)
-  defp icon_paths("arrow-right"), do: ~s(<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>)
+
+  defp icon_paths("arrow-right"),
+    do: ~s(<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>)
+
   defp icon_paths("external"),
     do:
       ~s(<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>)

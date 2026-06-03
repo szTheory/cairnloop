@@ -1,5 +1,6 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   use Phoenix.LiveView
+  import Cairnloop.Web.Components
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
   alias Cairnloop.KnowledgeBase
   alias Cairnloop.KnowledgeBase.Article
@@ -258,64 +259,87 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
 
   def render(assigns) do
     ~H"""
-    <div class="knowledge-base-editor">
-      <.kb_nav current={:editor} />
-      <.link navigate="/knowledge-base">Back to Index</.link>
-      <h2>Editing: <%= @article.title %></h2>
-      <%= if @revision && @revision.state == :published do %>
-        <p>Loaded from the latest published revision.</p>
-      <% end %>
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
+      <.cl_breadcrumb items={[
+        %{label: "Knowledge", href: "/knowledge-base"},
+        %{label: "Editing: #{@article.title}"}
+      ]} />
 
-      <div class="editor-layout" style="display: flex; gap: 32px;">
-        <div class="editor-pane" style="flex: 1;">
-          <%= if @review_origin? do %>
-            <aside class="review-context" style="margin-bottom: 16px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc;">
-              <p><strong>Review-origin draft</strong></p>
-              <p><%= @review_context.operator_summary %></p>
-              <p><%= @review_context.evidence_count %> evidence sources</p>
-              <.link navigate={@review_context.return_to}>Return to review task</.link>
-              <p>Publish stays in the review lane so approval and publish history remain aligned.</p>
-            </aside>
-          <% end %>
+      <.kb_nav current={:editor} />
+
+      <div class="cl-row cl-row--between cl-mb-7">
+        <h1>Editing: {@article.title}</h1>
+      </div>
+
+      <.cl_banner
+        :if={@revision && @revision.state == :published}
+        variant="info"
+        class="cl-mb-7"
+      >
+        Loaded from the latest published revision. Your edits start a new draft.
+      </.cl_banner>
+
+      <.cl_banner :if={@review_origin?} variant="ai" class="cl-mb-7">
+        <div class="cl-stack">
+          <strong>Review-origin draft</strong>
+          <span>{@review_context.operator_summary}</span>
+          <span class="cl-text-muted">{@review_context.evidence_count} evidence sources</span>
+          <.link navigate={@review_context.return_to}>Return to review task</.link>
+          <span class="cl-text-muted">
+            Publish stays in the review lane so approval and publish history remain aligned.
+          </span>
+        </div>
+      </.cl_banner>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--cl-space-5)">
+        <.cl_card>
+          <:header>
+            <div class="cl-row cl-row--between">
+              <h2>Markdown</h2>
+              <.cl_chip
+                :if={@revision && @revision.state == :published}
+                variant="success"
+                label="Published"
+              />
+              <.cl_chip
+                :if={!(@revision && @revision.state == :published)}
+                variant="neutral"
+                label="Draft"
+              />
+            </div>
+          </:header>
 
           <form phx-change="change" onsubmit="event.preventDefault();">
-            <textarea name="content" phx-debounce="300" style="width: 100%; min-height: 500px;"><%= @content %></textarea>
+            <textarea name="content" phx-debounce="300" class="cl-textarea"><%= @content %></textarea>
           </form>
-          <div class="actions" style="margin-top: 16px;">
-            <button phx-click="save_draft">Save Draft</button>
-            <%= unless @review_origin? do %>
-              <button phx-click="publish">Publish</button>
-            <% end %>
+
+          <div class="cl-row cl-mt-5">
+            <.cl_button variant="ghost" phx-click="save_draft">Save Draft</.cl_button>
+            <.cl_button :if={!@review_origin?} variant="primary" phx-click="publish">Publish</.cl_button>
           </div>
-        </div>
+        </.cl_card>
 
-        <div class="preview-pane" style="flex: 1; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;">
-          <%= Phoenix.HTML.raw(@preview_html) %>
-        </div>
-
-        <%= if @gap_candidate do %>
-          <aside
-            aria-label="Source gap evidence"
-            style="width: 280px; background: var(--cl-surface); border: 1px solid var(--cl-border); border-radius: var(--cl-radius-md); padding: 16px; flex-shrink: 0;"
-          >
-            <h3 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">Source gap</h3>
-            <p style="font-size: 15px; font-weight: 600; margin: 0 0 16px;"><%= @gap_candidate.title %></p>
-            <div style="margin-bottom: 16px;">
-              <span style="font-size: 13px; font-weight: 400; color: var(--cl-text-muted);">
-                <%= "#{@gap_candidate.evidence_count} evidence" %>
-              </span>
-              <span style="font-size: 13px; font-weight: 400; color: var(--cl-text-muted); margin-left: 8px;">
-                <%= GapCandidatePresenter.freshness_label(@gap_candidate) %>
-              </span>
-            </div>
-            <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">Retrieval evidence</h4>
-            <%= if @gap_candidate.evidence_count == 0 do %>
-              <p style="font-size: 13px; color: var(--cl-text-muted);">No retrieval evidence linked to this gap.</p>
-            <% end %>
-          </aside>
-        <% end %>
+        <.cl_card>
+          <:header><h2>Preview</h2></:header>
+          {Phoenix.HTML.raw(@preview_html)}
+        </.cl_card>
       </div>
-    </div>
+
+      <.cl_card :if={@gap_candidate} class="cl-mt-5" aria-label="Source gap evidence">
+        <:header><h3>Source gap</h3></:header>
+        <div class="cl-stack">
+          <strong>{@gap_candidate.title}</strong>
+          <div class="cl-row">
+            <span class="cl-text-muted">{"#{@gap_candidate.evidence_count} evidence"}</span>
+            <span class="cl-text-muted">{GapCandidatePresenter.freshness_label(@gap_candidate)}</span>
+          </div>
+          <h4>Retrieval evidence</h4>
+          <p :if={@gap_candidate.evidence_count == 0} class="cl-text-muted">
+            No retrieval evidence linked to this gap.
+          </p>
+        </div>
+      </.cl_card>
+    </.cl_shell>
     """
   end
 end

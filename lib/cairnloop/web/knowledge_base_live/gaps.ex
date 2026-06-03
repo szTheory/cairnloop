@@ -1,6 +1,7 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   use Phoenix.LiveView
 
+  import Cairnloop.Web.Components
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
 
   alias Cairnloop.Web.GapCandidatePresenter
@@ -60,81 +61,99 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
 
   def render(assigns) do
     ~H"""
-    <div class="knowledge-base-gaps">
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
       <.kb_nav current={:gaps} />
-      <header>
-        <h1>KB gap candidates</h1>
-        <p>Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling.</p>
+
+      <header class="cl-mb-7">
+        <h1>Knowledge gaps</h1>
+        <p class="cl-text-muted">
+          Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling.
+        </p>
       </header>
 
-      <%= if @candidates == [] do %>
-        <section>
-          <p>No gap candidates yet.</p>
-          <p>When repeatable evidence lands, this queue will show it here.</p>
-        </section>
-      <% else %>
-        <section>
-          <ul>
-            <%= for candidate <- @candidates do %>
-              <li id={"candidate-#{candidate.id}"}>
-                <.link patch={"/knowledge-base/gaps?candidate=#{candidate.id}"}>
-                  <strong><%= candidate.title %></strong>
-                </.link>
-                <div><%= GapCandidatePresenter.reason_label(candidate) %></div>
-                <div><%= candidate.evidence_count %> signals</div>
-                <div><%= candidate.manual_case_count %> manual cases</div>
-                <div><%= GapCandidatePresenter.freshness_label(candidate) %></div>
-                <div><%= GapCandidatePresenter.dominant_source_label(candidate) %></div>
-              </li>
-            <% end %>
-          </ul>
-        </section>
-      <% end %>
+      <.cl_card class="cl-mb-7">
+        <:header><h2>Gap candidates</h2></:header>
 
-      <%= if @selected_candidate do %>
-        <section id="candidate-detail">
-          <h2><%= @selected_candidate.title %></h2>
-          <p><%= GapCandidatePresenter.why_raised(@selected_candidate) %></p>
-          <button phx-click="suggest_article" phx-value-candidate_id={@selected_candidate.id}>
-            Generate article suggestion
-          </button>
+        <.cl_empty :if={@candidates == []} title="No gap candidates yet." icon="compass">
+          <p class="cl-text-muted">When repeatable evidence lands, this queue will show it here.</p>
+        </.cl_empty>
 
-          <h3>Retrieval evidence</h3>
-          <%= if @selected_candidate.retrieval_gap_events == [] do %>
-            <p>No retrieval evidence linked.</p>
-          <% else %>
-            <ul>
-              <%= for event <- @selected_candidate.retrieval_gap_events do %>
-                <li>
-                  <strong><%= GapCandidatePresenter.event_reason_label(event.reason) %></strong>
-                  <div><%= GapCandidatePresenter.surface_label(event.surface) %></div>
-                  <div><%= event.canonical_hit_count %> canonical / <%= event.assistive_hit_count %> assistive hits</div>
-                  <div><%= event.sanitized_query_excerpt %></div>
-                </li>
-              <% end %>
-            </ul>
-          <% end %>
+        <ul :if={@candidates != []} class="cl-stack--lg cl-stack">
+          <li :for={candidate <- @candidates} id={"candidate-#{candidate.id}"} class="cl-stack">
+            <div class="cl-row cl-row--wrap cl-row--between">
+              <.link patch={"/knowledge-base/gaps?candidate=#{candidate.id}"}>
+                <strong>{candidate.title}</strong>
+              </.link>
+              <.cl_chip variant="info" label={GapCandidatePresenter.reason_label(candidate)} />
+            </div>
+            <div class="cl-row cl-row--wrap cl-text-small cl-text-muted">
+              <.cl_chip variant="neutral" label={"#{candidate.evidence_count} signals"} />
+              <.cl_chip variant="neutral" label={"#{candidate.manual_case_count} manual cases"} />
+              <span>{GapCandidatePresenter.freshness_label(candidate)}</span>
+              <span>{GapCandidatePresenter.dominant_source_label(candidate)}</span>
+            </div>
+          </li>
+        </ul>
+      </.cl_card>
 
-          <h3>Similar resolved cases</h3>
-          <%= if @selected_candidate.manual_handling_evidence == [] do %>
-            <p>No repeated manual-handling evidence linked.</p>
-          <% else %>
-            <ul>
-              <%= for evidence <- @selected_candidate.manual_handling_evidence do %>
-                <li>
-                  <strong><%= evidence.issue_summary %></strong>
-                  <div><%= evidence.resolution_note %></div>
-                  <div><%= Enum.join(evidence.actions_taken || [], ", ") %></div>
-                  <%= if GapCandidatePresenter.conversation_target(evidence) do %>
-                    <.link navigate={GapCandidatePresenter.conversation_target(evidence)}>Open conversation</.link>
-                  <% end %>
-                </li>
-              <% end %>
-            </ul>
-          <% end %>
-        </section>
-      <% end %>
-    </div>
+      <.cl_card :if={@selected_candidate} id="candidate-detail" class="cl-mb-7">
+        <:header>
+          <div class="cl-row cl-row--wrap cl-row--between">
+            <h2>{@selected_candidate.title}</h2>
+            <.cl_button
+              variant="primary"
+              phx-click="suggest_article"
+              phx-value-candidate_id={@selected_candidate.id}
+            >
+              Generate article suggestion
+            </.cl_button>
+          </div>
+        </:header>
+
+        <p class="cl-text-muted">{GapCandidatePresenter.why_raised(@selected_candidate)}</p>
+
+        <hr class="cl-divider" />
+        <h3>Retrieval evidence</h3>
+        <.cl_empty
+          :if={@selected_candidate.retrieval_gap_events == []}
+          title="No retrieval evidence linked."
+          icon="search"
+        />
+        <ul :if={@selected_candidate.retrieval_gap_events != []} class="cl-stack">
+          <li :for={event <- @selected_candidate.retrieval_gap_events} class="cl-stack">
+            <div class="cl-row cl-row--wrap">
+              <strong>{GapCandidatePresenter.event_reason_label(event.reason)}</strong>
+              <.cl_chip variant="neutral" label={GapCandidatePresenter.surface_label(event.surface)} />
+            </div>
+            <div class="cl-text-small cl-text-muted">
+              {event.canonical_hit_count} canonical / {event.assistive_hit_count} assistive hits
+            </div>
+            <div class="cl-text-small cl-mono">{event.sanitized_query_excerpt}</div>
+          </li>
+        </ul>
+
+        <hr class="cl-divider" />
+        <h3>Similar resolved cases</h3>
+        <.cl_empty
+          :if={@selected_candidate.manual_handling_evidence == []}
+          title="No repeated manual-handling evidence linked."
+          icon="inbox"
+        />
+        <ul :if={@selected_candidate.manual_handling_evidence != []} class="cl-stack">
+          <li :for={evidence <- @selected_candidate.manual_handling_evidence} class="cl-stack">
+            <strong>{evidence.issue_summary}</strong>
+            <div class="cl-text-small">{evidence.resolution_note}</div>
+            <div class="cl-text-small cl-text-muted">{Enum.join(evidence.actions_taken || [], ", ")}</div>
+            <.link
+              :if={GapCandidatePresenter.conversation_target(evidence)}
+              navigate={GapCandidatePresenter.conversation_target(evidence)}
+            >
+              Open conversation
+            </.link>
+          </li>
+        </ul>
+      </.cl_card>
+    </.cl_shell>
     """
   end
 

@@ -42,9 +42,12 @@ seed data that fully expresses every screen. Repeatable/resumable so future pass
       + back-link fix. 4 headless Home tests green; full suite clean (only 2 PRE-EXISTING baseline
       failures, unrelated — see below). Cross-threading affordances (gap→convos, action→audit, etc.)
       folded into Pass 3 (done while editing each screen — avoids touching screens twice).
-- [ ] Pass 3 — per-screen polish (Settings→Audit→KB Suggestions→Editor→Gaps→Index→Inbox→Conversation):
-      wrap each in `cl_shell` nav + replace inline styles/daisyUI with `.cl-*` components + empty/error
-      states + cross-thread links + brand microcopy.
+- [~] Pass 3 — per-screen polish. DONE: Settings, Audit Log, KB Index, KB Gaps, KB Suggestions,
+      KB Editor (all on `cl_shell` + `.cl-*` components; ~0 inline styles; status as color+icon+text
+      chips; empty states; brand microcopy). KB four done via parallel subagents (edit-only, verified
+      centrally; fixed @flash-on-bare-assigns traps + a brittle `>Publish<` test → match phx-click).
+      292 web tests green, full suite at baseline. REMAINING: Inbox + Conversation (already heavily
+      iterated — lighter touch), KB sub-nav `nav_component.ex` + `search_modal_component.ex` (restyle).
 - [ ] Pass 4 — motion layer
 - [ ] Pass 5 — seed enrichment
 - [ ] Pass 6 — visual-QA loop (DB-gated)
