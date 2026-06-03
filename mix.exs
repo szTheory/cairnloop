@@ -30,6 +30,7 @@ defmodule Cairnloop.MixProject do
           {"guides/01-quickstart.md", title: "Quickstart"},
           {"guides/02-jtbd-walkthrough.md", title: "JTBD Walkthrough"},
           {"guides/03-host-integration.md", title: "Host Integration"},
+          {"guides/07-auth-and-operator-identity.md", title: "Auth & Operator Identity"},
           {"guides/04-troubleshooting.md", title: "Troubleshooting"},
           {"guides/05-mcp-clients.md", title: "MCP Clients"},
           {"guides/06-extending.md", title: "Extending Cairnloop"},

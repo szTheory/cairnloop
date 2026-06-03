@@ -71,9 +71,25 @@ defmodule Cairnloop.Router do
         pipe_through [:browser, :require_admin]
 
         cairnloop_dashboard "/",
-          session: %{"host_user_id" => "demo_operator"},
-          on_mount: [{MyAppWeb.UserAuth, :ensure_admin}]
+          on_mount: [{MyAppWeb.UserAuth, :ensure_admin}],
+          session: {MyAppWeb.UserAuth, :cairnloop_session, []}
       end
+
+  ## Operator identity (`host_user_id`)
+
+  Cairnloop uses the `host_user_id` value in the live session as the **operator's identity** — it
+  is the actor recorded on governed audit events and the scope key for operator search. Provide it
+  through the `:session` option, and use the **MFA form** so each request carries the *actually
+  signed-in* operator:
+
+      def cairnloop_session(conn) do
+        %{"host_user_id" => to_string(conn.assigns.current_user.id)}
+      end
+
+  A static `session: %{"host_user_id" => "demo_operator"}` map is fine for a single-operator demo,
+  but it is frozen at compile time and is identical for every request — ship it and your audit log
+  attributes every operator's actions to one placeholder id. See the
+  [Auth & Operator Identity](07-auth-and-operator-identity.html) guide for the full pattern.
 
   Any option other than the Cairnloop-specific ones below is forwarded verbatim to
   `Phoenix.LiveView.Router.live_session/3` (e.g. `:session`, `:on_mount`, `:root_layout`,

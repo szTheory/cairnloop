@@ -180,5 +180,9 @@ and clickable immediately.
 - **[Host Integration](03-host-integration.html)** — implement the four host behaviour
   contracts (`ContextProvider`, `Notifier`, `AutomationPolicy`, `SLAPolicyProvider`)
   so Cairnloop knows your app's context and policy.
+- **[Auth & Operator Identity](07-auth-and-operator-identity.html)** — wire your real
+  authenticated operator into the dashboard so the audit log attributes actions correctly.
+  **Read this before going past the demo** — the hardcoded `host_user_id` shown in quickstarts
+  is a trap in production.
 - **[Troubleshooting](04-troubleshooting.html)** — resolve common install, migration,
   pgvector, and mount-config errors.
