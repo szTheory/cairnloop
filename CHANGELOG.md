@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/szTheory/cairnloop/compare/v0.4.0...v0.5.0) (2026-06-03)
+
+
+### Features
+
+* **automation:** swappable draft-generator seam + Anthropic adapter ([6632b4e](https://github.com/szTheory/cairnloop/commit/6632b4e87fafba912d03f55617301a9ae6540c0c))
+* **automation:** swappable draft-generator seam + Anthropic adapter ([ea9bf96](https://github.com/szTheory/cairnloop/commit/ea9bf968cc8ddc3f5cacc90c1b396f84ee2463b8))
+
 ## [0.4.0](https://github.com/szTheory/cairnloop/compare/v0.3.0...v0.4.0) (2026-06-03)
 
 
