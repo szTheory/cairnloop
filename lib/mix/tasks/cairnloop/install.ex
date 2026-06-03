@@ -87,8 +87,13 @@ defmodule Mix.Tasks.Cairnloop.Install do
            # Operator dashboard — wrap in your own auth pipeline.
            scope "/support" do
              pipe_through [:browser]   # add your :require_admin pipeline here
+             # Inject the SIGNED-IN operator per request via an MFA tuple. `host_user_id`
+             # is the audit actor + search scope — a static map freezes it at compile time
+             # so every operator shares one id. Define cairnloop_session/1 to read the
+             # authenticated user off the conn (see the Auth & Operator Identity guide):
+             #   def cairnloop_session(conn), do: %{"host_user_id" => to_string(conn.assigns.current_user.id)}
              Cairnloop.Router.cairnloop_dashboard "/",
-               session: %{"host_user_id" => "the_current_operator_id"}
+               session: {MyAppWeb.UserAuth, :cairnloop_session, []}
            end
 
       2. Surface governed-action events in the audit log:
