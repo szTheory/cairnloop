@@ -14,6 +14,7 @@ defmodule Cairnloop.Web.AuditLogLive do
   """
   use Phoenix.LiveView
 
+  import Cairnloop.Web.Components
   alias Cairnloop.Web.AuditLogPresenter, as: P
 
   @page_size 50
@@ -85,87 +86,81 @@ defmodule Cairnloop.Web.AuditLogLive do
 
   def render(assigns) do
     ~H"""
-    <div class="cairnloop-audit-log">
-      <h2>Audit Log</h2>
-      <p class="cairnloop-audit-intro">
-        A timeline of governed actions and their outcomes. Search or filter to narrow the view.
-      </p>
+    <.cl_shell current={:audit} destinations={Cairnloop.Web.Nav.destinations()}>
+      <header class="cl-mb-7">
+        <h1>Audit Log</h1>
+        <p class="cl-text-muted">
+          A timeline of governed actions and their outcomes. Search or filter to narrow the view.
+        </p>
+      </header>
 
-      <form class="cairnloop-audit-controls" phx-change="search" phx-submit="search">
-        <input
-          type="text"
-          name="query"
-          value={@query}
-          placeholder="Search actor, action, reason, or details…"
-          phx-debounce="200"
-          aria-label="Search audit events"
-        />
-      </form>
+      <.cl_card>
+        <:header>
+          <div class="cl-row cl-row--wrap cl-grow">
+            <form class="cl-grow" phx-change="search" phx-submit="search">
+              <input
+                type="text"
+                name="query"
+                value={@query}
+                class="cl-input"
+                placeholder="Search actor, action, reason, or details…"
+                phx-debounce="200"
+                aria-label="Search audit events"
+              />
+            </form>
+            <form phx-change="filter">
+              <div class="cl-field">
+                <label class="cl-label" for="action-filter">Action</label>
+                <select name="action" id="action-filter" class="cl-select">
+                  <option value="all" selected={@action_filter == "all"}>All actions</option>
+                  <option :for={label <- @action_options} value={label} selected={@action_filter == label}>
+                    {label}
+                  </option>
+                </select>
+              </div>
+            </form>
+          </div>
+        </:header>
 
-      <form class="cairnloop-audit-controls" phx-change="filter">
-        <label>
-          Action
-          <select name="action">
-            <option value="all" selected={@action_filter == "all"}>All actions</option>
-            <%= for label <- @action_options do %>
-              <option value={label} selected={@action_filter == label}><%= label %></option>
-            <% end %>
-          </select>
-        </label>
-      </form>
+        <.cl_empty :if={@visible_events == []} title="No audit events found" icon="shield">
+          <p class="cl-text-muted">Governed actions and their outcomes will appear here as operators work.</p>
+        </.cl_empty>
 
-      <div class="cairnloop-audit-timeline">
-        <%= if @visible_events == [] do %>
-          <p class="cairnloop-audit-empty">No audit events found.</p>
-        <% else %>
-          <table class="cairnloop-audit-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Actor</th>
-                <th>Action</th>
-                <th>Reason</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= for event <- @visible_events do %>
-                <tr>
-                  <td><%= P.timestamp_label(Map.get(event, :inserted_at)) %></td>
-                  <td><%= P.actor_label(Map.get(event, :actor_id)) %></td>
-                  <td><%= P.action_label(Map.get(event, :action)) %></td>
-                  <td><%= P.reason_label(Map.get(event, :reason)) %></td>
-                  <td>
-                    <%= case P.metadata_rows(Map.get(event, :metadata)) do %>
-                      <% [] -> %>
-                        —
-                      <% rows -> %>
-                        <details class="cairnloop-audit-details">
-                          <summary>View details</summary>
-                          <dl>
-                            <%= for {label, value} <- rows do %>
-                              <div>
-                                <dt><%= label %></dt>
-                                <dd><%= value %></dd>
-                              </div>
-                            <% end %>
-                          </dl>
-                        </details>
-                    <% end %>
-                  </td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
+        <table :if={@visible_events != []} class="cl-table">
+          <thead>
+            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Details</th></tr>
+          </thead>
+          <tbody>
+            <tr :for={event <- @visible_events}>
+              <td>{P.timestamp_label(Map.get(event, :inserted_at))}</td>
+              <td>{P.actor_label(Map.get(event, :actor_id))}</td>
+              <td>{P.action_label(Map.get(event, :action))}</td>
+              <td>{P.reason_label(Map.get(event, :reason))}</td>
+              <td>
+                <%= case P.metadata_rows(Map.get(event, :metadata)) do %>
+                  <% [] -> %>
+                    —
+                  <% rows -> %>
+                    <details class="cl-details">
+                      <summary>View details</summary>
+                      <dl>
+                        <div :for={{label, value} <- rows}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      </dl>
+                    </details>
+                <% end %>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-          <%= if @maybe_more? do %>
-            <button type="button" phx-click="load_more" class="cairnloop-audit-load-more">
-              Load more
-            </button>
-          <% end %>
-        <% end %>
-      </div>
-    </div>
+        <div :if={@visible_events != [] and @maybe_more?} class="cl-pagination">
+          <.cl_button type="button" phx-click="load_more" variant="ghost">Load more</.cl_button>
+        </div>
+      </.cl_card>
+    </.cl_shell>
     """
   end
 end

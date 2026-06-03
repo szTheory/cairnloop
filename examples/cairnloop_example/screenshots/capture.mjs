@@ -55,9 +55,16 @@ const SHOTS = [
     fullPage: false,
   },
   {
-    file: "02-operator-inbox.png",
+    // Cockpit Home — the task-oriented landing the operator lands on at the mount root.
+    file: "02-cockpit-home.png",
     path: "/support",
-    waitFor: "text=Trailmark",
+    waitFor: "text=Welcome back",
+    fullPage: true,
+  },
+  {
+    file: "02b-operator-inbox.png",
+    path: "/support/inbox",
+    waitFor: "text=Inbox",
     fullPage: true,
   },
   {
@@ -76,7 +83,7 @@ const SHOTS = [
   { file: "08-outbound-recovery.png", path: "/support/20", waitFor: "text=Outbound recovery", fullPage: true },
   {
     file: "09-bulk-recovery.png",
-    path: "/support",
+    path: "/support/inbox",
     waitFor: "input[phx-click='toggle_select']",
     fullPage: false,
     async prepare(page) {
@@ -92,7 +99,9 @@ const SHOTS = [
   },
   { file: "10-knowledge-base.png", path: "/support/knowledge-base", waitFor: "text=Trailmark", fullPage: true },
   { file: "11-knowledge-gaps.png", path: "/support/knowledge-base/gaps", waitFor: "body", fullPage: true },
-  { file: "12-audit-log.png", path: "/support/audit-log", waitFor: "text=demo_operator", fullPage: true },
+  { file: "11b-kb-suggestions.png", path: "/support/knowledge-base/suggestions", waitFor: "body", fullPage: true },
+  { file: "11c-kb-editor.png", path: "/support/knowledge-base/1/edit", waitFor: "body", fullPage: true },
+  { file: "12-audit-log.png", path: "/support/audit-log", waitFor: "text=Audit Log", fullPage: true },
   { file: "13-settings.png", path: "/support/settings", waitFor: "body", fullPage: true },
 ];
 

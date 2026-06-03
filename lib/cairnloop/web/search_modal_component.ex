@@ -44,14 +44,12 @@ defmodule Cairnloop.Web.SearchModalComponent do
     >
       <%= if @open do %>
         <div
-          class="search-modal-backdrop"
-          style="position: fixed; inset: 0; background: rgba(44, 38, 31, 0.42); display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px; z-index: 50;"
+          class="cl-overlay cl-modal-backdrop"
           phx-window-keydown="handle_palette_key"
           phx-target={@myself}
         >
           <div
-            class="search-modal-content"
-            style="background: var(--cl-surface); color: var(--cl-text); border-radius: 18px; width: min(1040px, 92vw); min-height: 560px; max-height: 78vh; box-shadow: 0 24px 60px rgba(47, 36, 29, 0.18); overflow: hidden; display: flex; flex-direction: column;"
+            class="cl-modal-dialog cl-modal" style="width: min(1040px, 92vw);"
             phx-click-away="close"
             phx-target={@myself}
           >
@@ -68,26 +66,26 @@ defmodule Cairnloop.Web.SearchModalComponent do
                 aria-expanded="true"
                 aria-controls={"#{@id}-search-results"}
                 aria-activedescendant={@active_dom_id}
-                style="width: 100%; padding: 16px; font-size: 16px; line-height: 1.5; border: 1px solid rgba(64, 51, 43, 0.12); border-radius: 12px; outline-color: var(--cl-primary); background: #fffdfa;"
+                class="cl-input"
               />
             </form>
 
             <div class="search-modal-body" style="display: flex; flex: 1; gap: 32px; padding: 24px; overflow: hidden; flex-wrap: wrap;">
               <div class="search-results-pane" style="flex: 1 1 432px; min-width: min(432px, 100%); display: flex; flex-direction: column; overflow: hidden;">
                 <%= if @error do %>
-                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(181, 76, 54, 0.08); color: var(--cl-danger);">
+                  <div class="cl-banner cl-banner-danger">
                     Search is unavailable right now. Keep working in the current conversation, then try the search again.
                   </div>
                 <% end %>
 
                 <%= if @search_state == :scoped_unavailable do %>
-                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(168, 130, 46, 0.12); color: #2f241d;">
+                  <div class="cl-banner cl-banner-warning">
                     Scoped search is unavailable on this surface until the dashboard session provides `host_user_id`.
                   </div>
                 <% end %>
 
                 <%= if @search_state == :no_hit do %>
-                  <div style="margin-bottom: 16px; padding: 16px; border-radius: 12px; background: rgba(63, 111, 128, 0.08); color: #2f241d;">
+                  <div class="cl-banner cl-banner-info">
                     No verified guidance matched this search yet. Try different wording, or continue in the conversation with manual review.
                   </div>
                 <% end %>

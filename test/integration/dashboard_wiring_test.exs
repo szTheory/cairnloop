@@ -74,7 +74,9 @@ defmodule Cairnloop.DashboardWiringTest do
   test "cairnloop_dashboard mounts the full operator surface" do
     by_path = handler_by_path()
 
-    assert by_path["/support"] == Cairnloop.Web.InboxLive
+    # Cockpit Home is the task-oriented landing; the inbox moved to <path>/inbox.
+    assert by_path["/support"] == Cairnloop.Web.HomeLive
+    assert by_path["/support/inbox"] == Cairnloop.Web.InboxLive
     assert by_path["/support/knowledge-base"] == Cairnloop.Web.KnowledgeBaseLive.Index
     assert by_path["/support/knowledge-base/gaps"] == Cairnloop.Web.KnowledgeBaseLive.Gaps
 

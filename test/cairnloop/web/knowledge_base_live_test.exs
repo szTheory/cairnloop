@@ -296,7 +296,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     assert html =~ "Return to review task"
     assert html =~ "Tighten the billing export steps."
     assert html =~ "3 evidence sources"
-    refute html =~ ">Publish<"
+    # The Publish button is suppressed in the review lane. Match it by its unique
+    # phx-click (whitespace-independent now that it renders via the cl_button component).
+    refute html =~ ~s(phx-click="publish")
   end
 
   test "editor rejects bare suggestion ids without a signed handoff — returns calm flash + redirect" do
@@ -601,7 +603,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
       )
 
     html = render_html(socket.assigns)
-    assert html =~ ">Publish<"
+    # Publish button present outside the review lane — matched by its unique phx-click.
+    assert html =~ ~s(phx-click="publish")
   end
 
   test "Editor renders Source gap sidebar when suggestion has entrypoint_type :gap_candidate" do

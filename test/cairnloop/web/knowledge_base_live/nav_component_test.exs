@@ -72,13 +72,13 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponentTest do
   end
 
   describe "kb_nav/1 — brand token compliance (not-color-alone)" do
-    test "active link uses var(--cl-primary) for border (not color alone)" do
+    test "active link uses aria-selected=\"true\" for styling hooks" do
       html = render_component(&NavComponent.kb_nav/1, current: :index)
 
-      # The active state must pair the primary border with aria-current="page"
-      # This proves not-color-alone is honored
-      assert html =~ "var(--cl-primary)",
-             "Active link must include var(--cl-primary) for border styling"
+      # The active state must pair aria-selected="true" with aria-current="page"
+      # This proves not-color-alone is honored by the design system
+      assert html =~ "aria-selected=\"true\"",
+             "Active link must include aria-selected=\"true\" for styling hooks"
 
       assert html =~ "aria-current=\"page\"",
              "Active link must also have aria-current=\"page\" (not color alone)"

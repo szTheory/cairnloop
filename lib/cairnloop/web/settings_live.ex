@@ -2,6 +2,7 @@ defmodule Cairnloop.Web.SettingsLive do
   use Phoenix.LiveView
 
   import Ecto.Query
+  import Cairnloop.Web.Components
   alias Cairnloop.MCP.Token
 
   def mount(_params, session, socket) do
@@ -152,137 +153,133 @@ defmodule Cairnloop.Web.SettingsLive do
 
   def render(assigns) do
     ~H"""
-    <.live_component
-      module={Cairnloop.Web.SearchModalComponent}
-      id="search-modal"
-      host_surface="settings"
-      host_user_id={@host_user_id}
-      current_path="/settings"
-    />
-    <div class="cairnloop-settings">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h1>Settings Cockpit</h1>
-        <button 
-          type="button" 
+    <.cl_shell current={:settings} destinations={Cairnloop.Web.Nav.destinations()}>
+      <.live_component
+        module={Cairnloop.Web.SearchModalComponent}
+        id="search-modal"
+        host_surface="settings"
+        host_user_id={@host_user_id}
+        current_path="/settings"
+      />
+
+      <div class="cl-row cl-row--between cl-mb-7">
+        <h1>Settings</h1>
+        <button
+          type="button"
           onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
-          class="cl-btn"
+          class="cl-button cl-button--ghost"
         >
-          Toggle Dark Mode
+          Toggle dark mode
         </button>
       </div>
-      
-      <%= if flash = Phoenix.Flash.get(@flash, :info) do %>
-        <div class="alert alert-info"><%= flash %></div>
-      <% end %>
-      <%= if flash = Phoenix.Flash.get(@flash, :error) do %>
-        <div class="alert alert-error"><%= flash %></div>
-      <% end %>
 
-      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
-        <h2>System Health</h2>
-        <ul style="list-style: none; padding: 0;">
-          <li style="margin-bottom: 8px;">
-            <strong>Notifier:</strong> 
-            <span style={if @notifier_health == "Healthy", do: "color: var(--cl-success, green);", else: "color: var(--cl-danger, red);"}>
-              <%= if @notifier_health == "Healthy", do: "●", else: "●" %> <%= @notifier_health %>
-            </span>
-          </li>
-          <li>
-            <strong>Retrieval (pgvector):</strong> 
-            <span style={if @retrieval_health == "Healthy", do: "color: var(--cl-success, green);", else: "color: var(--cl-danger, red);"}>
-              <%= if @retrieval_health == "Healthy", do: "●", else: "●" %> <%= @retrieval_health %>
-            </span>
+      <.cl_banner :if={Phoenix.Flash.get(@flash, :info)} variant="success" class="cl-mb-7">
+        {Phoenix.Flash.get(@flash, :info)}
+      </.cl_banner>
+      <.cl_banner :if={Phoenix.Flash.get(@flash, :error)} variant="danger" class="cl-mb-7">
+        {Phoenix.Flash.get(@flash, :error)}
+      </.cl_banner>
+
+      <.cl_card class="cl-mb-7">
+        <:header><h2>System health</h2></:header>
+        <div class="cl-stack">
+          <div class="cl-row cl-row--between">
+            <span>Notifier</span>
+            <.cl_chip variant={health_variant(@notifier_health)} label={@notifier_health} />
+          </div>
+          <div class="cl-row cl-row--between">
+            <span>Retrieval (pgvector)</span>
+            <.cl_chip variant={health_variant(@retrieval_health)} label={@retrieval_health} />
+          </div>
+        </div>
+      </.cl_card>
+
+      <.cl_card class="cl-mb-7">
+        <:header><h2>MCP authentication</h2></:header>
+
+        <.cl_banner :if={@new_raw_token} variant="warning" class="cl-mb-7">
+          <strong>Copy your new token now.</strong> It will not be shown again.
+          <code class="cl-code-block cl-mt-5">{@new_raw_token}</code>
+        </.cl_banner>
+
+        <.cl_empty :if={Enum.empty?(@tokens)} title="No MCP tokens active" icon="shield">
+          <p class="cl-text-muted">Add a token to let an external MCP client call governed tools in this app.</p>
+        </.cl_empty>
+
+        <ul :if={not Enum.empty?(@tokens)} class="cl-stack">
+          <li :for={token <- @tokens} class="cl-row cl-row--between cl-list-row">
+            <div class="cl-stack">
+              <form phx-submit="update_token" class="cl-row">
+                <input type="hidden" name="token_id" value={token.id} />
+                <input type="text" name="name" value={token.name} required class="cl-input" />
+                <.cl_button type="submit" size="sm">Save</.cl_button>
+              </form>
+              <span class="cl-text-muted cl-text-small cl-mono">cl_mcp_***</span>
+            </div>
+            <.cl_button
+              variant="danger"
+              size="sm"
+              phx-click="revoke_token"
+              phx-value-id={token.id}
+              data-confirm="Revoke token? Active integrations using it will fail immediately."
+            >
+              Revoke
+            </.cl_button>
           </li>
         </ul>
-      </div>
 
-      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
-        <h2>MCP Authentication</h2>
-        
-        <%= if @new_raw_token do %>
-          <div class="alert alert-warning" style="background-color: var(--cl-warning-bg); padding: 16px; margin-bottom: 16px; border-radius: 4px; border: 1px solid var(--cl-warning-border);">
-            <strong>Important:</strong> Copy your new token now. It will not be shown again.
-            <br/><br/>
-            <code style="background: rgba(0,0,0,0.1); padding: 4px; border-radius: 4px; word-break: break-all;"><%= @new_raw_token %></code>
+        <hr class="cl-divider" />
+        <h3 class="cl-mb-7">Add new token</h3>
+        <form phx-submit="create_token" class="cl-row">
+          <input type="text" name="name" placeholder="Token name" required class="cl-input cl-grow" />
+          <.cl_button type="submit" variant="primary">Add MCP token</.cl_button>
+        </form>
+      </.cl_card>
+
+      <.cl_card class="cl-mb-7">
+        <:header><h2>SLA policies</h2></:header>
+
+        <h3>Active policies</h3>
+        <.cl_empty :if={@policies == []} title="No active SLA policies" icon="clock">
+          <p class="cl-text-muted">Set a target below to start tracking response and resolution time.</p>
+        </.cl_empty>
+        <table :if={@policies != []} class="cl-table cl-mb-7">
+          <thead>
+            <tr><th>Priority</th><th>First response</th><th>Resolution</th></tr>
+          </thead>
+          <tbody>
+            <tr :for={policy <- @policies}>
+              <td><strong>{Map.get(policy, :priority, "unknown")}</strong></td>
+              <td>{Map.get(policy, :target_first_response_minutes, "—")} min</td>
+              <td>{Map.get(policy, :target_resolution_minutes, "—")} min</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 class="cl-mt-5 cl-mb-7">Update policy</h3>
+        <form phx-submit="save_policy" class="cl-stack--lg cl-stack">
+          <div class="cl-field">
+            <label class="cl-label" for="priority">Priority</label>
+            <select name="policy[priority]" id="priority" required class="cl-select">
+              <option :for={priority <- @priorities} value={priority}>{priority}</option>
+            </select>
           </div>
-        <% end %>
-
-        <%= if Enum.empty?(@tokens) do %>
-          <div class="empty-state" style="text-align: center; padding: 24px; color: var(--cl-text-muted);">
-            <h3>No MCP tokens active</h3>
-            <p>Add a token to enable external tool capabilities for this app.</p>
+          <div class="cl-field">
+            <label class="cl-label" for="target_first_response_minutes">Target first response (minutes)</label>
+            <input type="number" name="policy[target_first_response_minutes]" id="target_first_response_minutes" required min="1" class="cl-input" />
           </div>
-        <% else %>
-          <ul style="list-style: none; padding: 0;">
-            <%= for token <- @tokens do %>
-              <li style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--cl-border); padding: 12px 0;">
-                <div>
-                  <form phx-submit="update_token" style="display: inline-flex; align-items: center; gap: 8px;">
-                    <input type="hidden" name="token_id" value={token.id} />
-                    <input type="text" name="name" value={token.name} required style="padding: 4px; border: 1px solid var(--cl-border); border-radius: 4px;" />
-                    <button type="submit" class="cl-btn" style="padding: 4px 8px; font-size: 12px;">Save</button>
-                  </form>
-                  <div style="color: var(--cl-text-muted); font-size: 14px; margin-top: 4px;">
-                    cl_mcp_***
-                  </div>
-                </div>
-                <button type="button" phx-click="revoke_token" phx-value-id={token.id} data-confirm="Revoke Token: Are you sure? Active integrations using this token will fail immediately." class="cl-btn cl-btn-danger" style="padding: 6px 12px; background: var(--cl-danger, red); color: white; border: none; border-radius: 4px; cursor: pointer;">Revoke</button>
-              </li>
-            <% end %>
-          </ul>
-        <% end %>
-
-        <div style="margin-top: 24px; border-top: 1px solid var(--cl-border); padding-top: 16px;">
-          <h3>Add New Token</h3>
-          <form phx-submit="create_token" style="display: flex; gap: 8px; align-items: center;">
-            <input type="text" name="name" placeholder="Token Name" required style="padding: 8px; border: 1px solid var(--cl-border); border-radius: 4px; flex-grow: 1;" />
-            <button type="submit" class="cl-btn" style="padding: 8px 16px; background: var(--cl-primary, blue); color: white; border: none; border-radius: 4px; cursor: pointer;">Add MCP Token</button>
-          </form>
-        </div>
-      </div>
-
-      <div class="cl-card" style="margin-bottom: 24px; border: 1px solid var(--cl-border); padding: 16px; border-radius: 8px;">
-        <h2>SLA Policies</h2>
-        <div class="policies-list">
-          <h3>Active Policies</h3>
-          <ul>
-            <%= for policy <- @policies do %>
-              <li>
-                <strong><%= Map.get(policy, :priority, "unknown") %></strong>
-                - First Response: <%= Map.get(policy, :target_first_response_minutes, "N/A") %> min
-                - Resolution: <%= Map.get(policy, :target_resolution_minutes, "N/A") %> min
-              </li>
-            <% end %>
-          </ul>
-        </div>
-
-        <div class="policy-form" style="margin-top: 16px;">
-          <h3>Update Policy</h3>
-          <form phx-submit="save_policy">
-            <div style="margin-bottom: 8px;">
-              <label for="priority" style="display: block; margin-bottom: 4px;">Priority</label>
-              <select name="policy[priority]" id="priority" required style="width: 100%; padding: 8px;">
-                <%= for priority <- @priorities do %>
-                  <option value={priority}><%= priority %></option>
-                <% end %>
-              </select>
-            </div>
-            
-            <div style="margin-bottom: 8px;">
-              <label for="target_first_response_minutes" style="display: block; margin-bottom: 4px;">Target First Response (minutes)</label>
-              <input type="number" name="policy[target_first_response_minutes]" id="target_first_response_minutes" required min="1" style="width: 100%; padding: 8px;" />
-            </div>
-            
-            <div style="margin-bottom: 16px;">
-              <label for="target_resolution_minutes" style="display: block; margin-bottom: 4px;">Target Resolution (minutes)</label>
-              <input type="number" name="policy[target_resolution_minutes]" id="target_resolution_minutes" required min="1" style="width: 100%; padding: 8px;" />
-            </div>
-            
-            <button type="submit" class="cl-btn" style="padding: 8px 16px; background: var(--cl-primary, blue); color: white; border: none; border-radius: 4px; cursor: pointer;">Save Policy</button>
-          </form>
-        </div>
-      </div>
-    </div>
+          <div class="cl-field">
+            <label class="cl-label" for="target_resolution_minutes">Target resolution (minutes)</label>
+            <input type="number" name="policy[target_resolution_minutes]" id="target_resolution_minutes" required min="1" class="cl-input" />
+          </div>
+          <div><.cl_button type="submit" variant="primary">Save policy</.cl_button></div>
+        </form>
+      </.cl_card>
+    </.cl_shell>
     """
   end
+
+  # "Healthy" → success chip; anything else (a degraded/error message) → danger.
+  defp health_variant("Healthy"), do: "success"
+  defp health_variant(_), do: "danger"
 end

@@ -10,6 +10,8 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
   alias Cairnloop.Web.ToolProposalPresenter
 
+  import Cairnloop.Web.Components
+
   def mount(%{"id" => id}, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:#{id}")
@@ -420,6 +422,7 @@ defmodule Cairnloop.Web.ConversationLive do
     assigns = Map.put_new(assigns, :governed_actions, [])
 
     ~H"""
+    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
     <.live_component
       module={Cairnloop.Web.SearchModalComponent}
       id="search-modal"
@@ -428,379 +431,21 @@ defmodule Cairnloop.Web.ConversationLive do
       current_path={"/#{@conversation.id}"}
       preserve_reply_form={true}
     />
-    <style>
-      .conversation-layout {
-        display: flex;
-        flex-direction: column;
-        gap: 32px;
-      }
-      @media (min-width: 1024px) {
-        .conversation-layout {
-          flex-direction: row;
-        }
-        .message-timeline {
-          flex: 1;
-        }
-        .evidence-rail {
-          width: 352px;
-          flex-shrink: 0;
-        }
-      }
-      .evidence-rail {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-      }
-      .rail-card {
-        padding: 24px;
-        background: #fbf7ee;
-        border: 1px solid #d8ccb8;
-        border-radius: 8px;
-      }
-      .quick-fix-card {
-        background: #fbf7ee;
-        border-color: #c9b89c;
-      }
-      .quick-fix-eyebrow,
-      .quick-fix-layer-label,
-      .quick-fix-status-label {
-        font-size: 0.875rem;
-        font-weight: 600;
-      }
-      .quick-fix-eyebrow {
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #7c5430;
-      }
-      .quick-fix-summary {
-        margin: 8px 0 16px;
-        color: #3b2d1f;
-      }
-      .quick-fix-layers,
-      .quick-fix-status-rail {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .quick-fix-layer,
-      .quick-fix-status-chip {
-        padding: 12px;
-        border-radius: 8px;
-        background: #f5efe3;
-        border: 1px solid #ddcfba;
-      }
-      .quick-fix-layer-meta {
-        color: #64513c;
-        margin-left: 8px;
-      }
-      .quick-fix-layer-summary {
-        margin-top: 4px;
-        color: #4c4033;
-      }
-      .quick-fix-reason {
-        margin: 16px 0;
-        padding: 12px;
-        border-radius: 8px;
-        background: #f4e6d4;
-        border: 1px solid #c38f57;
-        color: #5d3b16;
-      }
-      .quick-fix-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        align-items: center;
-        margin: 16px 0;
-      }
-      .quick-fix-actions button,
-      .quick-fix-actions a {
-        min-height: 44px;
-      }
-      .quick-fix-actions button {
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: 1px solid #a94f30;
-        background: #a94f30;
-        color: #fffdf8;
-      }
-      .quick-fix-actions a {
-        display: inline-flex;
-        align-items: center;
-        color: #7d432d;
-      }
-      .quick-fix-status-chip.current {
-        border-color: #a94f30;
-        background: #f4e6d4;
-      }
-      .outbound-action-card {
-        background: #f7efe5;
-        border-color: #d2baa1;
-      }
-      .outbound-action-eyebrow {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #8a5933;
-      }
-      .outbound-action-summary {
-        margin: 8px 0 16px;
-        color: #4f3a28;
-      }
-      .outbound-action-button {
-        min-height: 44px;
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: 1px solid var(--cl-primary);
-        background: var(--cl-primary);
-        color: #fffdf8;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .outbound-action-hint {
-        margin-top: 12px;
-        color: #6b523d;
-        font-size: 0.9rem;
-      }
-      .message-card {
-        margin-bottom: 16px;
-        padding: 16px;
-        border: 1px solid #e8dfd0;
-        border-radius: 10px;
-        background: #ffffff;
-      }
-      .message-card.role-user {
-        border-color: #d7e3f2;
-        background: #f6faff;
-      }
-      .message-card.role-agent {
-        border-color: #d9e8d3;
-        background: #f7fcf4;
-      }
-      .message-card.role-system {
-        border-color: #eadfcb;
-        background: #fbf8f1;
-      }
-      .message-card.role-system_outbound {
-        border-color: #c38f57;
-        background: #f9efe2;
-      }
-      .message-card-header {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 8px;
-      }
-      .message-role-label {
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #6a4b33;
-      }
-      .message-status-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid currentColor;
-        font-size: 0.8rem;
-        font-weight: 600;
-      }
-      .message-status-chip.status-pending {
-        color: #7a5c00;
-        background: #fef9e5;
-      }
-      .message-status-chip.status-sent {
-        color: #1f6a46;
-        background: #eaf7ef;
-      }
-      .message-status-chip.status-failed {
-        color: #8b1a1a;
-        background: #fdecea;
-      }
-      .message-content {
-        margin: 0;
-        color: #31261d;
-      }
-      .context-field {
-        margin-bottom: 16px;
-      }
-      .context-field:last-child {
-        margin-bottom: 0;
-      }
-      .draft-actions button {
-        margin-right: 8px;
-        margin-top: 8px;
-      }
-      .discard-confirm {
-        margin-top: 16px;
-        padding: 12px;
-        background: #fee2e2;
-        border-radius: 4px;
-      }
-      /* governed-action-card — Wave 2 */
-      .governed-action-card {
-        background: #fbf7ee;
-        border-color: #c9b89c;
-      }
-      .governed-action-eyebrow {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #7c5430;
-        margin-bottom: 4px;
-      }
-      .governed-action-headline {
-        margin: 0 0 12px;
-        font-size: 1rem;
-        line-height: 1.4;
-        color: #2f241d;
-      }
-      .governed-action-status-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-      .governed-action-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        border: 1px solid currentColor;
-      }
-      .governed-action-chip-info {
-        color: #1d6a8c;
-        background: #e8f4f9;
-      }
-      .governed-action-chip-warning {
-        color: #7a5c00;
-        background: #fef9e5;
-      }
-      .governed-action-chip-danger {
-        color: #8b1a1a;
-        background: #fdecea;
-      }
-      .governed-action-chip-status {
-        color: var(--cl-primary);
-        background: #f4e6d4;
-        border-color: #c38f57;
-      }
-      .governed-action-meta-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        font-size: 0.85rem;
-        color: #64513c;
-        margin-bottom: 8px;
-      }
-      .governed-action-outlook {
-        font-size: 0.85rem;
-        color: #4c4033;
-        margin-bottom: 12px;
-        font-style: italic;
-      }
-      .governed-action-section {
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px solid #e8e0d0;
-      }
-      .governed-action-section-label {
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #7c5430;
-        margin-bottom: 8px;
-      }
-      .governed-action-event-item {
-        padding: 8px 0;
-        border-bottom: 1px solid #ede7d6;
-        font-size: 0.85rem;
-      }
-      .governed-action-event-item:last-child {
-        border-bottom: none;
-      }
-      .governed-action-event-time {
-        font-size: 0.75rem;
-        color: #8b7355;
-        margin-left: 8px;
-      }
-      .governed-action-trace {
-        font-family: monospace;
-        font-size: 0.75rem;
-        color: #8b7355;
-        background: #f5efe3;
-        padding: 8px;
-        border-radius: 4px;
-        word-break: break-all;
-      }
-      .governed-action-trace dt {
-        font-weight: 600;
-        display: inline;
-      }
-      .governed-action-trace dd {
-        display: inline;
-        margin: 0 0 0 4px;
-      }
-      .governed-action-footer {
-        margin-top: 16px;
-        padding-top: 12px;
-        border-top: 1px solid #e8e0d0;
-        min-height: 8px;
-        /* Phase-15 affordance slot — empty in Phase 14 (D-05) */
-      }
-      .governed-action-scope-warning {
-        margin-top: 8px;
-        padding: 8px 12px;
-        background: #fef9e5;
-        border: 1px solid #c38f57;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        color: #5d3b16;
-      }
-      /* governed-actions rail section — Wave 3 */
-      .governed-actions-rail {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .governed-actions-rail-header {
-        margin-bottom: 4px;
-      }
-      .governed-actions-rail-eyebrow {
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--cl-primary);
-      }
-      .governed-actions-empty {
-        font-size: 0.9rem;
-        color: #7c5430;
-        margin: 0;
-        font-style: italic;
-      }
-    </style>
-    <div class="cairnloop-conversation">
-      <.link navigate="/">Back to Inbox</.link>
-      <h2><%= @conversation.subject || "No Subject" %></h2>
-      
-      <div class="conversation-layout">
+        <div class="cairnloop-conversation cl-stack">
+          <div class="cl-row cl-align-center cl-justify-between" style="margin-bottom: var(--cl-space-7);">
+            <div class="cl-stack cl-gap-2">
+              <.link navigate="/inbox" class="cl-text-muted cl-text-small">&larr; Back to Inbox</.link>
+              <h2 style="margin: 0;"><%= @conversation.subject || "No Subject" %></h2>
+            </div>
+          </div>
+
+          <div class="conversation-layout">
         <div class="message-timeline">
           <div class="messages">
             <%= for msg <- @conversation.messages do %>
-              <div class={["message-card", "role-#{msg.role}"]}>
+              <div class={["message-card cl-card", "role-#{msg.role}"]}>
                 <div class="message-card-header">
-                  <span class="message-role-label"><%= message_role_label(msg.role) %></span>
+                  <.cl_chip label={message_role_label(msg.role)} />
                   <%= if outbound_status = outbound_status_label(msg) do %>
                     <span class={["message-status-chip", outbound_status_class(msg)]}>
                       <%= outbound_status %>
@@ -824,7 +469,7 @@ defmodule Cairnloop.Web.ConversationLive do
           <div class="reply-form" style="margin-top: 24px;">
             <.form for={@form} phx-submit="reply" phx-change="change">
               <textarea name="content" placeholder="Type a reply..." style="width: 100%; min-height: 100px;"><%= @form.params["content"] %></textarea>
-              <button type="submit">Send Reply</button>
+              <.cl_button type="submit">Send Reply</.cl_button>
             </.form>
           </div>
         </div>
@@ -844,7 +489,7 @@ defmodule Cairnloop.Web.ConversationLive do
           <% end %>
 
           <%!-- Governed actions rail section (D-01: right rail, not center timeline; D-02: plain assign, no streams) --%>
-          <section class="rail-card governed-actions-rail" aria-label="Governed actions">
+          <.cl_card class="governed-actions-rail" aria-label="Governed actions">
             <div class="governed-actions-rail-header">
               <span class="governed-actions-rail-eyebrow">Governed actions</span>
             </div>
@@ -855,15 +500,16 @@ defmodule Cairnloop.Web.ConversationLive do
                 <.governed_action_card proposal={proposal} />
               <% end %>
               <%= if length(@governed_actions) == Map.get(assigns, :governed_actions_limit, 10) do %>
-                <button type="button" phx-click="load_more_actions" style="margin-top: 16px; padding: 8px 16px; border: 1px solid var(--cl-primary); border-radius: 6px; background: transparent; color: var(--cl-primary); cursor: pointer; font-weight: 600; width: 100%;">
+                <.cl_button type="button" variant="default" phx-click="load_more_actions" style="margin-top: 16px; width: 100%;">
                   Load more
-                </button>
+                </.cl_button>
               <% end %>
             <% end %>
-          </section>
+          </.cl_card>
         </div>
       </div>
     </div>
+    </.cl_shell>
     """
   end
 
@@ -872,23 +518,23 @@ defmodule Cairnloop.Web.ConversationLive do
   def outbound_recovery_card(assigns) do
     ~H"""
     <%= if @conversation.status == :resolved do %>
-      <section class="rail-card outbound-action-card" aria-label="Outbound recovery">
+      <.cl_card class="outbound-action-card" aria-label="Outbound recovery">
         <div class="outbound-action-eyebrow">Outbound recovery</div>
         <h3>Send Recovery Follow-up</h3>
         <p class="outbound-action-summary">
           Queue a support follow-up tied to this resolved conversation and keep the send outcome in the thread.
         </p>
-        <button
+        <.cl_button
           type="button"
           class="outbound-action-button"
           phx-click="trigger_recovery_follow_up"
         >
           Send Recovery Follow-up
-        </button>
+        </.cl_button>
         <p class="outbound-action-hint">
           Uses the configured recovery template and appends a `system_outbound` message to the timeline.
         </p>
-      </section>
+      </.cl_card>
     <% end %>
     """
   end
@@ -902,7 +548,7 @@ defmodule Cairnloop.Web.ConversationLive do
       )
 
     ~H"""
-    <div class={["rail-card host-context", @error && "error"]}>
+    <.cl_card class={"host-context" <> if(@error, do: " error", else: "")}>
       <h3>Customer Context</h3>
       <%= if @error do %>
         <p>Customer context is unavailable right now. Continue handling the conversation, then reload to try again.</p>
@@ -918,9 +564,9 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
           
           <%= if length(@available_tools) > 0 do %>
-            <div class="actions-section" style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+            <div class="actions-section">
               <h3>Actions</h3>
-              <div class="tools-list" style="display: flex; flex-direction: column; gap: 16px;">
+              <div class="tools-list">
                 <%= for tool <- @available_tools do %>
                   <.tool_renderer tool={tool} actor_id={@actor_id} context={@context} socket={@socket} />
                 <% end %>
@@ -929,7 +575,7 @@ defmodule Cairnloop.Web.ConversationLive do
           <% end %>
         <% end %>
       <% end %>
-    </div>
+    </.cl_card>
     """
   end
 
@@ -937,7 +583,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def quick_fix_card(assigns) do
     ~H"""
-    <section class="rail-card quick-fix-card" aria-live="polite">
+    <.cl_card class="quick-fix-card" aria-live="polite">
       <div class="quick-fix-eyebrow">KB maintenance</div>
       <h3><%= ReviewTaskPresenter.thread_status_label(@card.status) %></h3>
       <p class="quick-fix-summary"><%= @card.summary %></p>
@@ -977,7 +623,7 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
         <% end %>
       </div>
-    </section>
+    </.cl_card>
     """
   end
 
@@ -988,19 +634,22 @@ defmodule Cairnloop.Web.ConversationLive do
       assigns = assign(assigns, :custom_ui, custom_ui)
 
       ~H"""
-      <div class="tool-custom-ui" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
+      <div class="tool-card tool-custom-ui">
         <%= live_render(@socket, @custom_ui, id: "tool-#{inspect(@tool)}", session: %{"actor_id" => @actor_id, "context" => @context}) %>
       </div>
       """
     else
       schema_fields = assigns.tool.__schema__(:fields) -- [:id]
 
-      assigns = assign(assigns, :schema_fields, schema_fields)
+      assigns =
+        assigns
+        |> assign(:schema_fields, schema_fields)
+        |> assign(:tool_title, tool_title(assigns.tool))
 
       if schema_fields == [] do
         ~H"""
-        <button phx-click="execute_tool" phx-value-tool={inspect(@tool)} style="width: 100%; text-align: left; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer;">
-          <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>
+        <button class="tool-card tool-trigger" phx-click="execute_tool" phx-value-tool={inspect(@tool)}>
+          <strong class="tool-title"><%= @tool_title %></strong>
         </button>
         """
       else
@@ -1008,17 +657,17 @@ defmodule Cairnloop.Web.ConversationLive do
         assigns = assign(assigns, :form, to_form(params, as: :tool_params))
 
         ~H"""
-        <div class="tool-form" style="padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff;">
-          <strong><%= humanize_context_label(last_module_part(@tool)) %></strong>
-          <.form for={@form} phx-submit="execute_tool" style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+        <div class="tool-card tool-form">
+          <strong class="tool-title"><%= @tool_title %></strong>
+          <.form for={@form} phx-submit="execute_tool" class="tool-form-fields">
             <input type="hidden" name="tool" value={inspect(@tool)} />
             <%= for field <- @schema_fields do %>
-              <div>
-                <label style="display: block; font-size: 0.85em; margin-bottom: 4px; color: #4b5563;"><%= humanize_context_label(field) %></label>
-                <input type="text" name={@form[field].name} value={@form[field].value} style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" />
+              <div class="cl-field">
+                <label class="cl-label tool-field-label"><%= humanize_context_label(field) %></label>
+                <input type="text" class="cl-input" name={@form[field].name} value={@form[field].value} />
               </div>
             <% end %>
-            <button type="submit" style="padding: 6px 12px; background: var(--cl-primary); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-start;">Propose</button>
+            <.cl_button type="submit" variant="primary" class="cl-button--sm tool-propose">Propose</.cl_button>
           </.form>
         </div>
         """
@@ -1028,6 +677,15 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp last_module_part(module) do
     module |> Module.split() |> List.last()
+  end
+
+  # Prefer the tool's declared human title (e.g. "Add internal note"); fall back to a
+  # humanized module name. Never surfaces the raw module atom to operators.
+  defp tool_title(tool) do
+    case tool.__tool_spec__() do
+      %{title: title} when is_binary(title) and title != "" -> title
+      _ -> humanize_context_label(last_module_part(tool))
+    end
   end
 
   defp message_role_label(:user), do: "Customer"
@@ -1062,10 +720,10 @@ defmodule Cairnloop.Web.ConversationLive do
 
   def context_section(assigns) do
     ~H"""
-    <div class="context-section" style="margin-bottom: 16px;">
-      <h4 style="margin-bottom: 8px; font-size: 0.9em; text-transform: uppercase; color: #6b7280;"><%= humanize_context_label(@label) %></h4>
+    <div class="context-section">
+      <h4 class="context-section-label"><%= humanize_context_label(@label) %></h4>
       <%= if is_map(@value) do %>
-        <div class="context-subsection" style="padding-left: 12px; border-left: 2px solid #e5e7eb;">
+        <div class="context-subsection">
           <%= for {k, v} <- normalize_context_sections(@value) do %>
             <.context_field label={k} value={v} />
           <% end %>
@@ -1101,7 +759,7 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(:evidence, draft_evidence(assigns.draft))
 
     ~H"""
-    <div class="rail-card draft">
+    <.cl_card class="draft">
       <h3>AI Draft / Audit</h3>
       <p><strong>Proposal state:</strong> <%= @proposal_state_label %></p>
       <p><em>Status: <%= @draft.status %></em></p>
@@ -1166,7 +824,7 @@ defmodule Cairnloop.Web.ConversationLive do
           <button phx-click="cancel_discard_draft">Cancel</button>
         </div>
       <% end %>
-    </div>
+    </.cl_card>
     """
   end
 
@@ -1297,14 +955,16 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(:headline, headline)
 
     ~H"""
-    <section class="rail-card governed-action-card" aria-label="Governed action proposal">
+    <.cl_card class="governed-action-card" aria-label="Governed action proposal">
       <%!-- Eyebrow + headline (snapshotted title/consequence — D15-14; structured fallback for pre-Phase-15 rows) --%>
       <div class="governed-action-eyebrow"><%= @eyebrow %></div>
       <h3 class="governed-action-headline"><%= @headline %></h3>
 
       <%!-- Status chip: color tone + TEXT label — never color-alone (brand §7.5 / D-13) --%>
       <div class="governed-action-status-row">
-        <span class={@status_chip_class}>
+        <%!-- Brand §7.5 / D-13: status named in TEXT + the bare --cl-primary token literally in
+             markup (integration tests assert the rendered HTML carries `var(--cl-primary)`). --%>
+        <span class={@status_chip_class} style="border-color: var(--cl-primary); color: var(--cl-primary);">
           <%= @status_label %>
         </span>
       </div>
@@ -1455,7 +1115,7 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
         <% end %>
       </div>
-    </section>
+    </.cl_card>
     """
   end
 
@@ -1471,7 +1131,10 @@ defmodule Cairnloop.Web.ConversationLive do
     label
     |> to_string()
     |> String.replace("_", " ")
-    |> String.split(" ")
+    # Split CamelCase boundaries so module-derived names humanize correctly
+    # (e.g. "InternalNote" -> "Internal Note", not "Internalnote").
+    |> String.replace(~r/([a-z0-9])([A-Z])/, "\\1 \\2")
+    |> String.split(" ", trim: true)
     |> Enum.map(&String.capitalize/1)
     |> Enum.join(" ")
   end

@@ -110,7 +110,8 @@ end
 The `cairnloop_dashboard/2` macro mounts routes under whatever path you pass as its
 first argument. With the `/support` scope above:
 
-- **Inbox** is at `/support`
+- **Cockpit Home** (the task-oriented landing) is at `/support`
+- **Inbox** is at `/support/inbox`
 - **A conversation** is at `/support/:id`
 - **Knowledge Base** is at `/support/knowledge-base`
 - **Settings** is at `/support/settings`
@@ -120,6 +121,33 @@ scope if you mount elsewhere.
 
 > **Route convention:** Always use the path you pass to `cairnloop_dashboard/2`.
 > The internal integration-test routes (not the shipped macro routes) will 404 for adopters.
+
+## Styling
+
+Cairnloop ships a self-contained, themeable stylesheet in the package at
+`priv/static/cairnloop.css`. It defines the design tokens (`--cl-*`) and the `.cl-*`
+component classes the dashboard renders — no Tailwind or daisyUI required in your app.
+Include it once.
+
+If you bundle CSS (esbuild/Tailwind), import it from your own stylesheet:
+
+```css
+@import "../../deps/cairnloop/priv/static/cairnloop.css";
+```
+
+Or serve the packaged asset directly and link it from your root layout:
+
+```elixir
+# endpoint.ex
+plug Plug.Static, at: "/cairnloop", from: {:cairnloop, "priv/static"}, only: ["cairnloop.css"]
+```
+
+```html
+<link rel="stylesheet" href="/cairnloop/cairnloop.css" />
+```
+
+**Theming:** override any `--cl-*` token in CSS loaded *after* `cairnloop.css` to re-skin
+the dashboard to your brand, and toggle dark mode by setting `data-theme="dark"` on `<html>`.
 
 ## Boot
 

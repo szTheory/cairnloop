@@ -45,6 +45,8 @@ defmodule Cairnloop.Web.InboxLive do
   """
   use Phoenix.LiveView
 
+  import Cairnloop.Web.Components
+
   alias Cairnloop.Chat
 
   # ---------------------------------------------------------------------------
@@ -109,201 +111,172 @@ defmodule Cairnloop.Web.InboxLive do
 
   def render(assigns) do
     ~H"""
-    <div class="cairnloop-inbox">
-      <h1>Inbox</h1>
+    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
+      <.live_component
+        module={Cairnloop.Web.SearchModalComponent}
+        id="search-modal"
+        host_surface="inbox"
+        host_user_id={@host_user_id}
+        current_path="/"
+      />
 
-      <%= if @conversations == [] do %>
-        <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
-        <p
-          class="inbox-empty-state"
-          style="margin-top: 12px; font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));"
-        >
-          No conversations yet.
-        </p>
-      <% end %>
+      <div class="cairnloop-inbox">
+        <h1>Inbox</h1>
 
-      <%= if has_visible_eligible?(@conversations) do %>
-        <div class="cairnloop-inbox-bulk-header" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
-          <input
-            type="checkbox"
-            phx-click="toggle_select_all_visible"
-            checked={all_visible_selected?(@conversations, @selected_ids)}
-            aria-label="Select all visible resolved conversations"
-          />
-          <span style="font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));">Select all visible</span>
-        </div>
-      <% end %>
-
-      <ul>
-        <%= for conv <- @conversations do %>
-          <li>
-            <%= if conv.status == :resolved do %>
-              <input
-                type="checkbox"
-                phx-click="toggle_select"
-                phx-value-id={conv.id}
-                checked={MapSet.member?(@selected_ids, conv.id)}
-                aria-label={"Select conversation: #{conv.subject || "No subject"}"}
-              />
-            <% end %>
-            <.link navigate={"/#{conv.id}"}>
-              <strong><%= conv.subject || "No Subject" %></strong>
-              - <%= conv.status %>
-            </.link>
-          </li>
+        <%= if @conversations == [] do %>
+          <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
+          <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
+            No conversations yet.
+          </p>
         <% end %>
-      </ul>
 
-      <%= if MapSet.size(@selected_ids) > 0 do %>
-        <%!-- D-05 + research OQ4 — bottom-anchored sticky bulk action bar. --%>
-        <div
-          role="region"
-          aria-label="Bulk actions"
-          class="bulk-action-bar"
-          style="position: sticky; bottom: 0; background: var(--cl-surface-raised); border-top: 1px solid var(--cl-border); padding: 12px 16px; display: flex; gap: 12px; align-items: center; z-index: 10;"
-        >
-          <span><%= MapSet.size(@selected_ids) %> selected</span>
-          <button
-            type="button"
-            phx-click="clear_selection"
-            style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
-          >
-            Clear selection
-          </button>
-          <button
-            type="button"
-            phx-click="open_bulk_confirm"
-            style="background: var(--cl-primary); color: var(--cl-on-primary); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
-          >
-            Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
-          </button>
-        </div>
-      <% end %>
+        <%= if has_visible_eligible?(@conversations) do %>
+          <div class="cairnloop-inbox-bulk-header cl-row cl-list-row">
+            <input
+              type="checkbox"
+              phx-click="toggle_select_all_visible"
+              checked={all_visible_selected?(@conversations, @selected_ids)}
+              aria-label="Select all visible resolved conversations"
+            />
+            <span class="cl-text-muted cl-text-small">Select all visible</span>
+          </div>
+        <% end %>
 
-      <%= if @bulk_modal_open do %>
-        <%!-- D-07 / D-08 / D-10 — confirmation modal with focus trap. --%>
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="bulk-confirm-title"
-          class="bulk-confirm-backdrop"
-          style="position: fixed; inset: 0; background: var(--cl-overlay, rgba(44, 38, 31, 0.42)); display: flex; justify-content: center; align-items: flex-start; padding: 64px 16px; z-index: 50;"
-          phx-window-keydown="cancel_bulk_confirm"
-          phx-key="Escape"
-        >
-          <.focus_wrap id="bulk-confirm-wrap">
-            <div
-              class="bulk-confirm-dialog"
-              style="position: relative; background: var(--cl-surface); color: var(--cl-text); border-radius: 18px; width: min(640px, 92vw); max-height: 78vh; box-shadow: 0 24px 60px var(--cl-shadow, rgba(47, 36, 29, 0.18)); overflow: hidden; display: flex; flex-direction: column; padding: 24px;"
-            >
-              <%!-- Phase 26 D-08: visible close affordance. Escape already works via phx-window-keydown. Anchored by position:relative on the dialog div. --%>
-              <button
-                type="button"
-                phx-click="cancel_bulk_confirm"
-                aria-label="Close"
-                style="position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62)); font-size: 24px; line-height: 1; cursor: pointer; padding: 0;"
-              >
-                ×
-              </button>
-
-              <%= if @bulk_refusal do %>
-                <%!-- D-10 + brand §7.5 — refusal banner: icon + text + danger token. --%>
-                <div
-                  role="alert"
-                  class="bulk-refusal"
-                  style="background: var(--cl-danger-soft, rgba(181, 76, 54, 0.08)); border: 1px solid var(--cl-danger); padding: 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start;"
-                >
-                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--cl-danger); margin-top: 2px;">
-                    <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  </svg>
-                  <div>
-                    <h2 id="bulk-confirm-title" style="margin: 0; font-size: 18px; line-height: 1.3; font-weight: 600;">
-                      Batch too large.
-                    </h2>
-                    <p style="margin: 6px 0 0; font-size: 16px; line-height: 1.5;">
-                      This batch exceeds the safe send limit of <%= @bulk_refusal.max %>.
-                      Narrow your selection and try again.
-                    </p>
-                  </div>
-                </div>
-
-                <div class="bulk-confirm-actions" style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px;">
-                  <button
-                    type="button"
-                    phx-click="cancel_bulk_confirm"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    aria-disabled="true"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: none; background: var(--cl-primary-disabled, rgba(169, 79, 48, 0.36)); color: var(--cl-on-primary); font-weight: 600; cursor: not-allowed;"
-                  >
-                    Confirm send
-                  </button>
-                </div>
-              <% else %>
-                <h2 id="bulk-confirm-title" style="margin: 0 0 8px; font-size: 22px; line-height: 1.2; font-weight: 600;">
-                  Send recovery follow-up
-                </h2>
-                <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.5;">
-                  You're about to send to <strong><%= @bulk_preview.count %></strong> conversation(s).
-                </p>
-
-                <section aria-label="First 5 recipients" style="margin-bottom: 16px;">
-                  <ul style="list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 14px;">
-                    <%= for label <- @bulk_preview.sample do %>
-                      <li><%= label %></li>
-                    <% end %>
-                  </ul>
-                  <%= if @bulk_preview.more > 0 do %>
-                    <p style="margin: 8px 0 0; font-size: 14px; color: var(--cl-text-muted, rgba(47, 36, 29, 0.62));">
-                      + <%= @bulk_preview.more %> more
-                    </p>
-                  <% end %>
-                </section>
-
-                <section aria-label="Message body" style="margin-bottom: 24px; padding: 16px; border-radius: 12px; background: var(--cl-surface-translucent, rgba(255, 255, 255, 0.72));">
-                  <h3 style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--cl-text-soft, rgba(47, 36, 29, 0.72)); text-transform: uppercase; letter-spacing: 0.04em;">
-                    Message body
-                  </h3>
-                  <p style="margin: 0; font-size: 16px; line-height: 1.5; white-space: pre-wrap;">
-                    <%= @bulk_preview.rendered_body %>
-                  </p>
-                </section>
-
-                <div class="bulk-confirm-actions" style="display: flex; gap: 12px; justify-content: flex-end;">
-                  <button
-                    type="button"
-                    phx-click="cancel_bulk_confirm"
-                    style="min-height: 44px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--cl-border); background: transparent; color: var(--cl-text);"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    phx-click="confirm_bulk_send"
-                    style="background: var(--cl-primary); color: var(--cl-on-primary); border-radius: 8px; min-height: 44px; padding: 10px 16px; border: none; font-weight: 600;"
-                  >
-                    Confirm send
-                  </button>
-                </div>
+        <ul class="cl-stack">
+          <%= for conv <- @conversations do %>
+            <li class="cl-row cl-list-row">
+              <%= if conv.status == :resolved do %>
+                <input
+                  type="checkbox"
+                  phx-click="toggle_select"
+                  phx-value-id={conv.id}
+                  checked={MapSet.member?(@selected_ids, conv.id)}
+                  aria-label={"Select conversation: #{conv.subject || "No subject"}"}
+                />
               <% end %>
-            </div>
-          </.focus_wrap>
-        </div>
-      <% end %>
-    </div>
-    <.live_component
-      module={Cairnloop.Web.SearchModalComponent}
-      id="search-modal"
-      host_surface="inbox"
-      host_user_id={@host_user_id}
-      current_path="/"
-    />
+              <.link navigate={"/#{conv.id}"} class="cl-grow">
+                <strong><%= conv.subject || "No Subject" %></strong>
+              </.link>
+              <.cl_chip variant={status_variant(conv.status)} label={status_label(conv.status)} />
+            </li>
+          <% end %>
+        </ul>
+
+        <%= if MapSet.size(@selected_ids) > 0 do %>
+          <%!-- D-05 + research OQ4 — bottom-anchored sticky bulk action bar. --%>
+          <div
+            role="region"
+            aria-label="Bulk actions"
+            class="bulk-action-bar cl-inbox-bulk-bar cl-row cl-row--wrap"
+          >
+            <span><%= MapSet.size(@selected_ids) %> selected</span>
+            <.cl_button variant="ghost" phx-click="clear_selection">
+              Clear selection
+            </.cl_button>
+            <%!-- Brand §7.5 never-color-alone: text label AND the literal --cl-primary token
+                  (test/integration assert the rendered HTML carries `var(--cl-primary)`). --%>
+            <.cl_button variant="primary" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
+              Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
+            </.cl_button>
+          </div>
+        <% end %>
+
+        <%= if @bulk_modal_open do %>
+          <%!-- D-07 / D-08 / D-10 — confirmation modal with focus trap. --%>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-confirm-title"
+            class="bulk-confirm-backdrop cl-overlay cl-row cl-modal-backdrop"
+            phx-window-keydown="cancel_bulk_confirm"
+            phx-key="Escape"
+          >
+            <.focus_wrap id="bulk-confirm-wrap">
+              <div class="bulk-confirm-dialog cl-modal-dialog">
+                <%!-- Phase 26 D-08: visible close affordance. Escape already works via phx-window-keydown. Anchored by position:relative on the dialog div. --%>
+                <button
+                  type="button"
+                  phx-click="cancel_bulk_confirm"
+                  aria-label="Close"
+                  class="cl-modal-close"
+                >
+                  ×
+                </button>
+
+                <%= if @bulk_refusal do %>
+                  <%!-- D-10 + brand §7.5 — refusal banner: icon + text + the literal --cl-danger
+                       token (integration tests assert the rendered HTML carries `var(--cl-danger)`). --%>
+                  <.cl_banner variant="danger" class="bulk-refusal" style="border-color: var(--cl-danger);">
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" class="cl-icon">
+                      <circle cx="10" cy="10" r="9" stroke="currentColor" stroke-width="1.5"/>
+                      <path d="M10 6v5M10 13.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <div class="cl-stack">
+                      <h2 id="bulk-confirm-title" class="cl-text-panel">
+                        Batch too large.
+                      </h2>
+                      <p>
+                        This batch exceeds the safe send limit of <%= @bulk_refusal.max %>.
+                        Narrow your selection and try again.
+                      </p>
+                    </div>
+                  </.cl_banner>
+
+                  <div class="bulk-confirm-actions cl-row">
+                    <.cl_button variant="ghost" phx-click="cancel_bulk_confirm">
+                      Cancel
+                    </.cl_button>
+                    <.cl_button variant="primary" disabled aria-disabled="true">
+                      Confirm send
+                    </.cl_button>
+                  </div>
+                <% else %>
+                  <h2 id="bulk-confirm-title" class="cl-text-title">
+                    Send recovery follow-up
+                  </h2>
+                  <p>
+                    You're about to send to <strong><%= @bulk_preview.count %></strong> conversation(s).
+                  </p>
+
+                  <section aria-label="First 5 recipients">
+                    <ul class="cl-stack">
+                      <%= for label <- @bulk_preview.sample do %>
+                        <li><%= label %></li>
+                      <% end %>
+                    </ul>
+                    <%= if @bulk_preview.more > 0 do %>
+                      <p class="cl-text-muted cl-text-small">
+                        + <%= @bulk_preview.more %> more
+                      </p>
+                    <% end %>
+                  </section>
+
+                  <section aria-label="Message body" class="cl-card">
+                    <div class="cl-card__body">
+                      <h3 class="cl-text-muted cl-text-small">
+                        Message body
+                      </h3>
+                      <p class="cl-mono">
+                        <%= @bulk_preview.rendered_body %>
+                      </p>
+                    </div>
+                  </section>
+
+                  <div class="bulk-confirm-actions cl-row">
+                    <.cl_button variant="ghost" phx-click="cancel_bulk_confirm">
+                      Cancel
+                    </.cl_button>
+                    <.cl_button variant="primary" phx-click="confirm_bulk_send">
+                      Confirm send
+                    </.cl_button>
+                  </div>
+                <% end %>
+              </div>
+            </.focus_wrap>
+          </div>
+        <% end %>
+      </div>
+    </.cl_shell>
     """
   end
 
@@ -555,6 +528,31 @@ defmodule Cairnloop.Web.InboxLive do
   # ---------------------------------------------------------------------------
   # Helpers.
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Status presentation (brand §7.5 — color + icon + text, never a raw atom).
+  # Maps a conversation status to a cl_chip variant + humanized label.
+  # ---------------------------------------------------------------------------
+
+  defp status_variant(:resolved), do: "success"
+  defp status_variant(:open), do: "info"
+  defp status_variant(:awaiting_customer), do: "warning"
+  defp status_variant(:new), do: "ai"
+  defp status_variant(_), do: "neutral"
+
+  defp status_label(:resolved), do: "Resolved"
+  defp status_label(:open), do: "Open"
+  defp status_label(:awaiting_customer), do: "Awaiting customer"
+  defp status_label(:new), do: "New"
+
+  defp status_label(status) when is_atom(status) do
+    status
+    |> Atom.to_string()
+    |> String.replace("_", " ")
+    |> String.capitalize()
+  end
+
+  defp status_label(status), do: to_string(status)
 
   defp visible_eligible_ids(conversations) do
     conversations

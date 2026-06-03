@@ -1,6 +1,7 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   use Phoenix.LiveView
 
+  import Cairnloop.Web.Components
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
 
   alias Cairnloop.KnowledgeAutomation
@@ -184,136 +185,201 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
 
   def render(assigns) do
     ~H"""
-    <div class="suggestion-review">
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
       <.kb_nav current={:suggestions} />
-      <header>
+
+      <header class="cl-mb-7">
         <h1>Suggestion review</h1>
-        <p>Inspect grounded KB proposals before any manual editing or later publish workflow begins.</p>
+        <p class="cl-text-muted">
+          Inspect grounded KB proposals before any manual editing or later publish workflow begins.
+        </p>
       </header>
 
-      <section>
-        <h2>Suggestion filters</h2>
-        <ul>
-          <%= for {filter, label} <- ReviewTaskPresenter.queue_filters() do %>
-            <li>
-              <.link patch={queue_patch(filter, @selected_task)}>
-                <strong><%= label %></strong>
-              </.link>
-            </li>
-          <% end %>
-        </ul>
-      </section>
+      <.cl_card class="cl-mb-7">
+        <:header><h2>Suggestion filters</h2></:header>
+        <div class="cl-row cl-row--wrap">
+          <.link
+            :for={{filter, label} <- ReviewTaskPresenter.queue_filters()}
+            patch={queue_patch(filter, @selected_task)}
+            class="cl-button cl-button--ghost cl-button--sm"
+          >
+            {label}
+          </.link>
+        </div>
+      </.cl_card>
 
-      <section>
-        <ul>
-          <%= for task <- @review_tasks do %>
-            <% suggestion = task.article_suggestion %>
-            <li id={"review-task-#{task.id}"}>
-              <.link patch={task_patch(task.id, @queue_filter)}>
-                <strong><%= task_title(task) %></strong>
-              </.link>
-              <div><%= ArticleSuggestionPresenter.status_label(suggestion) %></div>
-              <div><%= ArticleSuggestionPresenter.queue_summary(suggestion) %></div>
-            </li>
-          <% end %>
-        </ul>
-      </section>
+      <.cl_card class="cl-mb-7">
+        <:header><h2>Review queue</h2></:header>
+
+        <.cl_empty :if={@review_tasks == []} title="No suggestions in this queue" icon="compass">
+          <p class="cl-text-muted">
+            Grounded proposals land here as gaps and stale-pressure signals surface. Nothing is waiting on you right now.
+          </p>
+        </.cl_empty>
+
+        <table :if={@review_tasks != []} class="cl-table">
+          <thead>
+            <tr><th>Suggestion</th><th>Suggestion status</th><th>Summary</th></tr>
+          </thead>
+          <tbody>
+            <tr :for={task <- @review_tasks} id={"review-task-#{task.id}"}>
+              <td>
+                <.link patch={task_patch(task.id, @queue_filter)}>{task_title(task)}</.link>
+              </td>
+              <td>
+                <.cl_chip
+                  variant={suggestion_status_variant(task.article_suggestion)}
+                  label={ArticleSuggestionPresenter.status_label(task.article_suggestion)}
+                />
+              </td>
+              <td class="cl-text-muted">{ArticleSuggestionPresenter.queue_summary(task.article_suggestion)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </.cl_card>
 
       <%= if @selected_task do %>
         <% suggestion = @selected_task.article_suggestion %>
-        <section id="suggestion-detail">
-          <h2><%= task_title(@selected_task) %></h2>
-          <p><strong>Review task status</strong>: <%= ReviewTaskPresenter.status_label(@selected_task) %></p>
-          <p><strong>Next step</strong>: <%= ReviewTaskPresenter.next_step_copy(@selected_task) %></p>
-          <p><strong>Decision summary</strong>: <%= ReviewTaskPresenter.decision_summary(@selected_task) %></p>
-          <p><strong>Suggestion status</strong>: <%= ArticleSuggestionPresenter.status_label(suggestion) %></p>
-          <p><strong>Grounding status</strong>: <%= ArticleSuggestionPresenter.grounding_status_label(suggestion) %></p>
-          <p><strong>Stale pressure</strong>: <%= ArticleSuggestionPresenter.stale_pressure_label(suggestion) %></p>
-          <p><%= suggestion.operator_summary %></p>
+        <.cl_card id="suggestion-detail" class="cl-mb-7">
+          <:header>
+            <h2>{task_title(@selected_task)}</h2>
+            <.cl_chip
+              variant={review_status_variant(@selected_task)}
+              label={ReviewTaskPresenter.status_label(@selected_task)}
+            />
+          </:header>
 
-          <%= if ArticleSuggestionPresenter.quick_fix?(suggestion) do %>
-            <section id="quick-fix-context">
-              <p><strong>Quick-fix outcome</strong>: <%= ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion) %></p>
-              <p><strong>Launch context</strong>: <%= ArticleSuggestionPresenter.quick_fix_launch_context(suggestion) %></p>
-              <%= if excerpt = ArticleSuggestionPresenter.quick_fix_message_excerpt(suggestion) do %>
-                <p><%= excerpt %></p>
-              <% end %>
-
-              <h3>Evidence layers</h3>
-              <ul>
-                <%= for layer <- ArticleSuggestionPresenter.quick_fix_layers(suggestion) do %>
-                  <li>
-                    <strong><%= layer.label %></strong>
-                    ·
-                    <strong><%= layer.trust %></strong>
-                    <div><%= layer.summary %></div>
-                  </li>
-                <% end %>
-              </ul>
-
-              <%= if reason = ArticleSuggestionPresenter.quick_fix_reason_label(suggestion) do %>
-                <p><strong>Quick-fix reason</strong>: <%= reason %></p>
-              <% end %>
-            </section>
-          <% end %>
-
-          <div>
-            <%= for {event, label} <- review_actions(@selected_task) do %>
-              <button phx-click={event} phx-value-id={@selected_task.id}>
-                <%= label %>
-              </button>
-            <% end %>
+          <div class="cl-stack cl-mb-7">
+            <p><strong>Review task status</strong>: {ReviewTaskPresenter.status_label(@selected_task)}</p>
+            <p><strong>Next step</strong>: {ReviewTaskPresenter.next_step_copy(@selected_task)}</p>
+            <p><strong>Decision summary</strong>: {ReviewTaskPresenter.decision_summary(@selected_task)}</p>
+            <p><strong>Suggestion status</strong>: {ArticleSuggestionPresenter.status_label(suggestion)}</p>
+            <p><strong>Grounding status</strong>: {ArticleSuggestionPresenter.grounding_status_label(suggestion)}</p>
+            <p><strong>Stale pressure</strong>: {ArticleSuggestionPresenter.stale_pressure_label(suggestion)}</p>
           </div>
 
-          <h3>Evidence</h3>
-          <ul>
-            <%= for evidence <- suggestion.evidence_snapshot do %>
-              <li>
-                <strong><%= ArticleSuggestionPresenter.source_label(evidence) %></strong>
-                ·
-                <strong><%= ArticleSuggestionPresenter.trust_label(evidence) %></strong>
-                <%= if ArticleSuggestionPresenter.citation_anchor(evidence) != "" do %>
-                  ·
-                  <span><%= ArticleSuggestionPresenter.citation_anchor(evidence) %></span>
-                <% end %>
-                <div><%= evidence.title %></div>
-                <div><%= evidence.excerpt %></div>
-                <%= if path = ArticleSuggestionPresenter.evidence_path(evidence) do %>
-                  <div><%= path %></div>
-                <% end %>
-              </li>
-            <% end %>
+          <.cl_banner variant="info" class="cl-mb-7">{suggestion.operator_summary}</.cl_banner>
+
+          <div :if={review_actions(@selected_task) != []} class="cl-row cl-row--wrap cl-mb-7">
+            <.cl_button
+              :for={{event, label} <- review_actions(@selected_task)}
+              variant={action_variant(event)}
+              phx-click={event}
+              phx-value-id={@selected_task.id}
+            >
+              {label}
+            </.cl_button>
+          </div>
+        </.cl_card>
+
+        <.cl_card :if={ArticleSuggestionPresenter.quick_fix?(suggestion)} id="quick-fix-context" class="cl-mb-7">
+          <:header><h2>Quick-fix context</h2></:header>
+          <div class="cl-stack cl-mb-7">
+            <p><strong>Quick-fix outcome</strong>: {ArticleSuggestionPresenter.quick_fix_outcome_label(suggestion)}</p>
+            <p><strong>Launch context</strong>: {ArticleSuggestionPresenter.quick_fix_launch_context(suggestion)}</p>
+            <p :if={excerpt = ArticleSuggestionPresenter.quick_fix_message_excerpt(suggestion)} class="cl-text-muted">
+              {excerpt}
+            </p>
+          </div>
+
+          <h3 class="cl-mb-7">Evidence layers</h3>
+          <ul class="cl-stack cl-mb-7">
+            <li :for={layer <- ArticleSuggestionPresenter.quick_fix_layers(suggestion)} class="cl-list-row">
+              <div class="cl-row cl-row--wrap">
+                <strong>{layer.label}</strong>
+                <.cl_chip variant="ai" label={layer.trust} />
+              </div>
+              <div class="cl-text-muted">{layer.summary}</div>
+            </li>
           </ul>
 
-          <%= if suggestion.status == :failed do %>
-            <h3>Failure details</h3>
-            <p><%= ArticleSuggestionPresenter.failure_copy(suggestion) %></p>
-          <% else %>
-            <%= if suggestion.suggestion_type == :revision do %>
-              <h3>Derived diff summary</h3>
-              <pre><%= @selected_diff %></pre>
-            <% else %>
-              <h3>Proposed markdown</h3>
-              <pre><%= suggestion.proposed_markdown %></pre>
-            <% end %>
-          <% end %>
+          <.cl_banner
+            :if={reason = ArticleSuggestionPresenter.quick_fix_reason_label(suggestion)}
+            variant="warning"
+          >
+            <strong>Quick-fix reason</strong>: {reason}
+          </.cl_banner>
+        </.cl_card>
 
-          <h3>Structured history</h3>
-          <ul>
-            <%= for event <- @selected_task.events do %>
-              <li><%= ReviewTaskPresenter.history_line(event) %></li>
-            <% end %>
+        <.cl_card class="cl-mb-7">
+          <:header><h2>Evidence</h2></:header>
+          <.cl_empty :if={suggestion.evidence_snapshot == []} title="No evidence captured yet" icon="search">
+            <p class="cl-text-muted">This proposal carries no snapshotted citations.</p>
+          </.cl_empty>
+          <ul :if={suggestion.evidence_snapshot != []} class="cl-stack">
+            <li :for={evidence <- suggestion.evidence_snapshot} class="cl-list-row">
+              <div class="cl-row cl-row--wrap">
+                <strong>{ArticleSuggestionPresenter.source_label(evidence)}</strong>
+                <.cl_chip variant="info" label={ArticleSuggestionPresenter.trust_label(evidence)} />
+                <span :if={ArticleSuggestionPresenter.citation_anchor(evidence) != ""} class="cl-text-muted cl-text-small">
+                  {ArticleSuggestionPresenter.citation_anchor(evidence)}
+                </span>
+              </div>
+              <div>{evidence.title}</div>
+              <div class="cl-text-muted">{evidence.excerpt}</div>
+              <div :if={path = ArticleSuggestionPresenter.evidence_path(evidence)} class="cl-text-muted cl-text-small cl-mono">
+                {path}
+              </div>
+            </li>
           </ul>
+        </.cl_card>
 
-          <%= if @selected_task.status == :published do %>
-            <h3>Publish outcome</h3>
-            <p><%= ReviewTaskPresenter.publish_outcome(@selected_task) %></p>
+        <.cl_card class="cl-mb-7">
+          <:header><h2>{proposal_section_title(suggestion)}</h2></:header>
+          <%= cond do %>
+            <% suggestion.status == :failed -> %>
+              <.cl_banner variant="danger">{ArticleSuggestionPresenter.failure_copy(suggestion)}</.cl_banner>
+            <% suggestion.suggestion_type == :revision -> %>
+              <pre class="cl-code-block">{@selected_diff}</pre>
+            <% true -> %>
+              <pre class="cl-code-block">{suggestion.proposed_markdown}</pre>
           <% end %>
-        </section>
+        </.cl_card>
+
+        <.cl_card class="cl-mb-7">
+          <:header><h2>Structured history</h2></:header>
+          <ul class="cl-stack">
+            <li :for={event <- @selected_task.events} class="cl-list-row">
+              {ReviewTaskPresenter.history_line(event)}
+            </li>
+          </ul>
+        </.cl_card>
+
+        <.cl_card :if={@selected_task.status == :published} class="cl-mb-7">
+          <:header><h2>Publish outcome</h2></:header>
+          <.cl_banner variant="success">{ReviewTaskPresenter.publish_outcome(@selected_task)}</.cl_banner>
+        </.cl_card>
       <% end %>
-    </div>
+    </.cl_shell>
     """
   end
+
+  # Title for the proposal-content card, matching the underlying content shown.
+  defp proposal_section_title(%{status: :failed}), do: "Failure details"
+  defp proposal_section_title(%{suggestion_type: :revision}), do: "Derived diff summary"
+  defp proposal_section_title(_suggestion), do: "Proposed markdown"
+
+  # Chip variant for an article-suggestion status (color + icon + text via cl_chip).
+  defp suggestion_status_variant(%{status: :ready}), do: "success"
+  defp suggestion_status_variant(%{status: :pending_generation}), do: "info"
+  defp suggestion_status_variant(%{status: :failed}), do: "danger"
+  defp suggestion_status_variant(_suggestion), do: "neutral"
+
+  # Chip variant for a review-task status.
+  defp review_status_variant(%{status: :approved_ready_to_publish}), do: "success"
+  defp review_status_variant(%{status: :published}), do: "success"
+  defp review_status_variant(%{status: :pending_review}), do: "info"
+  defp review_status_variant(%{status: :review_needed}), do: "warning"
+  defp review_status_variant(%{status: :deferred}), do: "warning"
+  defp review_status_variant(%{status: :rejected}), do: "danger"
+  defp review_status_variant(_task), do: "neutral"
+
+  # Button intent per review action event.
+  defp action_variant("approve"), do: "primary"
+  defp action_variant("publish"), do: "primary"
+  defp action_variant("reject"), do: "danger"
+  defp action_variant("dismiss"), do: "danger"
+  defp action_variant(_event), do: "ghost"
 
   defp load_review_tasks(scope_filters, queue_filter) do
     scope_filters

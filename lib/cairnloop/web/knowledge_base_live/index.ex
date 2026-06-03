@@ -1,5 +1,6 @@
 defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   use Phoenix.LiveView
+  import Cairnloop.Web.Components
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeBase
@@ -49,40 +50,61 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
 
   def render(assigns) do
     ~H"""
-    <div class="knowledge-base-index">
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
       <.kb_nav current={:index} />
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px 24px 0;">
+
+      <div class="cl-row cl-row--between cl-mb-7">
         <h1>Knowledge Base</h1>
-        <button
-          phx-click="new_article"
-          phx-disable-with="Creating..."
-          style="background: var(--cl-primary); color: var(--cl-primary-text); border: none; border-radius: var(--cl-radius-sm); padding: 8px 16px; min-height: 44px; font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.015em;"
-        >
+        <.cl_button variant="primary" phx-click="new_article" phx-disable-with="Creating...">
           New article
-        </button>
+        </.cl_button>
       </div>
-      <p style="padding: 0 24px;">
+
+      <p class="cl-mb-7">
         <.link navigate="/knowledge-base/gaps">Review KB gap candidates</.link>
       </p>
-      <%= if @articles == [] do %>
-        <div style="padding: 24px; text-align: center;">
-          <p>No articles yet.</p>
-          <p>Create the first article to start building your knowledge base.</p>
-        </div>
-      <% else %>
-        <ul style="padding: 0 24px;">
-          <%= for article <- @articles do %>
-            <li>
-              <.link navigate={"/knowledge-base/#{article.id}/edit"}><%= article.title %></.link>
-              (<%= article.status %>)
-              <button phx-click="suggest_revision" phx-value-article_id={article.id}>
-                Suggest revision
-              </button>
-            </li>
-          <% end %>
-        </ul>
-      <% end %>
-    </div>
+
+      <.cl_card>
+        <:header><h2>Articles</h2></:header>
+
+        <.cl_empty
+          :if={@articles == []}
+          title="No articles yet"
+          icon="book"
+        >
+          <p class="cl-text-muted">Create the first article to start building your knowledge base.</p>
+        </.cl_empty>
+
+        <table :if={@articles != []} class="cl-table">
+          <thead>
+            <tr><th>Title</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr :for={article <- @articles}>
+              <td>
+                <.link navigate={"/knowledge-base/#{article.id}/edit"}>{article.title}</.link>
+              </td>
+              <td>
+                <.cl_chip
+                  variant={if article.status == :published, do: "success", else: "neutral"}
+                  label={to_string(article.status)}
+                />
+              </td>
+              <td>
+                <.cl_button
+                  variant="ghost"
+                  size="sm"
+                  phx-click="suggest_revision"
+                  phx-value-article_id={article.id}
+                >
+                  Suggest revision
+                </.cl_button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </.cl_card>
+    </.cl_shell>
     """
   end
 
