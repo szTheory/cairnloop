@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/szTheory/cairnloop/compare/v0.5.0...v0.5.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* inject the signed-in operator as host_user_id, not a hardcoded id ([dce852a](https://github.com/szTheory/cairnloop/commit/dce852af6252b6661c36df790449e049ca637a01))
+* inject the signed-in operator as host_user_id, not a hardcoded id ([72891f5](https://github.com/szTheory/cairnloop/commit/72891f57a40425a283184abf28da5f1f6cc605a8))
+
 ## [0.5.0](https://github.com/szTheory/cairnloop/compare/v0.4.0...v0.5.0) (2026-06-03)
 
 
