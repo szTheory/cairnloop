@@ -46,11 +46,29 @@ seed data that fully expresses every screen. Repeatable/resumable so future pass
       KB Editor (all on `cl_shell` + `.cl-*` components; ~0 inline styles; status as color+icon+text
       chips; empty states; brand microcopy). KB four done via parallel subagents (edit-only, verified
       centrally; fixed @flash-on-bare-assigns traps + a brittle `>Publish<` test → match phx-click).
-      292 web tests green, full suite at baseline. REMAINING: Inbox + Conversation (already heavily
-      iterated — lighter touch), KB sub-nav `nav_component.ex` + `search_modal_component.ex` (restyle).
-- [ ] Pass 4 — motion layer
-- [ ] Pass 5 — seed enrichment
-- [ ] Pass 6 — visual-QA loop (DB-gated)
+      **Inbox DONE** (subagent): on `cl_shell`; status→`cl_chip`; buttons/banner/modal→components;
+      kept 20 bare-token inline styles the inbox "polish" tests literally grep for (`position: sticky`,
+      `var(--cl-primary)`, `class="bulk-confirm-dialog"`, 44px hit targets) — gate-safe, intentional.
+      292 web tests green, full suite at baseline. REMAINING: Conversation (most-iterated, lighter
+      touch), KB sub-nav `nav_component.ex` + `search_modal_component.ex` (restyle).
+- [~] Pass 4 — motion: FOUNDATION DONE. Token-driven transitions baked into every `.cl-*`
+      component (buttons/nav/cards/tabs/inputs/stats — transform+opacity only, ease-out, <200ms) +
+      global `prefers-reduced-motion` handling in cairnloop.css. Advanced brand motifs (route-line
+      draw, marker-travel via phx-hook+WAAPI) deferred as optional future polish — lower ROI, needs
+      browser verification.
+- [ ] Pass 5 — seed enrichment (DB-gated; can't verify in this workspace). Remaining.
+- [ ] Pass 6 — visual-QA loop (DB-gated). capture.mjs routes updated + Home/KB-suggestions/editor
+      shots added, ready to run where a DB + the example app are available.
+
+## Remaining work (clear handoff for a follow-up session)
+- **Conversation workspace** (`conversation_live.ex`, 1793 lines) — the most heavily-iterated screen
+  (lowest priority per owner). Not yet on `cl_shell`/`.cl-*`; has its own inline `<style>` block.
+  Lighter-touch refactor recommended (wrap in shell, swap status/buttons to components, keep the
+  rail layout).
+- **Shared `knowledge_base_live/nav_component.ex`** (KB sub-nav) + **`search_modal_component.ex`**
+  (the ⌘K palette, 638 lines) — still old styling; restyle to `.cl-tabs` / `.cl-*`.
+- **Pass 5 seed enrichment** + **Pass 6 screenshot run** — need Postgres + the example app booting.
+- Optional: advanced motion motifs; nav count badges (currently labels-only for cheap per-screen nav).
 
 ## Decisions log
 
