@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: vM016
 milestone_name: Operator UI/UX Iteration
 status: planning
-last_updated: "2026-06-03T22:08:37.393Z"
-last_activity: 2026-06-03
+last_updated: "2026-06-03T22:21:53.618Z"
+last_activity: 2026-06-03 — Roadmap created (phases 37–45, 29 requirements mapped)
 progress:
-  total_phases: 9
+  total_phases: 13
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -47,21 +47,26 @@ live-source as the milestone gate (move it before the release tag); test-only se
 for already-correct domain code; `release_gate` gates on the green integration suite.
 
 vM016 ratified decisions (do not re-litigate):
+
 - **D1 (Home):** two-tier primacy — hero "Work the queue" + secondary "Tend the trail" band;
   `cl_stat` de-polymorphized to numeric-only; `cl_hero` for the primary count; health as `cl_chip`;
   copper = route marker (70/20/10 palette); `safe/2` fail-closed counts retained; scoped count
   queries + throttle to avoid per-PubSub-tick re-query.
+
 - **D2 (Rail):** native `<details>`/`<summary>` for all per-card progressive disclosure (no
   server assigns for open state — PubSub reloads must not snap panels shut); Tier 1 (safety
   quartet + pending footer) never collapses; `Phoenix.LiveView.JS` only for rail-level controls
   and localStorage density toggle.
+
 - **D3 (Responsive):** mobile-first `min-width` authoring; breakpoints 640/768/1024 as literal
   constants in one CSS comment block — NOT tokenized as `var()` (silent no-op in `@media`);
   `--cl-content-max`/`--cl-rail-width`/`--cl-page-gutter` layout tokens added; CSS architecture
   stays BEM + `.cl-` utilities, no Tailwind, no build step.
+
 - **Gate hardening:** brand-token gate extended to catch inline `style="…#hex…"`, raw `rgba()/hsl()`,
   and helper-returned hex in render `.ex` files; magic-comment allowlist; `.css` file stays unscanned;
   complementary Credo check is dev-time only — ExUnit gate is CI truth.
+
 - **Motion:** transform + opacity only; `prefers-reduced-motion` honored live; never on reply-send,
   keystrokes, count ticks, or layout properties.
 
