@@ -37,8 +37,14 @@ seed data that fully expresses every screen. Repeatable/resumable so future pass
       (button/card/chip/banner/empty/stat/shell/breadcrumb/icon, inline-SVG, never-color-alone);
       example `app.css` `@import`s the shipped file; `prompts/cairnloop.css`→pointer; gate docstring
       updated. 7 render+gate tests green. TODO(docs): adopter `<link>` include in quickstart.
-- [ ] Pass 2 — IA shell (Cockpit Home + nav shell + cross-threading)
-- [ ] Pass 3 — per-screen polish (Settings→Audit→KB Suggestions→Editor→Gaps→Index→Inbox→Conversation)
+- [~] Pass 2 — IA shell — Cockpit Home (`HomeLive`, 5 task-cards, DB-defensive live counts,
+      calm zero-states) + `Nav` destinations + `cl_shell` nav + route move (Home `/`, Inbox `/inbox`)
+      + back-link fix. 4 headless Home tests green; full suite clean (only 2 PRE-EXISTING baseline
+      failures, unrelated — see below). Cross-threading affordances (gap→convos, action→audit, etc.)
+      folded into Pass 3 (done while editing each screen — avoids touching screens twice).
+- [ ] Pass 3 — per-screen polish (Settings→Audit→KB Suggestions→Editor→Gaps→Index→Inbox→Conversation):
+      wrap each in `cl_shell` nav + replace inline styles/daisyUI with `.cl-*` components + empty/error
+      states + cross-thread links + brand microcopy.
 - [ ] Pass 4 — motion layer
 - [ ] Pass 5 — seed enrichment
 - [ ] Pass 6 — visual-QA loop (DB-gated)
@@ -95,6 +101,13 @@ mystery-meat). Progressive disclosure: ONE surface, guided default ("needs you" 
 quiet first-class power paths (keyboard, deep-links, bulk); never a novice/expert mode split; never
 hide safety/governance counts. Thread the causal graph (gap→causing conversations, action→audit,
 detail views end with next-step; bi-directional). No dead-ends, no modal traps.
+
+## Baseline test failures (PRE-EXISTING, not mine — do not count as regressions)
+Full `mix test` shows 2 failures, both in files untouched by this work:
+1. `Cairnloop.Automation.DraftTest` — the documented M005-drift baseline (per memory).
+2. `Cairnloop.Workers.OutboundWorkerTest:93` — static source-grep test for D-11 `unique:` keys;
+   independent of UI. (Memory only recorded #1; #2 is also pre-existing — UI diff can't affect it.)
+My changes are isolated to web/CSS/router; all web + new tests pass.
 
 ## Open questions / risks
 - CSS delivery to adopter runtime: ship at `priv/static/cairnloop.css`; document host serving

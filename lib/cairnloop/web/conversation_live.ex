@@ -791,7 +791,7 @@ defmodule Cairnloop.Web.ConversationLive do
       }
     </style>
     <div class="cairnloop-conversation">
-      <.link navigate="/">Back to Inbox</.link>
+      <.link navigate="/inbox">Back to Inbox</.link>
       <h2><%= @conversation.subject || "No Subject" %></h2>
       
       <div class="conversation-layout">

@@ -414,6 +414,11 @@
 .cl-stat__count--calm { color: var(--cl-success, #4A6238); }
 .cl-stat__meta { font-size: var(--cl-font-small, 13px); color: var(--cl-text-muted, #677066); }
 
+/* ---- Cockpit Home grid (mobile-first: 1 → 2 → 3 columns) ---------------- */
+.cl-home-grid { display: grid; grid-template-columns: 1fr; gap: var(--cl-space-5, 16px); }
+@media (min-width: 640px)  { .cl-home-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .cl-home-grid { grid-template-columns: repeat(3, 1fr); } }
+
 /* ---- Toolbar ------------------------------------------------------------ */
 .cl-toolbar {
   display: flex; align-items: center; gap: var(--cl-space-3, 8px); flex-wrap: wrap;

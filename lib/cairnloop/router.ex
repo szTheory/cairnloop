@@ -98,7 +98,10 @@ defmodule Cairnloop.Router do
         # Host apps should provide `host_user_id` in the live session payload so
         # dashboard surfaces can keep operator search tenant-scoped.
         live_session unquote(live_session_name), unquote(session_opts) do
-          live("/", Cairnloop.Web.InboxLive, :index, as: :cairnloop_inbox)
+          # Cockpit Home is the task-oriented landing; the inbox moves to /inbox so
+          # an operator who lands on "/" is oriented, not dumped into a bare list.
+          live("/", Cairnloop.Web.HomeLive, :index, as: :cairnloop_home)
+          live("/inbox", Cairnloop.Web.InboxLive, :index, as: :cairnloop_inbox)
           live("/audit-log", Cairnloop.Web.AuditLogLive, :index, as: :cairnloop_audit_log)
           live("/knowledge-base", Cairnloop.Web.KnowledgeBaseLive.Index, :index)
           live("/knowledge-base/gaps", Cairnloop.Web.KnowledgeBaseLive.Gaps, :index)
