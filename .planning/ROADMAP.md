@@ -72,7 +72,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   - [x] 37-01-PLAN.md — CSS foundation: layout tokens, inert utilities, .cl-table-scroll, all primitive visual CSS + CSS-presence test (wave 1)
   - [x] 37-02-PLAN.md — cl_page + cl_hero + cl_stat numeric narrowing (wave 1)
   - [x] 37-03-PLAN.md — cl_disclosure (patch-safe) + cl_fact_list (wave 2)
-  - [ ] 37-04-PLAN.md — cl_source_card + cl_status_cell + cl_switch (wave 3)
+  - [x] 37-04-PLAN.md — cl_source_card + cl_status_cell + cl_switch (wave 3)
   - [x] 37-05-PLAN.md — wrap 4 .cl-table call sites in accessible cl-table-scroll regions (wave 2)
 **UI hint**: yes
 
@@ -175,7 +175,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 37. Component Primitives | vM016 | 4/5 | In Progress|  |
+| 37. Component Primitives | vM016 | 5/5 | Complete   | 2026-06-03 |
 | 38. Shared Page-Shell Migration | vM016 | 0/? | Not started | — |
 | 39. Home Primacy Redesign (D1) | vM016 | 0/? | Not started | — |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 0/? | Not started | — |
