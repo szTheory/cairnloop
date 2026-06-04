@@ -27,7 +27,7 @@
 - [x] **Phase 37 â Component Primitives** â `cl_page`, `cl_hero`/`cl_stat` split, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch` + layout tokens + inert-utility and `.cl-table` scroll-wrapper fixes (completed 2026-06-03)
 - [x] **Phase 38 â Shared Page-Shell Migration** â All operator screens (Home/Inbox/Audit/Settings/KB) rendered through `cl_page`; `cl_breadcrumb` wired on the deep KB-from-conversation path (4 plans, 2 waves) (completed 2026-06-04)
 - [x] **Phase 39 â Home Primacy Redesign (D1)** â Two-tier hero + calmer secondary band; health-as-chip; count-color semantics fix; Recover-resolved filter CTA fix; zero-state; count queries + throttle (completed 2026-06-04)
-- [ ] **Phase 40 â Drift Remediation + Brand-Token Gate Hardening** â hexâtoken in `conversation_live`/`search_modal`; hardened gate fails on inline `style="â¦#hexâ¦"`, raw `rgba()`, helper-returned hex; complementary Credo check
+- [x] **Phase 40 â Drift Remediation + Brand-Token Gate Hardening** â hexâtoken in `conversation_live`/`search_modal`; hardened gate fails on inline `style="â¦#hexâ¦"`, raw `rgba()`, helper-returned hex; complementary Credo check
 - [x] **Phase 41 â Conversation Rail Progressive Disclosure (D2)** â Safety-pinned native-`<details>` accordion (decisions first; Tier 1 never collapses; Tier 2/3 collapsible; auto-expand blocking; density toggle) (completed 2026-06-04)
 - [x] **Phase 42 â Cross-Screen Threading** â Next-in-queue; audit-rowâconversation; governed-actionâaudit; articleâoriginating-conversation (completed 2026-06-04)
 - [ ] **Phase 43 â Responsive Desktop-First Cockpit (D3)** â Mobile-first normalization; 768 tablet breakpoint; accessible table scrollers; conversation stacking; tap targets â¥44px
@@ -165,7 +165,10 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   1. The two `max-width:640` media query blocks in `cairnloop.css` are converted to `min-width` equivalents; a CSS comment block at the top of the breakpoint section documents the three literal constants (640 / 768 / 1024) â no breakpoint is tokenized as a `var()` (which would be a silent no-op in `@media`).
   2. Every `.cl-table` element in the operator screens has `role="region"`, `tabindex="0"`, and an `aria-label` on its scroll wrapper; the conversation two-column layout collapses to single-column below the `lg` breakpoint; all interactive controls (buttons, checkboxes, links in the bulk-bar) have a rendered tap target of at least 44Ã44px.
   3. `mix test` passes; a manual verification at 768px viewport width shows the Inbox table scrolling accessibly and the conversation rail stacking below the conversation header.
-**Plans**: TBD
+**Plans**: 3 plans (3 waves)
+  - [ ] 43-01-PLAN.md — CSS mobile-first normalization: convert two max-width:640 blocks → min-width, breakpoint comment block (640/768/1024 literals) + real 768 tablet rule, align home-grid constants + RESP-01 CSS-presence test [RESP-01] (wave 1)
+  - [ ] 43-02-PLAN.md — Verify + drift-proof: assert all four .cl-table accessible scroll wrappers + conversation below-lg stacking via Repo-free source-scan test (no re-wrapping); creates responsive_markup_test.exs [RESP-02] (wave 2)
+  - [ ] 43-03-PLAN.md — Tap targets + sticky clearance: .cl-checkbox 44px utility on both raw checkboxes, size=lg bulk-bar buttons, bulk-bar last-row clearance; preserve var(--cl-primary); extends responsive_markup_test.exs; human-verify checkpoint [RESP-02] (wave 3, depends on 43-02)
 **UI hint**: yes
 
 ### Phase 44: Motion
@@ -201,7 +204,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 4/4 | Complete    | 2026-06-04 |
 | 42. Cross-Screen Threading | vM016 | 6/6 | Complete    | 2026-06-04 |
-| 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
+| 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/3 | Not started | â |
 | 44. Motion | vM016 | 0/? | Not started | â |
 | 45. Seed Enrichment + Screenshot Regen + Verification Sweep | vM016 | 0/? | Not started | â |
 | 33. Security Domain Closure | vM015 | 1/1 | Complete | 2026-05-29 |
