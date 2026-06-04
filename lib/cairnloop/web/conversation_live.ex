@@ -934,6 +934,16 @@ defmodule Cairnloop.Web.ConversationLive do
           {"Governed action", tool_display}
       end
 
+    # D-08: static auto-open booleans — computed ONCE from already-resolved snapshot state.
+    # Never re-read live config; never bound to a post-event assign (D-09 invariant).
+    # pending? is true when the active approval is pending (D15-17 resolved above).
+    pending? = match?(%{status: :pending}, active_approval)
+    # auto_open_inputs: pending approval OR hard-blocked status (scope_invalid / policy_denied).
+    # Reuses the same status discriminant as block_reason_copy/1 in ToolProposalPresenter.
+    auto_open_inputs = pending? or proposal.status in [:scope_invalid, :policy_denied]
+    # auto_open_policy: only when the block is specifically policy_denied.
+    auto_open_policy = proposal.status == :policy_denied
+
     assigns =
       assigns
       |> assign(:status_label, status_label)
@@ -953,6 +963,8 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(:status_chip_class, status_chip_class)
       |> assign(:eyebrow, eyebrow)
       |> assign(:headline, headline)
+      |> assign(:auto_open_inputs, auto_open_inputs)
+      |> assign(:auto_open_policy, auto_open_policy)
 
     ~H"""
     <.cl_card class="governed-action-card" aria-label="Governed action proposal">
