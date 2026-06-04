@@ -121,11 +121,12 @@ defmodule Cairnloop.Web.AuditLogLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "Phase 42 Task 2 — per-row subject link" do
-    test "event with conversation_id 5 renders a navigate='/5' link" do
+    test "event with conversation_id 5 renders a link to /5" do
       event = build_event(conversation_id: 5)
       assigns = base_assigns() |> Map.put(:visible_events, [event])
       html = rendered_to_string(Cairnloop.Web.AuditLogLive.render(assigns))
-      assert html =~ ~s(navigate="/5"), "expected navigate=\"/5\" in rendered HTML for conversation_id: 5"
+      # <.link navigate={href}> renders as <a href="..." data-phx-link="redirect">
+      assert html =~ ~s(href="/5"), "expected href=\"/5\" in rendered HTML for conversation_id: 5"
     end
 
     test "event with conversation_id 5 renders 'View conversation' accessible name" do
@@ -142,11 +143,12 @@ defmodule Cairnloop.Web.AuditLogLiveTest do
       refute html =~ "/support/", "expected NO /support/ prefix in navigate href"
     end
 
-    test "event with conversation_id nil renders no navigate link for subject cell" do
+    test "event with conversation_id nil renders no subject link" do
       event = build_event(conversation_id: nil)
       assigns = base_assigns() |> Map.put(:visible_events, [event])
       html = rendered_to_string(Cairnloop.Web.AuditLogLive.render(assigns))
-      refute html =~ ~s(navigate="/), "expected NO navigate link for nil conversation_id"
+      # When conversation_id is nil, subject_href/1 returns nil → no <a> link rendered
+      refute html =~ "View conversation", "expected NO link text for nil conversation_id"
     end
 
     test "event with conversation_id nil renders a plain em-dash fallback cell" do

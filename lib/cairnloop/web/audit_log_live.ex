@@ -161,7 +161,7 @@ defmodule Cairnloop.Web.AuditLogLive do
         <div :if={@visible_events != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Audit log">
         <table class="cl-table">
           <thead>
-            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Details</th></tr>
+            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Conversation</th><th>Details</th></tr>
           </thead>
           <tbody>
             <tr :for={event <- @visible_events}>
@@ -169,6 +169,18 @@ defmodule Cairnloop.Web.AuditLogLive do
               <td>{P.actor_label(Map.get(event, :actor_id))}</td>
               <td>{P.action_label(Map.get(event, :action))}</td>
               <td>{P.reason_label(Map.get(event, :reason))}</td>
+              <td>
+                <%!-- Subject link: scope-relative /#{id} when conversation is present; plain fallback on nil (D-08, T-42-09, Pitfall 3/4/6). --%>
+                <%= case P.subject_href(event) do %>
+                  <% nil -> %>
+                    <span class="cl-text-muted">—</span>
+                  <% href -> %>
+                    <.link
+                      navigate={href}
+                      aria-label={"View conversation #{Map.get(event, :conversation_id)}"}
+                    >View conversation</.link>
+                <% end %>
+              </td>
               <td>
                 <%= case P.metadata_rows(Map.get(event, :metadata)) do %>
                   <% [] -> %>
