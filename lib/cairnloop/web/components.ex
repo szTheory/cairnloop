@@ -261,7 +261,7 @@ defmodule Cairnloop.Web.Components do
   KB sources, retrieved evidence, and citation cards. The header icon is resolved from the
   variant via the existing `status_icon/1` map (REUSE — no hand-authored SVG).
 
-  Drift-map alignment (P40): `source_variant="success"` replaces inline `#4A6238`;
+  Drift-map alignment (P40): `source_variant="success"` replaces inline `#4A6238`; # cl-allow-color
   `source_variant="info"` replaces inline `#3F6F80`. Icon MUST always be present
   (never color alone — brand §7.5).
   """

@@ -39,7 +39,7 @@ defmodule Cairnloop.Web.InboxLive do
   (aliased to `--cl-primary-text` in app.css), `--cl-surface`,
   `--cl-surface-raised`, `--cl-border`, `--cl-text`, `--cl-danger`.
 
-  Non-canonical tokens that retain `rgba(...)` fallbacks (deferred to vM015):
+  Non-canonical tokens that retain `rgba(...)` fallbacks (deferred to vM015): # cl-allow-color
   `--cl-text-soft`, `--cl-overlay`, `--cl-shadow`, `--cl-danger-soft`,
   `--cl-primary-disabled`, `--cl-surface-translucent`.
   """
