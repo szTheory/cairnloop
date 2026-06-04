@@ -1170,6 +1170,101 @@ defmodule Cairnloop.Web.InboxLiveTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Phase 39 Plan 02 — applied-filter row + split empty state (D-05)
+  # ---------------------------------------------------------------------------
+
+  describe "applied-filter row (D-05)" do
+    test "applied-filter row is ABSENT when status is nil (unfiltered)" do
+      assigns = build_assigns(conversations: [], status: nil)
+      html = render_html(assigns)
+
+      refute html =~ "Showing resolved conversations"
+      refute html =~ "cl-applied-filter"
+    end
+
+    test "applied-filter row IS present when status is :resolved" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Showing resolved conversations"
+      assert html =~ "cl-applied-filter"
+    end
+
+    test "applied-filter row contains a cl_chip with Resolved label" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Resolved"
+      assert html =~ "cl-chip--success"
+    end
+
+    test "applied-filter Show-all is a patch link to /inbox (not a button)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Show all"
+      # Must be a patch link (data-phx-link="patch") not a button
+      assert html =~ ~s(data-phx-link="patch")
+      assert html =~ ~s(href="/inbox")
+    end
+
+    test "no raw hex color in applied-filter markup (token/class only)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      # No bare hex 6-digit codes in the applied-filter row area
+      refute html =~ ~r/#[0-9A-Fa-f]{6}/
+    end
+  end
+
+  describe "split filtered-empty state (D-05)" do
+    test "resolved filter + empty conversations → filtered-empty cl_empty copy" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "No resolved conversations to recover"
+      assert html =~ "Nothing is waiting for a recovery follow-up right now."
+      assert html =~ "Show all conversations"
+      # The generic "No conversations yet." must NOT appear alongside the filtered copy
+      refute html =~ "No conversations yet."
+    end
+
+    test "no filter + empty conversations → original 'No conversations yet.' copy" do
+      assigns = build_assigns(conversations: [], status: nil)
+      html = render_html(assigns)
+
+      assert html =~ "No conversations yet."
+      # The filtered-empty copy must NOT appear on a genuinely empty unfiltered inbox
+      refute html =~ "No resolved conversations to recover"
+      refute html =~ "Nothing is waiting for a recovery follow-up right now."
+    end
+
+    test "filtered-empty CTA navigates to /inbox (not patch)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      # navigate link (data-phx-link="redirect" or href="/inbox")
+      assert html =~ ~s(href="/inbox")
+      assert html =~ "Show all conversations"
+    end
+
+    test "non-empty resolved list does NOT show empty-state copy" do
+      assigns =
+        build_assigns(
+          conversations: [
+            %Cairnloop.Conversation{id: 1, status: :resolved, subject: "Resolved A"}
+          ],
+          status: :resolved
+        )
+
+      html = render_html(assigns)
+
+      refute html =~ "No resolved conversations to recover"
+      refute html =~ "No conversations yet."
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Phase 38 Task 1 — cl_page shell migration render assertions (SHELL-01).
   # ---------------------------------------------------------------------------
 

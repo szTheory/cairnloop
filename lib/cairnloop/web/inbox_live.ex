@@ -158,12 +158,35 @@ defmodule Cairnloop.Web.InboxLive do
         />
 
         <div class="cairnloop-inbox">
+          <%!-- Phase 39 Plan 02 (D-05): applied-filter row — visible ONLY when status=resolved
+               is active. Composed from existing .cl-row + .cl-text-small utilities; the
+               decorative .cl-applied-filter rule is owned and shipped by Plan 03 (the sole
+               owner of priv/static/cairnloop.css this wave). No CSS is added here. --%>
+          <%= if @status == :resolved do %>
+            <div class="cl-applied-filter cl-row cl-text-small">
+              <.cl_chip variant="success" label="Resolved" />
+              <span>Showing resolved conversations ·</span>
+              <.link patch="/inbox">Show all</.link>
+            </div>
+          <% end %>
+
+          <%!-- Phase 39 Plan 02 (D-05): split empty state.
+               - resolved filter active + empty → cl_empty with exact UI-SPEC copy (filtered-empty).
+               - no filter + empty → existing calm sentence (genuinely empty inbox).
+               Do NOT show the resolved copy on a genuinely empty inbox (D-05). --%>
           <%= if @conversations == [] do %>
-          <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
-          <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
-            No conversations yet.
-          </p>
-        <% end %>
+            <%= if @status == :resolved do %>
+              <.cl_empty title="No resolved conversations to recover">
+                Nothing is waiting for a recovery follow-up right now.
+                <.link navigate="/inbox">Show all conversations</.link>
+              </.cl_empty>
+            <% else %>
+              <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
+              <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
+                No conversations yet.
+              </p>
+            <% end %>
+          <% end %>
 
         <%= if has_visible_eligible?(@conversations) do %>
           <div class="cairnloop-inbox-bulk-header cl-row cl-list-row">
