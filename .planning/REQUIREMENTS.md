@@ -55,7 +55,7 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 ### Responsive — D3 (RESP)
 
 - [x] **RESP-01**: CSS is normalized mobile-first (`min-width`) — the two `max-width:640` blocks are converted, breakpoints are standardized at 640/768/1024 and documented as literal constants in one CSS comment block (breakpoints are NOT tokenized as custom properties).
-- [ ] **RESP-02**: Every `.cl-table` scrolls accessibly on narrow / host-constrained widths (`role="region"`, `tabindex=0`, aria-label); the conversation two-column layout stacks below `lg`, the sticky bulk-bar wraps/clears the last row, and interactive tap targets are ≥44px.
+- [x] **RESP-02**: Every `.cl-table` scrolls accessibly on narrow / host-constrained widths (`role="region"`, `tabindex=0`, aria-label); the conversation two-column layout stacks below `lg`, the sticky bulk-bar wraps/clears the last row, and interactive tap targets are ≥44px.
 
 ### Motion (MOTION)
 
@@ -123,7 +123,7 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | THREAD-02 | Phase 42 | Complete |
 | THREAD-03 | Phase 42 | Complete |
 | RESP-01 | Phase 43 | Complete |
-| RESP-02 | Phase 43 | Pending |
+| RESP-02 | Phase 43 | Complete |
 | MOTION-01 | Phase 44 | Pending |
 | MOTION-02 | Phase 44 | Pending |
 | SEED-01 | Phase 45 | Pending |

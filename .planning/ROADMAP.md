@@ -167,7 +167,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   3. `mix test` passes; a manual verification at 768px viewport width shows the Inbox table scrolling accessibly and the conversation rail stacking below the conversation header.
 **Plans**: 3 plans (3 waves)
   - [x] 43-01-PLAN.md — CSS mobile-first normalization: convert two max-width:640 blocks → min-width, breakpoint comment block (640/768/1024 literals) + real 768 tablet rule, align home-grid constants + RESP-01 CSS-presence test [RESP-01] (wave 1)
-  - [ ] 43-02-PLAN.md — Verify + drift-proof: assert all four .cl-table accessible scroll wrappers + conversation below-lg stacking via Repo-free source-scan test (no re-wrapping); creates responsive_markup_test.exs [RESP-02] (wave 2)
+  - [x] 43-02-PLAN.md — Verify + drift-proof: assert all four .cl-table accessible scroll wrappers + conversation below-lg stacking via Repo-free source-scan test (no re-wrapping); creates responsive_markup_test.exs [RESP-02] (wave 2)
   - [ ] 43-03-PLAN.md — Tap targets + sticky clearance: .cl-checkbox 44px utility on both raw checkboxes, size=lg bulk-bar buttons, bulk-bar last-row clearance; preserve var(--cl-primary); extends responsive_markup_test.exs; human-verify checkpoint [RESP-02] (wave 3, depends on 43-02)
 **UI hint**: yes
 
@@ -204,7 +204,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 4/4 | Complete    | 2026-06-04 |
 | 42. Cross-Screen Threading | vM016 | 6/6 | Complete    | 2026-06-04 |
-| 43. Responsive Desktop-First Cockpit (D3) | vM016 | 1/3 | In Progress|  |
+| 43. Responsive Desktop-First Cockpit (D3) | vM016 | 2/3 | In Progress|  |
 | 44. Motion | vM016 | 0/? | Not started | â |
 | 45. Seed Enrichment + Screenshot Regen + Verification Sweep | vM016 | 0/? | Not started | â |
 | 33. Security Domain Closure | vM015 | 1/1 | Complete | 2026-05-29 |
