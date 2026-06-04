@@ -448,6 +448,14 @@
 .cl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .cl-table-scroll:focus-visible { box-shadow: var(--cl-focus-ring); border-radius: var(--cl-radius-xs); }
 
+/* ---- Applied-filter row (Plan 39-03 — sole owner; consumed by InboxLive Plan 39-02) --- */
+/* Composes from .cl-row + .cl-text-small; adds surface background + padding tokens.    */
+/* No raw hex — token-only (D-14, T-39-08). Parallel Plan 02 emits this class markup.  */
+.cl-applied-filter {
+  display: flex; align-items: center; gap: var(--cl-space-3);
+  background: var(--cl-surface); padding: var(--cl-space-3) 0;
+}
+
 /* ---- Toolbar ------------------------------------------------------------ */
 .cl-toolbar {
   display: flex; align-items: center; gap: var(--cl-space-3, 8px); flex-wrap: wrap;
