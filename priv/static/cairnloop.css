@@ -533,6 +533,21 @@
 }
 .evidence-rail { display: flex; flex-direction: column; gap: var(--cl-space-7, 24px); }
 
+/* ---- Rail density variants (D-04: spacing only, never drives <details> open/closed) ---------- */
+/* Both comfortable + base rule retain the default gap/padding so no flash before hook fires.     */
+.evidence-rail[data-density="comfortable"] { gap: var(--cl-space-7, 24px); }
+.evidence-rail[data-density="comfortable"] > .cl-card { padding: var(--cl-space-gutter, 16px); }
+.evidence-rail[data-density="compact"] { gap: var(--cl-space-4, 12px); }
+.evidence-rail[data-density="compact"] > .cl-card { padding: var(--cl-space-4, 12px); }
+
+/* ---- Rail controls row (Expand all / Collapse all / density toggle — RAIL-03) --------------- */
+/* Copies .cl-toolbar flex idiom; right-aligned; >=44px tap target via min-height on controls.   */
+.cl-rail-controls {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--cl-space-3, 8px); flex-wrap: wrap; padding: var(--cl-space-3, 8px) 0;
+}
+.cl-rail-controls .cl-button { min-height: var(--cl-control-h-lg, 44px); }
+
 /* ---- Conversation: message timeline -------------------------------------- */
 .message-card { padding: var(--cl-space-gutter, 16px); }
 .message-card + .message-card { margin-top: var(--cl-space-4, 12px); }
