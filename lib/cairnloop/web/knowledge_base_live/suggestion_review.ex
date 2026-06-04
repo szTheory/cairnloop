@@ -186,16 +186,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:suggestions} />
+      <.cl_page
+        title="Suggestion review"
+        subtitle="Inspect grounded KB proposals before any manual editing or later publish workflow begins."
+        width="wide"
+      >
+        <:subnav><.kb_nav current={:suggestions} /></:subnav>
 
-      <header class="cl-mb-7">
-        <h1>Suggestion review</h1>
-        <p class="cl-text-muted">
-          Inspect grounded KB proposals before any manual editing or later publish workflow begins.
-        </p>
-      </header>
-
-      <.cl_card class="cl-mb-7">
+        <.cl_card class="cl-mb-7">
         <:header><h2>Suggestion filters</h2></:header>
         <div class="cl-row cl-row--wrap">
           <.link
@@ -352,6 +350,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           <.cl_banner variant="success">{ReviewTaskPresenter.publish_outcome(@selected_task)}</.cl_banner>
         </.cl_card>
       <% end %>
+      </.cl_page>
     </.cl_shell>
     """
   end

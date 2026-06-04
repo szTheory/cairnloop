@@ -62,16 +62,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:gaps} />
+      <.cl_page
+        title="Knowledge gaps"
+        subtitle="Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling."
+        width="wide"
+      >
+        <:subnav><.kb_nav current={:gaps} /></:subnav>
 
-      <header class="cl-mb-7">
-        <h1>Knowledge gaps</h1>
-        <p class="cl-text-muted">
-          Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling.
-        </p>
-      </header>
-
-      <.cl_card class="cl-mb-7">
+        <.cl_card class="cl-mb-7">
         <:header><h2>Gap candidates</h2></:header>
 
         <.cl_empty :if={@candidates == []} title="No gap candidates yet." icon="compass">
@@ -152,7 +150,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
             </.link>
           </li>
         </ul>
-      </.cl_card>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

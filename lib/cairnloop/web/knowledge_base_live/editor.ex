@@ -260,18 +260,16 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.cl_breadcrumb items={[
-        %{label: "Knowledge", href: "/knowledge-base"},
-        %{label: "Editing: #{@article.title}"}
-      ]} />
+      <.cl_page title={"Editing: #{@article.title}"} width="wide">
+        <:breadcrumb>
+          <.cl_breadcrumb items={[
+            %{label: "Knowledge", href: "/knowledge-base"},
+            %{label: "Editing: #{@article.title}"}
+          ]} />
+        </:breadcrumb>
+        <:subnav><.kb_nav current={:editor} /></:subnav>
 
-      <.kb_nav current={:editor} />
-
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Editing: {@article.title}</h1>
-      </div>
-
-      <.cl_banner
+        <.cl_banner
         :if={@revision && @revision.state == :published}
         variant="info"
         class="cl-mb-7"
@@ -325,20 +323,21 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
         </.cl_card>
       </div>
 
-      <.cl_card :if={@gap_candidate} class="cl-mt-5" aria-label="Source gap evidence">
-        <:header><h3>Source gap</h3></:header>
-        <div class="cl-stack">
-          <strong>{@gap_candidate.title}</strong>
-          <div class="cl-row">
-            <span class="cl-text-muted">{"#{@gap_candidate.evidence_count} evidence"}</span>
-            <span class="cl-text-muted">{GapCandidatePresenter.freshness_label(@gap_candidate)}</span>
+        <.cl_card :if={@gap_candidate} class="cl-mt-5" aria-label="Source gap evidence">
+          <:header><h3>Source gap</h3></:header>
+          <div class="cl-stack">
+            <strong>{@gap_candidate.title}</strong>
+            <div class="cl-row">
+              <span class="cl-text-muted">{"#{@gap_candidate.evidence_count} evidence"}</span>
+              <span class="cl-text-muted">{GapCandidatePresenter.freshness_label(@gap_candidate)}</span>
+            </div>
+            <h4>Retrieval evidence</h4>
+            <p :if={@gap_candidate.evidence_count == 0} class="cl-text-muted">
+              No retrieval evidence linked to this gap.
+            </p>
           </div>
-          <h4>Retrieval evidence</h4>
-          <p :if={@gap_candidate.evidence_count == 0} class="cl-text-muted">
-            No retrieval evidence linked to this gap.
-          </p>
-        </div>
-      </.cl_card>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

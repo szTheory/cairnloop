@@ -584,6 +584,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     :ok
   end
 
+  test "KB Suggestion review renders inside cl-page--wide with title, subtitle, and subnav" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Suggestion review"
+    assert html =~ "Inspect grounded KB proposals"
+    assert html =~ ~s(cl-page__subnav)
+  end
+
   test "review inbox keeps one shared suggestion lane with article and revision proposals" do
     {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
     html = render_html(socket.assigns)

@@ -51,20 +51,19 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:index} />
+      <.cl_page title="Knowledge Base" width="wide">
+        <:subnav><.kb_nav current={:index} /></:subnav>
+        <:actions>
+          <.cl_button variant="primary" phx-click="new_article" phx-disable-with="Creating...">
+            New article
+          </.cl_button>
+        </:actions>
 
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Knowledge Base</h1>
-        <.cl_button variant="primary" phx-click="new_article" phx-disable-with="Creating...">
-          New article
-        </.cl_button>
-      </div>
+        <p class="cl-mb-7">
+          <.link navigate="/knowledge-base/gaps">Review KB gap candidates</.link>
+        </p>
 
-      <p class="cl-mb-7">
-        <.link navigate="/knowledge-base/gaps">Review KB gap candidates</.link>
-      </p>
-
-      <.cl_card>
+        <.cl_card>
         <:header><h2>Articles</h2></:header>
 
         <.cl_empty
@@ -105,7 +104,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
           </tbody>
         </table>
         </div>
-      </.cl_card>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

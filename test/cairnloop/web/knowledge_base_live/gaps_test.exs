@@ -231,6 +231,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     :ok
   end
 
+  test "KB Gaps renders inside cl-page--wide with title, subtitle, and subnav" do
+    {:ok, socket} = Gaps.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Knowledge gaps"
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ "Ranked maintenance signals"
+  end
+
   test "operators can navigate to /knowledge-base/gaps from the dashboard shell" do
     {:ok, socket} = Index.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
 
