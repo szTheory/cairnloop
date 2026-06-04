@@ -1001,34 +1001,39 @@ defmodule Cairnloop.Web.ConversationLive do
         <p class="governed-action-scope-warning"><%= @block_reason %></p>
       <% end %>
 
-      <%!-- Input snapshot: humanized rows via input_rows/1 (D-22 masking choke point) --%>
-      <%= if @input_rows != [] do %>
-        <div class="governed-action-section">
-          <div class="governed-action-section-label">Inputs</div>
+      <%!-- Tier-2 "Inputs & scope" — humanized rows + scope summary + raw snapshot behind nested expander.
+           auto_open_inputs static boolean from D-08 (pending / scope_invalid / policy_denied). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-inputs"} open={@auto_open_inputs} data-tier="2">
+        <:summary>Inputs &amp; scope</:summary>
+        <%!-- Humanized input rows via input_rows/1 (D-22 masking choke point) --%>
+        <%= if @input_rows != [] do %>
           <%= for {label, value} <- @input_rows do %>
             <.context_field label={label} value={value} hide_label={false} />
           <% end %>
-        </div>
-        <%!-- Raw input_snapshot ONLY behind an explicit expander (D-22) --%>
-        <details style="margin-top: 8px;">
-          <summary class="cl-text-muted cl-text-small" style="cursor: pointer;">Raw input snapshot</summary>
-          <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
-        </details>
-      <% end %>
+        <% end %>
+        <%!-- Scope summary folded into this group (D-01: Inputs & scope = 1 Tier-2 group) --%>
+        <p class="cl-text-small" style="color: var(--cl-text);"><%= @scope_summary %></p>
+        <%!-- Raw input_snapshot ONLY behind a nested expander (D-22 masking choke point) --%>
+        <.cl_disclosure id={"ga-#{@proposal.id}-inputs-raw"}>
+          <:summary>Raw input snapshot</:summary>
+          <pre class="governed-action-trace" style="white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
+        </.cl_disclosure>
+      </.cl_disclosure>
 
-      <%!-- Event mini-timeline (D-24 guarded) --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">History</div>
+      <%!-- Tier-2 "History" — event mini-timeline (D-24 guarded). Per-event detail behind nested expanders.
+           Empty state "No history yet." preserved verbatim (already test-covered). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-history"} data-tier="2">
+        <:summary>History</:summary>
         <%= if @events_loaded do %>
-          <%= for event <- @events do %>
+          <%= for {event, idx} <- Enum.with_index(@events) do %>
             <div class="governed-action-event-item">
               <span><%= event.line %></span>
               <span class="governed-action-event-time"><%= event.timestamp %></span>
-              <%!-- Per-event detail (reason + metadata) behind expander (D-22) --%>
+              <%!-- Per-event detail (reason + metadata) behind nested expander (D-22) --%>
               <%!-- WR-04: guard on emptiness — empty %{} metadata must not open the expander --%>
               <%= if event.reason || (is_map(event.metadata) and map_size(event.metadata) > 0) do %>
-                <details style="margin-top: 4px;">
-                  <summary class="cl-text-muted cl-text-micro" style="cursor: pointer;">Details</summary>
+                <.cl_disclosure id={"ga-#{@proposal.id}-evt-#{idx}"}>
+                  <:summary>Details</:summary>
                   <div style="margin-top: 4px; font-size: 0.8rem; color: var(--cl-text);">
                     <%= if event.reason do %>
                       <p><strong>Reason:</strong> <%= event.reason %></p>
@@ -1037,42 +1042,41 @@ defmodule Cairnloop.Web.ConversationLive do
                       <pre class="governed-action-trace" style="margin-top: 4px; white-space: pre-wrap;"><%= inspect(event.metadata, pretty: true) %></pre>
                     <% end %>
                   </div>
-                </details>
+                </.cl_disclosure>
               <% end %>
             </div>
           <% end %>
         <% else %>
           <p class="cl-text-muted cl-text-small">No history yet.</p>
         <% end %>
-      </div>
+      </.cl_disclosure>
 
-      <%!-- Scope snapshot --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">Scope</div>
-        <p class="cl-text-small" style="color: var(--cl-text);"><%= @scope_summary %></p>
-      </div>
-
-      <%!-- Policy snapshot: calm sentence (D-22 / D-14); raw policy map behind expander --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">Policy</div>
+      <%!-- Tier-2 "Policy explanation" — calm sentence + raw policy snapshot behind nested expander.
+           auto_open_policy static boolean from D-08 (policy_denied only). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-policy"} open={@auto_open_policy} data-tier="2">
+        <:summary>Policy explanation</:summary>
+        <%!-- Calm policy sentence (D-22 / D-14) --%>
         <p class="cl-text-small" style="color: var(--cl-text);"><%= @policy_explanation %></p>
+        <%!-- Raw policy snapshot ONLY behind a nested expander (D-22 masking choke point) --%>
         <%= if @proposal.policy_snapshot do %>
-          <details style="margin-top: 4px;">
-            <summary class="cl-text-muted cl-text-small" style="cursor: pointer;">Raw policy snapshot</summary>
+          <.cl_disclosure id={"ga-#{@proposal.id}-policy-raw"}>
+            <:summary>Raw policy snapshot</:summary>
             <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.policy_snapshot, pretty: true) %></pre>
-          </details>
+          </.cl_disclosure>
         <% end %>
-      </div>
+      </.cl_disclosure>
 
-      <%!-- Trace metadata — de-emphasized mono, copyable (proposal id, tool_ref, version, idempotency key) --%>
-      <div class="governed-action-section">
-        <dl class="governed-action-trace">
-          <div><dt>Proposal:</dt><dd>#<%= @trace.proposal_id %></dd></div>
-          <div><dt>Tool:</dt><dd><%= @trace.tool_ref %></dd></div>
-          <div><dt>Version:</dt><dd><%= @trace.tool_version %></dd></div>
-          <div><dt>Idempotency key:</dt><dd><%= @trace.idempotency_key %></dd></div>
-        </dl>
-      </div>
+      <%!-- Tier-3 standalone "Identifiers & trace" (D-02) — default-closed; NO data-tier so Expand-all
+           (D-06) does not reach it. Body via cl_fact_list/1 (auto-escapes values, never raw/1). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-trace"}>
+        <:summary>Identifiers &amp; trace</:summary>
+        <.cl_fact_list facts={[
+          %{label: "Proposal", value: "##{@trace.proposal_id}"},
+          %{label: "Tool", value: @trace.tool_ref},
+          %{label: "Version", value: @trace.tool_version},
+          %{label: "Idempotency key", value: @trace.idempotency_key}
+        ]} />
+      </.cl_disclosure>
 
       <%!-- Footer action slot: Approve / Reject / Defer affordances when :pending approval exists.
            Status conveyed by text AND color — never color-alone (brand §7.5).
