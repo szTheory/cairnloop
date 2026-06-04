@@ -53,7 +53,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
             phx-click-away="close"
             phx-target={@myself}
           >
-            <form phx-change="search" phx-submit="search" phx-target={@myself} style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(64, 51, 43, 0.08);">
+            <form phx-change="search" phx-submit="search" phx-target={@myself} style="padding: 24px 24px 16px; border-bottom: 1px solid var(--cl-border);">
               <input
                 id={"#{@id}-search-input"}
                 type="text"
@@ -102,13 +102,13 @@ defmodule Cairnloop.Web.SearchModalComponent do
                         <h3 style="margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600;">
                           <%= section.title %>
                         </h3>
-                        <span style="font-size: 14px; color: rgba(47, 36, 29, 0.62);">
+                        <span class="cl-text-muted" style="font-size: 14px;">
                           <%= length(section.results) %>
                         </span>
                       </div>
 
                       <%= if Enum.empty?(section.results) do %>
-                        <div style="padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.72); color: rgba(47, 36, 29, 0.68);">
+                        <div class="cl-text-muted" style="padding: 16px; border-radius: 12px; background: var(--cl-surface-raised);">
                           <%= empty_section_copy(section.source_type, @query) %>
                         </div>
                       <% else %>
@@ -138,11 +138,11 @@ defmodule Cairnloop.Web.SearchModalComponent do
                                     <p style="margin: 0 0 8px; font-size: 16px; line-height: 1.4; font-weight: 600;">
                                       <%= presenter.title %>
                                     </p>
-                                    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: rgba(47, 36, 29, 0.76);">
+                                    <p class="cl-text-muted" style="margin: 0; font-size: 14px; line-height: 1.5;">
                                       <%= presenter.row_snippet %>
                                     </p>
                                   </div>
-                                  <span style="font-size: 14px; color: rgba(47, 36, 29, 0.62); white-space: nowrap;">
+                                  <span class="cl-text-muted" style="font-size: 14px; white-space: nowrap;">
                                     <%= presenter.recency_label %>
                                   </span>
                                 </div>
@@ -159,7 +159,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                 </div>
               </div>
 
-              <div class="search-preview-pane" style="flex: 1 1 480px; min-width: min(420px, 100%); border-radius: 16px; background: rgba(255, 255, 255, 0.76); border: 1px solid rgba(64, 51, 43, 0.08); padding: 24px; overflow-y: auto;">
+              <div class="search-preview-pane" style="flex: 1 1 480px; min-width: min(420px, 100%); border-radius: 16px; background: var(--cl-surface-raised); border: 1px solid var(--cl-border); padding: 24px; overflow-y: auto;">
                 <%= if @preview do %>
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
                     <span style={source_badge_style(@preview.result.source_type)}>
@@ -172,13 +172,13 @@ defmodule Cairnloop.Web.SearchModalComponent do
                   <h3 style="margin: 0 0 8px; font-size: 28px; line-height: 1.2; font-weight: 600;">
                     <%= @preview.title %>
                   </h3>
-                  <p style="margin: 0 0 24px; font-size: 14px; color: rgba(47, 36, 29, 0.62);">
+                  <p class="cl-text-muted" style="margin: 0 0 24px; font-size: 14px;">
                     <%= @preview.recency_label %>
                   </p>
 
                   <div style="display: grid; gap: 16px;">
                     <%= for block <- @preview.preview_sections do %>
-                      <p style="margin: 0; font-size: 16px; line-height: 1.5; color: rgba(47, 36, 29, 0.84);">
+                      <p style="margin: 0; font-size: 16px; line-height: 1.5; color: var(--cl-text);">
                         <%= block %>
                       </p>
                     <% end %>
@@ -195,7 +195,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                         <%= @preview.open_action_label %>
                       </button>
                     <% else %>
-                      <span style="display: inline-flex; min-height: 44px; align-items: center; color: rgba(47, 36, 29, 0.62);">
+                      <span class="cl-text-muted" style="display: inline-flex; min-height: 44px; align-items: center;">
                         <%= @preview.open_action_label %>
                       </span>
                     <% end %>
@@ -204,7 +204,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                   <h3 style="margin: 0 0 8px; font-size: 28px; line-height: 1.2; font-weight: 600;">
                     Preview results here
                   </h3>
-                  <p style="margin: 0; font-size: 16px; line-height: 1.5; color: rgba(47, 36, 29, 0.76);">
+                  <p class="cl-text-muted" style="margin: 0; font-size: 16px; line-height: 1.5;">
                     Move through results to inspect source details before you open anything.
                   </p>
                 <% end %>
