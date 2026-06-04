@@ -258,13 +258,14 @@
 
 /* ---- Nav shell ---------------------------------------------------------- */
 .cl-shell { display: flex; flex-direction: column; min-height: 100vh; background: var(--cl-bg, #F5F0E6); }
-.cl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: var(--cl-space-7, 24px); }
+.cl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: var(--cl-space-5, 16px); }
 .cl-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
-@media (max-width: 640px) { .cl-main { padding: var(--cl-space-5, 16px); } }
+@media (min-width: 640px) { .cl-main { padding: var(--cl-space-7, 24px); } }
+@media (min-width: 768px) { .cl-main { padding: var(--cl-space-8, 32px); } }
 .cl-nav {
   position: sticky; top: 0; z-index: var(--cl-z-sticky, 1100);
-  display: flex; align-items: center; gap: var(--cl-space-5, 16px);
-  padding: 0 var(--cl-space-7, 24px); height: 56px;
+  display: flex; align-items: center; gap: var(--cl-space-3, 8px);
+  padding: 0 var(--cl-space-4, 12px); height: 56px;
   background: var(--cl-surface, #FBF7EE);
   border-bottom: 1px solid var(--cl-border, #D8D0BF);
 }
@@ -277,7 +278,7 @@
 .cl-nav__links { display: flex; align-items: center; gap: var(--cl-space-1, 2px); flex: 1; }
 .cl-nav__link {
   display: inline-flex; align-items: center; gap: var(--cl-space-2, 4px);
-  padding: var(--cl-space-2, 4px) var(--cl-space-4, 12px);
+  padding: var(--cl-space-2, 4px) var(--cl-space-3, 8px);
   height: 36px; border-radius: var(--cl-radius-sm, 6px);
   color: var(--cl-text-muted, #677066); font-size: var(--cl-font-small, 13px);
   font-weight: var(--cl-weight-medium, 500);
@@ -511,11 +512,17 @@
 .cl-pagination { display: flex; align-items: center; gap: var(--cl-space-2, 4px); justify-content: center; padding: var(--cl-space-5, 16px) 0; }
 
 /* ============================================================================
-   Responsive — mobile-first; widen the rail layout at >= 1024px
+   BREAKPOINTS — mobile-first (min-width). Literal pixel constants ONLY.
+   var() is ILLEGAL inside @media conditions (silent no-op) — never tokenize these.
+     sm  = 640px   (small → medium handoff; nav gains larger gap/padding, 1→2 col)
+     md  = 768px   (tablet; introduced Phase 43)
+     lg  = 1024px  (desktop; rail row layout, 3 col, conversation 2-col)
+   Layout VALUES (max-width, rail width, gutters) stay tokens: --cl-content-max,
+   --cl-rail-width, --cl-page-gutter. Only the @media CONDITION numbers are literals.
    ============================================================================ */
-@media (max-width: 640px) {
-  .cl-nav { gap: var(--cl-space-3, 8px); padding: 0 var(--cl-space-4, 12px); }
-  .cl-nav__link { padding: var(--cl-space-2, 4px) var(--cl-space-3, 8px); }
+@media (min-width: 640px) {
+  .cl-nav { gap: var(--cl-space-5, 16px); padding: 0 var(--cl-space-7, 24px); }
+  .cl-nav__link { padding: var(--cl-space-2, 4px) var(--cl-space-4, 12px); }
 }
 
 /* ---- Modals & Inbox Specific -------------------------------------------- */
