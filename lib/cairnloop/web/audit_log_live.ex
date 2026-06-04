@@ -22,10 +22,34 @@ defmodule Cairnloop.Web.AuditLogLive do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(query: "", action_filter: "all", limit: @page_size)
+      |> assign(query: "", action_filter: "all", limit: @page_size, proposal_filter: nil)
       |> load_events()
 
     {:ok, socket}
+  end
+
+  # handle_params/2 — tolerant ?proposal filter (THREAD-03a, T-42-07).
+  # Parses the raw query param with Integer.parse/1; valid positive integer → assign filter
+  # and load filtered events; invalid/garbage/missing → proposal_filter: nil, full honest view.
+  # NEVER string-interpolate raw param into a query (Pitfall: param tampering, V5).
+  def handle_params(%{"proposal" => raw}, _uri, socket) do
+    proposal_filter =
+      case Integer.parse(raw) do
+        {id, _rest} when id > 0 -> id
+        _ -> nil
+      end
+
+    {:noreply,
+     socket
+     |> assign(proposal_filter: proposal_filter)
+     |> load_events()}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(proposal_filter: nil)
+     |> load_events()}
   end
 
   def handle_event("search", %{"query" => query}, socket) do
@@ -41,9 +65,19 @@ defmodule Cairnloop.Web.AuditLogLive do
   end
 
   # Fetch from the configured auditor, then apply the current search/filter.
+  # Threads proposal_filter into the auditor read via the proposal_id: opt when non-nil
+  # (THREAD-03a, D-10). The unfiltered path is byte-identical to before when filter is nil.
   defp load_events(socket) do
     auditor = Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.Governance)
-    events = auditor.list_events(limit: socket.assigns.limit)
+    opts = [limit: socket.assigns.limit]
+
+    opts =
+      case Map.get(socket.assigns, :proposal_filter) do
+        nil -> opts
+        id -> Keyword.put(opts, :proposal_id, id)
+      end
+
+    events = auditor.list_events(opts)
 
     socket
     |> assign(events: events, maybe_more?: length(events) >= socket.assigns.limit)
@@ -127,7 +161,7 @@ defmodule Cairnloop.Web.AuditLogLive do
         <div :if={@visible_events != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Audit log">
         <table class="cl-table">
           <thead>
-            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Details</th></tr>
+            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Conversation</th><th>Details</th></tr>
           </thead>
           <tbody>
             <tr :for={event <- @visible_events}>
@@ -135,6 +169,18 @@ defmodule Cairnloop.Web.AuditLogLive do
               <td>{P.actor_label(Map.get(event, :actor_id))}</td>
               <td>{P.action_label(Map.get(event, :action))}</td>
               <td>{P.reason_label(Map.get(event, :reason))}</td>
+              <td>
+                <%!-- Subject link: scope-relative /#{id} when conversation is present; plain fallback on nil (D-08, T-42-09, Pitfall 3/4/6). --%>
+                <%= case P.subject_href(event) do %>
+                  <% nil -> %>
+                    <span class="cl-text-muted">—</span>
+                  <% href -> %>
+                    <.link
+                      navigate={href}
+                      aria-label={"View conversation #{Map.get(event, :conversation_id)}"}
+                    >View conversation</.link>
+                <% end %>
+              </td>
               <td>
                 <%= case P.metadata_rows(Map.get(event, :metadata)) do %>
                   <% [] -> %>
