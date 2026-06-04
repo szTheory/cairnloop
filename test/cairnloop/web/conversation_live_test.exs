@@ -2521,7 +2521,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
     end
 
-    test "resolved + next_open_id present: renders 'Next in queue' link with scope-relative navigate" do
+    test "resolved + next_open_id present: renders 'Next in queue' link with scope-relative href" do
       assigns = Map.put(resolved_base_assigns(), :next_open_id, 42)
       html = render_component(&ConversationLive.outbound_recovery_card/1,
         conversation: assigns.conversation,
@@ -2529,7 +2529,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       )
 
       assert html =~ "Next in queue"
-      assert html =~ ~s(navigate="/42")
+      # Phoenix renders <.link navigate="/42"> as href="/42" + data-phx-link="redirect"
+      assert html =~ ~s(href="/42")
+      assert html =~ ~s(data-phx-link="redirect")
       refute html =~ "/support/"
       refute html =~ "Queue clear"
     end
@@ -2548,9 +2550,11 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       )
 
       assert html =~ "Queue clear"
-      assert html =~ ~s(navigate="/inbox")
+      # Phoenix renders <.link navigate="/inbox"> as href="/inbox" + data-phx-link="redirect"
+      assert html =~ ~s(href="/inbox")
+      assert html =~ ~s(data-phx-link="redirect")
       refute html =~ "/support/"
-      refute html =~ ~s(navigate="/nil")
+      refute html =~ ~s(href="/nil")
     end
 
     test "non-resolved (open) status: renders neither 'Next in queue' nor 'Queue clear'" do
@@ -2575,7 +2579,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       html = render_html(assigns)
 
       assert html =~ "Next in queue"
-      assert html =~ ~s(navigate="/99")
+      # Phoenix renders <.link navigate="/99"> as href="/99" + data-phx-link="redirect"
+      assert html =~ ~s(href="/99")
     end
   end
 
@@ -2584,7 +2589,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "governed_action_card/1 — audit deep-link in Tier-3 trace group (THREAD-03a)" do
-    test "Tier-3 trace group renders 'View audit trail' link with scope-relative audit-log path" do
+    test "Tier-3 trace group renders 'View audit trail' link with scope-relative audit-log href" do
       proposal = tool_proposal_fixture(%{
         id: 55,
         status: :proposed,
@@ -2594,7 +2599,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       html = render_component(card_fn, proposal: proposal)
 
       assert html =~ "View audit trail"
-      assert html =~ ~s(navigate="/audit-log?proposal=55")
+      # Phoenix renders <.link navigate="/audit-log?proposal=55"> as href= + data-phx-link="redirect"
+      assert html =~ ~s(href="/audit-log?proposal=55")
+      assert html =~ ~s(data-phx-link="redirect")
       refute html =~ "/support/"
     end
 
