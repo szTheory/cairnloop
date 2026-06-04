@@ -475,7 +475,7 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
         </div>
 
-        <div class="evidence-rail" data-density="comfortable" phx-hook="RailDensity" id="evidence-rail-density">
+        <div class="evidence-rail" data-density="comfortable" phx-hook=".RailDensity" id="evidence-rail-density">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
           <.outbound_recovery_card conversation={@conversation} />
           <.quick_fix_card card={@quick_fix_card} />

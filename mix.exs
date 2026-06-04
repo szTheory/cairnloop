@@ -8,6 +8,11 @@ defmodule Cairnloop.MixProject do
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      # Required so the LiveView 1.1 compiler extracts this library's colocated hooks/JS
+      # (e.g. the rail's `RailDensity` hook) into `phoenix-colocated/cairnloop/` at compile time.
+      # Without it the hook is silently never emitted, so a consumer's esbuild import of
+      # `phoenix-colocated/cairnloop` can't resolve and the hook never loads in the browser.
+      compilers: [:phoenix_live_view] ++ Mix.compilers(),
       aliases: aliases(),
       deps: deps(),
       description:
