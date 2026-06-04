@@ -101,7 +101,10 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   3. When the queue is empty, Home shows a calm success state (icon + text); there is no confetti and no dead sixth grid cell in the layout.
   4. The brand-token gate (`mix test`) passes — Home markup contains no hardcoded hex colors.
   5. Count queries are scoped (not a full `assign_counts/1` re-query per PubSub tick), and the `safe/2` fail-closed count behavior is preserved — a simulated error returns `0`, not an exception.
-**Plans**: TBD
+**Plans**: 3 plans (2 waves)
+  - [ ] 39-01-PLAN.md — Chat facade scoped queries (list_conversations/1 + count_conversations/1 + scope_status/2) [HOME-02, HOME-05] (wave 1)
+  - [ ] 39-02-PLAN.md — InboxLive resolved filter: handle_params/3 + fail-closed normalize_status/1 + filter-aware PubSub + applied-filter row [HOME-02] (wave 2)
+  - [ ] 39-03-PLAN.md — HomeLive two-tier restructure: hero + 3-up band + zero-state; scoped/throttled fail-closed counts [HOME-01..05] (wave 2)
 **UI hint**: yes
 
 ### Phase 40: Drift Remediation + Brand-Token Gate Hardening
@@ -181,7 +184,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 |-------|-----------|----------------|--------|-----------|
 | 37. Component Primitives | vM016 | 5/5 | Complete    | 2026-06-03 |
 | 38. Shared Page-Shell Migration | vM016 | 4/4 | Complete    | 2026-06-04 |
-| 39. Home Primacy Redesign (D1) | vM016 | 0/? | Not started | — |
+| 39. Home Primacy Redesign (D1) | vM016 | 0/3 | Not started | — |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 0/? | Not started | — |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 0/? | Not started | — |
 | 42. Cross-Screen Threading | vM016 | 0/? | Not started | — |
