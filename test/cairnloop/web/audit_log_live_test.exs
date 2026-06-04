@@ -205,4 +205,7 @@ defmodule AuditLogLiveTest.MockAuditor do
 
   @impl true
   def list_events(_opts), do: []
+
+  @impl true
+  def audit(multi, _action, _actor, _metadata), do: multi
 end
