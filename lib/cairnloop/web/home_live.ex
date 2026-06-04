@@ -127,9 +127,9 @@ defmodule Cairnloop.Web.HomeLive do
                 <span class="cl-text-small cl-text-muted">Count unavailable</span>
               <% end %>
               <%= if @resolved_count > 0 and not @resolved_count_unavailable? do %>
-                <a href="/inbox?status=resolved" class="cl-text-small cl-text-muted">
+                <.link navigate="/inbox?status=resolved" class="cl-text-small cl-text-muted">
                   {@resolved_count} resolved — eligible for recovery
-                </a>
+                </.link>
               <% end %>
             </:detail>
             <:cta_slot>
