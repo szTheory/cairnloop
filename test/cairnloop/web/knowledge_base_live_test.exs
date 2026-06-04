@@ -662,6 +662,56 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     refute html =~ "Source gap"
   end
 
+  test "KB Editor renders inside cl-page--wide with title, subnav, and breadcrumb in slot" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Editing: "
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ ~s(cl-breadcrumb)
+    assert html =~ ~s(aria-current="page")
+  end
+
+  test "KB Editor breadcrumb contains static Knowledge crumb and current Editing crumb" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ "Knowledge"
+    assert html =~ "/knowledge-base"
+    assert html =~ ~s(aria-current="page")
+    assert html =~ "Editing: "
+  end
+
   test "KB Index renders inside cl-page--wide with title, subnav, and actions" do
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Index.mount(
