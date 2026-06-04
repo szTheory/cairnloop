@@ -4,6 +4,18 @@ defmodule Cairnloop.ChatTest do
   alias Cairnloop.Conversations.SLA
 
   defmodule MockRepo do
+    # Phase 39 Plan 01: aggregate/3 stub for count_conversations/1 headless tests.
+    # Records the call args in the process dictionary so tests can assert without a live DB.
+    def aggregate(query, :count, :id) do
+      Process.put(:mock_aggregate_called, {query, :count, :id})
+      5
+    end
+
+    def all(query) do
+      Process.put(:mock_all_called, query)
+      []
+    end
+
     def get!(Cairnloop.Conversation, id) do
       if id in [1, 2] do
         %Cairnloop.Conversation{
@@ -370,6 +382,81 @@ defmodule Cairnloop.ChatTest do
       {:ok, _message} = Chat.ingest_widget_message(1, "hi")
       assert_receive {:conversations_changed}, 200
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 39 Plan 01: list_conversations/1, count_conversations/1, scope_status/2
+  # ---------------------------------------------------------------------------
+
+  describe "scope_status/2 (via list_conversations/1 + count_conversations/1)" do
+    setup do
+      Process.delete(:mock_aggregate_called)
+      Process.delete(:mock_all_called)
+      :ok
+    end
+
+    # --- Query-shape assertions (headless, no live Repo) ---
+
+    test "list_conversations(status: :resolved) scopes query to resolved status" do
+      # MockRepo.all/1 captures the Ecto.Query passed to it
+      Chat.list_conversations(status: :resolved)
+      query = Process.get(:mock_all_called)
+      assert %Ecto.Query{} = query
+      # The scoped where clause must reference :resolved — verified via inspect
+      query_string = inspect(query)
+      assert query_string =~ "resolved"
+    end
+
+    test "list_conversations(status: nil) passes through the unscoped query" do
+      Chat.list_conversations(status: nil)
+      query = Process.get(:mock_all_called)
+      assert %Ecto.Query{} = query
+      # No extra where clause: wheres list is empty (unscoped base query)
+      assert query.wheres == []
+    end
+
+    test "list_conversations(status: :bogus) ignores unknown atom (D-03 defense-in-depth)" do
+      # :bogus is not in the whitelist [:open, :resolved, :archived]; must fall through
+      # to the _other -> query clause and NOT crash, returning the unscoped query
+      Chat.list_conversations(status: :bogus)
+      query = Process.get(:mock_all_called)
+      assert %Ecto.Query{} = query
+      # No where clause injected: wheres remains empty
+      assert query.wheres == []
+    end
+
+    test "count_conversations/1 calls aggregate(:count, :id) — NOT a list load" do
+      # D-09: cheap SELECT count(*), never load + Enum.count
+      Chat.count_conversations(status: :resolved)
+      assert {_query, :count, :id} = Process.get(:mock_aggregate_called)
+      # Also ensure all/1 was NOT called (no full list load)
+      refute Process.get(:mock_all_called)
+    end
+
+    test "count_conversations/0 (no opts) calls aggregate(:count, :id) on the unscoped query" do
+      Chat.count_conversations()
+      assert {query, :count, :id} = Process.get(:mock_aggregate_called)
+      assert %Ecto.Query{} = query
+      assert query.wheres == []
+    end
+
+    # --- Round-trip tests (require live Postgres; headless suite skips these) ---
+
+    # REPO-UNAVAILABLE: count_conversations(status: :resolved) returns the real resolved row count
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "count_conversations(status: :resolved) returns real resolved row count (REPO-UNAVAILABLE)" do
+    #   count = Chat.count_conversations(status: :resolved)
+    #   assert is_integer(count)
+    #   assert count >= 0
+    # end
+
+    # REPO-UNAVAILABLE: list_conversations(status: :resolved) returns ONLY resolved rows
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "list_conversations(status: :resolved) returns only resolved rows (REPO-UNAVAILABLE)" do
+    #   conversations = Chat.list_conversations(status: :resolved)
+    #   assert is_list(conversations)
+    #   assert Enum.all?(conversations, &(&1.status == :resolved))
+    # end
   end
 
   # ---------------------------------------------------------------------------
