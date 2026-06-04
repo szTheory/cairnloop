@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-03 — vM016 active)
 
 Phase: 42
 Plan: Not started
-Status: Ready to plan
+Status: Context gathered — ready to plan (`.planning/phases/42-cross-screen-threading/42-CONTEXT.md`)
 Last activity: 2026-06-04
 
 ```
