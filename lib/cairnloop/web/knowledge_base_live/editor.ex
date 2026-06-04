@@ -21,8 +21,22 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
       content = preload_content(suggestion, latest_revision)
       gap_candidate = load_gap_candidate_from_suggestion(suggestion, scope_filters)
 
+      # WR-02: avoid a guaranteed-nil SELECT on every mount. Only :conversation_quick_fix
+      # suggestions can ever yield an origin (D-12). When the in-scope suggestion is already
+      # loaded we know its entrypoint_type in-process, so short-circuit. The nil-suggestion
+      # branch preserves the article-keyed lookup for the direct-visit case (Pitfall 2), so
+      # the deep-link still resolves.
       origin_conversation_id =
-        knowledge_automation().originating_conversation_id(article.id, scope_filters)
+        case suggestion do
+          %{entrypoint_type: :conversation_quick_fix, entrypoint_id: entrypoint_id} ->
+            entrypoint_id
+
+          %{} ->
+            nil
+
+          nil ->
+            knowledge_automation().originating_conversation_id(article.id, scope_filters)
+        end
 
       socket =
         socket
