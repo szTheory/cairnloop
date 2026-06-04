@@ -317,10 +317,17 @@ end
 # function of proposal state, so the testable invariant is: open is computed ONLY from the static
 # render inputs, never re-applied. The strongest server-side proof is structural: there is no
 # handle_event / assign path that flips open.
-test "governed_action_card source binds `open` only to a render-time computation, never an event" do
+test "no handle_event clause head toggles disclosure open-state (allow-listing navigation events)" do
   src = File.read!("lib/cairnloop/web/conversation_live.ex")
-  # no handle_event re-opens a panel; no assign named to dynamically drive open after mount
-  refute src =~ ~r/handle_event.*open/s          # no event toggles open server-side
+  event_names = Regex.scan(~r/def handle_event\(\s*"([^"]+)"/, src) |> Enum.map(&List.last/1)
+  # open_review_task / open_manual_draft are NAVIGATION events, not disclosure toggles
+  allowed_open_events = ["open_review_task", "open_manual_draft"]
+  disclosure_like = Enum.filter(event_names, &(&1 =~ ~r/^(open|close|toggle|expand|collapse|density)/))
+  assert disclosure_like -- allowed_open_events == []
+  # companion belt-and-suspenders: open binds ONLY to the two static auto-open booleans
+  refute src =~ ~r/open=\{@(?!auto_open_inputs|auto_open_policy)\w+\}/
+  # NB: do NOT use `refute src =~ ~r/handle_event.*open/s` — the /s flag spans the whole file and
+  # false-matches the navigation events above, failing unconditionally against the current codebase.
   # (companion: cl_disclosure unit test already proves open is static-only — components_test.exs:283)
 end
 ```

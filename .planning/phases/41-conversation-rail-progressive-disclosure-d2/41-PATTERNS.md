@@ -157,7 +157,7 @@ assert html =~ "Proposed"
 - RAIL-02 mechanism: `<details` count == `phx-update="ignore"` count (RESEARCH `:346-354`).
 - D-08 positive: pending/blocked fixture → inputs group emits static `open`; `policy_denied` → policy group also `open` (RESEARCH `:294-303`).
 - D-08 negative: non-pending non-blocked → no Tier-2 emits `open` (RESEARCH `:305-311`).
-- D-09 render-purity: `File.read!` source grep — `refute src =~ ~r/handle_event.*open/s` (RESEARCH `:314-325`).
+- D-09 render-purity: `File.read!` source proof over `handle_event` CLAUSE HEADS (NOT a DOTALL substring grep). Scan `~r/def handle_event\(\s*"([^"]+)"/` for event names, allow-list the two known NAVIGATION events `open_review_task`/`open_manual_draft`, and assert no remaining name matches `~r/^(open|close|toggle|expand|collapse|density)/`. Companion: assert `open={@...}` binds only `@auto_open_inputs`/`@auto_open_policy`. DO NOT use `refute src =~ ~r/handle_event.*open/s` — the `/s` flag false-matches the navigation events and fails unconditionally. (See 41-01 behavior 6; companion `cl_disclosure` static-only test `components_test.exs:283`.)
 - RAIL-03 JS shape: rendered `phx-click` carries `set_attribute`/`remove_attribute` scoped to `[data-tier="2"]`; density default `data-density="comfortable"` + control markup present.
 
 Use `use ExUnit.Case, async: true` idiom already in the file.
