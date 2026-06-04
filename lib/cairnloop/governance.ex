@@ -992,19 +992,29 @@ defmodule Cairnloop.Governance do
   Options:
   - `:limit` — cap the number of rows returned (default `100`). Use for pagination.
   - `:offset` — skip this many rows (default `0`).
+  - `:proposal_id` — when a non-nil integer, filter to events for that proposal only
+    (D-10, THREAD-03a backing). When absent or nil, the unfiltered read is unchanged.
 
   Goes through the `repo()` indirection — never `Cairnloop.Repo` directly (D-30).
   """
   def list_action_events(opts \\ []) do
     limit = Keyword.get(opts, :limit, 100)
     offset = Keyword.get(opts, :offset, 0)
+    proposal_id = Keyword.get(opts, :proposal_id)
 
     ToolActionEvent
+    |> maybe_where_proposal(proposal_id)
     |> order_by([e], desc: e.inserted_at, desc: e.id)
     |> limit(^limit)
     |> offset(^offset)
     |> preload(:tool_proposal)
     |> repo().all()
+  end
+
+  defp maybe_where_proposal(query, nil), do: query
+
+  defp maybe_where_proposal(query, proposal_id) when is_integer(proposal_id) do
+    where(query, [e], e.tool_proposal_id == ^proposal_id)
   end
 
   @doc """
