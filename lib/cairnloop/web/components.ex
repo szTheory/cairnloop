@@ -189,15 +189,19 @@ defmodule Cairnloop.Web.Components do
   Forward-compat guardrail (P41): the `phx-update="ignore"` subtree freezes child content
   from server diffs after mount. Any live-updating content must be placed OUTSIDE the
   `<details>` element, not inside the `inner_block`.
+
+  `:rest` carries `data-tier`/`data-density` scoping hooks for rail-level progressive
+  disclosure controls (RAIL-03); all other global `data-*` pass through transparently.
   """
   attr(:id, :string, required: true)
   attr(:open, :boolean, default: false)
+  attr(:rest, :global)
   slot(:summary, required: true)
   slot(:inner_block, required: true)
 
   def cl_disclosure(assigns) do
     ~H"""
-    <details class="cl-details cl-disclosure" id={@id} phx-update="ignore" open={@open}>
+    <details class="cl-details cl-disclosure" id={@id} phx-update="ignore" open={@open} {@rest}>
       <summary class="cl-details__summary">{render_slot(@summary)}</summary>
       {render_slot(@inner_block)}
     </details>
