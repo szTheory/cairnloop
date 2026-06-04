@@ -132,7 +132,11 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   2. Inputs & scope, History, and Policy explanation are each in a separate native `<details>` group; a PubSub-triggered re-render (simulated by a test event) does not reset any manually-opened `<details>` element to closed.
   3. A blocking/pending card auto-expands its Tier-2 group on first render; clicking "Expand all" opens all Tier-2 `<details>` without touching Tier 1; the density toggle preference persists in `localStorage` across a page refresh.
   4. `mix test` passes; the `cl_disclosure` component has a unit test confirming no server assigns control `open` state.
-**Plans**: TBD
+**Plans**: 4 plans (4 waves)
+  - [ ] 41-01-PLAN.md — Wave 0 RED test scaffold: rail-disclosure describe block + cl_disclosure data-tier passthrough test [RAIL-01/02/03] (wave 1)
+  - [ ] 41-02-PLAN.md — cl_disclosure/1 additive :global passthrough (unblocks data-tier scoping) [RAIL-03] (wave 2)
+  - [ ] 41-03-PLAN.md — governed_action_card restructure: Tier-1 pin + 3 Tier-2 groups + standalone Trace group + static auto-expand [RAIL-01, RAIL-02] (wave 3)
+  - [ ] 41-04-PLAN.md — rail control bar (Expand/Collapse-all via JS) + density CSS + colocated localStorage hook + example app.js wiring [RAIL-03] (wave 4)
 **UI hint**: yes
 
 ### Phase 42: Cross-Screen Threading
@@ -189,7 +193,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 38. Shared Page-Shell Migration | vM016 | 4/4 | Complete    | 2026-06-04 |
 | 39. Home Primacy Redesign (D1) | vM016 | 3/3 | Complete    | 2026-06-04 |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
-| 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 0/? | Not started | â |
+| 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 0/4 | Not started | â |
 | 42. Cross-Screen Threading | vM016 | 0/? | Not started | â |
 | 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
 | 44. Motion | vM016 | 0/? | Not started | â |
