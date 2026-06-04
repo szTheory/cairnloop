@@ -63,11 +63,7 @@ defmodule Cairnloop.Web.HomeLive do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:home} destinations={Cairnloop.Web.Nav.destinations()}>
-      <header style="margin-bottom: var(--cl-space-7);">
-        <h1>Welcome back</h1>
-        <p class="cl-text-muted">What needs you today?</p>
-      </header>
-
+      <.cl_page title="Welcome back" subtitle="What needs you today?" width="wide">
       <div class="cl-home-grid">
         <.cl_stat
           job="Work the queue"
@@ -119,6 +115,7 @@ defmodule Cairnloop.Web.HomeLive do
           cta="View audit log"
         />
       </div>
+      </.cl_page>
     </.cl_shell>
     """
   end

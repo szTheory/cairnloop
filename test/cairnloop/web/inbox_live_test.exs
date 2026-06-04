@@ -1026,8 +1026,11 @@ defmodule Cairnloop.Web.InboxLiveTest do
       assigns = build_assigns(conversations: [])
       html = render_html(assigns)
 
-      assert html =~ ~s(id="search-modal"),
-             "expected id=\"search-modal\" in rendered HTML — modal must stay in body (Pitfall 4)"
+      # SearchModalComponent renders its root element with id="search-modal-search-root"
+      # and data-host-surface attribute (see search_modal_component.ex:36-37).
+      # The live_component id= is a LiveView-internal identifier, not a rendered HTML id.
+      assert html =~ ~s(id="search-modal-search-root") or html =~ ~s(data-host-surface="inbox"),
+             "expected search modal markup in rendered HTML — modal must stay in body (Pitfall 4)"
     end
   end
 end
