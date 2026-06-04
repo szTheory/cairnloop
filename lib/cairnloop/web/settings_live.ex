@@ -154,26 +154,26 @@ defmodule Cairnloop.Web.SettingsLive do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:settings} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.live_component
-        module={Cairnloop.Web.SearchModalComponent}
-        id="search-modal"
-        host_surface="settings"
-        host_user_id={@host_user_id}
-        current_path="/settings"
-      />
+      <.cl_page title="Settings" width="wide">
+        <:actions>
+          <button
+            type="button"
+            onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
+            class="cl-button cl-button--ghost"
+          >
+            Toggle dark mode
+          </button>
+        </:actions>
 
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Settings</h1>
-        <button
-          type="button"
-          onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
-          class="cl-button cl-button--ghost"
-        >
-          Toggle dark mode
-        </button>
-      </div>
+        <.live_component
+          module={Cairnloop.Web.SearchModalComponent}
+          id="search-modal"
+          host_surface="settings"
+          host_user_id={@host_user_id}
+          current_path="/settings"
+        />
 
-      <.cl_banner :if={Phoenix.Flash.get(@flash, :info)} variant="success" class="cl-mb-7">
+        <.cl_banner :if={Phoenix.Flash.get(@flash, :info)} variant="success" class="cl-mb-7">
         {Phoenix.Flash.get(@flash, :info)}
       </.cl_banner>
       <.cl_banner :if={Phoenix.Flash.get(@flash, :error)} variant="danger" class="cl-mb-7">
@@ -277,6 +277,7 @@ defmodule Cairnloop.Web.SettingsLive do
           <div><.cl_button type="submit" variant="primary">Save policy</.cl_button></div>
         </form>
       </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end
