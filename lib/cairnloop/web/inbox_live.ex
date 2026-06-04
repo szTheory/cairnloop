@@ -192,6 +192,7 @@ defmodule Cairnloop.Web.InboxLive do
           <div class="cairnloop-inbox-bulk-header cl-row cl-list-row">
             <input
               type="checkbox"
+              class="cl-checkbox"
               phx-click="toggle_select_all_visible"
               checked={all_visible_selected?(@conversations, @selected_ids)}
               aria-label="Select all visible resolved conversations"
@@ -200,12 +201,13 @@ defmodule Cairnloop.Web.InboxLive do
           </div>
         <% end %>
 
-        <ul class="cl-stack">
+        <ul class="cl-stack cl-inbox-list--bulk-clearance">
           <%= for conv <- @conversations do %>
             <li class="cl-row cl-list-row">
               <%= if conv.status == :resolved do %>
                 <input
                   type="checkbox"
+                  class="cl-checkbox"
                   phx-click="toggle_select"
                   phx-value-id={conv.id}
                   checked={MapSet.member?(@selected_ids, conv.id)}
@@ -228,12 +230,12 @@ defmodule Cairnloop.Web.InboxLive do
             class="bulk-action-bar cl-inbox-bulk-bar cl-row cl-row--wrap"
           >
             <span><%= MapSet.size(@selected_ids) %> selected</span>
-            <.cl_button variant="ghost" phx-click="clear_selection">
+            <.cl_button variant="ghost" size="lg" phx-click="clear_selection">
               Clear selection
             </.cl_button>
             <%!-- Brand §7.5 never-color-alone: text label AND the literal --cl-primary token
                   (test/integration assert the rendered HTML carries `var(--cl-primary)`). --%>
-            <.cl_button variant="primary" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
+            <.cl_button variant="primary" size="lg" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
               Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
             </.cl_button>
           </div>
