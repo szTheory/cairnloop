@@ -67,12 +67,19 @@ defmodule Cairnloop.Auditor.Governance do
     opts
     |> Governance.list_action_events()
     |> Enum.map(fn event ->
+      proposal = event.tool_proposal
+
       %{
         inserted_at: event.inserted_at,
         actor_id: event.actor_id,
         action: event.event_type,
         reason: event.reason,
-        metadata: event.metadata || %{}
+        metadata: event.metadata || %{},
+        # Navigational subject refs — structural FK, not a trust fact (D-02, D-09).
+        # :tool_proposal is already preloaded by list_action_events/1 (governance.ex).
+        # Guard nil proposal so conversation_id resolves to nil (fail-closed, D-08).
+        conversation_id: if(proposal, do: proposal.conversation_id),
+        proposal_id: event.tool_proposal_id
       }
     end)
   end

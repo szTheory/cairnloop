@@ -78,6 +78,22 @@ defmodule Cairnloop.Web.AuditLogPresenter do
   def reason_label(_), do: "—"
 
   # ---------------------------------------------------------------------------
+  # Subject href — scope-root-relative path to the subject conversation, or nil
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns a scope-root-relative path to the subject conversation for an enriched
+  audit event map, or `nil` when no conversation is linked (fail-closed, D-08).
+
+  The returned path is always scope-root-relative (`"/\#{id}"`), never mount-prefixed
+  (`"/support/..."`) — Pitfall 3. The caller is responsible for rendering it as a
+  `<.link navigate={href}>` when non-nil, or falling back to plain text on nil.
+  """
+  def subject_href(%{conversation_id: id}) when is_integer(id) and id > 0, do: "/#{id}"
+  def subject_href(%{conversation_id: _}), do: nil
+  def subject_href(_), do: nil
+
+  # ---------------------------------------------------------------------------
   # Metadata — humanized scalar rows (raw map stays behind the LiveView expander)
   # ---------------------------------------------------------------------------
 
