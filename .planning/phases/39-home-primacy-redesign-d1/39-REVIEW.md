@@ -16,7 +16,11 @@ findings:
   warning: 4
   info: 3
   total: 8
-status: issues_found
+status: resolved
+resolution:
+  - "CR-01 (BLOCKER): FIXED in aff4029 — band counts routed through safe_count/1 (not safe/2) so split/1 reports real counts; added safe_count|>split composition regression test."
+  - "WR-01 (WARNING): FIXED in aff4029 — added fail-closed handle_info/2 catch-all to InboxLive (symmetric with HomeLive)."
+  - "WR-02/WR-03/WR-04 + 3 INFO: acknowledged, non-blocking; left as-is (no behavioral defect)."
 ---
 
 # Phase 39: Code Review Report
@@ -24,7 +28,7 @@ status: issues_found
 **Reviewed:** 2026-06-04T07:39:00Z
 **Depth:** standard
 **Files Reviewed:** 7
-**Status:** issues_found
+**Status:** resolved (CR-01 + WR-01 fixed in aff4029; remaining WARN/INFO acknowledged non-blocking)
 
 ## Summary
 
