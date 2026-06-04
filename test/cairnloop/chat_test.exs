@@ -435,9 +435,13 @@ defmodule Cairnloop.ChatTest do
 
     test "count_conversations/0 (no opts) calls aggregate(:count, :id) on the unscoped query" do
       Chat.count_conversations()
-      assert {query, :count, :id} = Process.get(:mock_aggregate_called)
-      assert %Ecto.Query{} = query
-      assert query.wheres == []
+      assert {queryable, :count, :id} = Process.get(:mock_aggregate_called)
+      # When no status filter is applied, scope_status/2 passes through the raw schema module
+      # (Conversation) unchanged — Ecto.Repo.aggregate/3 accepts both schema modules and queries.
+      # The important invariant: no extra where clause was injected, proven by the absence of a
+      # scoped %Ecto.Query{} (it's still the bare Conversation module, not a filtered query).
+      assert queryable == Cairnloop.Conversation or
+               (is_struct(queryable, Ecto.Query) and queryable.wheres == [])
     end
 
     # --- Round-trip tests (require live Postgres; headless suite skips these) ---

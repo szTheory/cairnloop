@@ -13,6 +13,38 @@ defmodule Cairnloop.Chat do
     |> repo().all()
   end
 
+  # Phase 39 Plan 01 (D-02, HOME-02): status-scoped read.
+  # Additive sibling clause — the sealed 0-arity clause above is preserved verbatim.
+  # opts: [status: :open | :resolved | :archived | nil | unknown_atom]
+  # Unknown/nil status falls through scope_status/2 to the unscoped query (D-03 defense-in-depth).
+  def list_conversations(opts) when is_list(opts) do
+    Conversation
+    |> order_by(desc: :updated_at)
+    |> scope_status(Keyword.get(opts, :status))
+    |> repo().all()
+  end
+
+  # Phase 39 Plan 01 (D-09, HOME-05): cheap SELECT count(*) — never a full list load + Enum.count.
+  # opts: [status: :open | :resolved | :archived | nil | unknown_atom]
+  def count_conversations(opts \\ []) do
+    Conversation
+    |> scope_status(Keyword.get(opts, :status))
+    |> repo().aggregate(:count, :id)
+  end
+
+  # Private where-builder shared by list_conversations/1 and count_conversations/1.
+  # Single source of truth so list and count can never disagree.
+  # Three clauses:
+  #   nil        → unscoped (passthrough)
+  #   known atom → where c.status == ^status (parameterized pin, no string interpolation)
+  #   unknown    → unscoped (D-03 defense-in-depth; never crash on bad input)
+  defp scope_status(query, nil), do: query
+
+  defp scope_status(query, status) when status in [:open, :resolved, :archived],
+    do: where(query, [c], c.status == ^status)
+
+  defp scope_status(query, _other), do: query
+
   @doc "Tolerant lookup of a single message by id. Returns %Cairnloop.Message{} or nil. Used by ChatLive's role-dedup branch (Phase 28 Pitfall 7) so a stale broadcast id can never crash a customer's chat tab."
   def get_message(id) do
     repo().get(Cairnloop.Message, id)
