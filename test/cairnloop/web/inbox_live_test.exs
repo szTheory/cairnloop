@@ -997,4 +997,37 @@ defmodule Cairnloop.Web.InboxLiveTest do
   defp flash_value(socket, key) do
     Map.get(socket.assigns.flash || %{}, to_string(key))
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 38 Task 1 — cl_page shell migration render assertions (SHELL-01).
+  # ---------------------------------------------------------------------------
+
+  describe "Phase 38 SHELL-01 — cl_page shell migration" do
+    test "Test 1 (Inbox): rendered HTML contains cl-page cl-page--wide" do
+      assigns = build_assigns(conversations: [])
+      html = render_html(assigns)
+
+      assert html =~ ~s(cl-page cl-page--wide),
+             "expected class=\"cl-page cl-page--wide\" in rendered HTML"
+    end
+
+    test "Test 2 (Inbox): rendered HTML contains cl-page__title with verbatim 'Inbox'" do
+      assigns = build_assigns(conversations: [])
+      html = render_html(assigns)
+
+      assert html =~ ~s(cl-page__title),
+             "expected class=\"cl-page__title\" in rendered HTML"
+
+      assert html =~ "Inbox",
+             "expected verbatim text 'Inbox'"
+    end
+
+    test "Test 3 (Inbox): search-modal component still renders inside the page body" do
+      assigns = build_assigns(conversations: [])
+      html = render_html(assigns)
+
+      assert html =~ ~s(id="search-modal"),
+             "expected id=\"search-modal\" in rendered HTML — modal must stay in body (Pitfall 4)"
+    end
+  end
 end
