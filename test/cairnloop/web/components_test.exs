@@ -313,6 +313,26 @@ defmodule Cairnloop.Web.ComponentsTest do
     refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
 
+  # Phase 41 Wave 0 RED scaffold: assert the :global passthrough Wave 1 adds
+  # (attr(:rest, :global) + {@rest} on <details>) passes data-tier="2" through.
+  # RED now — cl_disclosure/1 has no :rest attr, so the attribute is silently dropped.
+  test "cl_disclosure passes data-tier=2 through to the <details> element (:global passthrough — RAIL-02)" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="inputs-scope" open={true} data-tier="2">
+        <:summary>Inputs &amp; scope</:summary>
+        <p>body content</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ ~s(data-tier="2"),
+           "data-tier=\"2\" must reach the rendered <details> element via :global passthrough (RAIL-02 — RED until Wave 1 adds attr(:rest, :global))"
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
   # --- cl_fact_list label/value list (UIC-04 / D-05) ---
 
   test "cl_fact_list renders a <dl> with dt/dd pairs for each fact" do
