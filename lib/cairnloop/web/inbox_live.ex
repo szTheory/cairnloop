@@ -358,6 +358,10 @@ defmodule Cairnloop.Web.InboxLive do
     {:noreply, assign(socket, conversations: conversations, selected_ids: selected_ids)}
   end
 
+  # Fail-closed catch-all: an unexpected PubSub message must not crash the LiveView
+  # (symmetric with HomeLive.handle_info/2).
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
   # ---------------------------------------------------------------------------
   # Event handlers — Task 1 (selection state).
   # ---------------------------------------------------------------------------

@@ -273,6 +273,20 @@ defmodule Cairnloop.Web.HomeLiveTest do
       assert {0, true} = Cairnloop.Web.HomeLive.split(nil)
       assert {0, true} = Cairnloop.Web.HomeLive.split(:ok)
     end
+
+    # Regression (CR-01): band counts (gaps/audit) must be wired through safe_count/1,
+    # NOT safe/2. safe_count returns {:ok, n} which split/1 understands; safe/2 returns
+    # a bare value that split/1 cannot match, silently collapsing every real count to
+    # {0, true} ("Count unavailable" even when data exists). These tests lock the wiring.
+    test "safe_count/1 |> split/1: a real count is reported honestly (NOT {0, true})" do
+      assert {7, false} = Cairnloop.Web.HomeLive.safe_count(fn -> 7 end) |> Cairnloop.Web.HomeLive.split()
+      assert {0, false} = Cairnloop.Web.HomeLive.safe_count(fn -> 0 end) |> Cairnloop.Web.HomeLive.split()
+    end
+
+    test "safe_count/1 |> split/1: a genuine error is the ONLY path to {0, true}" do
+      assert {0, true} = Cairnloop.Web.HomeLive.safe_count(fn -> raise "boom" end) |> Cairnloop.Web.HomeLive.split()
+      assert {0, true} = Cairnloop.Web.HomeLive.safe_count(fn -> throw(:nope) end) |> Cairnloop.Web.HomeLive.split()
+    end
   end
 
   # ---------------------------------------------------------------------------

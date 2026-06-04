@@ -73,15 +73,17 @@ defmodule Cairnloop.Web.HomeLive do
     {resolved_count, resolved_count_unavailable?} =
       safe_count(fn -> Chat.count_conversations(status: :resolved) end) |> split()
 
-    # Band counts: these are NOT conversation-status counts, so they stay on their
-    # existing safe/2-wrapped sources (HOME-05's scoped-count requirement is scoped
-    # to the open/resolved counts that hit the per-PubSub-tick re-query footgun, D-09).
+    # Band counts: these are NOT conversation-status counts, so they are deliberately
+    # NOT subject to HOME-05's scoped-count + throttle requirement (that is scoped to
+    # the open/resolved counts that hit the per-PubSub-tick re-query footgun, D-09).
+    # They still flow through safe_count/1 + split/1 (NOT safe/2) so a real count is
+    # reported honestly on success and only a genuine error yields {0, true} (D-06).
     {gaps_count, gaps_unavailable?} =
-      safe(fn -> KnowledgeAutomation.list_gap_candidates() |> length() end, nil)
+      safe_count(fn -> KnowledgeAutomation.list_gap_candidates() |> length() end)
       |> split()
 
     {audit_count, audit_unavailable?} =
-      safe(fn -> Governance.list_action_events(limit: 100) |> length() end, nil)
+      safe_count(fn -> Governance.list_action_events(limit: 100) |> length() end)
       |> split()
 
     {health_ok?, health_label} = system_health()
