@@ -789,7 +789,7 @@ defmodule Cairnloop.Web.ConversationLive do
         <% else %>
           <div>
             <%= for evidence <- @evidence do %>
-              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cl-border);">
                 <p>
                   <strong><%= SearchResultPresenter.source_label(evidence) %></strong>
                   ·
@@ -999,7 +999,7 @@ defmodule Cairnloop.Web.ConversationLive do
         </div>
         <%!-- Raw input_snapshot ONLY behind an explicit expander (D-22) --%>
         <details style="margin-top: 8px;">
-          <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw input snapshot</summary>
+          <summary class="cl-text-muted cl-text-small" style="cursor: pointer;">Raw input snapshot</summary>
           <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
         </details>
       <% end %>
@@ -1016,8 +1016,8 @@ defmodule Cairnloop.Web.ConversationLive do
               <%!-- WR-04: guard on emptiness — empty %{} metadata must not open the expander --%>
               <%= if event.reason || (is_map(event.metadata) and map_size(event.metadata) > 0) do %>
                 <details style="margin-top: 4px;">
-                  <summary style="font-size: 0.75rem; color: #8b7355; cursor: pointer;">Details</summary>
-                  <div style="margin-top: 4px; font-size: 0.8rem; color: #4c4033;">
+                  <summary class="cl-text-muted cl-text-micro" style="cursor: pointer;">Details</summary>
+                  <div style="margin-top: 4px; font-size: 0.8rem; color: var(--cl-text);">
                     <%= if event.reason do %>
                       <p><strong>Reason:</strong> <%= event.reason %></p>
                     <% end %>
@@ -1030,23 +1030,23 @@ defmodule Cairnloop.Web.ConversationLive do
             </div>
           <% end %>
         <% else %>
-          <p style="font-size: 0.85rem; color: #8b7355;">No history yet.</p>
+          <p class="cl-text-muted cl-text-small">No history yet.</p>
         <% end %>
       </div>
 
       <%!-- Scope snapshot --%>
       <div class="governed-action-section">
         <div class="governed-action-section-label">Scope</div>
-        <p style="font-size: 0.85rem; color: #4c4033;"><%= @scope_summary %></p>
+        <p class="cl-text-small" style="color: var(--cl-text);"><%= @scope_summary %></p>
       </div>
 
       <%!-- Policy snapshot: calm sentence (D-22 / D-14); raw policy map behind expander --%>
       <div class="governed-action-section">
         <div class="governed-action-section-label">Policy</div>
-        <p style="font-size: 0.85rem; color: #4c4033;"><%= @policy_explanation %></p>
+        <p class="cl-text-small" style="color: var(--cl-text);"><%= @policy_explanation %></p>
         <%= if @proposal.policy_snapshot do %>
           <details style="margin-top: 4px;">
-            <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw policy snapshot</summary>
+            <summary class="cl-text-muted cl-text-small" style="cursor: pointer;">Raw policy snapshot</summary>
             <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.policy_snapshot, pretty: true) %></pre>
           </details>
         <% end %>
@@ -1067,51 +1067,43 @@ defmodule Cairnloop.Web.ConversationLive do
            Brand token var(--cl-primary) for primary affordance color (§2.2/§7). --%>
       <div class="governed-action-footer">
         <%= if @active_approval && @active_approval.status == :pending do %>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="font-size: 0.85rem; color: #4c4033; font-weight: 600;">Approval required</div>
+          <div class="cl-stack" style="gap: var(--cl-space-4);">
+            <div class="cl-text-small" style="color: var(--cl-text); font-weight: 600;">Approval required</div>
             <%!-- Approve: primary affordance — color + text (brand §7.5) --%>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;">
-              <button
+            <div class="cl-row cl-row--wrap" style="align-items: flex-start;">
+              <.cl_button
+                variant="primary"
                 phx-click="approve_action"
                 phx-value-approval-id={@active_approval.id}
-                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary); background: var(--cl-primary); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
               >
                 Approve
-              </button>
+              </.cl_button>
               <%!-- Reject: with inline reason capture --%>
-              <form phx-submit="reject_action" style="display: flex; flex-direction: column; gap: 6px;">
+              <form phx-submit="reject_action" class="cl-stack">
                 <input type="hidden" name="approval-id" value={@active_approval.id} />
                 <textarea
                   name="reason"
                   placeholder="Reason for rejection (required)"
                   rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                  class="cl-textarea"
+                  required
                 ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #8b1a1a; background: #fdecea; color: #8b1a1a; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
-                >
-                  Reject
-                </button>
+                <.cl_button type="submit" variant="danger">Reject</.cl_button>
               </form>
               <%!-- Defer: with inline reason capture --%>
-              <form phx-submit="defer_action" style="display: flex; flex-direction: column; gap: 6px;">
+              <form phx-submit="defer_action" class="cl-stack">
                 <input type="hidden" name="approval-id" value={@active_approval.id} />
                 <textarea
                   name="reason"
                   placeholder="Reason for deferral (required)"
                   rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                  class="cl-textarea"
+                  required
                 ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #7a5c00; background: #fef9e5; color: #7a5c00; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
-                >
-                  Defer
-                </button>
+                <.cl_button type="submit" variant="default">Defer</.cl_button>
               </form>
             </div>
-            <p style="font-size: 0.75rem; color: #8b7355; font-style: italic;">A reason is required for rejection or deferral.</p>
+            <p class="cl-text-muted cl-text-micro" style="font-style: italic;">A reason is required for rejection or deferral.</p>
           </div>
         <% end %>
       </div>
