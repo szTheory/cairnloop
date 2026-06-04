@@ -129,12 +129,19 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | SEED-01 | Phase 45 | Pending |
 | VERIFY-01 | Phase 45 | Pending |
 | VERIFY-02 | Phase 45 | Pending |
+| PHONE-01 | v2 | Deferred |
+| PHONE-02 | v2 | Deferred |
+| PHONE-03 | v2 | Deferred |
+| PHONE-04 | v2 | Deferred |
+| AMOTION-01 | v2 | Deferred |
+| AMOTION-02 | v2 | Deferred |
 
 **Coverage:**
 - v1 requirements: 29 total
 - Mapped to phases: 29
 - Unmapped: 0 ✓
+- Deferred to v2 (out of v1 scope): 6 (PHONE-01..04, AMOTION-01..02)
 
 ---
 *Requirements defined: 2026-06-03 (milestone vM016, from the ratified UI iteration brief)*
-*Last updated: 2026-06-03 after initial definition*
+*Last updated: 2026-06-04 — Phase 39 complete; v2-deferred reqs added to traceability table*
