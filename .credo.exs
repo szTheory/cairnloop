@@ -51,7 +51,7 @@
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
       #
-      requires: [],
+      requires: ["lib/cairnloop/credo_checks/no_hardcoded_color.ex"],
       #
       # If you want to enforce a style guide and need a more traditional linting
       # experience, you can change `strict` to `true` below:
@@ -160,6 +160,7 @@
           #
           ## Warnings
           #
+          {Cairnloop.CredoChecks.NoHardcodedColor, [priority: :low]},
           {Credo.Check.Warning.ApplicationConfigInModuleAttribute, []},
           {Credo.Check.Warning.BoolOperationOnSameValues, []},
           {Credo.Check.Warning.Dbg, []},
