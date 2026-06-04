@@ -48,9 +48,9 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Cross-Screen Threading (THREAD)
 
-- [ ] **THREAD-01**: After handling/resolving a conversation, a "next in queue" affordance advances the operator to the next item.
-- [ ] **THREAD-02**: Audit-log rows link to their subject (conversation / governed action), so the audit log is no longer a dead-end leaf.
-- [ ] **THREAD-03**: Governed-action cards link to their audit entry, and KB articles link back to their originating conversation (bi-directional causal threading).
+- [x] **THREAD-01**: After handling/resolving a conversation, a "next in queue" affordance advances the operator to the next item.
+- [x] **THREAD-02**: Audit-log rows link to their subject (conversation / governed action), so the audit log is no longer a dead-end leaf.
+- [x] **THREAD-03**: Governed-action cards link to their audit entry, and KB articles link back to their originating conversation (bi-directional causal threading).
 
 ### Responsive — D3 (RESP)
 
@@ -119,9 +119,9 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | RAIL-01 | Phase 41 | Complete |
 | RAIL-02 | Phase 41 | Complete |
 | RAIL-03 | Phase 41 | Complete |
-| THREAD-01 | Phase 42 | Pending |
-| THREAD-02 | Phase 42 | Pending |
-| THREAD-03 | Phase 42 | Pending |
+| THREAD-01 | Phase 42 | Complete |
+| THREAD-02 | Phase 42 | Complete |
+| THREAD-03 | Phase 42 | Complete |
 | RESP-01 | Phase 43 | Pending |
 | RESP-02 | Phase 43 | Pending |
 | MOTION-01 | Phase 44 | Pending |

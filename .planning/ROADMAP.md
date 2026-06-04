@@ -29,7 +29,7 @@
 - [x] **Phase 39 â Home Primacy Redesign (D1)** â Two-tier hero + calmer secondary band; health-as-chip; count-color semantics fix; Recover-resolved filter CTA fix; zero-state; count queries + throttle (completed 2026-06-04)
 - [ ] **Phase 40 â Drift Remediation + Brand-Token Gate Hardening** â hexâtoken in `conversation_live`/`search_modal`; hardened gate fails on inline `style="â¦#hexâ¦"`, raw `rgba()`, helper-returned hex; complementary Credo check
 - [x] **Phase 41 â Conversation Rail Progressive Disclosure (D2)** â Safety-pinned native-`<details>` accordion (decisions first; Tier 1 never collapses; Tier 2/3 collapsible; auto-expand blocking; density toggle) (completed 2026-06-04)
-- [ ] **Phase 42 â Cross-Screen Threading** â Next-in-queue; audit-rowâconversation; governed-actionâaudit; articleâoriginating-conversation
+- [x] **Phase 42 â Cross-Screen Threading** â Next-in-queue; audit-rowâconversation; governed-actionâaudit; articleâoriginating-conversation (completed 2026-06-04)
 - [ ] **Phase 43 â Responsive Desktop-First Cockpit (D3)** â Mobile-first normalization; 768 tablet breakpoint; accessible table scrollers; conversation stacking; tap targets â¥44px
 - [ ] **Phase 44 â Motion** â Restrained brand motion (Â§15); `prefers-reduced-motion` honored live; transform+opacity only
 - [ ] **Phase 45 â Seed Enrichment + Screenshot Regen + Verification Sweep** â Full-state seed; light+dark screenshots; `mix test` green (hardened gate + golden path)
@@ -200,7 +200,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 39. Home Primacy Redesign (D1) | vM016 | 3/3 | Complete    | 2026-06-04 |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 4/4 | Complete    | 2026-06-04 |
-| 42. Cross-Screen Threading | vM016 | 6/6 | Complete   | 2026-06-04 |
+| 42. Cross-Screen Threading | vM016 | 6/6 | Complete    | 2026-06-04 |
 | 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
 | 44. Motion | vM016 | 0/? | Not started | â |
 | 45. Seed Enrichment + Screenshot Regen + Verification Sweep | vM016 | 0/? | Not started | â |
