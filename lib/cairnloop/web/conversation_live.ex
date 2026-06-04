@@ -1067,51 +1067,43 @@ defmodule Cairnloop.Web.ConversationLive do
            Brand token var(--cl-primary) for primary affordance color (§2.2/§7). --%>
       <div class="governed-action-footer">
         <%= if @active_approval && @active_approval.status == :pending do %>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="font-size: 0.85rem; color: #4c4033; font-weight: 600;">Approval required</div>
+          <div class="cl-stack" style="gap: var(--cl-space-4);">
+            <div class="cl-text-small" style="color: var(--cl-text); font-weight: 600;">Approval required</div>
             <%!-- Approve: primary affordance — color + text (brand §7.5) --%>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;">
-              <button
+            <div class="cl-row cl-row--wrap" style="align-items: flex-start;">
+              <.cl_button
+                variant="primary"
                 phx-click="approve_action"
                 phx-value-approval-id={@active_approval.id}
-                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary); background: var(--cl-primary); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
               >
                 Approve
-              </button>
+              </.cl_button>
               <%!-- Reject: with inline reason capture --%>
-              <form phx-submit="reject_action" style="display: flex; flex-direction: column; gap: 6px;">
+              <form phx-submit="reject_action" class="cl-stack">
                 <input type="hidden" name="approval-id" value={@active_approval.id} />
                 <textarea
                   name="reason"
                   placeholder="Reason for rejection (required)"
                   rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                  class="cl-textarea"
+                  required
                 ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #8b1a1a; background: #fdecea; color: #8b1a1a; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
-                >
-                  Reject
-                </button>
+                <.cl_button type="submit" variant="danger">Reject</.cl_button>
               </form>
               <%!-- Defer: with inline reason capture --%>
-              <form phx-submit="defer_action" style="display: flex; flex-direction: column; gap: 6px;">
+              <form phx-submit="defer_action" class="cl-stack">
                 <input type="hidden" name="approval-id" value={@active_approval.id} />
                 <textarea
                   name="reason"
                   placeholder="Reason for deferral (required)"
                   rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
+                  class="cl-textarea"
+                  required
                 ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #7a5c00; background: #fef9e5; color: #7a5c00; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
-                >
-                  Defer
-                </button>
+                <.cl_button type="submit" variant="default">Defer</.cl_button>
               </form>
             </div>
-            <p style="font-size: 0.75rem; color: #8b7355; font-style: italic;">A reason is required for rejection or deferral.</p>
+            <p class="cl-text-muted cl-text-micro" style="font-style: italic;">A reason is required for rejection or deferral.</p>
           </div>
         <% end %>
       </div>
