@@ -37,8 +37,8 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Brand-Token Gate Hardening (GATE)
 
-- [ ] **GATE-01**: The brand-token ExUnit gate fails on inline `style="…#hex…"`, raw `rgba()`/`hsl()`, and helper-returned hex in render `.ex` files (anchored on `#` + color context to avoid false positives; magic-comment allowlist; the `.css` file stays unscanned).
-- [ ] **GATE-02**: A complementary dev-time Credo check flags hardcoded color in render files, with the ExUnit gate remaining the CI source of truth.
+- [x] **GATE-01**: The brand-token ExUnit gate fails on inline `style="…#hex…"`, raw `rgba()`/`hsl()`, and helper-returned hex in render `.ex` files (anchored on `#` + color context to avoid false positives; magic-comment allowlist; the `.css` file stays unscanned).
+- [x] **GATE-02**: A complementary dev-time Credo check flags hardcoded color in render files, with the ExUnit gate remaining the CI source of truth.
 
 ### Conversation Rail Progressive Disclosure — D2 (RAIL)
 
@@ -114,8 +114,8 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | HOME-05 | Phase 39 | Complete |
 | DRIFT-01 | Phase 40 | Pending |
 | DRIFT-02 | Phase 40 | Pending |
-| GATE-01 | Phase 40 | Pending |
-| GATE-02 | Phase 40 | Pending |
+| GATE-01 | Phase 40 | Complete |
+| GATE-02 | Phase 40 | Complete |
 | RAIL-01 | Phase 41 | Pending |
 | RAIL-02 | Phase 41 | Pending |
 | RAIL-03 | Phase 41 | Pending |

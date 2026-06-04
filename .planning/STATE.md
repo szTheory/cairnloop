@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: vM016
 milestone_name: Operator UI/UX Iteration
 status: executing
-last_updated: "2026-06-04T08:23:57.512Z"
-last_activity: 2026-06-04 -- Phase 40 execution started
+last_updated: "2026-06-04T08:43:02.647Z"
+last_activity: 2026-06-04 -- Phase 40 plan 03 complete (gate hardening + Credo check)
 progress:
   total_phases: 13
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 12
-  percent: 23
+  completed_plans: 15
+  percent: 31
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: `.planning/PROJECT.md` (updated 2026-06-03 — vM016 active)
 ## Current Position
 
 Phase: 40 (drift-remediation-brand-token-gate-hardening) — EXECUTING
-Plan: 1 of 3
+Plan: 3 of 3 (all plans complete)
 Status: Executing Phase 40
-Last activity: 2026-06-04 -- Phase 40 execution started
+Last activity: 2026-06-04 -- Phase 40 plan 03 complete (gate hardening + Credo check)
 
 ```
 Progress [          ] 0/9 phases · 0/0 plans
@@ -151,9 +151,12 @@ All shipped via the protected-`main` PR flow; nothing outstanding:
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 39-home-primacy-redesign-d1 P01 | 119 | 2 tasks | 2 files |
+| Phase 40-drift-remediation-brand-token-gate-hardening P03 | 20 | 2 tasks | 5 files |
 
 ## Decisions
 
 - [Phase ?]: D-02 scope in Chat facade: list_conversations/1 + scope_status/2 in Cairnloop.Chat (39-01)
 - [Phase ?]: D-09 cheap count: count_conversations/1 uses repo().aggregate(:count, :id) never Enum.count (39-01)
 - [Phase ?]: D-03 scope_status/2 _other passthrough: unknown atoms return unscoped query, never crash (39-01)
+- [Phase 40]: D-GATE-01 cl-allow-color sentinel suppresses violations on line N and N+1; 2 usages in docstrings reference historical color names (documentation context, not render-output grandfathering) (40-03)
+- [Phase 40]: D-GATE-02 Credo check uses SourceFile.lines/1 which returns {line_no, line_text} tuples; advisory only (base_priority: :low, no exit_status override) (40-03)

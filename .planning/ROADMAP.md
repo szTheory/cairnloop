@@ -120,7 +120,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 **Plans**: 3 plans (2 waves)
   - [x] 40-01-PLAN.md â conversation_live.ex hex→token + footer rebuilt with cl_button/.cl-textarea (DRIFT-01, DRIFT-02, wave 1)
   - [x] 40-02-PLAN.md â search_modal_component.ex rgba→token snap + cl_chip source/trust badges (DRIFT-01, wave 1)
-  - [ ] 40-03-PLAN.md â harden ExUnit gate (inline hex/rgba/hsl + allowlist) + advisory Credo check (GATE-01, GATE-02, wave 2)
+  - [x] 40-03-PLAN.md â harden ExUnit gate (inline hex/rgba/hsl + allowlist) + advisory Credo check (GATE-01, GATE-02, wave 2)
 **UI hint**: yes
 
 ### Phase 41: Conversation Rail Progressive Disclosure (D2)
@@ -188,7 +188,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 37. Component Primitives | vM016 | 5/5 | Complete    | 2026-06-03 |
 | 38. Shared Page-Shell Migration | vM016 | 4/4 | Complete    | 2026-06-04 |
 | 39. Home Primacy Redesign (D1) | vM016 | 3/3 | Complete    | 2026-06-04 |
-| 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 2/3 | In Progress|  |
+| 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 0/? | Not started | â |
 | 42. Cross-Screen Threading | vM016 | 0/? | Not started | â |
 | 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
