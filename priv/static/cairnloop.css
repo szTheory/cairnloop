@@ -531,6 +531,27 @@
 .cl-modal-close { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0; }
 .cl-inbox-bulk-bar { position: sticky; bottom: 0; background: var(--cl-surface-raised, #FFF); border-top: 1px solid var(--cl-border); padding: var(--cl-space-4, 12px); z-index: 1100; }
 
+/* ---- Checkbox tap-target utility (D3-07 / RESP-02) ---------------------- */
+/* Gives raw <input type="checkbox"> a ≥44×44px hit area without hiding      */
+/* check state — mirrors .cl-modal-close / .cl-switch 44px precedent.        */
+/* cursor:pointer + :focus-visible ring preserve keyboard a11y.               */
+.cl-checkbox {
+  min-width: var(--cl-control-h-lg, 44px);
+  min-height: var(--cl-control-h-lg, 44px);
+  cursor: pointer;
+  padding: 0 var(--cl-space-3, 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cl-checkbox:focus-visible { outline: none; box-shadow: var(--cl-focus-ring); }
+
+/* ---- Inbox list bottom clearance (D3-06 / RESP-02) ---------------------- */
+/* Reserves padding-bottom so the sticky bulk-bar never occludes the last     */
+/* selectable row. Bar height ≈ 44px button + 12px×2 padding = 68px;          */
+/* --cl-space-10 (48px) is the largest available token step that ships today. */
+.cl-inbox-list--bulk-clearance { padding-bottom: var(--cl-space-10, 48px); }
+
 /* ---- Conversation Layout ------------------------------------------------ */
 .conversation-layout { display: flex; flex-direction: column; gap: var(--cl-space-8, 32px); }
 @media (min-width: 1024px) {
