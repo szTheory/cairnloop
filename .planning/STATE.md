@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: vM016
 milestone_name: Operator UI/UX Iteration
 status: executing
-last_updated: "2026-06-04T14:50:47.087Z"
+last_updated: "2026-06-04T14:55:33.973Z"
 last_activity: 2026-06-04
 progress:
   total_phases: 13
   completed_phases: 4
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
   percent: 31
 ---
 
@@ -25,7 +25,7 @@ See: `.planning/PROJECT.md` (updated 2026-06-03 — vM016 active)
 ## Current Position
 
 Phase: 41 (conversation-rail-progressive-disclosure-d2) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-06-04
 
@@ -153,6 +153,7 @@ All shipped via the protected-`main` PR flow; nothing outstanding:
 | Phase 39-home-primacy-redesign-d1 P01 | 119 | 2 tasks | 2 files |
 | Phase 40-drift-remediation-brand-token-gate-hardening P03 | 20 | 2 tasks | 5 files |
 | Phase 41-conversation-rail-progressive-disclosure-d2 P41-02 | 5 | 1 tasks | 1 files |
+| Phase 41 P41-03 | 15 | 2 tasks | 1 files |
 
 ## Decisions
 
@@ -164,3 +165,4 @@ All shipped via the protected-`main` PR flow; nothing outstanding:
 - [Phase 41-01]: D-09 test uses clause-head allow-list (Regex.scan over def handle_event clause heads) not DOTALL grep — open_review_task/open_manual_draft are NAVIGATION events, not disclosure toggles; no disclosure-toggle handle_event may exist post-ship
 - [Phase 41-01]: RAIL-01 and D-08 negative both assert data-tier="2" presence as the RED anchor — current markup lacks Tier-2 cl_disclosure groups; tests turn GREEN when Wave 1 ships the restructure
 - [Phase ?]: attr(:rest, :global) with no include: list on cl_disclosure/1 — data-* globals pass by default; no phx-* in include to prevent dynamic open binding (41-02)
+- [Phase ?]: D-08 auto_open booleans computed from snapshot state; auto_open_inputs=pending-or-hard-block; auto_open_policy=policy_denied only; no live re-read (41-03)
