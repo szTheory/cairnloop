@@ -88,7 +88,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   - [x] 38-01-PLAN.md — Migrate Home, Inbox, Audit Log, Settings into cl_page (SHELL-01, wave 1)
   - [x] 38-02-PLAN.md — Migrate KB Index, Editor, Gaps, Suggestion review into cl_page (SHELL-01, wave 1)
   - [x] 38-03-PLAN.md — BreadcrumbPresenter: pure origin-label + crumb-items presenter (SHELL-02, wave 1)
-  - [ ] 38-04-PLAN.md — Wire origin-aware breadcrumb into editor + new lane crumb on suggestion_review (SHELL-02, wave 2)
+  - [x] 38-04-PLAN.md — Wire origin-aware breadcrumb into editor + new lane crumb on suggestion_review (SHELL-02, wave 2)
 **UI hint**: yes
 
 ### Phase 39: Home Primacy Redesign (D1)
@@ -180,7 +180,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 37. Component Primitives | vM016 | 5/5 | Complete    | 2026-06-03 |
-| 38. Shared Page-Shell Migration | vM016 | 3/4 | In Progress|  |
+| 38. Shared Page-Shell Migration | vM016 | 4/4 | Complete   | 2026-06-04 |
 | 39. Home Primacy Redesign (D1) | vM016 | 0/? | Not started | — |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 0/? | Not started | — |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 0/? | Not started | — |
