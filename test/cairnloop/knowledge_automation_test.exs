@@ -34,8 +34,11 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       []
     end
 
-    def one(_query) do
-      nil
+    def one(query) do
+      # WR-05: capture the built query so headless tests can assert its filter/scope shape
+      # without a live Repo. Optionally return a seeded tuple/row via :mock_one_result.
+      Process.put(:mock_one_query, query)
+      Process.get(:mock_one_result, nil)
     end
   end
 
@@ -238,6 +241,14 @@ defmodule Cairnloop.KnowledgeAutomationTest do
   # ---------------------------------------------------------------------------
 
   describe "originating_conversation_id/2 (Phase 42, D-12/Pitfall 2)" do
+    setup do
+      # Isolate the per-test mock query/result captures so a seeded :mock_one_result
+      # never leaks into another test (process-dictionary state is per ExUnit test pid).
+      Process.delete(:mock_one_result)
+      Process.delete(:mock_one_query)
+      :ok
+    end
+
     # --- Query-shape assertions (headless, no live Repo) ---
 
     test "returns nil for an unknown article_id (MockRepo.one returns nil)" do
@@ -248,6 +259,67 @@ defmodule Cairnloop.KnowledgeAutomationTest do
     test "accepts opts keyword list (defaults to empty list)" do
       # Should not raise — opts \\ [] default honored
       assert nil == KnowledgeAutomation.originating_conversation_id(1, [])
+    end
+
+    # --- Built-query shape + post-fetch scope assertions (WR-05): prove the
+    # :conversation_quick_fix filter, the article_id pin, and the scope where-clauses
+    # survive refactors without a live Repo. A regression dropping the
+    # entrypoint_type filter or the apply_scope call fails here in the default suite. ---
+
+    test "built query pins entrypoint_type == :conversation_quick_fix and the article_id (WR-05)" do
+      Process.put(:mock_one_result, nil)
+      KnowledgeAutomation.originating_conversation_id(4242)
+      query = Process.get(:mock_one_query)
+      assert %Ecto.Query{} = query
+
+      inspected = inspect(query)
+      assert inspected =~ "conversation_quick_fix"
+      assert inspected =~ "entrypoint_type"
+      assert inspected =~ "article_id"
+      # cheap read: one-row select with deterministic earliest-origin ordering (A2)
+      assert inspected =~ "limit: 1"
+      assert inspected =~ "order_by"
+    end
+
+    test "built query adds tenant_scope/host_user_id where-clauses when scope opts are passed (WR-05/T-42-04)" do
+      Process.put(:mock_one_result, nil)
+
+      KnowledgeAutomation.originating_conversation_id(7,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-123"
+      )
+
+      inspected = Process.get(:mock_one_query) |> inspect()
+      assert inspected =~ "tenant_scope"
+      assert inspected =~ "host_user_id"
+    end
+
+    test "post-fetch scope check returns nil on a cross-tenant row (WR-05/T-42-04)" do
+      # Fetched row belongs to host-AAA; caller scopes to host-BBB → fail closed (nil),
+      # even though apply_scope is a query-side filter (defense in depth).
+      Process.put(:mock_one_result, {99, :host_user_scoped, "host-AAA"})
+
+      assert nil ==
+               KnowledgeAutomation.originating_conversation_id(7,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "host-BBB"
+               )
+    end
+
+    test "post-fetch scope check returns the entrypoint_id when the row matches scope (WR-05)" do
+      Process.put(:mock_one_result, {99, :host_user_scoped, "host-AAA"})
+
+      assert 99 ==
+               KnowledgeAutomation.originating_conversation_id(7,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "host-AAA"
+               )
+    end
+
+    test "post-fetch scope check returns the entrypoint_id for an unscoped (empty-opts) read (WR-05)" do
+      # Empty opts → no constraint requested → match (consistent with apply_scope pass-through).
+      Process.put(:mock_one_result, {77, :host_user_scoped, "host-AAA"})
+      assert 77 == KnowledgeAutomation.originating_conversation_id(7)
     end
 
     # --- Round-trip tests (require live Postgres; headless suite skips these) ---

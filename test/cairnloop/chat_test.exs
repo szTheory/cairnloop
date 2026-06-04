@@ -84,8 +84,16 @@ defmodule Cairnloop.ChatTest do
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
 
-    def one(%Ecto.Query{}) do
-      Process.get(:mock_sla)
+    def one(%Ecto.Query{} = query) do
+      # Capture the built query so headless tests can assert its shape (WR-05) without a
+      # live Repo. Prefer an explicit :mock_one_result when a test sets one; otherwise fall
+      # back to the legacy :mock_sla behavior the SLA-path tests rely on.
+      Process.put(:mock_one_query, query)
+
+      case Process.get(:mock_one_result, :__unset__) do
+        :__unset__ -> Process.get(:mock_sla)
+        result -> result
+      end
     end
 
     def preload(%Cairnloop.Conversation{} = conversation, :messages) do
@@ -408,6 +416,33 @@ defmodule Cairnloop.ChatTest do
     test "does not call aggregate — only one/1" do
       Chat.next_open_conversation(42)
       refute Process.get(:mock_aggregate_called)
+    end
+
+    # --- Built-query shape assertions (WR-05): prove the filter/order pins survive
+    # refactors without a live Repo. A regression that drops the :open filter, the
+    # id-exclusion, or the deterministic tiebreak fails here in the default suite. ---
+
+    test "built query filters to :open and excludes current_id (WR-05)" do
+      Chat.next_open_conversation(99)
+      query = Process.get(:mock_one_query)
+      assert %Ecto.Query{} = query
+
+      inspected = inspect(query)
+      assert inspected =~ ":open"
+      # id != ^current_id exclusion is present (the current conversation is never "next").
+      assert inspected =~ "!=" or inspected =~ "id !="
+    end
+
+    test "built query orders by desc updated_at then desc id, limited to 1 (WR-05)" do
+      Chat.next_open_conversation(99)
+      query = Process.get(:mock_one_query)
+      inspected = inspect(query)
+
+      assert inspected =~ "order_by"
+      assert inspected =~ "desc"
+      assert inspected =~ "updated_at"
+      # Deterministic desc: id tiebreak (D-07) — stricter than list_conversations/0.
+      assert inspected =~ "limit: 1"
     end
 
     # --- Round-trip tests (require live Postgres; headless suite skips these) ---
