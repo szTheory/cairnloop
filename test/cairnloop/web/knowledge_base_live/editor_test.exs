@@ -71,15 +71,16 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.EditorTest do
       assigns = base_assigns(%{origin_conversation_id: 99})
       html = rendered_to_string(Editor.render(assigns))
 
-      assert html =~ ~s(navigate="/99"),
-             "expected navigate=\"/99\" for origin conversation crumb"
+      # Phoenix <.link navigate={...}> renders as <a href="..."> in headless renders
+      assert html =~ ~s(href="/99"),
+             "expected href=\"/99\" for origin conversation crumb"
     end
 
     test "origin crumb href has no /support mount prefix" do
       assigns = base_assigns(%{origin_conversation_id: 99})
       html = rendered_to_string(Editor.render(assigns))
 
-      refute html =~ ~s(navigate="/support/99"),
+      refute html =~ ~s(href="/support/99"),
              "origin crumb href must not include /support mount prefix (Pitfall 3)"
     end
   end
