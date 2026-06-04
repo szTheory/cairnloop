@@ -396,16 +396,18 @@ No new attack surface. The phase strictly improves accessibility and layout; it 
 | A2 | The inbox page scrolls at document level (no inner overflow container on the list), so the sticky bar's clearance fix is `padding-bottom` on the list | Pitfall 5 | Medium — if a host embeds the cockpit in a constrained overflow container, the spacer location may differ. Manual 768px verification resolves this. |
 | A3 | D3-08 should NOT migrate the color-token inline styles (`var(--cl-primary)` etc.) because integration tests assert their literal presence in HTML | Pitfall 3 | Medium — if the owner wants them migrated, the four integration tests must be updated; recommend leaving them (calm, additive). |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does a genuine 768 tablet layout improvement exist, or is 768 documentation-only?**
    - What we know: D3-02 mandates 768 as a documented constant and calls it "the new tablet breakpoint introduced this phase."
    - What's unclear: Whether any rule meaningfully changes at 768 (vs only 640/1024). An empty 768 rule would be drift.
    - Recommendation: During planning, identify ONE real consumer (e.g., `.cl-main` gutter step, or an inbox/table density tweak) that visibly improves the tablet experience; if none is justified, document 768 in the comment block as the tablet constant and add a single small, real rule (e.g., slightly larger `.cl-main` gutter at ≥768) rather than a no-op.
+   - **RESOLVED:** The chosen 768 consumer is a real `.cl-main` tablet gutter step — a `@media (min-width: 768px) { .cl-main { padding: ... } }` rule that sets an intermediate gutter VALUE between the 640 step (`var(--cl-space-7, 24px)`) and the 1024 tier, sitting adjacent to the converted `.cl-main` Block A so the 640→768 progression is readable. It carries a real `padding` declaration (a genuine gutter change), NOT a token no-op or comment-only rule. Planned in 43-01 Task 1; 43-01 Task 1 acceptance asserts the 768 block contains a real `padding`/gutter declaration so a no-op cannot pass.
 
 2. **Should the two raw checkboxes get a shared `.cl-checkbox` utility or per-input sizing?**
    - What we know: Both raw inputs (L193, L207) are sub-44px; a `.cl-switch` 44px pattern already exists as precedent.
    - Recommendation: Add a small `.cl-checkbox` utility (44×44 hit area, e.g. via padding on a label wrapper or `min-height/min-width` + accessible label) and apply at both sites — consistent, testable, reusable. Avoid changing checkbox semantics/behavior (sealed inbox bulk-select logic).
+   - **RESOLVED:** Use a single shared `.cl-checkbox` utility (NOT per-input sizing), sized to the existing 44px control token via `min-width/min-height: var(--cl-control-h-lg, 44px)`, mirroring the in-repo `.cl-switch` 44px precedent, with a `:focus-visible` ring for keyboard a11y and no change to checkbox state semantics. Applied at both raw-input sites (L193 select-all, L207 per-row). Planned in 43-03 Task 1 (utility) + Task 2 (application).
 
 ## Sources
 
