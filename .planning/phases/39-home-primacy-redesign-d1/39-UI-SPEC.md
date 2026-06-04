@@ -1,10 +1,11 @@
 ---
 phase: 39
 slug: home-primacy-redesign-d1
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-06-04
+reviewed_at: 2026-06-04
 ---
 
 # Phase 39 — UI Design Contract: Home Primacy Redesign (D1)
