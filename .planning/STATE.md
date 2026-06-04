@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: vM016
 milestone_name: Operator UI/UX Iteration
 status: executing
-last_updated: "2026-06-04T07:16:47.678Z"
-last_activity: 2026-06-04 -- Phase 39 planning complete
+last_updated: "2026-06-04T07:24:14.831Z"
+last_activity: 2026-06-04
 progress:
   total_phases: 13
   completed_phases: 2
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 15
 ---
 
@@ -20,14 +20,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-06-03 — vM016 active)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 39 — home primacy redesign (d1)
+**Current focus:** Phase 39 — home-primacy-redesign-d1
 
 ## Current Position
 
-Phase: 39
-Plan: Not started
+Phase: 39 (home-primacy-redesign-d1) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-06-04 -- Phase 39 planning complete
+Last activity: 2026-06-04
 
 ```
 Progress [          ] 0/9 phases · 0/0 plans
@@ -145,3 +145,15 @@ All shipped via the protected-`main` PR flow; nothing outstanding:
 - Next: `/gsd:plan-phase 37` (plan Component Primitives directly, directions are ratified).
 - Releases still flow through release-please: most phases are `feat:`/`fix:` → minor/patch releases
   across the milestone. Epics 12/13/14 stay opt-in / out of vM016 scope.
+
+## Performance Metrics
+
+| Phase | Plan | Duration | Notes |
+|-------|------|----------|-------|
+| Phase 39-home-primacy-redesign-d1 P01 | 119 | 2 tasks | 2 files |
+
+## Decisions
+
+- [Phase ?]: D-02 scope in Chat facade: list_conversations/1 + scope_status/2 in Cairnloop.Chat (39-01)
+- [Phase ?]: D-09 cheap count: count_conversations/1 uses repo().aggregate(:count, :id) never Enum.count (39-01)
+- [Phase ?]: D-03 scope_status/2 _other passthrough: unknown atoms return unscoped query, never crash (39-01)

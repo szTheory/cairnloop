@@ -25,10 +25,10 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 ### Home Primacy Redesign — D1 (HOME)
 
 - [ ] **HOME-01**: Home leads with a full-width "Work the queue" hero (~2–3× the visual weight of secondary items) showing a single copper count and a primary `cl_button` CTA into the inbox.
-- [ ] **HOME-02**: Recover-resolved folds into the hero as a quiet sub-line that links to `/inbox` **with the resolved filter applied** (fixing the broken-on-click CTA) and is omitted when the count is zero.
+- [x] **HOME-02**: Recover-resolved folds into the hero as a quiet sub-line that links to `/inbox` **with the resolved filter applied** (fixing the broken-on-click CTA) and is omitted when the count is zero.
 - [ ] **HOME-03**: A calmer secondary "Tend the trail" band (Tend knowledge / Audit / System health) uses neutral (non-copper) counts to protect the 70/20/10 palette; system health renders as a `cl_chip` (success "Healthy" / warning "Degraded"), never occupying a numeric count slot.
 - [ ] **HOME-04**: The dead 6th grid cell is removed and the all-caught-up state is a calm success (icon + text), never confetti.
-- [ ] **HOME-05**: Home counts use scoped count queries (not a full per-PubSub-tick re-query) and are throttled, while keeping the fail-closed `safe/2` count behavior.
+- [x] **HOME-05**: Home counts use scoped count queries (not a full per-PubSub-tick re-query) and are throttled, while keeping the fail-closed `safe/2` count behavior.
 
 ### Drift Remediation (DRIFT)
 
@@ -108,10 +108,10 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | SHELL-01 | Phase 38 | Complete |
 | SHELL-02 | Phase 38 | Complete |
 | HOME-01 | Phase 39 | Pending |
-| HOME-02 | Phase 39 | Pending |
+| HOME-02 | Phase 39 | Complete |
 | HOME-03 | Phase 39 | Pending |
 | HOME-04 | Phase 39 | Pending |
-| HOME-05 | Phase 39 | Pending |
+| HOME-05 | Phase 39 | Complete |
 | DRIFT-01 | Phase 40 | Pending |
 | DRIFT-02 | Phase 40 | Pending |
 | GATE-01 | Phase 40 | Pending |
