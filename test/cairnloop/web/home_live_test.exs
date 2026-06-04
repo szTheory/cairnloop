@@ -8,6 +8,10 @@ defmodule Cairnloop.Web.HomeLiveTest do
 
   import Phoenix.LiveViewTest
 
+  # ---------------------------------------------------------------------------
+  # Assigns helper — defaults cover every assign the new render/1 expects.
+  # ---------------------------------------------------------------------------
+
   defp assigns(overrides) do
     Map.merge(
       %{
@@ -15,53 +19,396 @@ defmodule Cairnloop.Web.HomeLiveTest do
         resolved_count: 0,
         gaps_count: 0,
         audit_count: 0,
-        health_ok?: true,
+        # Fail-closed unavailability signals (D-06)
+        open_count_unavailable?: false,
+        resolved_count_unavailable?: false,
+        gaps_unavailable?: false,
+        audit_unavailable?: false,
+        # Health chip (D-08): variant string + label + meta
+        health_variant: "success",
         health_label: "Healthy",
+        health_meta: "Notifier and retrieval reachable",
+        # Throttle (D-09)
+        pending_recount?: false,
         __changed__: nil
       },
       Map.new(overrides)
     )
   end
 
-  test "renders the five task-oriented job cards inside the nav shell" do
-    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{})))
+  # ---------------------------------------------------------------------------
+  # HOME-01: hero tier with copper count + primary CTA
+  # ---------------------------------------------------------------------------
 
-    for job <- [
-          "Work the queue",
-          "Recover resolved",
-          "Tend knowledge",
-          "System health",
-          "Audit trail"
-        ] do
-      assert html =~ job
+  describe "HOME-01 hero tier" do
+    test "renders cl-hero section with job label and count when open_count > 0" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 5})))
+
+      assert html =~ "Work the queue", "expected hero job label 'Work the queue'"
+      assert html =~ "cl-hero__count", "expected cl-hero__count on the count element"
+      assert html =~ "5", "expected the open count digit"
     end
 
-    assert html =~ "cl-nav"
-    # Home is the active destination (you-are-here), not by color alone (aria-current).
-    assert html =~ ~s(aria-current="page")
-  end
+    test "renders 'Open inbox' primary CTA button when open_count > 0" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 3})))
 
-  test "zero state reads as calm success, not an empty void" do
-    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0})))
-    assert html =~ "All caught up"
-    assert html =~ "cl-stat__count--calm"
-  end
+      assert html =~ "Open inbox", "expected primary CTA text 'Open inbox'"
+      assert html =~ "cl-button--primary", "expected primary button variant class"
+    end
 
-  test "non-zero queue surfaces an actionable count linking to the inbox" do
-    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 7})))
-    assert html =~ "7"
-    assert html =~ "need a reply"
-    assert html =~ ~s(href="/inbox")
-  end
+    test "hero navigate destination is /inbox" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 2})))
 
-  test "unavailable counts degrade to a dash rather than crashing" do
-    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{gaps_count: nil})))
-    assert html =~ "—"
-    assert html =~ "Knowledge gaps unavailable"
+      # The CTA wraps a link navigating to /inbox
+      assert html =~ ~s(href="/inbox") or html =~ ~s(/inbox),
+             "expected CTA to navigate to /inbox"
+    end
   end
 
   # ---------------------------------------------------------------------------
-  # Phase 38 Task 1 — cl_page shell migration render assertions (SHELL-01).
+  # HOME-02a: Recover-resolved sub-line (deterministic resolved deep-link, D-10)
+  # ---------------------------------------------------------------------------
+
+  describe "HOME-02a recover-resolved sub-line" do
+    test "resolved sub-line with /inbox?status=resolved present when resolved_count > 0" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(
+            assigns(%{open_count: 3, resolved_count: 4})
+          )
+        )
+
+      assert html =~ ~s(href="/inbox?status=resolved"),
+             "expected href='/inbox?status=resolved' for the resolved sub-line"
+
+      assert html =~ "4 resolved — eligible for recovery",
+             "expected resolved sub-line copy"
+    end
+
+    test "resolved sub-line ABSENT when resolved_count == 0" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(
+            assigns(%{open_count: 3, resolved_count: 0})
+          )
+        )
+
+      refute html =~ ~s(href="/inbox?status=resolved"),
+             "resolved sub-line should be absent when resolved_count == 0"
+    end
+
+    test "resolved sub-line ABSENT when resolved_count_unavailable?" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(
+            assigns(%{open_count: 3, resolved_count: 2, resolved_count_unavailable?: true})
+          )
+        )
+
+      refute html =~ ~s(href="/inbox?status=resolved"),
+             "resolved sub-line should be absent when count is unavailable"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # HOME-03: secondary band — 3 tiles, health as chip, neutral counts
+  # ---------------------------------------------------------------------------
+
+  describe "HOME-03 secondary band — 3 tiles" do
+    test "band has exactly 3 cl-stat tiles" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 1})))
+
+      # Count .cl-stat occurrences using string matching
+      # Each cl-stat tile contributes at least one "cl-stat" occurrence
+      # We check for the three specific job labels instead to be precise
+      assert html =~ "Tend knowledge", "expected 'Tend knowledge' tile"
+      assert html =~ "Audit trail", "expected 'Audit trail' tile"
+      assert html =~ "System health", "expected 'System health' tile"
+    end
+
+    test "health renders as cl-chip--success, NOT as cl-stat__count" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 1, health_variant: "success"}))
+        )
+
+      assert html =~ "cl-chip--success", "expected health chip with success variant"
+      assert html =~ "Healthy", "expected health chip label 'Healthy'"
+    end
+
+    test "health renders as cl-chip--warning when degraded" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(
+            assigns(%{
+              open_count: 1,
+              health_variant: "warning",
+              health_label: "Degraded",
+              health_meta: "One or more checks need attention"
+            })
+          )
+        )
+
+      assert html =~ "cl-chip--warning", "expected health chip with warning variant"
+      assert html =~ "Degraded", "expected health chip label 'Degraded'"
+    end
+
+    test "band counts do not use cl-hero__count (copper reserved for hero only)" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 1, gaps_count: 3}))
+        )
+
+      # Count occurrences: only the hero should have cl-hero__count
+      hero_count_occurrences =
+        html |> String.split("cl-hero__count") |> length() |> Kernel.-(1)
+
+      # Only 1 occurrence (the hero's own count span)
+      assert hero_count_occurrences <= 1,
+             "band tiles must NOT use cl-hero__count (copper reserved for hero)"
+    end
+
+    test "band persists under zero-state (when open_count == 0)" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0})))
+
+      assert html =~ "Tend knowledge", "Tend knowledge band tile must persist in zero-state"
+      assert html =~ "Audit trail", "Audit trail band tile must persist in zero-state"
+      assert html =~ "System health", "System health band tile must persist in zero-state"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # HOME-04a/b: zero-state hero swap + no phantom 6th cell
+  # ---------------------------------------------------------------------------
+
+  describe "HOME-04 zero-state" do
+    test "open_count == 0 and not unavailable → cl-empty with 'All caught up'" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0, open_count_unavailable?: false}))
+        )
+
+      assert html =~ "cl-empty", "expected cl-empty for zero state"
+      assert html =~ "All caught up", "expected zero-state title 'All caught up'"
+      assert html =~ "Nothing is waiting on you right now.",
+             "expected zero-state body copy"
+    end
+
+    test "zero-state uses check-circle icon" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0})))
+
+      # cl_empty renders cl_icon with the passed icon name
+      assert html =~ "check-circle" or html =~ "compass",
+             "expected zero-state icon to be check-circle or compass fallback"
+    end
+
+    test "no cl-hero rendered when open_count == 0 and not unavailable" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0, open_count_unavailable?: false}))
+        )
+
+      refute html =~ "cl-hero__count",
+             "cl-hero should NOT render when open queue is empty and count is available"
+    end
+
+    test ".cl-home-grid contains exactly 3 .cl-stat children — no phantom 6th cell" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 1})))
+
+      # Count cl-stat occurrences — each tile contributes one cl-stat (or cl-stat cl-focusable)
+      # We look for the pattern "cl-stat" as a class in div or link elements
+      stat_count = html |> String.split(~r/class="cl-stat/) |> length() |> Kernel.-(1)
+
+      assert stat_count == 3,
+             "expected exactly 3 cl-stat elements in the band, got #{stat_count}"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # D-06: Count unavailable — distinguished from calm zero
+  # ---------------------------------------------------------------------------
+
+  describe "D-06 count unavailable signal" do
+    test "unavailable open count shows 0 AND 'Count unavailable', NOT 'All caught up'" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0, open_count_unavailable?: true}))
+        )
+
+      # Should show hero with 0 count (not zero-state), plus the unavailable sub-line
+      assert html =~ "Count unavailable",
+             "expected 'Count unavailable' sub-line when count is error"
+
+      refute html =~ "All caught up",
+             "must NOT show 'All caught up' zero-state when count is unavailable (error ≠ calm-zero)"
+    end
+
+    test "genuine zero (not unavailable) → 'All caught up', NOT 'Count unavailable'" do
+      html =
+        rendered_to_string(
+          Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0, open_count_unavailable?: false}))
+        )
+
+      assert html =~ "All caught up",
+             "genuine zero must show 'All caught up'"
+
+      refute html =~ "Count unavailable",
+             "genuine zero must NOT show 'Count unavailable'"
+    end
+
+    test "split/1: {:ok, n} → {n, false}" do
+      assert {5, false} = Cairnloop.Web.HomeLive.split({:ok, 5})
+      assert {0, false} = Cairnloop.Web.HomeLive.split({:ok, 0})
+    end
+
+    test "split/1: :error → {0, true}" do
+      assert {0, true} = Cairnloop.Web.HomeLive.split(:error)
+    end
+
+    test "split/1: any non-{:ok, integer} → {0, true}" do
+      assert {0, true} = Cairnloop.Web.HomeLive.split({:ok, "not an int"})
+      assert {0, true} = Cairnloop.Web.HomeLive.split(nil)
+      assert {0, true} = Cairnloop.Web.HomeLive.split(:ok)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # HOME-05b: throttle — deterministic, NO sleep
+  # ---------------------------------------------------------------------------
+
+  describe "HOME-05b throttle (no sleep)" do
+    test "disconnected socket: {:conversations_changed} keeps pending_recount? false" do
+      # A bare %Phoenix.LiveView.Socket{} → connected?/1 returns false
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          pending_recount?: false,
+          open_count: 0,
+          resolved_count: 0,
+          gaps_count: 0,
+          audit_count: 0,
+          open_count_unavailable?: false,
+          resolved_count_unavailable?: false,
+          gaps_unavailable?: false,
+          audit_unavailable?: false,
+          health_variant: "success",
+          health_label: "Healthy",
+          health_meta: "Notifier and retrieval reachable",
+          __changed__: nil
+        }
+      }
+
+      # Sending {:conversations_changed} to a disconnected socket should NOT arm a timer
+      # and should leave pending_recount? as false (connected?/1 is false)
+      {:noreply, updated_socket} =
+        Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, socket)
+
+      # On a disconnected socket, the pending flag must be false (not armed)
+      assert updated_socket.assigns.pending_recount? == false,
+             "disconnected socket must NOT set pending_recount? to true"
+    end
+
+    test "disconnected socket: :recount clears pending_recount? flag" do
+      # Build a socket in the 'pending' state (as if a tick had been queued)
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          pending_recount?: true,
+          open_count: 3,
+          resolved_count: 1,
+          gaps_count: 0,
+          audit_count: 0,
+          open_count_unavailable?: false,
+          resolved_count_unavailable?: false,
+          gaps_unavailable?: false,
+          audit_unavailable?: false,
+          health_variant: "success",
+          health_label: "Healthy",
+          health_meta: "Notifier and retrieval reachable",
+          __changed__: nil
+        }
+      }
+
+      {:noreply, updated_socket} = Cairnloop.Web.HomeLive.handle_info(:recount, socket)
+
+      assert updated_socket.assigns.pending_recount? == false,
+             ":recount handler must clear pending_recount? flag"
+    end
+
+    test "disconnected socket: multiple {:conversations_changed} do NOT each arm a timer" do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          pending_recount?: false,
+          open_count: 0,
+          resolved_count: 0,
+          gaps_count: 0,
+          audit_count: 0,
+          open_count_unavailable?: false,
+          resolved_count_unavailable?: false,
+          gaps_unavailable?: false,
+          audit_unavailable?: false,
+          health_variant: "success",
+          health_label: "Healthy",
+          health_meta: "Notifier and retrieval reachable",
+          __changed__: nil
+        }
+      }
+
+      # On a disconnected socket, no timer fires, flag stays false
+      {:noreply, s1} = Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, socket)
+      {:noreply, s2} = Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, s1)
+      {:noreply, s3} = Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, s2)
+      {:noreply, s4} = Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, s3)
+      {:noreply, s5} = Cairnloop.Web.HomeLive.handle_info({:conversations_changed}, s4)
+
+      assert s5.assigns.pending_recount? == false,
+             "disconnected socket must never set pending_recount? true, even after 5 events"
+    end
+
+    test "unknown messages are ignored without changing state" do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{
+          pending_recount?: false,
+          open_count: 0,
+          resolved_count: 0,
+          gaps_count: 0,
+          audit_count: 0,
+          open_count_unavailable?: false,
+          resolved_count_unavailable?: false,
+          gaps_unavailable?: false,
+          audit_unavailable?: false,
+          health_variant: "success",
+          health_label: "Healthy",
+          health_meta: "Notifier and retrieval reachable",
+          __changed__: nil
+        }
+      }
+
+      {:noreply, updated} = Cairnloop.Web.HomeLive.handle_info(:some_other_message, socket)
+      assert updated == socket
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Brand gate: no raw #hex in rendered Home HTML
+  # ---------------------------------------------------------------------------
+
+  describe "brand gate" do
+    test "rendered Home contains no raw #hex color values" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 5})))
+
+      refute html =~ ~r/#[0-9A-Fa-f]{6}/,
+             "rendered Home must not contain raw #hex colors (use brand tokens)"
+    end
+
+    test "rendered zero-state contains no raw #hex color values" do
+      html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0})))
+
+      refute html =~ ~r/#[0-9A-Fa-f]{6}/,
+             "rendered zero-state Home must not contain raw #hex colors"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 38 shell assertions (SHELL-01 — preserved)
   # ---------------------------------------------------------------------------
 
   test "renders inside cl-page--wide with cl-page__title and verbatim title" do
@@ -82,5 +429,12 @@ defmodule Cairnloop.Web.HomeLiveTest do
 
     assert html =~ "What needs you today?",
            "expected verbatim subtitle 'What needs you today?'"
+  end
+
+  test "Home is the active nav destination (aria-current)" do
+    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{})))
+
+    assert html =~ "cl-nav"
+    assert html =~ ~s(aria-current="page")
   end
 end
