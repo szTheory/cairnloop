@@ -19,8 +19,8 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Shared Page-Shell Migration (SHELL)
 
-- [ ] **SHELL-01**: Home, Inbox, Audit Log, Settings, and the KB screens render through `cl_page`, so every operator screen shares consistent header, width, and inner framing.
-- [ ] **SHELL-02**: `cl_breadcrumb` is wired on the deep KB-from-conversation path (no longer defined-but-orphaned), giving a "you are here" cue on nested routes.
+- [x] **SHELL-01**: Home, Inbox, Audit Log, Settings, and the KB screens render through `cl_page`, so every operator screen shares consistent header, width, and inner framing.
+- [x] **SHELL-02**: `cl_breadcrumb` is wired on the deep KB-from-conversation path (no longer defined-but-orphaned), giving a "you are here" cue on nested routes.
 
 ### Home Primacy Redesign — D1 (HOME)
 
@@ -105,8 +105,8 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | UIC-03 | Phase 37 | Complete |
 | UIC-04 | Phase 37 | Complete |
 | UIC-05 | Phase 37 | Complete |
-| SHELL-01 | Phase 38 | Pending |
-| SHELL-02 | Phase 38 | Pending |
+| SHELL-01 | Phase 38 | Complete |
+| SHELL-02 | Phase 38 | Complete |
 | HOME-01 | Phase 39 | Pending |
 | HOME-02 | Phase 39 | Pending |
 | HOME-03 | Phase 39 | Pending |
