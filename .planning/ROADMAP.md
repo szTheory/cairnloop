@@ -151,9 +151,9 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 **Plans**: 6 plans (3 waves)
   - [x] 42-01-PLAN.md — Audit backend: enrich Auditor.Governance map + proposal_id: facade opt + subject_href presenter [THREAD-02, THREAD-03] (wave 1)
   - [x] 42-02-PLAN.md — Queue + article backend: Chat.next_open_conversation/1 + KnowledgeAutomation.originating_conversation_id/2 [THREAD-01, THREAD-03] (wave 1)
-  - [ ] 42-03-PLAN.md — Audit Log web: handle_params/2 ?proposal filter + per-row subject link [THREAD-02, THREAD-03] (wave 2)
-  - [ ] 42-04-PLAN.md — Conversation rail web: Next-in-queue/Queue-clear + gov-action→audit deep-link [THREAD-01, THREAD-03] (wave 2)
-  - [ ] 42-05-PLAN.md — KB editor web: article→originating-conversation breadcrumb crumb [THREAD-03] (wave 2)
+  - [x] 42-03-PLAN.md — Audit Log web: handle_params/2 ?proposal filter + per-row subject link [THREAD-02, THREAD-03] (wave 2)
+  - [x] 42-04-PLAN.md — Conversation rail web: Next-in-queue/Queue-clear + gov-action→audit deep-link [THREAD-01, THREAD-03] (wave 2)
+  - [x] 42-05-PLAN.md — KB editor web: article→originating-conversation breadcrumb crumb [THREAD-03] (wave 2)
   - [ ] 42-06-PLAN.md — E2E thread-navigation spec for all four threads [THREAD-01, THREAD-02, THREAD-03] (wave 3)
 **UI hint**: yes
 
@@ -200,7 +200,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 39. Home Primacy Redesign (D1) | vM016 | 3/3 | Complete    | 2026-06-04 |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 4/4 | Complete    | 2026-06-04 |
-| 42. Cross-Screen Threading | vM016 | 2/6 | In Progress|  |
+| 42. Cross-Screen Threading | vM016 | 5/6 | In Progress|  |
 | 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
 | 44. Motion | vM016 | 0/? | Not started | â |
 | 45. Seed Enrichment + Screenshot Regen + Verification Sweep | vM016 | 0/? | Not started | â |
