@@ -662,6 +662,27 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     refute html =~ "Source gap"
   end
 
+  test "KB Index renders inside cl-page--wide with title, subnav, and actions" do
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.mount(
+        %{},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html =
+      socket.assigns
+      |> Cairnloop.Web.KnowledgeBaseLive.Index.render()
+      |> Phoenix.HTML.Safe.to_iodata()
+      |> IO.iodata_to_binary()
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Knowledge Base"
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ "New article"
+  end
+
   test "Index new_article event creates an article and push_navigates to its editor" do
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Index.mount(
