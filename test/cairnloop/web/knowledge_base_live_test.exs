@@ -156,6 +156,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     end
 
     def get_gap_candidate(_id, _opts), do: nil
+
+    # Phase 42 (THREAD-03b): editor mount resolves the originating conversation on
+    # direct (non-review) visits. These fixtures have no originating conversation —
+    # honest absence (nil).
+    def originating_conversation_id(_article_id, _opts \\ []), do: nil
   end
 
   setup do
