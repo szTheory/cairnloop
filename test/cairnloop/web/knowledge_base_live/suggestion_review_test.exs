@@ -880,6 +880,43 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReviewTest do
     struct(ArticleSuggestion, Map.merge(base, overrides))
   end
 
+  # --- Task 38-04: static lane breadcrumb via BreadcrumbPresenter ---
+
+  test "suggestion_review renders a cl_breadcrumb with Knowledge back link and current Suggestions crumb" do
+    # suggestion_review previously had NO breadcrumb — this test asserts one is now present
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    html = render_html(socket.assigns)
+
+    # Breadcrumb container must be present
+    assert html =~ ~s(cl-breadcrumb)
+    # "Knowledge" back link to /knowledge-base
+    assert html =~ ~s(navigate="/knowledge-base") or html =~ ~s(href="/knowledge-base")
+    assert html =~ "Knowledge"
+    # "Suggestions" current crumb with aria-current=page and no href
+    assert html =~ ~s(aria-current="page")
+    assert html =~ "Suggestions"
+    # No conversation/return_to invented — this is purely lane-derived
+    refute html =~ "return_to"
+    refute html =~ "Conversation"
+  end
+
+  test "suggestion_review breadcrumb with a selected task: 3-item trail with task title as current crumb" do
+    {:ok, socket} = SuggestionReview.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    {:noreply, socket} = SuggestionReview.handle_params(%{"task" => "21"}, "", socket)
+    html = render_html(socket.assigns)
+
+    # Must still have the breadcrumb
+    assert html =~ ~s(cl-breadcrumb)
+    # Knowledge back link
+    assert html =~ ~s(navigate="/knowledge-base") or html =~ ~s(href="/knowledge-base")
+    # Suggestions now becomes a back link to /knowledge-base/suggestions
+    assert html =~ ~s(navigate="/knowledge-base/suggestions") or
+             html =~ ~s(href="/knowledge-base/suggestions")
+    # Current crumb is the task title with aria-current
+    assert html =~ "Billing export guide"
+    assert html =~ ~s(aria-current="page")
+  end
+
   defp render_html(assigns) do
     assigns
     |> SuggestionReview.render()

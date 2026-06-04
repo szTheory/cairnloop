@@ -7,6 +7,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.GapCandidatePresenter
+  alias Cairnloop.Web.BreadcrumbPresenter
 
   def mount(params, session, socket) do
     try do
@@ -262,10 +263,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
       <.cl_page title={"Editing: #{@article.title}"} width="wide">
         <:breadcrumb>
-          <.cl_breadcrumb items={[
-            %{label: "Knowledge", href: "/knowledge-base"},
-            %{label: "Editing: #{@article.title}"}
-          ]} />
+          <.cl_breadcrumb items={BreadcrumbPresenter.editor_items(@review_context.return_to, @article.title)} />
         </:breadcrumb>
         <:subnav><.kb_nav current={:editor} /></:subnav>
 
