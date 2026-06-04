@@ -39,9 +39,25 @@ defmodule Cairnloop.Web.BreadcrumbPresenter do
 
   The origin crumb href is scope-root-relative (`/\#{id}`) — never mount-prefixed
   (Pitfall 3, T-42-15). The raw conversation id appears only in the href, not as a label.
+
+  WR-06: when `return_to` is itself a bare conversation path pointing at the SAME origin
+  (`"/\#{origin_conversation_id}"`), the delegated `editor_items/2` would emit a second
+  "Conversation" crumb targeting the same id — a redundant double-crumb. In that case the
+  origin crumb is collapsed into the delegated trail (no duplicate). In production the
+  quick-fix `return_to` is always a `/knowledge-base/suggestions?...` path, so this is a
+  defensive de-duplication rather than a hot path.
   """
-  def editor_items(origin_conversation_id, return_to, title) when not is_nil(origin_conversation_id) do
-    [%{label: "From conversation", href: "/#{origin_conversation_id}"} | editor_items(return_to, title)]
+  def editor_items(origin_conversation_id, return_to, title)
+      when not is_nil(origin_conversation_id) do
+    if return_to == "/#{origin_conversation_id}" do
+      # return_to already points at the origin conversation — don't duplicate the crumb.
+      editor_items(return_to, title)
+    else
+      [
+        %{label: "From conversation", href: "/#{origin_conversation_id}"}
+        | editor_items(return_to, title)
+      ]
+    end
   end
 
   def editor_items(nil, return_to, title) do

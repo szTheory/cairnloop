@@ -340,4 +340,43 @@ defmodule Cairnloop.Web.BreadcrumbPresenterTest do
       assert_last_crumb_contract(P.editor_items(nil, nil, "T"))
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # WR-06: origin + conversation-return_to combined label sequence is pinned so the
+  # presenter never emits two adjacent conversation-pointing crumbs.
+  # ---------------------------------------------------------------------------
+
+  describe "editor_items/3 origin vs return_to crumb de-duplication (WR-06)" do
+    test "collapses the origin crumb when return_to is the SAME conversation path" do
+      # return_to == "/#{origin}" would otherwise produce
+      #   From conversation -> Conversation -> Knowledge -> Editing
+      # with two conversation crumbs pointing at the same id. Collapse to the delegated trail.
+      items = P.editor_items(42, "/42", "Returns policy")
+      labels = Enum.map(items, & &1.label)
+
+      assert items == P.editor_items("/42", "Returns policy")
+      assert Enum.count(labels, &(&1 == "From conversation")) == 0
+      assert Enum.count(labels, &(&1 == "Conversation")) == 1
+      assert_last_crumb_contract(items)
+    end
+
+    test "keeps the origin crumb when return_to points at a DIFFERENT conversation" do
+      items = P.editor_items(42, "/77", "Returns policy")
+      labels = Enum.map(items, & &1.label)
+
+      assert List.first(labels) == "From conversation"
+      assert "Conversation" in labels
+      assert_last_crumb_contract(items)
+    end
+
+    test "production quick-fix return_to (suggestions path) reads as a single clear trail" do
+      # The real editor return_to for a quick-fix handoff is a /knowledge-base/... path,
+      # so the delegated first crumb is "Suggestions", never a second conversation crumb.
+      items = P.editor_items(42, "/knowledge-base/suggestions?task=7", "Returns policy")
+      labels = Enum.map(items, & &1.label)
+
+      assert labels == ["From conversation", "Suggestions", "Knowledge", "Editing: Returns policy"]
+      assert_last_crumb_contract(items)
+    end
+  end
 end
