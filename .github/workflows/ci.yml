@@ -160,6 +160,86 @@ jobs:
       - name: Run integration suite (creates DBs, migrates, runs test/integration)
         run: mix test.integration
 
+  # Real-browser E2E for the operator rail's client-only behaviors (Phase 41 / D2): the JS
+  # expand/collapse-all commands, the colocated RailDensity localStorage hook + reload
+  # persistence, and open-survives-PubSub (phx-update="ignore"). These run against the bundled
+  # example app (the only asset-serving surface that mounts the real library rail) via
+  # phoenix_test_playwright. Replaces the former Phase-41 human-verify (UAT) checkpoint.
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: "5432"
+
+    defaults:
+      run:
+        working-directory: examples/cairnloop_example
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19.5"
+          otp-version: "27.2"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Restore Mix cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            examples/cairnloop_example/deps
+            examples/cairnloop_example/_build
+          key: ${{ runner.os }}-e2e-mix-${{ hashFiles('examples/cairnloop_example/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-mix-
+
+      - name: Install Elixir dependencies
+        run: mix deps.get
+
+      - name: Install Playwright CLI (in assets/) + Chromium
+        run: |
+          npm --prefix assets ci
+          npx --prefix assets playwright install --with-deps chromium
+
+      # test.e2e: assets.setup → assets.build (compile FIRST so the colocated RailDensity hook is
+      # extracted and bundled — else the density tests silently pass-without-testing) → ecto
+      # create/migrate → test --only e2e. On failure, capture a Playwright trace for debugging.
+      - name: Run rail E2E suite
+        run: PW_TRACE=true mix test.e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: examples/cairnloop_example/traces/
+          if-no-files-found: ignore
+
   # Single required status check for branch protection (solo-OSS true CI/CD).
   # Branch protection requires only `release_gate`; this job's `needs:` is the real
   # contract. Gates on the headless shift-left suite, the DB-backed `integration` suite
@@ -167,7 +247,7 @@ jobs:
   release_gate:
     name: release_gate
     runs-on: ubuntu-latest
-    needs: [phase-12-shift-left, integration, quality]
+    needs: [phase-12-shift-left, integration, quality, e2e]
     if: ${{ always() }}
     steps:
       - name: Gate on required jobs
@@ -182,6 +262,10 @@ jobs:
           fi
           if [ "${{ needs.quality.result }}" != "success" ]; then
             echo "Required job 'quality' did not succeed (got: ${{ needs.quality.result }})."
+            exit 1
+          fi
+          if [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "Required job 'e2e' did not succeed (got: ${{ needs.e2e.result }})."
             exit 1
           fi
           echo "All required jobs passed."
