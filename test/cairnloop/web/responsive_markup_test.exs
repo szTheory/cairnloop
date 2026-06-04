@@ -16,8 +16,12 @@ defmodule Cairnloop.Web.ResponsiveMarkupTest do
   # REPO-UNAVAILABLE: no assertions require a Postgres round-trip.
 
   Source-scan is the deliberate approach: the wrappers render behind
-  `:if={@... != []}` guards, so a LiveViewTest render with empty data will NOT
-  emit them. File.read! pins the contract without needing a live DB or seeded rows.
+  `<%= if ... do %>` emptiness guards, so a LiveViewTest render with empty data
+  will NOT emit them. File.read! pins the contract without needing a live DB or
+  seeded rows. (Rendered-geometry facts — tap-target pixels, sticky-bar
+  occlusion — are pinned by the gated Playwright E2E
+  `examples/cairnloop_example/test/e2e/inbox_geometry_test.exs`; this file only
+  proves the source attributes/CSS rules are PRESENT.)
   """
 
   use ExUnit.Case, async: true
@@ -110,8 +114,10 @@ defmodule Cairnloop.Web.ResponsiveMarkupTest do
       assert css =~ ".cl-inbox-list--bulk-clearance",
              "cairnloop.css must define the .cl-inbox-list--bulk-clearance rule for sticky bulk-bar clearance"
 
-      assert css =~ "padding-bottom: var(--cl-space-10",
-             "cairnloop.css .cl-inbox-list--bulk-clearance must use padding-bottom: var(--cl-space-10, ...) to reserve space for the bulk-bar"
+      # The reserve must cover the FULL bar height (44px control + 24px bar padding ≈ 68px),
+      # not a partial token step — otherwise a fully-scrolled list can still occlude the last row.
+      assert css =~ "padding-bottom: calc(var(--cl-control-h-lg",
+             "cairnloop.css .cl-inbox-list--bulk-clearance must reserve the full bar height via calc(var(--cl-control-h-lg, 44px) + var(--cl-space-7, 24px)) so the last row clears the sticky bulk-bar"
     end
 
     test "var(--cl-primary) literal is still present in inbox_live.ex (integration test contract preserved)" do
@@ -119,6 +125,32 @@ defmodule Cairnloop.Web.ResponsiveMarkupTest do
 
       assert src =~ "var(--cl-primary)",
              "inbox_live.ex must retain the var(--cl-primary) inline style on the primary bulk-bar button (four integration tests assert this literal)"
+    end
+  end
+
+  describe "geometry E2E is wired into the gated lane (D3-06/D3-07 zero-UAT guard)" do
+    # The inbox rendered-geometry facts are verified by a gated Playwright E2E, NOT a human-verify
+    # checkpoint (STATE.md "Verification policy"). `mix test` excludes :e2e, so a green lib suite
+    # says nothing about that file. This cheap source-scan guards against a silent regression — a
+    # @moduletag typo or a deleted file would re-open the human-verify gap the E2E was meant to
+    # close. It pins existence + the :e2e tag + that real geometry (getBoundingClientRect) is asserted.
+    @geometry_e2e Path.expand(
+                    "../../../examples/cairnloop_example/test/e2e/inbox_geometry_test.exs",
+                    __DIR__
+                  )
+
+    test "inbox_geometry_test.exs exists, is tagged :e2e, and measures rendered geometry" do
+      assert File.exists?(@geometry_e2e),
+             "the inbox geometry E2E must exist at examples/cairnloop_example/test/e2e/inbox_geometry_test.exs " <>
+               "(it is the automated replacement for the former 43-03 human-verify checkpoint)"
+
+      src = File.read!(@geometry_e2e)
+
+      assert src =~ "@moduletag :e2e",
+             "inbox_geometry_test.exs must carry @moduletag :e2e so the gated `mix test.e2e` lane picks it up"
+
+      assert src =~ "getBoundingClientRect",
+             "inbox_geometry_test.exs must measure rendered geometry (getBoundingClientRect) — a source scan cannot prove pixel sizes"
     end
   end
 end

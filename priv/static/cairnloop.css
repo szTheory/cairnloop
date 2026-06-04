@@ -548,9 +548,10 @@
 
 /* ---- Inbox list bottom clearance (D3-06 / RESP-02) ---------------------- */
 /* Reserves padding-bottom so the sticky bulk-bar never occludes the last     */
-/* selectable row. Bar height ≈ 44px button + 12px×2 padding = 68px;          */
-/* --cl-space-10 (48px) is the largest available token step that ships today. */
-.cl-inbox-list--bulk-clearance { padding-bottom: var(--cl-space-10, 48px); }
+/* selectable row. Bar height = 44px button (--cl-control-h-lg) + 12px×2 bar   */
+/* padding ≈ 68px; reserve the full bar height (control + space-7 = 68px) so   */
+/* the last row clears it even if the bar ever changes to position: fixed.     */
+.cl-inbox-list--bulk-clearance { padding-bottom: calc(var(--cl-control-h-lg, 44px) + var(--cl-space-7, 24px)); }
 
 /* ---- Conversation Layout ------------------------------------------------ */
 .conversation-layout { display: flex; flex-direction: column; gap: var(--cl-space-8, 32px); }
