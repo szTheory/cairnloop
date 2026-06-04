@@ -194,12 +194,12 @@ defmodule Cairnloop.Web.HomeLiveTest do
              "expected zero-state body copy"
     end
 
-    test "zero-state uses check-circle icon" do
+    test "zero-state renders an icon SVG inside cl-empty__icon" do
       html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 0})))
 
-      # cl_empty renders cl_icon with the passed icon name
-      assert html =~ "check-circle" or html =~ "compass",
-             "expected zero-state icon to be check-circle or compass fallback"
+      # cl_empty renders cl_icon as an inline SVG; the class cl-empty__icon is the signal
+      assert html =~ "cl-empty__icon",
+             "expected cl-empty__icon class on the zero-state icon element"
     end
 
     test "no cl-hero rendered when open_count == 0 and not unavailable" do
@@ -215,12 +215,15 @@ defmodule Cairnloop.Web.HomeLiveTest do
     test ".cl-home-grid contains exactly 3 .cl-stat children — no phantom 6th cell" do
       html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{open_count: 1})))
 
-      # Count cl-stat occurrences — each tile contributes one cl-stat (or cl-stat cl-focusable)
-      # We look for the pattern "cl-stat" as a class in div or link elements
-      stat_count = html |> String.split(~r/class="cl-stat/) |> length() |> Kernel.-(1)
+      # Count root cl-stat elements — they render as either:
+      #   class="cl-stat cl-focusable" (link tiles) or class="cl-stat" (health div)
+      # We match opening class attributes that are EXACTLY "cl-stat" or "cl-stat " (with space)
+      # but NOT sub-element classes like "cl-stat__count", "cl-stat__job", "cl-stat__meta"
+      stat_count =
+        Regex.scan(~r/class="cl-stat(?:\s+cl-focusable)?"/, html) |> length()
 
       assert stat_count == 3,
-             "expected exactly 3 cl-stat elements in the band, got #{stat_count}"
+             "expected exactly 3 cl-stat root elements in the band, got #{stat_count}"
     end
   end
 
