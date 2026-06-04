@@ -80,19 +80,30 @@ defmodule Cairnloop.KnowledgeAutomation do
   # Phase 42 Plan 02 (THREAD-03b, D-12/Pitfall 2): article→conversation origin read.
   # NEW lookup keyed on article_id — do NOT reuse the editor's in-scope suggestion (nil
   # on direct visit, Pitfall 2); Article has no belongs_to(:suggestion).
-  # Pipes through apply_scope/2 (tenant_scope + host_user_id — V4 access control, T-42-04).
+  # Applies tenant_scope/host_user_id WHERE clauses via apply_scope/2 WHEN provided, and
+  # re-verifies the fetched row against opts post-fetch (scope_matches?/3) — mirroring the
+  # belt-and-suspenders pattern of the sibling reads (get_article_suggestion!/2, etc.,
+  # T-42-04/WR-01). Because apply_scope/2 is a pass-through on nil opts, the post-fetch check
+  # is what makes a PARTIAL scope (e.g. host_user_id only) fail closed rather than leak a row
+  # from another tenant. With fully-empty opts the read is intentionally unscoped (the editor
+  # owns auth in that path); the post-fetch check is a no-op there, consistent with siblings.
   # Only :conversation_quick_fix rows carry a conversation id (D-12);
-  # :gap_candidate / :article_revision → repo().one() returns nil → honest absence.
+  # :gap_candidate / :article_revision / unknown article → nil → honest absence.
   # All bindings parameterized with ^ (never interpolated, T-42-05).
-  # select(:entrypoint_id) only — minimal field exposure (T-42-06).
+  # select/2 exposes only the three fields needed for the scope check (T-42-06).
   def originating_conversation_id(article_id, opts \\ []) do
     ArticleSuggestion
     |> apply_scope(opts)
     |> where([s], s.article_id == ^article_id and s.entrypoint_type == :conversation_quick_fix)
     |> order_by([s], asc: s.inserted_at)
     |> limit(1)
-    |> select([s], s.entrypoint_id)
+    |> select([s], {s.entrypoint_id, s.tenant_scope, s.host_user_id})
     |> repo().one()
+    |> case do
+      nil -> nil
+      {entrypoint_id, tenant_scope, host_user_id} ->
+        if scope_matches?(opts, tenant_scope, host_user_id), do: entrypoint_id, else: nil
+    end
   end
 
   def get_gap_candidate(id, opts \\ []) do
@@ -2154,21 +2165,29 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp metadata_value(_, _), do: nil
 
   defp enforce_scope!(candidate, opts, queryable) do
-    expected_tenant_scope = Keyword.get(opts, :tenant_scope)
-    expected_host_user_id = Keyword.get(opts, :host_user_id)
-
-    tenant_scope_matches? =
-      is_nil(expected_tenant_scope) or candidate.tenant_scope == expected_tenant_scope
-
-    host_user_id_matches? =
-      is_nil(expected_host_user_id) or
-        to_string(candidate.host_user_id) == to_string(expected_host_user_id)
-
-    if tenant_scope_matches? and host_user_id_matches? do
+    if scope_matches?(opts, candidate.tenant_scope, candidate.host_user_id) do
       candidate
     else
       raise Ecto.NoResultsError, queryable: queryable
     end
+  end
+
+  # Belt-and-suspenders scope check shared by enforce_scope!/3 (raises on mismatch) and
+  # originating_conversation_id/2 (returns nil on mismatch — an optional lookup, not a get!).
+  # A nil expected value means "no constraint requested" → matches (apply_scope/2 likewise
+  # adds no WHERE clause for nil), so a partial scope still fails closed on the field it pins.
+  defp scope_matches?(opts, row_tenant_scope, row_host_user_id) do
+    expected_tenant_scope = Keyword.get(opts, :tenant_scope)
+    expected_host_user_id = Keyword.get(opts, :host_user_id)
+
+    tenant_scope_matches? =
+      is_nil(expected_tenant_scope) or row_tenant_scope == expected_tenant_scope
+
+    host_user_id_matches? =
+      is_nil(expected_host_user_id) or
+        to_string(row_host_user_id) == to_string(expected_host_user_id)
+
+    tenant_scope_matches? and host_user_id_matches?
   end
 
   defp find_active_review_task(%ArticleSuggestion{} = suggestion, opts) do
