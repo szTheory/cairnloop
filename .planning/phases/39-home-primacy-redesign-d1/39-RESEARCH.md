@@ -158,7 +158,8 @@ components, and CSS that already ship.
           <% end %>
         </:detail>
         <:cta_slot>
-          <.cl_button variant="primary" size="lg" navigate="/inbox">Open inbox</.cl_button>
+          <%!-- A1 RESOLVED: cl_button is a plain <button> (no navigate/href/patch) — wrap in <.link>. --%>
+          <.link navigate="/inbox"><.cl_button variant="primary" size="lg">Open inbox</.cl_button></.link>
         </:cta_slot>
       </.cl_hero>
     <% end %>
@@ -601,16 +602,19 @@ These are written against a real `Conversation` fixture and run in `mix test.int
 ## Assumptions Log
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | `cl_button` accepts `navigate=` (vs `href=`) for the hero CTA | Render structure | LOW — verify `cl_button`'s attrs at edit time; swap `navigate`↔`href`/`patch` accordingly. Not read in this pass. |
+| A1 | ~~`cl_button` accepts `navigate=` for the hero CTA~~ **RESOLVED (pattern-mapper + plan-checker):** `cl_button/1` (components.ex:35-43) renders a plain `<button>`; its `:rest` global does NOT forward `navigate`/`href`/`patch`. The hero CTA MUST be wrapped in `<.link navigate="/inbox">` (or use `cl_hero`'s own `href`/`:cta` path). | Render structure | RESOLVED — render snippet above + Plan 03 corrected. |
 | A2 | `cl_icon` name `"check-circle"` exists in the inline SVG set for the zero-state | Render structure | LOW — UI-SPEC specifies it; if absent, fall back to `"compass"` (cl_empty default) or `"inbox"`. |
 | A3 | An acceptance grep may assert the exact 0-arity `list_conversations/0` form | Pattern 2 | LOW — keeping two distinct clauses satisfies it regardless. |
 | A4 | 500ms is acceptable to the owner as the throttle window | Throttle | LOW — matches UI-SPEC:229; documented, owner-reviewed UI-SPEC. |
 
-## Open Questions
-1. **`cl_button` CTA attribute (`navigate` vs `href`/`patch`).**
-   - What we know: it's used elsewhere with `phx-click` and `variant`/`style`; UI-SPEC wants a nav to `/inbox`.
-   - What's unclear: whether it forwards `navigate`/`href` to an underlying `<.link>` or expects a plain anchor.
-   - Recommendation: read `cl_button/1`'s attrs during Wave 0; if it has no nav attr, wrap with `<.link navigate>` or use the `cl_hero` `:cta`/`href` fallback path instead of `:cta_slot`. Cheap to resolve at edit time.
+## Open Questions (RESOLVED)
+1. **`cl_button` CTA attribute (`navigate` vs `href`/`patch`) — RESOLVED.**
+   - Confirmed against source (`components.ex:35-43`): `cl_button/1` renders a plain `<button>`; its
+     `:rest` global forwards only `~w(disabled form name value phx-click phx-value-id phx-disable-with
+     data-confirm)` — it does NOT forward `navigate`/`href`/`patch`.
+   - Resolution: wrap the hero CTA in `<.link navigate="/inbox"><.cl_button …>Open inbox</.cl_button></.link>`
+     (or use `cl_hero`'s own `href`/`:cta` fallback). Reflected in the "Recommended Render Structure"
+     snippet above and in 39-03-PLAN.md. A bare `cl_button` with `navigate=` would ship a dead CTA.
 
 ## Sources
 
