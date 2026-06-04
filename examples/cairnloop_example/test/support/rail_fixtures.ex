@@ -120,6 +120,29 @@ defmodule CairnloopExample.RailFixtures do
   end
 
   @doc """
+  Inserts `count` resolved conversations (default 25) so the Inbox at `/support/inbox` renders a
+  scrollable list of selectable rows. Returns the inserted ids (newest-first is irrelevant here).
+
+  Used by the RESP-02 inbox-geometry E2E (the automated replacement for the 43-03 human-verify
+  checkpoint): only `status: :resolved` rows render a `.cl-checkbox`, and 25 rows comfortably
+  overflow a 720px-tall viewport so the sticky bulk-bar's last-row clearance is exercised under a
+  real scroll. Inserted directly via `Conversation.changeset/2` (no Oban/`Chat.resolve_conversation`
+  side-effects). The inbox does not scope by `host_user_id`, so the value here is cosmetic.
+  """
+  def resolved_inbox_rows(count \\ 25) do
+    for n <- 1..count do
+      %Conversation{}
+      |> Conversation.changeset(%{
+        status: :resolved,
+        subject: "[e2e-resp02] Resolved row #{n} — eligible for recovery follow-up",
+        host_user_id: "e2e_operator"
+      })
+      |> Repo.insert!()
+      |> Map.fetch!(:id)
+    end
+  end
+
+  @doc """
   Inserts a conversation with a pending governed action, producing an audit-log event with a
   subject conversation link.  Returns `%{conv_id: id, proposal_id: id}`.
 
