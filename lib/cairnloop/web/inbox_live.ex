@@ -89,11 +89,14 @@ defmodule Cairnloop.Web.InboxLive do
       Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
     end
 
-    conversations = Chat.list_conversations()
-
+    # Phase 39 Plan 02 (D-01): list load moved to handle_params/3 to support the
+    # ?status= filter. Mount seeds conversations: [] + status: nil so the existing
+    # mount test (which asserts conversations == []) keeps passing (RESEARCH Pitfall 2:
+    # avoids a double-query when LiveView calls mount → handle_params on every navigation).
     {:ok,
      assign(socket,
-       conversations: conversations,
+       conversations: [],
+       status: nil,
        host_user_id: Map.get(session, "host_user_id"),
        # D-04: selection state is LiveView-local. No persistence across reloads —
        # each remount starts at an empty MapSet, which inherently satisfies the
@@ -104,6 +107,39 @@ defmodule Cairnloop.Web.InboxLive do
        bulk_refusal: nil
      )}
   end
+
+  # ---------------------------------------------------------------------------
+  # handle_params/3 — Phase 39 Plan 02 (D-01, HOME-02).
+  # Reads ?status= query param (untrusted), normalizes it through the fail-closed
+  # whitelist, loads the filtered conversation list, and reconciles selection state.
+  # Called by LiveView on every navigation to /inbox (including initial mount).
+  # ---------------------------------------------------------------------------
+
+  def handle_params(params, _uri, socket) do
+    status = normalize_status(params["status"])
+    conversations = Chat.list_conversations(status: status)
+    selected_ids = prune_selected_ids(socket.assigns.selected_ids, conversations)
+
+    {:noreply,
+     assign(socket,
+       status: status,
+       conversations: conversations,
+       selected_ids: selected_ids
+     )}
+  end
+
+  # ---------------------------------------------------------------------------
+  # normalize_status/1 — Phase 39 Plan 02 (D-03 / T-39-03).
+  # Fail-closed string whitelist: ONLY "resolved" maps to an atom. Everything
+  # else (including "open", "garbage", SQL-injection probes, nil) returns nil
+  # (unfiltered). NEVER calls String.to_existing_atom/String.to_atom on raw
+  # input — prevents atom-table exhaustion and ArgumentError crashes from
+  # attacker-controlled URL parameters.
+  # Public so the pure whitelist tests can call it directly.
+  # ---------------------------------------------------------------------------
+
+  def normalize_status("resolved"), do: :resolved
+  def normalize_status(_), do: nil
 
   # ---------------------------------------------------------------------------
   # Render.
@@ -287,11 +323,14 @@ defmodule Cairnloop.Web.InboxLive do
   # Phase 28 D-10: react to new conversations (create_customer_conversation/1) and new
   # messages (ingest_widget_message/2) that broadcast {:conversations_changed} on the
   # "conversations" topic of Cairnloop.PubSub. Subscribed in mount/3 above (D-09).
-  # prune_selected_ids/2 (line ~568) is now load-bearing — any conversation that disappears
-  # from the list is automatically removed from @selected_ids to keep the bulk-bar count
-  # accurate (WR-02 forward-compat fulfilled).
+  # prune_selected_ids/2 is load-bearing — any conversation that disappears from the
+  # list is automatically removed from @selected_ids to keep the bulk-bar count accurate
+  # (WR-02 forward-compat fulfilled).
+  # Phase 39 Plan 02 (D-04): re-query is filter-aware — passes socket.assigns.status so
+  # a new :open conversation arriving over PubSub cannot leak into a resolved-filter view,
+  # and stale bulk selections are pruned to prevent silent count inflation.
   def handle_info({:conversations_changed}, socket) do
-    conversations = Chat.list_conversations()
+    conversations = Chat.list_conversations(status: socket.assigns.status)
     selected_ids = prune_selected_ids(socket.assigns.selected_ids, conversations)
     {:noreply, assign(socket, conversations: conversations, selected_ids: selected_ids)}
   end
