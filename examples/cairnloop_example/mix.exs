@@ -27,7 +27,7 @@ defmodule CairnloopExample.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "test.e2e": :test]
     ]
   end
 
@@ -45,6 +45,12 @@ defmodule CairnloopExample.MixProject do
       # The hex dep {:cairnloop, "~> 0.1.0"} references the published package which
       # does not include vM014 phase additions; path dep overrides for local dev/test.
       {:cairnloop, path: "../.."},
+      # Browser E2E for the rail's client-only behaviors (JS expand/collapse, the colocated
+      # RailDensity localStorage hook, reload-persistence, open-survives-PubSub) that
+      # Phoenix.LiveViewTest cannot exercise. Scoped to the EXAMPLE APP only (test-only) so the
+      # published `cairnloop` library keeps its LiveViewTest-only harness — adopters never inherit
+      # a browser dep. Drives a real Chromium via Playwright from Elixir/ExUnit.
+      {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false},
       {:chimeway, "~> 1.0"},
       {:oban, "~> 2.17"},
       {:pgvector, "~> 0.3.1"},
@@ -114,6 +120,20 @@ defmodule CairnloopExample.MixProject do
         reenable_migrate,
         "ecto.migrate --migrations-path #{cairnloop_migrations} --quiet",
         "test"
+      ],
+      # Browser E2E lane. Order matters: `assets.build` runs `compile` FIRST, which is what
+      # extracts the colocated `RailDensity` hook into _build/.../phoenix-colocated/ before esbuild
+      # bundles it — build assets before compile and the hook silently never loads (density/reload
+      # tests would pass-without-testing). DB is created+migrated like the unit lane; the e2e tests
+      # build their own governed-action fixtures inside the Ecto sandbox (no seed dependency).
+      "test.e2e": [
+        "assets.setup",
+        "assets.build",
+        "ecto.create --quiet",
+        "ecto.migrate --quiet",
+        reenable_migrate,
+        "ecto.migrate --migrations-path #{cairnloop_migrations} --quiet",
+        "test --only e2e"
       ],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind cairnloop_example", "esbuild cairnloop_example"],

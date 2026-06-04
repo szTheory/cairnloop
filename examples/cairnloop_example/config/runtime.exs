@@ -20,8 +20,13 @@ if System.get_env("PHX_SERVER") do
   config :cairnloop_example, CairnloopExampleWeb.Endpoint, server: true
 end
 
-config :cairnloop_example, CairnloopExampleWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+# Dev/prod read the HTTP port from PORT (default 4000). In :test the port is fixed by
+# config/test.exs (4002) so the browser-E2E endpoint never collides with a running dev server —
+# don't let this runtime override clobber it.
+if config_env() != :test do
+  config :cairnloop_example, CairnloopExampleWeb.Endpoint,
+    http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+end
 
 if config_env() == :prod do
   database_url =
