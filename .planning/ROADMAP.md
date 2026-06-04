@@ -154,7 +154,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   - [x] 42-03-PLAN.md — Audit Log web: handle_params/2 ?proposal filter + per-row subject link [THREAD-02, THREAD-03] (wave 2)
   - [x] 42-04-PLAN.md — Conversation rail web: Next-in-queue/Queue-clear + gov-action→audit deep-link [THREAD-01, THREAD-03] (wave 2)
   - [x] 42-05-PLAN.md — KB editor web: article→originating-conversation breadcrumb crumb [THREAD-03] (wave 2)
-  - [ ] 42-06-PLAN.md — E2E thread-navigation spec for all four threads [THREAD-01, THREAD-02, THREAD-03] (wave 3)
+  - [x] 42-06-PLAN.md — E2E thread-navigation spec for all four threads [THREAD-01, THREAD-02, THREAD-03] (wave 3)
 **UI hint**: yes
 
 ### Phase 43: Responsive Desktop-First Cockpit (D3)
@@ -200,7 +200,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 | 39. Home Primacy Redesign (D1) | vM016 | 3/3 | Complete    | 2026-06-04 |
 | 40. Drift Remediation + Brand-Token Gate Hardening | vM016 | 3/3 | Complete   | 2026-06-04 |
 | 41. Conversation Rail Progressive Disclosure (D2) | vM016 | 4/4 | Complete    | 2026-06-04 |
-| 42. Cross-Screen Threading | vM016 | 5/6 | In Progress|  |
+| 42. Cross-Screen Threading | vM016 | 6/6 | Complete   | 2026-06-04 |
 | 43. Responsive Desktop-First Cockpit (D3) | vM016 | 0/? | Not started | â |
 | 44. Motion | vM016 | 0/? | Not started | â |
 | 45. Seed Enrichment + Screenshot Regen + Verification Sweep | vM016 | 0/? | Not started | â |
