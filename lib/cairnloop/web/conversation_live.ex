@@ -9,6 +9,7 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
   alias Cairnloop.Web.ToolProposalPresenter
+  alias Phoenix.LiveView.JS
 
   import Cairnloop.Web.Components
 
@@ -474,7 +475,7 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
         </div>
 
-        <div class="evidence-rail">
+        <div class="evidence-rail" data-density="comfortable" phx-hook="RailDensity" id="evidence-rail-density">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
           <.outbound_recovery_card conversation={@conversation} />
           <.quick_fix_card card={@quick_fix_card} />
@@ -492,6 +493,18 @@ defmodule Cairnloop.Web.ConversationLive do
           <.cl_card class="governed-actions-rail" aria-label="Governed actions">
             <div class="governed-actions-rail-header">
               <span class="governed-actions-rail-eyebrow">Governed actions</span>
+              <%!-- Rail controls: Expand-all / Collapse-all are pure Phoenix.LiveView.JS DOM ops
+                   scoped to [data-tier="2"] — NO handle_event (D2/D-09 invariant). Density
+                   toggle is hook-owned (no server phx-click). See colocated RailDensity hook
+                   below. --%>
+              <div class="cl-rail-controls">
+                <.cl_button variant="ghost" size="sm"
+                  phx-click={JS.set_attribute({"open", ""}, to: "[data-tier='2']")}>Expand all</.cl_button>
+                <.cl_button variant="ghost" size="sm"
+                  phx-click={JS.remove_attribute("open", to: "[data-tier='2']")}>Collapse all</.cl_button>
+                <button type="button" class="cl-button cl-button--ghost cl-button--sm cl-rail-density-toggle"
+                  data-density-toggle>Comfortable</button>
+              </div>
             </div>
             <%= if @governed_actions == [] do %>
               <p class="governed-actions-empty">No governed actions yet.</p>
@@ -1124,6 +1137,38 @@ defmodule Cairnloop.Web.ConversationLive do
         <% end %>
       </div>
     </.cl_card>
+
+    <%!-- Colocated RailDensity hook (LiveView 1.1) — ships in phoenix-colocated/cairnloop namespace.
+         Consumer apps must: import {hooks as libHooks} from "phoenix-colocated/cairnloop" and merge
+         into LiveSocket hooks: {...colocatedHooks, ...libHooks}.
+         Reads/writes localStorage key "cl:rail:density"; applies data-density on .evidence-rail.
+         D-04: density = spacing only, never drives <details> open/closed.
+         D-09: no server handle_event for density — this hook is the sole owner of density state. --%>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".RailDensity">
+    export default {
+      mounted() {
+        const stored = localStorage.getItem("cl:rail:density") || "comfortable";
+        this.el.setAttribute("data-density", stored);
+        this._updateToggleLabel(stored);
+        const toggle = this.el.querySelector("[data-density-toggle]");
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            const current = this.el.getAttribute("data-density") || "comfortable";
+            const next = current === "comfortable" ? "compact" : "comfortable";
+            this.el.setAttribute("data-density", next);
+            localStorage.setItem("cl:rail:density", next);
+            this._updateToggleLabel(next);
+          });
+        }
+      },
+      _updateToggleLabel(density) {
+        const toggle = this.el.querySelector("[data-density-toggle]");
+        if (toggle) {
+          toggle.textContent = density === "comfortable" ? "Comfortable" : "Compact";
+        }
+      }
+    };
+    </script>
     """
   end
 
