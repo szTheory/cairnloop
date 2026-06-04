@@ -69,7 +69,14 @@ defmodule Cairnloop.Web.AuditLogLive do
   # (THREAD-03a, D-10). The unfiltered path is byte-identical to before when filter is nil.
   defp load_events(socket) do
     auditor = Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.Governance)
-    opts = [limit: socket.assigns.limit]
+    limit = socket.assigns.limit
+
+    # WR-03/WR-04: fetch one sentinel row beyond the page so "Load more" reflects whether
+    # the SERVER actually has more rows, not whether the fetch happened to hit the limit.
+    # length(events) >= limit was true even when exactly `limit` rows existed (off-by-one:
+    # the button showed once spuriously whenever the total was an exact multiple of the page
+    # size). Fetching limit + 1 and rendering only the first `limit` removes that off-by-one.
+    opts = [limit: limit + 1]
 
     opts =
       case Map.get(socket.assigns, :proposal_filter) do
@@ -77,10 +84,12 @@ defmodule Cairnloop.Web.AuditLogLive do
         id -> Keyword.put(opts, :proposal_id, id)
       end
 
-    events = auditor.list_events(opts)
+    fetched = auditor.list_events(opts)
+    more? = length(fetched) > limit
+    events = Enum.take(fetched, limit)
 
     socket
-    |> assign(events: events, maybe_more?: length(events) >= socket.assigns.limit)
+    |> assign(events: events, maybe_more?: more?)
     |> recompute()
   end
 
