@@ -380,12 +380,17 @@ defmodule Cairnloop.Web.ConversationLive do
     governed_actions =
       Cairnloop.Governance.list_proposals_for_conversation(conversation_id, limit: limit)
 
+    # Phase 42 THREAD-01: next-open id for Next-in-queue affordance (structural nav read, not a
+    # trust fact — D-02). Recomputed on every PubSub reload so the affordance is never stale.
+    next_open_id = Chat.next_open_conversation(conversation_id)
+
     assign(socket,
       conversation: conversation,
       host_context: context,
       context_error: context_error,
       quick_fix_card: quick_fix_card,
-      governed_actions: governed_actions
+      governed_actions: governed_actions,
+      next_open_id: next_open_id
     )
   end
 
@@ -421,6 +426,8 @@ defmodule Cairnloop.Web.ConversationLive do
     assigns = assign(assigns, :quick_fix_card, normalize_quick_fix_card(assigns))
     # Default governed_actions to [] when not present (e.g. direct render_component tests)
     assigns = Map.put_new(assigns, :governed_actions, [])
+    # Default next_open_id to nil when not set (e.g. direct render_component tests)
+    assigns = Map.put_new(assigns, :next_open_id, nil)
 
     ~H"""
     <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
@@ -477,7 +484,7 @@ defmodule Cairnloop.Web.ConversationLive do
 
         <div class="evidence-rail" data-density="comfortable" phx-hook=".RailDensity" id="evidence-rail-density">
           <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
-          <.outbound_recovery_card conversation={@conversation} />
+          <.outbound_recovery_card conversation={@conversation} next_open_id={@next_open_id} />
           <.quick_fix_card card={@quick_fix_card} />
 
           <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
@@ -527,6 +534,7 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   attr(:conversation, :map, required: true)
+  attr(:next_open_id, :any, default: nil)
 
   def outbound_recovery_card(assigns) do
     ~H"""
@@ -547,6 +555,16 @@ defmodule Cairnloop.Web.ConversationLive do
         <p class="outbound-action-hint">
           Uses the configured recovery template and appends a `system_outbound` message to the timeline.
         </p>
+        <%!-- Phase 42 THREAD-01: Next-in-queue affordance. case @next_open_id (D-06):
+             nil → calm Queue-clear state + /inbox back-link; id → scope-relative navigate link.
+             Never a disabled/dead "Next" and never a stale-id navigate (T-42-10, T-42-11). --%>
+        <%= case @next_open_id do %>
+          <% nil -> %>
+            <p class="cl-text-muted">Queue clear — no more open conversations.</p>
+            <.link navigate="/inbox" class="cl-text-small">Back to inbox</.link>
+          <% id -> %>
+            <.link navigate={"/#{id}"} class="cl-button">Next in queue &rarr;</.link>
+        <% end %>
       </.cl_card>
     <% end %>
     """
@@ -1089,6 +1107,9 @@ defmodule Cairnloop.Web.ConversationLive do
           %{label: "Version", value: @trace.tool_version},
           %{label: "Idempotency key", value: @trace.idempotency_key}
         ]} />
+        <%!-- Phase 42 THREAD-03a: audit-trail deep-link (D-10). Scope-root-relative declarative
+             navigate (D-14, Pitfall 3) — /audit-log?proposal=<id>, never mount-prefixed. --%>
+        <.link navigate={"/audit-log?proposal=#{@trace.proposal_id}"}>View audit trail</.link>
       </.cl_disclosure>
 
       <%!-- Footer action slot: Approve / Reject / Defer affordances when :pending approval exists.

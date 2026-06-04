@@ -2497,4 +2497,129 @@ defmodule Cairnloop.Web.ConversationLiveTest do
              "Rail must emit data-density=\"comfortable\" as the default density (RAIL-03)"
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 42-04: Next-in-queue affordance + Queue-clear state (THREAD-01)
+  # ---------------------------------------------------------------------------
+
+  describe "outbound_recovery_card/1 — Next-in-queue affordance (THREAD-01)" do
+    defp resolved_base_assigns do
+      %{
+        conversation: %Cairnloop.Conversation{
+          id: 7,
+          status: :resolved,
+          subject: "Resolved convo",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+    end
+
+    test "resolved + next_open_id present: renders 'Next in queue' link with scope-relative href" do
+      assigns = Map.put(resolved_base_assigns(), :next_open_id, 42)
+      html = render_component(&ConversationLive.outbound_recovery_card/1,
+        conversation: assigns.conversation,
+        next_open_id: 42
+      )
+
+      assert html =~ "Next in queue"
+      # Phoenix renders <.link navigate="/42"> as href="/42" + data-phx-link="redirect"
+      assert html =~ ~s(href="/42")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+      refute html =~ "Queue clear"
+    end
+
+    test "resolved + next_open_id nil: renders 'Queue clear' state with /inbox back-link" do
+      html = render_component(&ConversationLive.outbound_recovery_card/1,
+        conversation: %Cairnloop.Conversation{
+          id: 7,
+          status: :resolved,
+          subject: "Resolved convo",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        next_open_id: nil
+      )
+
+      assert html =~ "Queue clear"
+      # Phoenix renders <.link navigate="/inbox"> as href="/inbox" + data-phx-link="redirect"
+      assert html =~ ~s(href="/inbox")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+      refute html =~ ~s(href="/nil")
+    end
+
+    test "non-resolved (open) status: renders neither 'Next in queue' nor 'Queue clear'" do
+      html = render_component(&ConversationLive.outbound_recovery_card/1,
+        conversation: %Cairnloop.Conversation{
+          id: 7,
+          status: :open,
+          subject: "Open convo",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        next_open_id: 42
+      )
+
+      refute html =~ "Next in queue"
+      refute html =~ "Queue clear"
+    end
+
+    test "@next_open_id assign is present in render/1 for a resolved conversation" do
+      assigns = Map.merge(resolved_base_assigns(), %{next_open_id: 99})
+      html = render_html(assigns)
+
+      assert html =~ "Next in queue"
+      # Phoenix renders <.link navigate="/99"> as href="/99" + data-phx-link="redirect"
+      assert html =~ ~s(href="/99")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 42-04: Audit-trail deep-link in Tier-3 trace group (THREAD-03a)
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action_card/1 — audit deep-link in Tier-3 trace group (THREAD-03a)" do
+    test "Tier-3 trace group renders 'View audit trail' link with scope-relative audit-log href" do
+      proposal = tool_proposal_fixture(%{
+        id: 55,
+        status: :proposed,
+        events: []
+      })
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      assert html =~ "View audit trail"
+      # Phoenix renders <.link navigate="/audit-log?proposal=55"> as href= + data-phx-link="redirect"
+      assert html =~ ~s(href="/audit-log?proposal=55")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+    end
+
+    test "audit deep-link uses declarative navigate, not push_navigate or push_patch" do
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      assert src =~ ~s(navigate={"/audit-log?proposal=),
+             "Audit deep-link must use declarative <.link navigate> (D-14)"
+      refute src =~ "push_navigate.*audit-log",
+             "Audit deep-link must not use push_navigate"
+    end
+  end
 end
