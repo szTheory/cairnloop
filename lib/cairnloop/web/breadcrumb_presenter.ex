@@ -22,6 +22,33 @@ defmodule Cairnloop.Web.BreadcrumbPresenter do
   """
 
   # ---------------------------------------------------------------------------
+  # editor_items/3 — origin-conversation crumb variant (Phase 42 THREAD-03b)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Builds the `cl_breadcrumb` items list for the KB editor when an originating
+  conversation id is available (Phase 42 cross-screen threading).
+
+  When `origin_conversation_id` is a non-nil integer (article originated from a
+  `:conversation_quick_fix`), prepends a `%{label: "From conversation", href: "/\#{id}"}`
+  crumb as the first item, followed by the standard `editor_items/2` crumbs for
+  the given `return_to` and `title`.
+
+  When `origin_conversation_id` is nil (gap/revision-originated article — honest
+  absence, D-12), returns exactly the `editor_items/2` output — no extra crumb.
+
+  The origin crumb href is scope-root-relative (`/\#{id}`) — never mount-prefixed
+  (Pitfall 3, T-42-15). The raw conversation id appears only in the href, not as a label.
+  """
+  def editor_items(origin_conversation_id, return_to, title) when not is_nil(origin_conversation_id) do
+    [%{label: "From conversation", href: "/#{origin_conversation_id}"} | editor_items(return_to, title)]
+  end
+
+  def editor_items(nil, return_to, title) do
+    editor_items(return_to, title)
+  end
+
+  # ---------------------------------------------------------------------------
   # editor_items/2 — origin-aware breadcrumb for the KB editor
   # ---------------------------------------------------------------------------
 
