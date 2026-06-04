@@ -607,9 +607,9 @@ wrappers (replaced by `cl_page`'s `__header`).
 **No assumptions affect compliance, retention, security posture, or data.** All structural and API
 claims are VERIFIED against live code.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Subtitle node class change (`cl-text-muted` → `cl-page__subtitle`).**
+1. **Subtitle node class change (`cl-text-muted` → `cl-page__subtitle`).** RESOLVED — see recommendation.
    - What we know: Home/Audit/Gaps/Suggestion-review subtitles map to `cl_page`'s `subtitle=` attr,
      which renders `<p class="cl-page__subtitle">`.
    - What's unclear: whether any screenshot or test depends on the old `cl-text-muted` subtitle class.
