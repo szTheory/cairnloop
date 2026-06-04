@@ -7,6 +7,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter}
+  alias Cairnloop.Web.BreadcrumbPresenter
 
   def mount(_params, session, socket) do
     scope_filters = scope_filters(session)
@@ -191,6 +192,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
         subtitle="Inspect grounded KB proposals before any manual editing or later publish workflow begins."
         width="wide"
       >
+        <:breadcrumb>
+          <.cl_breadcrumb items={BreadcrumbPresenter.suggestions_items(suggestion_review_crumb_title(@selected_task))} />
+        </:breadcrumb>
         <:subnav><.kb_nav current={:suggestions} /></:subnav>
 
         <.cl_card class="cl-mb-7">
@@ -491,6 +495,12 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   defp knowledge_base do
     Application.get_env(:cairnloop, :knowledge_base, Cairnloop.KnowledgeBase)
   end
+
+  # Returns the task title string for the breadcrumb (3-item trail) when a task is
+  # selected, or nil for the 2-item static lane crumb.
+  defp suggestion_review_crumb_title(nil), do: nil
+
+  defp suggestion_review_crumb_title(task), do: task_title(task)
 
   defp scope_filters(session) do
     host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)
