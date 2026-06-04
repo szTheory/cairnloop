@@ -362,6 +362,20 @@ defmodule Cairnloop.Chat do
     end)
   end
 
+  # Phase 42 Plan 02 (THREAD-01, D-04/D-06/D-07): next open conversation in inbox order.
+  # Additive sibling to list_conversations/1 — sealed clauses above are NOT modified.
+  # select(:id) only — never a full row load (D-07, cheap read).
+  # order_by mirrors inbox order: desc updated_at, then desc id as deterministic tiebreak (D-07).
+  # Returns the next open conversation id, or nil when the queue is clear (D-06).
+  def next_open_conversation(current_id) do
+    Conversation
+    |> where([c], c.status == :open and c.id != ^current_id)
+    |> order_by([c], desc: c.updated_at, desc: c.id)
+    |> limit(1)
+    |> select([c], c.id)
+    |> repo().one()
+  end
+
   # Phase 28: defensive PubSub broadcast helper.
   # Wraps Phoenix.PubSub.broadcast/3 in try/rescue so a missing registry (dev, test,
   # headless test environments) can never propagate an error back into an already-committed

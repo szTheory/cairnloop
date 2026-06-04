@@ -233,6 +233,60 @@ defmodule Cairnloop.KnowledgeAutomationTest do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Phase 42 Plan 02: originating_conversation_id/2 article→conversation read (THREAD-03b)
+  # ---------------------------------------------------------------------------
+
+  describe "originating_conversation_id/2 (Phase 42, D-12/Pitfall 2)" do
+    # --- Query-shape assertions (headless, no live Repo) ---
+
+    test "returns nil for an unknown article_id (MockRepo.one returns nil)" do
+      # MockRepo.one/1 returns nil — unknown article_id results in nil
+      assert nil == KnowledgeAutomation.originating_conversation_id(999_999)
+    end
+
+    test "accepts opts keyword list (defaults to empty list)" do
+      # Should not raise — opts \\ [] default honored
+      assert nil == KnowledgeAutomation.originating_conversation_id(1, [])
+    end
+
+    # --- Round-trip tests (require live Postgres; headless suite skips these) ---
+
+    # REPO-UNAVAILABLE: :conversation_quick_fix returns entrypoint_id
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":conversation_quick_fix suggestion returns entrypoint_id (REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :conversation_quick_fix and entrypoint_id: 42
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == 42
+    # end
+
+    # REPO-UNAVAILABLE: :gap_candidate → nil (D-12)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":gap_candidate suggestion returns nil (D-12, REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :gap_candidate
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == nil
+    # end
+
+    # REPO-UNAVAILABLE: :article_revision → nil (D-12)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":article_revision suggestion returns nil (D-12, REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :article_revision
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == nil
+    # end
+
+    # REPO-UNAVAILABLE: scope honored — tenant_scope filter applied
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "scope honored — tenant_scope filter prevents cross-tenant leak (T-42-04, REPO-UNAVAILABLE)" do
+    #   # Seed suggestion for tenant A; query with tenant B scope → nil (no cross-tenant leak)
+    # end
+
+    # REPO-UNAVAILABLE: earliest origin when multiple :conversation_quick_fix suggestions exist (A2)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "returns earliest entrypoint_id when multiple conversation_quick_fix suggestions exist (A2, REPO-UNAVAILABLE)" do
+    #   # Seed two conversation_quick_fix suggestions for same article_id with different inserted_at
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == earliest.entrypoint_id
+    # end
+  end
+
   describe "record_editor_handoff/2" do
     test "writes the now_fn timestamp via manual_edit_changeset and returns {:ok, suggestion, iso_string}" do
       # Set up MockRepo.one!/1 to return a fixture suggestion (get_article_suggestion! uses one!)

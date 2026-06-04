@@ -77,6 +77,24 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> enforce_scope!(opts, ArticleSuggestion)
   end
 
+  # Phase 42 Plan 02 (THREAD-03b, D-12/Pitfall 2): article→conversation origin read.
+  # NEW lookup keyed on article_id — do NOT reuse the editor's in-scope suggestion (nil
+  # on direct visit, Pitfall 2); Article has no belongs_to(:suggestion).
+  # Pipes through apply_scope/2 (tenant_scope + host_user_id — V4 access control, T-42-04).
+  # Only :conversation_quick_fix rows carry a conversation id (D-12);
+  # :gap_candidate / :article_revision → repo().one() returns nil → honest absence.
+  # All bindings parameterized with ^ (never interpolated, T-42-05).
+  # select(:entrypoint_id) only — minimal field exposure (T-42-06).
+  def originating_conversation_id(article_id, opts \\ []) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> where([s], s.article_id == ^article_id and s.entrypoint_type == :conversation_quick_fix)
+    |> order_by([s], asc: s.inserted_at)
+    |> limit(1)
+    |> select([s], s.entrypoint_id)
+    |> repo().one()
+  end
+
   def get_gap_candidate(id, opts \\ []) do
     get_gap_candidate!(id, opts)
   rescue

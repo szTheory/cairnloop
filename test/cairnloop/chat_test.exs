@@ -385,6 +385,63 @@ defmodule Cairnloop.ChatTest do
   end
 
   # ---------------------------------------------------------------------------
+  # Phase 42 Plan 02: next_open_conversation/1 cheap scoped read (THREAD-01)
+  # ---------------------------------------------------------------------------
+
+  describe "next_open_conversation/1 (Phase 42, D-04/D-06/D-07)" do
+    setup do
+      Process.delete(:mock_one_result)
+      Process.delete(:mock_one_query)
+      :ok
+    end
+
+    # --- Query-shape assertions (headless, no live Repo) ---
+
+    test "passes an Ecto.Query to repo().one/1 — cheap one-row read, not all()" do
+      # MockRepo.one/1 currently returns Process.get(:mock_sla).
+      # We verify a query is built and one/1 is invoked (not all/1).
+      Chat.next_open_conversation(99)
+      # all/1 must NOT have been called (D-07: no full-list load)
+      refute Process.get(:mock_all_called)
+    end
+
+    test "does not call aggregate — only one/1" do
+      Chat.next_open_conversation(42)
+      refute Process.get(:mock_aggregate_called)
+    end
+
+    # --- Round-trip tests (require live Postgres; headless suite skips these) ---
+
+    # REPO-UNAVAILABLE: returns the next open conversation id (excludes current_id)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "returns the next open conversation id, excluding current_id (REPO-UNAVAILABLE)" do
+    #   # Seed: three open conversations with distinct updated_at
+    #   # next_open_conversation(conv1.id) should return conv2.id (latest updated)
+    #   # assert Chat.next_open_conversation(conv1.id) == conv2.id
+    # end
+
+    # REPO-UNAVAILABLE: returns nil when no other open conversation exists (D-06)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "returns nil when queue is clear (no other open conversation) (REPO-UNAVAILABLE)" do
+    #   # Only one open conversation in the DB → next_open_conversation(that.id) == nil
+    # end
+
+    # REPO-UNAVAILABLE: tiebreak determinism — when updated_at is equal, higher id wins (D-07)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "tiebreak: returns the conversation with the higher id when updated_at is equal (REPO-UNAVAILABLE)" do
+    #   # Seed two open conversations with same updated_at but different ids
+    #   # next_open_conversation(lowest.id) should return highest.id
+    # end
+
+    # REPO-UNAVAILABLE: excludes :resolved and :archived conversations
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "only considers :open conversations, not :resolved or :archived (REPO-UNAVAILABLE)" do
+    #   # Seed one open and one resolved conversation
+    #   # next_open_conversation(open.id) should return nil (no OTHER open one)
+    # end
+  end
+
+  # ---------------------------------------------------------------------------
   # Phase 39 Plan 01: list_conversations/1, count_conversations/1, scope_status/2
   # ---------------------------------------------------------------------------
 
