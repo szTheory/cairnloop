@@ -2282,4 +2282,219 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert is_list(socket.assigns.governed_actions)
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 41 — Conversation rail progressive disclosure (D2)
+  #
+  # Wave 0 RED scaffold: 7 tests encoding the target structure from VALIDATION.md.
+  # Behavior 6 (D-09 render-purity) is GREEN now and stays green — it is a proxy
+  # assertion over the source file that no handle_event clause toggles disclosure
+  # open state. The other six tests are RED until Waves 1–3 land the production
+  # markup. Runtime dispatch (Function.capture) keeps --warnings-as-errors clean.
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action_card/1 — Phase 41 rail disclosure" do
+    # Behavior 1 (RAIL-01): Tier-1 isolation — pending footer + safety quartet
+    # render OUTSIDE any <details> (never collapsed). Asserts the post-restructure
+    # cl_disclosure Tier-2 groups exist AND the footer is balanced outside them.
+    test "RAIL-01: pending footer and safety quartet render outside any <details> (Tier-1 isolation)" do
+      proposal =
+        tool_proposal_fixture(%{
+          status: :proposed,
+          approval: %Cairnloop.Governance.ToolApproval{id: 7, status: :pending}
+        })
+
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # Pending footer must be present
+      assert html =~ "Approval required"
+
+      # The Tier-2 cl_disclosure groups must exist (post-restructure requirement);
+      # this assertion is RED until Wave 1 migrates the bespoke sections to cl_disclosure.
+      assert html =~ ~s(data-tier="2"),
+             "Expected Tier-2 cl_disclosure groups (data-tier=\"2\") to be present in the card markup (RAIL-01 post-restructure)"
+
+      # Split on the footer marker — everything before it must have balanced
+      # <details>/<details> tags (every disclosure opened before the footer is
+      # also closed before the footer, so the footer is a Tier-1 sibling).
+      [before_footer | _] = String.split(html, "governed-action-footer")
+      open_count = length(String.split(before_footer, "<details")) - 1
+      close_count = length(String.split(before_footer, "</details>")) - 1
+
+      assert open_count == close_count,
+             "All <details> opened before the footer must be closed before it (Tier-1 sibling invariant). " <>
+               "Found #{open_count} opens and #{close_count} closes before the footer marker."
+    end
+
+    # Behavior 2 (RAIL-02): Group structure — exactly 3 data-tier="2" groups +
+    # a standalone non-data-tier Trace group.
+    test "RAIL-02: exactly 3 Tier-2 groups with correct summaries, plus a non-tier-2 Trace group" do
+      proposal = tool_proposal_fixture(%{status: :proposed})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # Exactly 3 data-tier="2" occurrences
+      tier2_count = length(String.split(html, ~s(data-tier="2"))) - 1
+
+      assert tier2_count == 3,
+             "Expected exactly 3 data-tier=\"2\" groups (Inputs & scope, History, Policy explanation). Got #{tier2_count}."
+
+      # All three Tier-2 summaries present
+      assert html =~ "Inputs &amp; scope"
+      assert html =~ "History"
+      assert html =~ "Policy explanation"
+
+      # Trace group summary present
+      assert html =~ "Identifiers &amp; trace"
+
+      # Trace group is NOT Tier-2 (count stays at 3, not 4)
+      assert tier2_count == 3,
+             "Trace group must NOT carry data-tier=\"2\" (Expand-all must not reach it)."
+    end
+
+    # Behavior 3 (RAIL-02 mechanism): Every <details> carries phx-update="ignore"
+    # (patch-safe); count of <details equals count of phx-update="ignore".
+    test "RAIL-02 mechanism: every <details> carries phx-update=ignore and count >= 4" do
+      proposal = tool_proposal_fixture(%{status: :proposed})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      details_count = length(String.split(html, "<details")) - 1
+      ignore_count = length(String.split(html, ~s(phx-update="ignore"))) - 1
+
+      assert details_count == ignore_count,
+             "Every <details> must carry phx-update=\"ignore\" for PubSub patch-safety. " <>
+               "Got #{details_count} <details> elements but #{ignore_count} phx-update=\"ignore\" attributes."
+
+      assert details_count >= 4,
+             "Expected at least 4 <details> groups (3 Tier-2 + 1 Trace). Got #{details_count}."
+    end
+
+    # Behavior 4 (D-08 positive): Pending fixture → Inputs group emits static open.
+    # policy_denied fixture → both Inputs AND Policy groups emit open.
+    test "D-08 positive: pending proposal opens Inputs group; policy_denied opens both Inputs and Policy" do
+      # Pending: Inputs should be open
+      pending_proposal =
+        tool_proposal_fixture(%{
+          status: :proposed,
+          approval: %Cairnloop.Governance.ToolApproval{id: 8, status: :pending}
+        })
+
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html_pending = render_component(card_fn, proposal: pending_proposal)
+
+      assert html_pending =~ ~r/data-tier="2"[^>]*\bopen\b|\bopen\b[^>]*data-tier="2"/,
+             "Pending proposal must open the Inputs & scope Tier-2 group (D-08)"
+
+      # policy_denied: both Inputs and Policy should be open
+      denied_proposal = tool_proposal_fixture(%{status: :policy_denied})
+      html_denied = render_component(card_fn, proposal: denied_proposal)
+
+      open_tier2_count =
+        html_denied
+        |> String.split("<details")
+        |> Enum.drop(1)
+        |> Enum.count(fn segment ->
+          segment =~ ~s(data-tier="2") and segment =~ ~r/\bopen\b/
+        end)
+
+      assert open_tier2_count >= 2,
+             "policy_denied must open both Inputs & scope AND Policy explanation Tier-2 groups (D-08). " <>
+               "Found #{open_tier2_count} open Tier-2 groups."
+    end
+
+    # Behavior 5 (D-08 negative): Non-pending, non-blocked proposal → no Tier-2
+    # group emits a static open attribute. Asserts Tier-2 groups are present (post-restructure)
+    # but none carry open (the negative condition). RED until Wave 1 ships cl_disclosure groups.
+    test "D-08 negative: proposed (no pending approval) emits no static open on Tier-2 groups" do
+      proposal = tool_proposal_fixture(%{status: :proposed, approval: nil})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # The Tier-2 groups must be present in the post-restructure markup;
+      # this assertion is RED until Wave 1 migrates sections to cl_disclosure.
+      assert html =~ ~s(data-tier="2"),
+             "Expected Tier-2 cl_disclosure groups to be present; none found. (Post-restructure requirement — RED until Wave 1)"
+
+      refute html =~ ~r/data-tier="2"[^>]*\bopen\b/,
+             "Non-pending, non-blocked proposal must not emit static open on any Tier-2 group (D-08 negative)"
+    end
+
+    # Behavior 6 (D-09 render-purity — GREEN now and stays green):
+    # Assert no handle_event clause head names a disclosure/open-state toggle.
+    # Uses clause-head allow-list mechanism to avoid DOTALL false positives.
+    test "D-09 render-purity: no handle_event clause toggles <details> disclosure open state" do
+      # Resolve source path relative to this test file's location (robust, no hardcoded cwd)
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      # Extract all handle_event clause-head event names (NOT a DOTALL whole-file grep)
+      event_names =
+        Regex.scan(~r/def handle_event\(\s*"([^"]+)"/, src)
+        |> Enum.map(fn [_full, name] -> name end)
+
+      # Allow-list: the two known NAVIGATION events that happen to contain "open"
+      # but do NOT toggle a <details> open attribute
+      allowed_open_events = ["open_review_task", "open_manual_draft"]
+
+      # Any event name whose prefix suggests a disclosure toggle (open/close/toggle/expand/collapse/density)
+      # must be a subset of the allow-list (i.e. no undeclared disclosure events exist)
+      disclosure_like =
+        Enum.filter(event_names, fn name ->
+          name =~ ~r/^(open|close|toggle|expand|collapse|density)/
+        end)
+
+      assert disclosure_like -- allowed_open_events == [],
+             "Found handle_event clause heads that look like disclosure toggles but are not allow-listed: " <>
+               inspect(disclosure_like -- allowed_open_events) <>
+               " — D-09 requires no server-side disclosure open-state toggle."
+
+      # Belt-and-suspenders: assert no open={@...} binding exists in the source
+      # other than the two static auto-open assigns (auto_open_inputs / auto_open_policy)
+      refute src =~ ~r/open=\{@(?!auto_open_inputs|auto_open_policy)\w+\}/,
+             "Found open={@...} bound to an assign other than @auto_open_inputs or @auto_open_policy — " <>
+               "D-09 requires open state to be static-only (never a post-event live assign)."
+    end
+
+    # Behavior 7 (RAIL-03 controls): Rail-level control bar markup — Expand all /
+    # Collapse all with JS set_attribute/remove_attribute scoped to [data-tier='2'],
+    # plus data-density="comfortable" default.
+    test "RAIL-03: control bar has Expand/Collapse-all JS commands scoped to [data-tier='2'] and density default" do
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src = File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      assert src =~ "Expand all",
+             "Rail control bar must contain 'Expand all' button (RAIL-03)"
+
+      assert src =~ "Collapse all",
+             "Rail control bar must contain 'Collapse all' button (RAIL-03)"
+
+      assert src =~ ~s|set_attribute({"open", ""}|,
+             "Expand-all JS must use set_attribute({\"open\", \"\"}, ...) (RAIL-03)"
+
+      assert src =~ ~s|remove_attribute("open"|,
+             "Collapse-all JS must use remove_attribute(\"open\", ...) (RAIL-03)"
+
+      assert src =~ ~s|to: "[data-tier='2']"|,
+             "Expand/Collapse-all JS must be scoped to [data-tier='2'] (RAIL-03 — must not reach Tier-1 or Tier-3)"
+
+      assert src =~ ~s|data-density="comfortable"|,
+             "Rail must emit data-density=\"comfortable\" as the default density (RAIL-03)"
+    end
+  end
 end
