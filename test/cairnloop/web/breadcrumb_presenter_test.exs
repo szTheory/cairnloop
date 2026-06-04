@@ -258,4 +258,86 @@ defmodule Cairnloop.Web.BreadcrumbPresenterTest do
       refute return_to in labels
     end
   end
+
+  # ---------------------------------------------------------------------------
+  # editor_items/3 — origin-conversation crumb variant (Phase 42 THREAD-03b)
+  # ---------------------------------------------------------------------------
+
+  describe "editor_items/3 with a present origin conversation id" do
+    setup do
+      %{origin_id: 99, return_to: "/knowledge-base/suggestions?task=7", title: "Returns policy"}
+    end
+
+    test "first crumb is 'From conversation' with scope-relative href /id", %{
+      origin_id: origin_id,
+      return_to: return_to,
+      title: title
+    } do
+      [first | _] = P.editor_items(origin_id, return_to, title)
+      assert first.label == "From conversation"
+      assert first.href == "/99"
+    end
+
+    test "href is scope-root-relative — no /support prefix", %{
+      origin_id: origin_id,
+      return_to: return_to,
+      title: title
+    } do
+      [first | _] = P.editor_items(origin_id, return_to, title)
+      refute String.contains?(first.href, "/support"),
+             "origin crumb href must be scope-root-relative, not mount-prefixed"
+    end
+
+    test "remaining crumbs match editor_items/2 output for the same return_to and title", %{
+      origin_id: origin_id,
+      return_to: return_to,
+      title: title
+    } do
+      [_ | rest] = P.editor_items(origin_id, return_to, title)
+      assert rest == P.editor_items(return_to, title)
+    end
+
+    test "satisfies the last-crumb contract", %{
+      origin_id: origin_id,
+      return_to: return_to,
+      title: title
+    } do
+      assert_last_crumb_contract(P.editor_items(origin_id, return_to, title))
+    end
+  end
+
+  describe "editor_items/3 with nil origin conversation id" do
+    setup do
+      %{return_to: "/42", title: "Shipping info"}
+    end
+
+    test "returns exactly the same output as editor_items/2 (no extra crumb)", %{
+      return_to: return_to,
+      title: title
+    } do
+      assert P.editor_items(nil, return_to, title) == P.editor_items(return_to, title)
+    end
+
+    test "satisfies the last-crumb contract", %{return_to: return_to, title: title} do
+      assert_last_crumb_contract(P.editor_items(nil, return_to, title))
+    end
+  end
+
+  describe "editor_items/3 with nil return_to and nil origin" do
+    test "falls back to the 2-item static list — same as editor_items/2 with nil return_to" do
+      items = P.editor_items(nil, nil, "Fallback title")
+      assert items == P.editor_items(nil, "Fallback title")
+      assert length(items) == 2
+      assert_last_crumb_contract(items)
+    end
+  end
+
+  describe "editor_items/3 last-crumb contract — exhaustive" do
+    test "all editor_items/3 clauses end with a no-href crumb" do
+      assert_last_crumb_contract(P.editor_items(42, "/42", "T"))
+      assert_last_crumb_contract(P.editor_items(42, nil, "T"))
+      assert_last_crumb_contract(P.editor_items(nil, "/42", "T"))
+      assert_last_crumb_contract(P.editor_items(nil, nil, "T"))
+    end
+  end
 end

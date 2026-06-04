@@ -21,6 +21,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
       content = preload_content(suggestion, latest_revision)
       gap_candidate = load_gap_candidate_from_suggestion(suggestion, scope_filters)
 
+      origin_conversation_id =
+        knowledge_automation().originating_conversation_id(article.id, scope_filters)
+
       socket =
         socket
         |> assign(article: article)
@@ -30,6 +33,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
         |> assign(review_context: review_context)
         |> assign(review_origin?: review_context.review_task != nil)
         |> assign(gap_candidate: gap_candidate)
+        |> assign(origin_conversation_id: origin_conversation_id)
 
       {:ok, socket}
     rescue
@@ -263,7 +267,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
     <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
       <.cl_page title={"Editing: #{@article.title}"} width="wide">
         <:breadcrumb>
-          <.cl_breadcrumb items={BreadcrumbPresenter.editor_items(@review_context.return_to, @article.title)} />
+          <.cl_breadcrumb items={BreadcrumbPresenter.editor_items(@origin_conversation_id, @review_context.return_to, @article.title)} />
         </:breadcrumb>
         <:subnav><.kb_nav current={:editor} /></:subnav>
 
