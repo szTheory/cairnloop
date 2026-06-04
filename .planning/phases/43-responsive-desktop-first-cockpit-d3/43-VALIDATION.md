@@ -34,8 +34,8 @@ created: 2026-06-04
 
 - **After every task commit:** Run `mix test test/cairnloop/web/cairnloop_css_test.exs` (+ any new `responsive_markup_test.exs`) — sub-second, DB-free.
 - **After every plan wave:** Run `mix compile --warnings-as-errors` + `mix test` (incl. brand-token gate).
-- **Before `/gsd:verify-work`:** Full suite must be green AND manual 768px viewport verification complete.
-- **Max feedback latency:** ~2 seconds for the CSS/markup scans.
+- **Before `/gsd:verify-work`:** Full suite green AND the gated `e2e` lane green (`inbox_geometry_test.exs` — automated 768px rendered-geometry; no manual step).
+- **Max feedback latency:** ~2 seconds for the CSS/markup scans; the geometry E2E runs in the gated CI `e2e` lane.
 
 ---
 
@@ -48,8 +48,8 @@ created: 2026-06-04
 | 43-01-* | 01 | 1 | RESP-01 | — | No `var()` inside any `@media` condition | unit (CSS file scan) | same | ✅ extend | ⬜ pending |
 | 43-02-* | 02 | 2 | RESP-02 | — | Each `.cl-table` wrapped w/ `role="region"`/`tabindex="0"`/`aria-label` | unit (source `.ex` scan, Repo-free) | `mix test test/cairnloop/web/cairnloop_css_test.exs` (or new `responsive_markup_test.exs`) | ❌ W0 (recommended new test) | ⬜ pending |
 | 43-02-* | 02 | 2 | RESP-02 | — | Conversation layout: stacked base + `min-width:1024` two-column row | unit (CSS file scan) | assert `.conversation-layout` base column + `min-width:1024` | ✅ extend | ⬜ pending |
-| 43-03-* | 03 | 2 | RESP-02 | — | Tap targets ≥44px on bulk-bar controls + both raw checkboxes | unit (CSS scan + markup) | assert `.cl-button--lg`/`min-height:44px`; assert checkbox sizing class | ❌ W0 | ⬜ pending |
-| 43-03-* | 03 | 2 | RESP-02 | — | Bulk-bar wraps (`.cl-row--wrap`) + clears last row | **manual / visual** | screenshot pipeline or manual 768px resize | human-needed | ⬜ pending |
+| 43-03-* | 03 | 3 | RESP-02 | — | Tap targets ≥44px on bulk-bar controls + both raw checkboxes | unit (CSS scan + markup) + browser E2E (rendered geometry) | `mix test test/cairnloop/web/responsive_markup_test.exs`; `mix test.e2e` (`inbox_geometry_test.exs`) | ✅ both | ⬜ pending |
+| 43-03-* | 03 | 3 | RESP-02 | — | Bulk-bar clears last row (no sticky occlusion) at 768px | **browser E2E (was manual)** | `mix test.e2e` — `inbox_geometry_test.exs` scrolls to bottom, asserts last-row bottom ≤ bulk-bar top | ✅ gated CI e2e lane | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -63,13 +63,26 @@ created: 2026-06-04
 
 ---
 
-## Manual-Only Verifications
+## Rendered-Geometry Verifications — AUTOMATED (formerly Manual-Only)
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| Sticky bulk-bar clears / does not occlude the last inbox row | RESP-02 | Scroll-occlusion is a rendered-geometry behavior; no current bottom clearance exists (no `padding-bottom` on the inbox list) — only a real viewport shows the fix | Resize Inbox to 768px width, select rows to show the bulk-bar, scroll to the bottom; confirm the last row is fully reachable above the sticky bar |
-| No visual regression from the two `max-width:640` → `min-width` conversions | RESP-01 | Behavioral equivalence of the converted media queries is best confirmed visually | At 768px and ~600px widths, confirm `.cl-main` padding and `.cl-nav` layout match pre-conversion behavior |
-| Inbox table scrolls accessibly + conversation rail stacks below header at 768px | RESP-02 | Tablet-viewport layout is a rendered behavior | At 768px: Inbox table scrolls horizontally inside its `role="region"` wrapper; conversation evidence-rail stacks below the conversation header |
+> **Zero human UAT.** The three rendered-geometry behaviors below were originally flagged
+> manual-only. Per the owner's "automate the world / shift-left onto CI" directive, they are now
+> measured by a gated Playwright E2E at a 768px viewport
+> (`examples/cairnloop_example/test/e2e/inbox_geometry_test.exs`, via the `evaluate/3`
+> `getBoundingClientRect()`/`getComputedStyle()` bridge) — the same pattern Phases 41/42 used. The
+> CI `e2e` job is a required `release_gate` check and `mix test.e2e` auto-discovers the file, so
+> these run on every push with no human in the loop. (Local run is blocked only by this workspace's
+> Postgres lacking the pgvector extension; CI uses `pgvector/pgvector:pg16`.)
+
+| Behavior | Requirement | Automated By | Assertion |
+|----------|-------------|--------------|-----------|
+| Sticky bulk-bar clears / does not occlude the last inbox row | RESP-02 | `inbox_geometry_test.exs` (E2E) | Select all, scroll to bottom; assert last `li` bottom ≤ `.cl-inbox-bulk-bar` top (also catches a future `position: fixed` regression) |
+| Tap targets ≥44×44px (checkboxes + bulk-bar buttons) | RESP-02 | `inbox_geometry_test.exs` (E2E) | `getBoundingClientRect()` width/height ≥ 44 on both `.cl-checkbox` and both `.cl-button--lg` |
+| No visual regression from the `max-width:640` → `min-width` conversions | RESP-01 | `inbox_geometry_test.exs` (E2E) | `.cl-main` computed `padding-left` ≥ 24px at 768px (min-width rule fired) + `.cl-nav__link` renders |
+
+> **Note:** Inbox horizontal table scroll + conversation rail stacking below 1024 are pinned by the
+> Plan 02 source-scan (`responsive_markup_test.exs`) and the CSS-scan (`cairnloop_css_test.exs`);
+> the geometry E2E above covers the inbox-specific tap-target and occlusion facts.
 
 ---
 

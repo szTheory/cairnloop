@@ -70,6 +70,19 @@ vM016 ratified decisions (do not re-litigate):
 - **Motion:** transform + opacity only; `prefers-reduced-motion` honored live; never on reply-send,
   keystrokes, count ticks, or layout properties.
 
+- **Verification policy — rendered-behavior checkpoints are GATED E2E, never human-verify
+  (ratified 2026-06-04, owner directive "automate the world / 0 human UAT"):** Any phase check that
+  needs a real browser (rendered geometry, tap-target hit area, sticky/scroll occlusion, animation,
+  client-only JS) MUST be authored as a Playwright E2E in
+  `examples/cairnloop_example/test/e2e/*_test.exs` (`PhoenixTest.Playwright.Case`, `@moduletag :e2e`,
+  `evaluate/3` for `getBoundingClientRect()`/`getComputedStyle()`; set viewport via
+  `browser_context_opts: [viewport: %{...}]`). The gated `e2e` release-gate job runs them on every
+  push (`mix test.e2e` auto-discovers the file — no CI-config change). Do NOT plan `autonomous:
+  false` human-verify tasks for these. Precedent: Phase 41 (`rail_disclosure_test.exs`), Phase 42
+  (`thread_navigation_test.exs`), Phase 43 (`inbox_geometry_test.exs`). Phases 44 (Motion) / 45
+  inherit this default — Phase 44's `prefers-reduced-motion` + transform/opacity assertions belong in
+  an E2E, not a manual gate. (Local run needs `pgvector/pgvector:pg16`; CI provides it.)
+
 ### Pending Todos
 
 - None. (The vM016 demo/visual-proof work shipped via **PR #15** — merged to `main` 2026-05-30,

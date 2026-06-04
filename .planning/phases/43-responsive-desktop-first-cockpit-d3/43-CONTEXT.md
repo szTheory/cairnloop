@@ -48,6 +48,9 @@ All interactive controls (buttons, checkboxes, links in the bulk-bar and elsewhe
 ### D3-08 — Inline styles → utilities (RESP-02)
 Responsive-relevant inline `style=` attributes in touched render files migrate to `.cl-` utility classes. This composes with the Phase 40 hardened brand-token gate (inline `style=` with hex is already flagged) — do not re-introduce drift.
 
+### Verification ratification (2026-06-04, owner directive — supersedes the D3-06/D3-07 manual gate)
+The rendered-geometry facts of D3-06 (bulk-bar occlusion) and D3-07 (tap-target hit area), plus the D3-01/02/03 768px non-regression, are verified by a **gated Playwright E2E** (`examples/cairnloop_example/test/e2e/inbox_geometry_test.exs`), NOT a human-verify checkpoint. Owner directive: automate the world, zero human UAT, shift left onto the gated CI `e2e` lane (recurring drift-proofing value). This is now a project-level convention — see STATE.md "Verification policy". Phase 43 carries no `autonomous: false` task.
+
 ### Architecture posture (carried — do not violate)
 - No Tailwind, no build step — BEM + `.cl-` utilities in `priv/static/cairnloop.css`.
 - `mix compile --warnings-as-errors` and `mix test` (incl. hardened brand-token gate) must stay green.
