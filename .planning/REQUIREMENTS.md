@@ -32,8 +32,8 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Drift Remediation (DRIFT)
 
-- [ ] **DRIFT-01**: `conversation_live.ex` and `search_modal_component.ex` carry zero off-palette hardcoded hex — the documented hex→token map is applied (border / text / danger / warning, and info+success via `cl_source_card source_variant`).
-- [ ] **DRIFT-02**: The hand-rolled approve/reject/defer footer is rebuilt with `cl_button` variants + a shared textarea class, and bespoke inline-layout `style=` attributes migrate to `.cl-` utilities.
+- [x] **DRIFT-01**: `conversation_live.ex` and `search_modal_component.ex` carry zero off-palette hardcoded hex — the documented hex→token map is applied (border / text / danger / warning, and info+success via `cl_source_card source_variant`).
+- [x] **DRIFT-02**: The hand-rolled approve/reject/defer footer is rebuilt with `cl_button` variants + a shared textarea class, and bespoke inline-layout `style=` attributes migrate to `.cl-` utilities.
 
 ### Brand-Token Gate Hardening (GATE)
 
@@ -112,8 +112,8 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | HOME-03 | Phase 39 | Complete |
 | HOME-04 | Phase 39 | Complete |
 | HOME-05 | Phase 39 | Complete |
-| DRIFT-01 | Phase 40 | Pending |
-| DRIFT-02 | Phase 40 | Pending |
+| DRIFT-01 | Phase 40 | Complete |
+| DRIFT-02 | Phase 40 | Complete |
 | GATE-01 | Phase 40 | Complete |
 | GATE-02 | Phase 40 | Complete |
 | RAIL-01 | Phase 41 | Complete |
