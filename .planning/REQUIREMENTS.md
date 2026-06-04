@@ -42,9 +42,9 @@ Requirements for milestone vM016. Each maps to exactly one roadmap phase (37–4
 
 ### Conversation Rail Progressive Disclosure — D2 (RAIL)
 
-- [ ] **RAIL-01**: The conversation rail is reordered so Tier 1 — headline + status + the safety quartet (risk tier · confidence/grounding · policy outcome · approval mode) + the pending Approve/Reject/Defer footer — never collapses.
-- [ ] **RAIL-02**: Tier 2/3 detail (Inputs & scope, History, Policy explanation; raw snapshots, per-event metadata, trace ids) lives in native `<details>`/`<summary>` with no assigns-bound open state, surviving the conversation's PubSub reload handlers.
-- [ ] **RAIL-03**: Blocking/pending cards auto-expand, and a rail-level Expand-all/Collapse-all plus a remembered density toggle (localStorage) work via `Phoenix.LiveView.JS` without ever touching Tier 1.
+- [x] **RAIL-01**: The conversation rail is reordered so Tier 1 — headline + status + the safety quartet (risk tier · confidence/grounding · policy outcome · approval mode) + the pending Approve/Reject/Defer footer — never collapses.
+- [x] **RAIL-02**: Tier 2/3 detail (Inputs & scope, History, Policy explanation; raw snapshots, per-event metadata, trace ids) lives in native `<details>`/`<summary>` with no assigns-bound open state, surviving the conversation's PubSub reload handlers.
+- [x] **RAIL-03**: Blocking/pending cards auto-expand, and a rail-level Expand-all/Collapse-all plus a remembered density toggle (localStorage) work via `Phoenix.LiveView.JS` without ever touching Tier 1.
 
 ### Cross-Screen Threading (THREAD)
 
@@ -116,9 +116,9 @@ Deferred to a future iteration; acknowledged but not in the vM016 roadmap.
 | DRIFT-02 | Phase 40 | Pending |
 | GATE-01 | Phase 40 | Complete |
 | GATE-02 | Phase 40 | Complete |
-| RAIL-01 | Phase 41 | Pending |
-| RAIL-02 | Phase 41 | Pending |
-| RAIL-03 | Phase 41 | Pending |
+| RAIL-01 | Phase 41 | Complete |
+| RAIL-02 | Phase 41 | Complete |
+| RAIL-03 | Phase 41 | Complete |
 | THREAD-01 | Phase 42 | Pending |
 | THREAD-02 | Phase 42 | Pending |
 | THREAD-03 | Phase 42 | Pending |
