@@ -59,4 +59,28 @@ defmodule Cairnloop.Web.HomeLiveTest do
     assert html =~ "—"
     assert html =~ "Knowledge gaps unavailable"
   end
+
+  # ---------------------------------------------------------------------------
+  # Phase 38 Task 1 — cl_page shell migration render assertions (SHELL-01).
+  # ---------------------------------------------------------------------------
+
+  test "renders inside cl-page--wide with cl-page__title and verbatim title" do
+    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{})))
+
+    assert html =~ ~s(cl-page cl-page--wide),
+           "expected class=\"cl-page cl-page--wide\" in rendered HTML"
+
+    assert html =~ ~s(cl-page__title),
+           "expected class=\"cl-page__title\" in rendered HTML"
+
+    assert html =~ "Welcome back",
+           "expected verbatim title 'Welcome back'"
+  end
+
+  test "renders the subtitle inside cl-page with verbatim subtitle text" do
+    html = rendered_to_string(Cairnloop.Web.HomeLive.render(assigns(%{})))
+
+    assert html =~ "What needs you today?",
+           "expected verbatim subtitle 'What needs you today?'"
+  end
 end

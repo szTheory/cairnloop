@@ -87,13 +87,11 @@ defmodule Cairnloop.Web.AuditLogLive do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:audit} destinations={Cairnloop.Web.Nav.destinations()}>
-      <header class="cl-mb-7">
-        <h1>Audit Log</h1>
-        <p class="cl-text-muted">
-          A timeline of governed actions and their outcomes. Search or filter to narrow the view.
-        </p>
-      </header>
-
+      <.cl_page
+        title="Audit Log"
+        subtitle="A timeline of governed actions and their outcomes. Search or filter to narrow the view."
+        width="wide"
+      >
       <.cl_card>
         <:header>
           <div class="cl-row cl-row--wrap cl-grow">
@@ -162,6 +160,7 @@ defmodule Cairnloop.Web.AuditLogLive do
           <.cl_button type="button" phx-click="load_more" variant="ghost">Load more</.cl_button>
         </div>
       </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

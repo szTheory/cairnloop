@@ -112,18 +112,17 @@ defmodule Cairnloop.Web.InboxLive do
   def render(assigns) do
     ~H"""
     <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.live_component
-        module={Cairnloop.Web.SearchModalComponent}
-        id="search-modal"
-        host_surface="inbox"
-        host_user_id={@host_user_id}
-        current_path="/"
-      />
+      <.cl_page title="Inbox" width="wide">
+        <.live_component
+          module={Cairnloop.Web.SearchModalComponent}
+          id="search-modal"
+          host_surface="inbox"
+          host_user_id={@host_user_id}
+          current_path="/"
+        />
 
-      <div class="cairnloop-inbox">
-        <h1>Inbox</h1>
-
-        <%= if @conversations == [] do %>
+        <div class="cairnloop-inbox">
+          <%= if @conversations == [] do %>
           <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
           <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
             No conversations yet.
@@ -275,7 +274,8 @@ defmodule Cairnloop.Web.InboxLive do
             </.focus_wrap>
           </div>
         <% end %>
-      </div>
+        </div>
+      </.cl_page>
     </.cl_shell>
     """
   end
