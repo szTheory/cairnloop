@@ -65,4 +65,25 @@ defmodule Cairnloop.Web.CairnloopCssTest do
       assert css =~ ".cl-switch__track"
     end
   end
+
+  describe "responsive normalization (D3 / RESP-01)" do
+    test "no max-width width media conditions remain (mobile-first)", %{css: css} do
+      refute css =~ ~r/@media\s*\(\s*max-width/, "all media queries must be min-width (mobile-first)"
+    end
+
+    test "documents the three standardized breakpoints as literal constants", %{css: css} do
+      assert css =~ "640px"
+      assert css =~ "768px"
+      assert css =~ "1024px"
+      assert css =~ "BREAKPOINTS"
+    end
+
+    test "breakpoints are NOT tokenized (var() illegal in @media)", %{css: css} do
+      refute css =~ ~r/@media\s*\([^)]*var\(/, "var() in @media silently no-ops"
+    end
+
+    test ".cl-table-scroll still defined (no regression from normalization)", %{css: css} do
+      assert css =~ ".cl-table-scroll"
+    end
+  end
 end
