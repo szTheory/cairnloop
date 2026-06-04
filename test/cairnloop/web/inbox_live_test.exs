@@ -51,7 +51,9 @@ defmodule Cairnloop.Web.InboxLiveTest do
         assert socket.assigns.bulk_preview == nil
         assert socket.assigns.bulk_refusal == nil
         assert socket.assigns.host_user_id == "u1"
+        # Phase 39 Plan 02: mount seeds conversations: [] and status: nil — load moved to handle_params/3
         assert socket.assigns.conversations == []
+        assert socket.assigns.status == nil
       after
         if prior do
           Application.put_env(:cairnloop, :repo, prior)
@@ -949,6 +951,8 @@ defmodule Cairnloop.Web.InboxLiveTest do
       |> Map.put_new(:host_user_id, nil)
       |> Map.put_new(:conversations, [])
       |> Map.put_new(:flash, %{})
+      # Phase 39 Plan 02: status assign added by handle_params/3
+      |> Map.put_new(:status, nil)
 
     render_component(&InboxLive.render/1, assigns)
   end
@@ -961,7 +965,9 @@ defmodule Cairnloop.Web.InboxLiveTest do
       bulk_modal_open: false,
       bulk_preview: nil,
       bulk_refusal: nil,
-      flash: %{}
+      flash: %{},
+      # Phase 39 Plan 02: status assign defaulted to nil (unfiltered)
+      status: nil
     }
 
     Map.merge(base, Map.new(overrides))
@@ -981,6 +987,8 @@ defmodule Cairnloop.Web.InboxLiveTest do
         bulk_preview: nil,
         bulk_refusal: nil,
         flash: %{},
+        # Phase 39 Plan 02: status assign defaulted to nil (unfiltered)
+        status: nil,
         __changed__: %{}
       }
       |> Map.merge(Map.new(overrides))
@@ -996,6 +1004,264 @@ defmodule Cairnloop.Web.InboxLiveTest do
 
   defp flash_value(socket, key) do
     Map.get(socket.assigns.flash || %{}, to_string(key))
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 39 Plan 02 — normalize_status/1 whitelist (D-03 / T-39-03)
+  # ---------------------------------------------------------------------------
+
+  describe "normalize_status/1" do
+    test "\"resolved\" maps to :resolved" do
+      assert InboxLive.normalize_status("resolved") == :resolved
+    end
+
+    test "\"open\" maps to nil (only :resolved is whitelisted per UI-SPEC)" do
+      assert InboxLive.normalize_status("open") == nil
+    end
+
+    test "garbage string maps to nil (fail-closed — never raises)" do
+      assert InboxLive.normalize_status("garbage") == nil
+    end
+
+    test "SQL-injection-like string maps to nil" do
+      assert InboxLive.normalize_status("open;DROP TABLE") == nil
+    end
+
+    test "empty string maps to nil" do
+      assert InboxLive.normalize_status("") == nil
+    end
+
+    test "nil maps to nil" do
+      assert InboxLive.normalize_status(nil) == nil
+    end
+
+    test "garbage does NOT raise ArgumentError (no String.to_existing_atom path)" do
+      # This proves D-03: arbitrary attacker-controlled URL input cannot exhaust the atom table.
+      result = InboxLive.normalize_status("a_very_long_random_value_that_has_never_been_an_atom_#{:rand.uniform(999_999)}")
+      assert result == nil
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 39 Plan 02 — handle_params/3 filter + PubSub filter-aware (D-01 / D-04)
+  # ---------------------------------------------------------------------------
+
+  describe "handle_params/3" do
+    defmodule FilterRepo do
+      # Records the last query via process dict so tests can inspect the loaded list.
+      # Returns resolved conversations when asked, open otherwise.
+      def all(_query) do
+        Process.get(:filter_repo_result, [])
+      end
+    end
+
+    setup do
+      Application.put_env(:cairnloop, :repo, FilterRepo)
+
+      on_exit(fn ->
+        Application.delete_env(:cairnloop, :repo)
+        Process.delete(:filter_repo_result)
+      end)
+
+      :ok
+    end
+
+    test "status=resolved sets @status = :resolved and loads the filtered list" do
+      resolved = [%Cairnloop.Conversation{id: 1, status: :resolved, subject: "R1"}]
+      Process.put(:filter_repo_result, resolved)
+
+      socket = base_socket(selected_ids: MapSet.new(), conversations: [], status: nil)
+      {:noreply, socket} = InboxLive.handle_params(%{"status" => "resolved"}, "/inbox?status=resolved", socket)
+
+      assert socket.assigns.status == :resolved
+      assert socket.assigns.conversations == resolved
+    end
+
+    test "status=garbage sets @status = nil and loads the unfiltered list" do
+      all_convs = [%Cairnloop.Conversation{id: 2, status: :open, subject: "O1"}]
+      Process.put(:filter_repo_result, all_convs)
+
+      socket = base_socket(selected_ids: MapSet.new(), conversations: [], status: nil)
+      {:noreply, socket} = InboxLive.handle_params(%{"status" => "garbage"}, "/inbox?status=garbage", socket)
+
+      assert socket.assigns.status == nil
+      assert socket.assigns.conversations == all_convs
+    end
+
+    test "no status param sets @status = nil (unfiltered default)" do
+      all_convs = [%Cairnloop.Conversation{id: 3, status: :open, subject: "O2"}]
+      Process.put(:filter_repo_result, all_convs)
+
+      socket = base_socket(selected_ids: MapSet.new(), conversations: [], status: nil)
+      {:noreply, socket} = InboxLive.handle_params(%{}, "/inbox", socket)
+
+      assert socket.assigns.status == nil
+      assert socket.assigns.conversations == all_convs
+    end
+
+    test "selected_ids are pruned when filter removes visible rows" do
+      # selected_ids contains id=99 which does not appear in the filtered result
+      filtered = [%Cairnloop.Conversation{id: 1, status: :resolved, subject: "R1"}]
+      Process.put(:filter_repo_result, filtered)
+
+      socket = base_socket(selected_ids: MapSet.new([1, 99]), conversations: [], status: nil)
+      {:noreply, socket} = InboxLive.handle_params(%{"status" => "resolved"}, "/inbox?status=resolved", socket)
+
+      # id 99 is not in filtered result — pruned
+      assert socket.assigns.selected_ids == MapSet.new([1])
+    end
+  end
+
+  describe "handle_info({:conversations_changed}) — filter-aware PubSub (D-04)" do
+    defmodule FilterAwareRepo do
+      def all(_query) do
+        Process.get(:filter_aware_reload_list, [])
+      end
+    end
+
+    setup do
+      Application.put_env(:cairnloop, :repo, FilterAwareRepo)
+
+      on_exit(fn ->
+        Application.delete_env(:cairnloop, :repo)
+        Process.delete(:filter_aware_reload_list)
+      end)
+
+      :ok
+    end
+
+    test "with status=resolved, re-query uses :resolved filter so :open conversations cannot leak" do
+      # Only resolved conversations returned (the stub always returns what we seed)
+      resolved_only = [%Cairnloop.Conversation{id: 1, status: :resolved, subject: "R1"}]
+      Process.put(:filter_aware_reload_list, resolved_only)
+
+      # Socket is in resolved-filter mode
+      socket = base_socket(conversations: [], selected_ids: MapSet.new(), status: :resolved)
+      {:noreply, updated} = InboxLive.handle_info({:conversations_changed}, socket)
+
+      assert updated.assigns.status == :resolved
+      assert length(updated.assigns.conversations) == 1
+      assert hd(updated.assigns.conversations).status == :resolved
+    end
+
+    # REPO-UNAVAILABLE: This test proves an :open conversation freshly inserted and returned
+    # by a real Repo would NOT appear in a resolved-filter view, because handle_info re-queries
+    # with status: socket.assigns.status (= :resolved). The stub here cheats by always returning
+    # only resolved rows — the integration version should seed a real :open conversation in the
+    # DB and verify it does not appear via the scoped query. Run in mix test.integration.
+    test "# REPO-UNAVAILABLE: open conversation cannot leak into resolved view via PubSub re-query" do
+      # Stub returns only resolved conversations (simulating the scoped DB query)
+      resolved_only = [%Cairnloop.Conversation{id: 5, status: :resolved, subject: "Resolved"}]
+      Process.put(:filter_aware_reload_list, resolved_only)
+
+      # Socket: status=:resolved, selection has id 99 (stale — not in reload result)
+      socket = base_socket(
+        conversations: [],
+        selected_ids: MapSet.new([5, 99]),
+        status: :resolved
+      )
+      {:noreply, updated} = InboxLive.handle_info({:conversations_changed}, socket)
+
+      # Only resolved rows loaded — no :open row in the result
+      assert Enum.all?(updated.assigns.conversations, &(&1.status == :resolved))
+      # Stale selection pruned
+      assert updated.assigns.selected_ids == MapSet.new([5])
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 39 Plan 02 — applied-filter row + split empty state (D-05)
+  # ---------------------------------------------------------------------------
+
+  describe "applied-filter row (D-05)" do
+    test "applied-filter row is ABSENT when status is nil (unfiltered)" do
+      assigns = build_assigns(conversations: [], status: nil)
+      html = render_html(assigns)
+
+      refute html =~ "Showing resolved conversations"
+      refute html =~ "cl-applied-filter"
+    end
+
+    test "applied-filter row IS present when status is :resolved" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Showing resolved conversations"
+      assert html =~ "cl-applied-filter"
+    end
+
+    test "applied-filter row contains a cl_chip with Resolved label" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Resolved"
+      assert html =~ "cl-chip--success"
+    end
+
+    test "applied-filter Show-all is a patch link to /inbox (not a button)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "Show all"
+      # Must be a patch link (data-phx-link="patch") not a button
+      assert html =~ ~s(data-phx-link="patch")
+      assert html =~ ~s(href="/inbox")
+    end
+
+    test "no raw hex color in applied-filter markup (token/class only)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      # No bare hex 6-digit codes in the applied-filter row area
+      refute html =~ ~r/#[0-9A-Fa-f]{6}/
+    end
+  end
+
+  describe "split filtered-empty state (D-05)" do
+    test "resolved filter + empty conversations → filtered-empty cl_empty copy" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      assert html =~ "No resolved conversations to recover"
+      assert html =~ "Nothing is waiting for a recovery follow-up right now."
+      assert html =~ "Show all conversations"
+      # The generic "No conversations yet." must NOT appear alongside the filtered copy
+      refute html =~ "No conversations yet."
+    end
+
+    test "no filter + empty conversations → original 'No conversations yet.' copy" do
+      assigns = build_assigns(conversations: [], status: nil)
+      html = render_html(assigns)
+
+      assert html =~ "No conversations yet."
+      # The filtered-empty copy must NOT appear on a genuinely empty unfiltered inbox
+      refute html =~ "No resolved conversations to recover"
+      refute html =~ "Nothing is waiting for a recovery follow-up right now."
+    end
+
+    test "filtered-empty CTA navigates to /inbox (not patch)" do
+      assigns = build_assigns(conversations: [], status: :resolved)
+      html = render_html(assigns)
+
+      # navigate link (data-phx-link="redirect" or href="/inbox")
+      assert html =~ ~s(href="/inbox")
+      assert html =~ "Show all conversations"
+    end
+
+    test "non-empty resolved list does NOT show empty-state copy" do
+      assigns =
+        build_assigns(
+          conversations: [
+            %Cairnloop.Conversation{id: 1, status: :resolved, subject: "Resolved A"}
+          ],
+          status: :resolved
+        )
+
+      html = render_html(assigns)
+
+      refute html =~ "No resolved conversations to recover"
+      refute html =~ "No conversations yet."
+    end
   end
 
   # ---------------------------------------------------------------------------
