@@ -375,7 +375,10 @@ discretion whether it rides an assign vs a presenter; copy is discretion (calm, 
 **No table is empty:** these three are genuine open choices left to the planner; none clear the
 VERY-impactful escalation bar.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Both questions carry an inline **Recommendation** and are threaded into the plans (Plan 01
+> adopts the `proposal_id:` opt; Plan 03 adopts the explicit-link-element form). No unresolved gap.
 
 1. **`?proposal` filter via new `list_action_events(proposal_id:)` opt vs reuse `list_events/1`?**
    - Known: `list_events/1` (`:978`) already filters by `proposal_id` (positional) but returns
