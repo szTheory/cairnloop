@@ -1,6 +1,8 @@
 defmodule Cairnloop.Web.SearchModalComponent do
   use Phoenix.LiveComponent
 
+  import Cairnloop.Web.Components
+
   alias Cairnloop.Retrieval.GapRecorder
   alias Cairnloop.Retrieval.Telemetry
   alias Cairnloop.Web.SearchResultPresenter
@@ -126,12 +128,8 @@ defmodule Cairnloop.Web.SearchModalComponent do
                                 style={result_row_style(active?)}
                               >
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                                  <span style={source_badge_style(result.source_type)}>
-                                    <%= presenter.source_label %>
-                                  </span>
-                                  <span style={trust_badge_style(result.trust_level)}>
-                                    <%= presenter.trust_label %>
-                                  </span>
+                                  <.cl_chip variant={source_chip_variant(result.source_type)} label={presenter.source_label} />
+                                  <.cl_chip variant={trust_chip_variant(result.trust_level)} label={presenter.trust_label} />
                                 </div>
                                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
                                   <div>
@@ -162,12 +160,8 @@ defmodule Cairnloop.Web.SearchModalComponent do
               <div class="search-preview-pane" style="flex: 1 1 480px; min-width: min(420px, 100%); border-radius: 16px; background: var(--cl-surface-raised); border: 1px solid var(--cl-border); padding: 24px; overflow-y: auto;">
                 <%= if @preview do %>
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                    <span style={source_badge_style(@preview.result.source_type)}>
-                      <%= @preview.source_label %>
-                    </span>
-                    <span style={trust_badge_style(@preview.result.trust_level)}>
-                      <%= @preview.trust_label %>
-                    </span>
+                    <.cl_chip variant={source_chip_variant(@preview.result.source_type)} label={@preview.source_label} />
+                    <.cl_chip variant={trust_chip_variant(@preview.result.trust_level)} label={@preview.trust_label} />
                   </div>
                   <h3 style="margin: 0 0 8px; font-size: 28px; line-height: 1.2; font-weight: 600;">
                     <%= @preview.title %>
@@ -611,26 +605,18 @@ defmodule Cairnloop.Web.SearchModalComponent do
   defp truthy?(value), do: value in [true, "true"]
 
   defp result_row_style(true) do
-    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid rgba(169, 79, 48, 0.22); background: rgba(169, 79, 48, 0.08); cursor: pointer;"
+    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--cl-primary); background: var(--cl-surface-sunken); cursor: pointer;"
   end
 
   defp result_row_style(false) do
-    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid rgba(64, 51, 43, 0.08); background: rgba(255, 255, 255, 0.9); cursor: pointer;"
+    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--cl-border); background: var(--cl-surface-raised); cursor: pointer;"
   end
 
-  defp source_badge_style(:knowledge_base) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(74, 98, 56, 0.12); color: #4A6238; font-size: 14px; font-weight: 600;"
-  end
+  defp source_chip_variant(:knowledge_base), do: "success"
+  defp source_chip_variant(:resolved_case), do: "info"
+  defp source_chip_variant(_), do: "neutral"
 
-  defp source_badge_style(:resolved_case) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(63, 111, 128, 0.12); color: #3F6F80; font-size: 14px; font-weight: 600;"
-  end
-
-  defp trust_badge_style(:canonical) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(74, 98, 56, 0.08); color: rgba(47, 36, 29, 0.82); font-size: 14px; font-weight: 600;"
-  end
-
-  defp trust_badge_style(:assistive) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(63, 111, 128, 0.08); color: rgba(47, 36, 29, 0.82); font-size: 14px; font-weight: 600;"
-  end
+  defp trust_chip_variant(:canonical), do: "success"
+  defp trust_chip_variant(:assistive), do: "info"
+  defp trust_chip_variant(_), do: "neutral"
 end
