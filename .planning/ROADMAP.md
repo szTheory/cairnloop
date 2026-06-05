@@ -180,7 +180,11 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   2. With `prefers-reduced-motion: reduce` active in the browser, all transform/translate animations are removed; cross-fade (opacity-only) transitions for comprehension aids remain.
   3. The reply-send flow, `âK` search open, and count tick updates produce no CSS transitions on their triggering elements.
   4. `mix test` passes; the brand-token gate does not flag any motion class definitions.
-**Plans**: TBD
+**Plans**: 4 plans (3 waves)
+  - [ ] 44-01-PLAN.md — Wave 0 Nyquist tests: DB-free motion_css_test.exs (forbidden-property + mirror-parity + count-tick no-transition) + Playwright motion_test.exs (hero/rail/stagger/reduced-motion + reply-send absence) [MOTION-01, MOTION-02] (wave 0)
+  - [ ] 44-02-PLAN.md — Motion CSS foundation: new @keyframes + .cl-motion-*/.cl-toast/.cl-motion-state rules under .cl-app (hex-free, transform/opacity, shipped tokens), mirrored into example app.css; turns the unit test GREEN [MOTION-01, MOTION-02] (wave 1)
+  - [ ] 44-03-PLAN.md — Component layer: hero count phx-mounted entrance in cl_hero/1 + new reusable hex-free escaped cl_flash/1 toast (§7.5 icon) wired into the example flash_group [MOTION-01, MOTION-02] (wave 2)
+  - [ ] 44-04-PLAN.md — LiveView attach points: inbox cl-list-stagger (first-paint ≤5, accepted nav-back replay), .evidence-rail one-shot reveal (no .cl-drawer exists), .cl-motion-state on status chip + §7.5 distinct-label assertion + reply-send motion-free [MOTION-01, MOTION-02] (wave 2)
 **UI hint**: yes
 
 ### Phase 45: Seed Enrichment + Screenshot Regen + Verification Sweep
