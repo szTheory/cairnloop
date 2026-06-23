@@ -248,4 +248,37 @@ are not `--cl-*` brand tokens and are explicitly excluded from this ledger.
 
 ## Phase Hygiene Attestation
 
-*(Appended by Task 3 — see end of file)*
+**Appended by Task 3 — 2026-06-23**
+
+### Throwaway script disposal (D-07)
+
+The WCAG relative-luminance Python script was written exclusively to the session scratchpad:
+`/private/tmp/claude-501/-Users-jon-projects-cairnloop/51946c5d-70cc-47db-b8ab-0d781cf35c24/scratchpad/wcag_contrast.py`
+
+It was used to compute all contrast ratios for `46-CONTRAST-BASELINE.md`, then deleted before any commit.
+
+Confirmation: `git ls-files --error-unmatch '*luminance*'` → **no match** (not tracked anywhere in repo tree)
+
+### Brand source files — zero mutation (D-01)
+
+`git status --porcelain` at Task 3 completion showed the following relevant lines:
+
+```
+ M .planning/STATE.md   ← GSD orchestrator bookkeeping only
+```
+
+The following files show **zero modifications** (clean):
+- `priv/static/cairnloop.css`
+- `prompts/cairnloop.tokens.json`
+- `examples/cairnloop_example/assets/css/app.css`
+- `prompts/cairnloop_brand_book.md`
+- `mix.exs`
+
+No `--cl-*` value was changed. No derivative file was edited. No script was committed. No `mix.exs` change.
+No new mix/npm/pip dependency was introduced. D-01 and D-07 satisfied.
+
+### Phase artifacts produced (the only repo additions in this phase)
+
+- `.planning/phases/46-brand-fidelity-audit-token-consolidation/46-DISCREPANCY-LEDGER.md` (this file)
+- `.planning/phases/46-brand-fidelity-audit-token-consolidation/46-CONTRAST-BASELINE.md`
+- `.planning/phases/46-brand-fidelity-audit-token-consolidation/46-01-SUMMARY.md` (metadata)
