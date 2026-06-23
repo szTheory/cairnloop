@@ -81,7 +81,8 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
   1. A written discrepancy ledger exists documenting every drift between `prompts/cairnloop_brand_book.md`, `prompts/cairnloop.tokens.json`, and the live `--cl-*` values in `priv/static/cairnloop.css` — nothing is left as a mental note.
   2. `priv/static/cairnloop.css` `:root` is established as the single canonical token source; the example-app `assets/css/app.css` `@theme` block and `cairnloop.tokens.json` are documented as derivatives of it (not independent sources).
   3. A WCAG-AA contrast baseline table covers every foreground/background brand pairing used in the operator UI and brand book, with any failures explicitly flagged — this table is reused as brand-book content in Phase 51.
-**Plans**: TBD
+**Plans**: 1 plan
+- [ ] 46-01-PLAN.md — Discrepancy ledger + canonical-source designation + WCAG-AA contrast baseline (all three FIDELITY deliverables; pure analysis, document-only)
 
 ### Phase 47: Brand Direction Exploration [SELECTION GATE]
 **Goal**: The owner has concrete, rendered visual options — 4 hand-authored SVG logo directions plus palette and type variants — and makes a recorded subjective selection that unlocks Phases 48 and 49
