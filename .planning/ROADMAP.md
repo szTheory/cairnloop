@@ -74,84 +74,106 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 ## Phase Details
 
 ### Phase 46: Brand Fidelity Audit & Token Consolidation
+
 **Goal**: The shipped brand system is pressure-tested against the text seed and all palette copies collapse into one canonical source — making token evolution safe to run once and right
 **Depends on**: Nothing (first vM017 phase; pure analysis + file reconciliation)
 **Requirements**: FIDELITY-01, FIDELITY-02, FIDELITY-03
 **Success Criteria** (what must be TRUE):
+
   1. A written discrepancy ledger exists documenting every drift between `prompts/cairnloop_brand_book.md`, `prompts/cairnloop.tokens.json`, and the live `--cl-*` values in `priv/static/cairnloop.css` — nothing is left as a mental note.
   2. `priv/static/cairnloop.css` `:root` is established as the single canonical token source; the example-app `assets/css/app.css` `@theme` block and `cairnloop.tokens.json` are documented as derivatives of it (not independent sources).
   3. A WCAG-AA contrast baseline table covers every foreground/background brand pairing used in the operator UI and brand book, with any failures explicitly flagged — this table is reused as brand-book content in Phase 51.
-**Plans**: 1 plan
-- [ ] 46-01-PLAN.md — Discrepancy ledger + canonical-source designation + WCAG-AA contrast baseline (all three FIDELITY deliverables; pure analysis, document-only)
+
+**Plans**: 1/1 plans complete
+
+- [x] 46-01-PLAN.md — Discrepancy ledger + canonical-source designation + WCAG-AA contrast baseline (all three FIDELITY deliverables; pure analysis, document-only)
 
 ### Phase 47: Brand Direction Exploration [SELECTION GATE]
+
 **Goal**: The owner has concrete, rendered visual options — 4 hand-authored SVG logo directions plus palette and type variants — and makes a recorded subjective selection that unlocks Phases 48 and 49
 **Depends on**: Phase 46 (canonical token source established before exploring palette evolution)
 **Requirements**: LOGO-01, LOGO-02, LOGO-03, TOKEN-01
 **Success Criteria** (what must be TRUE):
+
   1. Four genuinely distinct, hand-authored SVG logo directions exist — including one fully-integrated custom typemark (the `oo`→loop motif worked into the wordmark) — each with a transparent background, no rectangular cage, and mark + logotype visually unified.
   2. A local HTML "direction boards" page opens from `file://` and renders all four directions at 16/24/48/256px, in horizontal and vertical lockups, on light and dark surfaces — with explicit no-cage proof rows and 16px-legibility proof rows.
   3. Palette variants (current vs. 1–2 evolved tunings) and type direction alternatives are rendered alongside each logo direction on the direction boards page so choices read cohesively.
   4. The owner completes the selection gate: one logo direction, one palette variant, and one type direction are chosen; the selection and rationale are recorded durably in the phase DISCUSSION-LOG (this is a human decision, not an automated check).
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 48: Token Evolution: Lock & Propagate
+
 **Goal**: The chosen palette and type direction are applied once to the canonical `:root` and propagated cleanly to all derivative sources — with zero drift and full gate re-verification — so the brand system is evolution-complete and drift-proof
 **Depends on**: Phase 47 (owner selection completed and recorded)
 **Requirements**: TOKEN-02, TOKEN-03, TOKEN-04
 **Success Criteria** (what must be TRUE):
+
   1. The chosen palette/type is applied to `priv/static/cairnloop.css` `:root` using value-changes and additive new tokens only — no `--cl-*` token is renamed (the sealed brand-token gate contract is unbroken).
   2. The evolved tokens are propagated to `examples/cairnloop_example/assets/css/app.css` `@theme` and `prompts/cairnloop.tokens.json` with zero drift — a diff confirms the values match the canonical `:root` exactly.
   3. The brand-token gate (`mix test`), the golden-path smoke test (`mix test.integration`), and the gated Playwright E2E (`mix test.e2e`) are all green after propagation.
   4. The WCAG-AA contrast baseline table from Phase 46 is re-verified against the evolved palette — all foreground/background pairings pass AA, or failures are explicitly documented with remediation.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 49: Chosen-Logo Finalization & Asset Family
+
 **Goal**: The selected logo direction is production-ready as a complete, optimized SVG asset family — lockups, mono variants, icon, favicon, and OG card — with a written usage spec that prevents misuse
 **Depends on**: Phase 47 (owner selection completed and recorded)
 **Requirements**: LOGO-04, LOGO-05, LOGO-06
 **Success Criteria** (what must be TRUE):
+
   1. The full optimized-SVG asset family exists: primary horizontal lockup (no subtitle), vertical/stacked lockup, icon-only mark, mono basalt-on-paper, mono paper-on-basalt, and a separate optional tagline lockup — all with mark and logotype visually unified on a shared grid.
   2. A separately-authored, simplified favicon (not a scaled-down master) exists in 16px and 32px SVG, with raster exports (`.ico` and PNG), plus an OG/social card (1200×630 SVG master and one rasterized PNG) — all within the ≤~150KB total raster budget.
   3. Logo usage rules (clearspace, minimum sizes, do/don't panels including no-cage and no-icon-left-of-text) are documented and ready to be rendered in the brand book.
   4. Rejected logo directions are deleted from the repo; the deletion and rationale are noted in the phase SUMMARY.
+
 **Plans**: TBD
 
 ### Phase 50: Brandbook Scaffold & Token-Derivation Pipeline
+
 **Goal**: A self-contained `brandbook/` folder skeleton opens from `file://` with no network dependency, and its `tokens.css` is provably derived from (not a fork of) the canonical `cairnloop.css` `:root`
 **Depends on**: Phase 48 (evolved tokens locked in canonical `:root` before derivation)
 **Requirements**: BOOK-01, BOOK-02
 **Success Criteria** (what must be TRUE):
+
   1. `brandbook/index.html` opens from `file://` in a browser with no console errors and no failed-network requests — all paths are relative, fonts have graceful fallbacks.
   2. `brandbook/assets/css/tokens.css` is generated from (or documented as a mirror of) the canonical `priv/static/cairnloop.css` `:root`; `brandbook/TOKENS.md` explains the derivation and includes a regeneration note so a future maintainer can update it without forking.
   3. The `brandbook/` folder structure follows the approved layout (`index.html`, `assets/css/tokens.css`, `assets/css/brandbook.css`, `logo/`, `raster/`, `color/swatches.json`) and `brandbook/` does not appear in `mix.exs` `files` — it is git-tracked but unshipped.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 51: Full HTML Brand Book Assembly
+
 **Goal**: The brand book is a complete, professional, standalone reference document that renders all brand identity content as live HTML — usable by any future contributor or designer without network access
 **Depends on**: Phase 49 (logo asset family complete); Phase 50 (scaffold and token derivation in place)
 **Requirements**: BOOK-03, BOOK-04, BOOK-05
 **Success Criteria** (what must be TRUE):
+
   1. The brand book renders all token sections as live HTML — color swatches displaying hex value + token name + WCAG-AA contrast badges, real-font type specimens at each scale step, and spacing/radius/shadow/motion token tables reading from `tokens.css`.
   2. The brand book presents the chosen logo system: a lockup gallery at multiple sizes, clearspace and minimum-size diagrams, and explicit do/don't panels (including no-cage and no-icon-left-of-text) with download links to the committed SVG assets.
   3. Voice, microcopy, imagery, and motion guidance sections are rendered as live HTML (not prose-only stubs).
   4. A light/dark toggle works without network dependency; the brand book never communicates state by color alone — every status indicator pairs color with icon or text label.
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 52: Collateral Wiring + QA/Validation Sweep
+
 **Goal**: The chosen logo is wired into every committed real-world surface (README, example app, favicon, OG), and the full milestone QA sweep confirms SVG validity, contrast, hygiene, and rendered behavior via gated E2E — leaving no human-verify tasks outstanding
 **Depends on**: Phase 49 (finalized SVG asset family); Phase 51 (brand book complete with logo system rendered)
 **Requirements**: WIRE-01, WIRE-02, WIRE-03, HYGIENE-01, HYGIENE-02, HYGIENE-03
 **Success Criteria** (what must be TRUE):
+
   1. The example app's placeholder logo is replaced with the chosen mark; favicon and `og:image` meta tags in `examples/cairnloop_example/priv/static` and `root.html.heex` are updated to use the new assets.
   2. `README.md` leads with the chosen SVG logo using a repo-relative path that renders correctly on GitHub (SVG sanitization validated).
   3. A gated Playwright E2E test (`mix test.e2e`) confirms the example app renders the new logo and favicon — this is not a human-verify task.
   4. Every committed SVG passes validity linting (well-formed XML, valid `viewBox`, no external references, no embedded raster, no editor metadata cruft) and total raster footprint (favicon + OG only) is within ≤~150KB.
   5. `brandbook/` is confirmed absent from `mix.exs` `files`; a `git diff --stat` report confirms changes are confined to `brandbook/` plus the intended wiring files; `mix test` is green.
+
 **Plans**: TBD
 **UI hint**: yes
 
@@ -159,7 +181,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 46. Brand Fidelity Audit & Token Consolidation | vM017 | 0/? | Not started | - |
+| 46. Brand Fidelity Audit & Token Consolidation | vM017 | 1/1 | Complete   | 2026-06-23 |
 | 47. Brand Direction Exploration [SELECTION GATE] | vM017 | 0/? | Not started | - |
 | 48. Token Evolution: Lock & Propagate | vM017 | 0/? | Not started | - |
 | 49. Chosen-Logo Finalization & Asset Family | vM017 | 0/? | Not started | - |
