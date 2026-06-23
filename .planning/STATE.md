@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: vM017
 milestone_name: Brand Identity System, Token Evolution & HTML Brand Book
-status: executing
-last_updated: "2026-06-23"
-last_activity: 2026-06-23
+status: planning
+last_updated: "2026-06-23T17:57:56.972Z"
+last_activity: 2026-06-23 — ROADMAP.md written; vM017 phases 46–52 defined; all 24 requirements mapped
 progress:
   total_phases: 7
   completed_phases: 0
@@ -103,6 +103,7 @@ vM016 ratified decisions (do not re-litigate; vM016 is PARKED — resume after v
 - **Two human selection gates:**
   1. **Brand-direction gate** (end of Phase 47): owner selects logo direction, palette variant, and
      type direction. Subjective — never auto-selected or E2E'd.
+
   2. **Logo-family sign-off** (implicit, before Phase 52 wiring): owner reviews finalized asset
      family before it is wired into live surfaces.
 
@@ -161,6 +162,7 @@ Roadmap defined 2026-06-23 from the ratified
 **v0.5.1** on Hex.pm. Product remains "done enough for stated scope."
 
 **Roadmap:** 7 phases (46–52), 24 v1 requirements, all mapped:
+
 - FIDELITY-01, FIDELITY-02, FIDELITY-03 → Phase 46
 - LOGO-01, LOGO-02, LOGO-03, TOKEN-01 → Phase 47
 - TOKEN-02, TOKEN-03, TOKEN-04 → Phase 48
