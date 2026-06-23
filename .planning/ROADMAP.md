@@ -24,7 +24,7 @@
 
 ### 🚧 vM017 Brand Identity System, Token Evolution & HTML Brand Book (Phases 46–52) — ACTIVE
 
-- [ ] **Phase 46: Brand Fidelity Audit & Token Consolidation** - Discrepancy ledger, canonical `:root` source, WCAG-AA contrast baseline
+- [x] **Phase 46: Brand Fidelity Audit & Token Consolidation** - Discrepancy ledger, canonical `:root` source, WCAG-AA contrast baseline (completed 2026-06-23)
 - [ ] **Phase 47: Brand Direction Exploration [SELECTION GATE]** - 4 SVG logo directions + palette/type variants on direction-boards page; owner selects
 - [ ] **Phase 48: Token Evolution: Lock & Propagate** - Apply chosen palette/type to canonical `:root`; propagate to example-app + tokens.json; re-verify gates
 - [ ] **Phase 49: Chosen-Logo Finalization & Asset Family** - Full optimized-SVG family, favicon, OG card, clearspace/min-size spec
@@ -181,7 +181,7 @@ summary of every milestone and `.planning/PROJECT.md` for the cumulative product
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 46. Brand Fidelity Audit & Token Consolidation | vM017 | 1/1 | Complete   | 2026-06-23 |
+| 46. Brand Fidelity Audit & Token Consolidation | vM017 | 1/1 | Complete    | 2026-06-23 |
 | 47. Brand Direction Exploration [SELECTION GATE] | vM017 | 0/? | Not started | - |
 | 48. Token Evolution: Lock & Propagate | vM017 | 0/? | Not started | - |
 | 49. Chosen-Logo Finalization & Asset Family | vM017 | 0/? | Not started | - |
