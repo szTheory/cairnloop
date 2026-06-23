@@ -67,4 +67,30 @@ lockup, hand-authored SVG. Hygiene: `brandbook/` self-contained, SVG-first, rast
 - Committing large binary artifacts (AI raster source, `.fig`/`.ai`/`.sketch`, unsubsetted font binaries).
 
 ## Traceability
-*(filled by roadmap — every REQ-ID maps to exactly one phase)*
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| FIDELITY-01 | Phase 46 | Pending |
+| FIDELITY-02 | Phase 46 | Pending |
+| FIDELITY-03 | Phase 46 | Pending |
+| LOGO-01     | Phase 47 | Pending |
+| LOGO-02     | Phase 47 | Pending |
+| LOGO-03     | Phase 47 | Pending |
+| TOKEN-01    | Phase 47 | Pending |
+| TOKEN-02    | Phase 48 | Pending |
+| TOKEN-03    | Phase 48 | Pending |
+| TOKEN-04    | Phase 48 | Pending |
+| LOGO-04     | Phase 49 | Pending |
+| LOGO-05     | Phase 49 | Pending |
+| LOGO-06     | Phase 49 | Pending |
+| BOOK-01     | Phase 50 | Pending |
+| BOOK-02     | Phase 50 | Pending |
+| BOOK-03     | Phase 51 | Pending |
+| BOOK-04     | Phase 51 | Pending |
+| BOOK-05     | Phase 51 | Pending |
+| WIRE-01     | Phase 52 | Pending |
+| WIRE-02     | Phase 52 | Pending |
+| WIRE-03     | Phase 52 | Pending |
+| HYGIENE-01  | Phase 52 | Pending |
+| HYGIENE-02  | Phase 52 | Pending |
+| HYGIENE-03  | Phase 52 | Pending |

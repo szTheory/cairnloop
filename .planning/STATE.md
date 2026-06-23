@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: vM017
 milestone_name: Brand Identity System, Token Evolution & HTML Brand Book
-status: planning
-last_updated: "2026-06-23T14:57:12.050Z"
+status: executing
+last_updated: "2026-06-23"
 last_activity: 2026-06-23
 progress:
-  total_phases: 0
+  total_phases: 7
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -17,17 +17,19 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-06-03 — vM016 active)
+See: `.planning/PROJECT.md` (updated 2026-06-23 — vM017 active)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 44 — motion
+**Current focus:** Phase 46 — Brand Fidelity Audit & Token Consolidation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 46 — Brand Fidelity Audit & Token Consolidation
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-23 — Milestone vM017 started
+Status: Ready to plan
+Last activity: 2026-06-23 — ROADMAP.md written; vM017 phases 46–52 defined; all 24 requirements mapped
+
+Progress: ░░░░░░░░░░ 0% (0/7 phases · 0/? plans)
 
 ## Accumulated Context
 
@@ -42,7 +44,7 @@ vM015 additions (see PROJECT.md Key Decisions): release-please release pipeline;
 live-source as the milestone gate (move it before the release tag); test-only security closure
 for already-correct domain code; `release_gate` gates on the green integration suite.
 
-vM016 ratified decisions (do not re-litigate):
+vM016 ratified decisions (do not re-litigate; vM016 is PARKED — resume after vM017 ships):
 
 - **D1 (Home):** two-tier primacy — hero "Work the queue" + secondary "Tend the trail" band;
   `cl_stat` de-polymorphized to numeric-only; `cl_hero` for the primary count; health as `cl_chip`;
@@ -76,33 +78,68 @@ vM016 ratified decisions (do not re-litigate):
   push (`mix test.e2e` auto-discovers the file — no CI-config change). Do NOT plan `autonomous:
   false` human-verify tasks for these. Precedent: Phase 41 (`rail_disclosure_test.exs`), Phase 42
   (`thread_navigation_test.exs`), Phase 43 (`inbox_geometry_test.exs`). Phases 44 (Motion) / 45
-  inherit this default — Phase 44's `prefers-reduced-motion` + transform/opacity assertions belong in
-  an E2E, not a manual gate. (Local run needs `pgvector/pgvector:pg16`; CI provides it.)
+  inherit this default.
+
+**vM017 locked decisions (D-A / D-B / D-C — from approved plan `~/.claude/plans/brand-book-pressure-test-abundant-dragonfly.md`):**
+
+- **D-A — Core system REOPENED:** shipped `--cl-` palette and Atkinson/Fraunces/Martian type stack
+  are treated as a seed, not gospel. The milestone may re-explore core hues and the UI font stack
+  and propagate the chosen evolution across the canonical source + mirrors + example app, with full
+  re-verification. Evolution is additive (value-changes + new tokens, never renames that break the
+  sealed brand-token gate). Done once, carefully.
+
+- **D-B — Collateral WIRED IN:** final phase replaces the example-app logo
+  (`examples/cairnloop_example/priv/static/images/logo.svg`), updates favicon + `og:image` in
+  `root.html.heex`, and adds an SVG logo header to `README.md` (repo-relative path, GitHub-renderable).
+
+- **D-C — 4 logo directions** authored for selection; one is the mandatory fully-integrated custom
+  typemark (the `oo`→loop motif worked into the wordmark).
+
+- **Logo constraints (non-negotiable):** no rectangular background cage (transparent /
+  boundary-breaking marks are default); logomark + logotype visually **unified** and close (NOT
+  "icon left of plain text"); primary lockup has **no subtitle/tagline** (separate optional tagline
+  lockup allowed); hand-authored SVG, not clipart.
+
+- **Two human selection gates:**
+  1. **Brand-direction gate** (end of Phase 47): owner selects logo direction, palette variant, and
+     type direction. Subjective — never auto-selected or E2E'd.
+  2. **Logo-family sign-off** (implicit, before Phase 52 wiring): owner reviews finalized asset
+     family before it is wired into live surfaces.
+
+- **Repo hygiene:** `brandbook/` self-contained; SVG/HTML/CSS/JSON/MD only; raster permitted **only**
+  for favicon `.ico`/PNG + one OG `.png` (total raster budget ≤~150KB); rejected directions deleted
+  after selection; `brandbook/` stays git-tracked but **out of the hex package** (`mix.exs` `files`
+  unchanged).
+
+- **Token evolution discipline:** `priv/static/cairnloop.css` `:root` is the single canonical
+  source; `brandbook/assets/css/tokens.css` is derived (not forked); `examples/cairnloop_example/
+  assets/css/app.css` `@theme` and `prompts/cairnloop.tokens.json` are documented derivatives.
+  Never create a 4th palette copy.
+
+- **Phase dependencies:**
+  46→47→{48, 49} (both 48 and 49 depend on Phase 47 selection)
+  48→50 (token derivation requires evolved tokens locked)
+  {49, 50}→51 (brand book assembly requires logo assets + scaffold)
+  {49, 51}→52 (wiring requires logo assets + brand book complete)
 
 ### Pending Todos
 
-- None. (The vM016 demo/visual-proof work shipped via **PR #15** — merged to `main` 2026-05-30,
-  merge commit `b625634`; CI green incl. `release_gate`. See `.planning/threads/vM016-demo-visual-proof.md`.
-  Intentionally release-neutral — `chore`/`docs` only, no `lib/` change, so no release-please bump;
-  the 14 screenshots reach hexdocs on the next `feat`/`fix` release.)
+- None outstanding. vM016 PARKED cleanly at 54% (7/13 phases). Phase 44 is planned and ready;
+  Phase 45 is unplanned and must consume vM017's final brand. See
+  `.planning/milestones/vM016-PARKED.md` for resume steps.
 
 ### Blockers/Concerns
 
-- ~~Verification debt (33/34/35 missing VERIFICATION/VALIDATION)~~ — **RESOLVED:** backfilled at
-  vM015 close by transcribing the existing green tests (`33-VALIDATION.md`, `34-VALIDATION.md`,
-  `35-VERIFICATION.md`), now archived under `milestones/vM015-phases/`.
-
-- ~~Integration CI suite red~~ — **RESOLVED in vM015 (v0.2.2):** suite greened and added to
-  `release_gate`.
+- Phase 47 ends in a subjective human selection gate — the milestone deliberately pauses there.
+  This is by design, not a blocker.
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| ~~Verification~~ | ~~Phases 33/34/35 missing VERIFICATION/VALIDATION~~ | ✅ Resolved — backfilled at vM015 close | — |
-| ~~Process~~ | ~~vM014 missing MILESTONES/RETROSPECTIVE entry~~ | ✅ Resolved — record backfilled at vM015 close | — |
+| ~~Verification~~ | ~~Phases 33/34/35 missing VERIFICATION/VALIDATION~~ | Resolved — backfilled at vM015 close | — |
+| ~~Process~~ | ~~vM014 missing MILESTONES/RETROSPECTIVE entry~~ | Resolved — record backfilled at vM015 close | — |
 | UAT (vM014) | Phase 27 `27-HUMAN-UAT.md` — 2 pending scenarios | Acknowledged/deferred (SATD: archived, not reconstructed) | vM015 close |
-| UAT (vM014) | Phase 31 `31-HUMAN-UAT.md` — resolved (0 pending) | Resolved | vM015 close |
 | Verification (vM014) | Phase 28 `28-VERIFICATION.md` — human_needed | Acknowledged/deferred | vM015 close |
 | Verification (vM014) | Phase 30 `30-VERIFICATION.md` — human_needed | Acknowledged/deferred | vM015 close |
 | Scope | Epic 13 Privacy-First Local AI (Nx/Bumblebee) | Deferred to vM016+ | vM015 planning |
@@ -111,70 +148,41 @@ vM016 ratified decisions (do not re-litigate):
 | Tech Debt | Centralize duplicated fail-closed search guards | Open | vM009 retrospective |
 | v2 (vM016) | PHONE-01..04 phone-optimized patterns (tabbed layout, card-transform tables, off-canvas nav, container queries) | Deferred to v2 | vM016 planning |
 | v2 (vM016) | AMOTION-01..02 advanced motion motifs (route-line draw, FLIP list reorder) | Deferred to v2 | vM016 planning |
+| vM017 (Brand) | Animated/interactive brand book (motion specimens, live token playground) | Deferred | vM017 planning |
+| vM017 (Brand) | Marketing landing-page build-out (beyond README header + OG card) | Separate effort | vM017 planning |
+| vM017 (Brand) | Self-hosted web-font subsetting for true offline specimens | Defer unless chosen type direction requires it | vM017 planning |
+| vM017 (Brand) | Logo motion/lottie variants, presentation/slide templates, sticker/swag assets | Out of this milestone | vM017 planning |
 
 ## Session Continuity
 
-**vM016 Operator UI/UX Iteration is active** (phases 37–45), roadmap defined 2026-06-03 from the
-ratified `.planning/vM016-UI-ITERATION-BRIEF.md`. Latest published release: **v0.5.1** on Hex.pm.
+**vM017 Brand Identity System, Token Evolution & HTML Brand Book is active** (phases 46–52).
+Roadmap defined 2026-06-23 from the ratified
+`~/.claude/plans/brand-book-pressure-test-abundant-dragonfly.md`. Latest published release:
+**v0.5.1** on Hex.pm. Product remains "done enough for stated scope."
 
-**Roadmap:** 9 phases (37–45), 29 v1 requirements, all mapped. Phase ordering is deliberate:
-primitives (37) → shell (38) → Home/D1 (39) → drift+gate (40, paired to eliminate regression
-window) → rail/D2 (41) → threading (42) → responsive/D3 (43) → motion (44) → seed+verify (45).
+**Roadmap:** 7 phases (46–52), 24 v1 requirements, all mapped:
+- FIDELITY-01, FIDELITY-02, FIDELITY-03 → Phase 46
+- LOGO-01, LOGO-02, LOGO-03, TOKEN-01 → Phase 47
+- TOKEN-02, TOKEN-03, TOKEN-04 → Phase 48
+- LOGO-04, LOGO-05, LOGO-06 → Phase 49
+- BOOK-01, BOOK-02 → Phase 50
+- BOOK-03, BOOK-04, BOOK-05 → Phase 51
+- WIRE-01, WIRE-02, WIRE-03, HYGIENE-01, HYGIENE-02, HYGIENE-03 → Phase 52
 
-**Release history reconciled** (the prior STATE/ROADMAP were stale at v0.3.0): since vM015 close,
-three releases shipped outside formal GSD milestone numbering — **v0.4.0** (operator UI rebuilt on
-a shipped design system: `priv/static/cairnloop.css` + `Cairnloop.Web.Components` + Cockpit
-Home/nav; merged PR #17), **v0.5.0** (`Cairnloop.Automation.DraftGenerator` seam + Anthropic
-adapter — the draft path is no longer a pure mock; PR #19), **v0.5.1** (operator-identity
-`host_user_id` fix + installer fix; PR #22). vM016 formalizes the next iteration pass on that
-operator surface. Per-phase `discuss`/`research`/`ui-phase` refine D1–D3 into UI-SPEC contracts —
-the directions are ratified, do not re-litigate.
+**Phase ordering rationale:** audit-first (46) → explore/select (47, GATE) → evolve tokens (48) +
+finalize logo (49, parallel after gate) → brandbook scaffold (50, after 48) → full book (51, after
+49+50) → wire+QA (52, after 49+51). The milestone pauses at Phase 47 for the owner's pick.
 
-## Post-close maintenance (complete)
-
-All shipped via the protected-`main` PR flow; nothing outstanding:
-
-- **Tier 0** — vM015 close-out: 33/34/35 verification artifacts backfilled, vM014
-  MILESTONES/RETROSPECTIVE record backfilled, phase dirs archived via `/gsd-cleanup` (PR #8).
-
-- **Tier 1** — verify-before-publish (v0.2.3): fixed the `cairnloop_dashboard/2` compile break,
-  added `dashboard_wiring_test.exs`, confirmed `RELEASE_PLEASE_TOKEN`, added the packaged-artifact
-  contents check to `publish-hex` (PR #9).
-
-- **Tier 2** — DX + quality (v0.3.0): credo --strict + mix_audit + docs `quality` CI lane (PR #11);
-  `mix cairnloop.doctor`, NimbleOptions router opts + `:live_session_name`, installer next-steps
-  (PR #12). Quality gate caught + fixed 2 HIGH CVEs (postgrex/plug) and 5 doc warnings.
-
-- **Deferred (opt-in only):** dialyzer, sobelow, excoveralls, ex_check, full installer
-  auto-router-injection. Plan archived at `~/.claude/plans/i-follow-ur-recommendations-kind-balloon.md`.
-
-## Operator Next Steps
-
-- **vM016 roadmap is defined.** 9 phases (37–45), 29 requirements mapped.
-- Next: `/gsd:plan-phase 37` (plan Component Primitives directly, directions are ratified).
-- Releases still flow through release-please: most phases are `feat:`/`fix:` → minor/patch releases
-  across the milestone. Epics 12/13/14 stay opt-in / out of vM016 scope.
+**vM016 PARKED at 54%** — phases 37–43 complete, Phase 44 (motion) planned and ready to execute,
+Phase 45 unplanned (must consume vM017's final brand). Resume via
+`.planning/milestones/vM016-PARKED.md` after vM017 ships.
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
-| Phase 39-home-primacy-redesign-d1 P01 | 119 | 2 tasks | 2 files |
-| Phase 40-drift-remediation-brand-token-gate-hardening P03 | 20 | 2 tasks | 5 files |
-| Phase 41-conversation-rail-progressive-disclosure-d2 P41-02 | 5 | 1 tasks | 1 files |
-| Phase 41 P41-03 | 15 | 2 tasks | 1 files |
-| Phase 43-responsive-desktop-first-cockpit-d3 P01 | 2 | 2 tasks | 2 files |
-| Phase 43-responsive-desktop-first-cockpit-d3 P02 | 2 | 2 tasks | 1 files |
+| (vM017 phases not yet started) | | | |
 
 ## Decisions
 
-- [Phase ?]: D-02 scope in Chat facade: list_conversations/1 + scope_status/2 in Cairnloop.Chat (39-01)
-- [Phase ?]: D-09 cheap count: count_conversations/1 uses repo().aggregate(:count, :id) never Enum.count (39-01)
-- [Phase ?]: D-03 scope_status/2 _other passthrough: unknown atoms return unscoped query, never crash (39-01)
-- [Phase 40]: D-GATE-01 cl-allow-color sentinel suppresses violations on line N and N+1; 2 usages in docstrings reference historical color names (documentation context, not render-output grandfathering) (40-03)
-- [Phase 40]: D-GATE-02 Credo check uses SourceFile.lines/1 which returns {line_no, line_text} tuples; advisory only (base_priority: :low, no exit_status override) (40-03)
-- [Phase 41-01]: D-09 test uses clause-head allow-list (Regex.scan over def handle_event clause heads) not DOTALL grep — open_review_task/open_manual_draft are NAVIGATION events, not disclosure toggles; no disclosure-toggle handle_event may exist post-ship
-- [Phase 41-01]: RAIL-01 and D-08 negative both assert data-tier="2" presence as the RED anchor — current markup lacks Tier-2 cl_disclosure groups; tests turn GREEN when Wave 1 ships the restructure
-- [Phase ?]: attr(:rest, :global) with no include: list on cl_disclosure/1 — data-* globals pass by default; no phx-* in include to prevent dynamic open binding (41-02)
-- [Phase ?]: D-08 auto_open booleans computed from snapshot state; auto_open_inputs=pending-or-hard-block; auto_open_policy=policy_denied only; no live re-read (41-03)
-- [Phase ?]: D3-01/D3-02/D3-03 applied (43-01): mobile-first min-width throughout cairnloop.css; canonical BREAKPOINTS comment block with 640/768/1024 literals; 768 tablet gutter step on .cl-main is a real rule not comment-only
+(vM017 decisions will be recorded here as phases execute)
