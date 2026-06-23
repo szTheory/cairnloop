@@ -6,20 +6,26 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
-## Current Milestone: vM016 Operator UI/UX Iteration
+## Current Milestone: vM017 Brand Identity System, Token Evolution & HTML Brand Book
 
-**Goal:** Take the operator dashboard from "design system shipped (v0.4.0)" to a consistent, branded, intuitively-threaded cockpit — harvest componentization dividends, stop the off-system drift in bespoke screens, fix the IA so the screens stop "feeling disjoint," fully express every screen's states, and lock the gains in with a hardened brand-token gate. Operator/admin surface only (NOT the customer chat widget or demo index).
+**Goal:** Turn the text-only brand seed (`prompts/cairnloop_brand_book.md`) into a real, crafted identity: a distinctive **logo system** (hand-authored SVG, owner picks from 4 directions incl. an integrated typemark), an **evolved core palette/type**, and a self-contained, professional **HTML brand book** checked into git — then wire the chosen mark into the real shipped surfaces. The payoff is OSS credibility on GitHub / HexDocs / a future landing page plus an implementation-ready, drift-free brand system.
 
-**Target features (phases 37–45; design directions D1–D3 ratified in `.planning/vM016-UI-ITERATION-BRIEF.md`):**
-- **Component primitives** — `cl_page`, `cl_hero`/`cl_stat` split, `cl_disclosure`, `cl_fact_list`, `cl_source_card`, `cl_status_cell`, `cl_switch` + layout tokens + inert-utility and `.cl-table` scroll-wrapper fixes.
-- **Shared page-shell migration + cross-screen threading** — Home/Inbox/Audit/Settings/KB onto `cl_page` with wired breadcrumbs; next-in-queue, audit↔conversation, action↔audit, article→originating-conversation.
-- **Home primacy redesign (D1)** — two-tier hero ("work the queue") + calmer secondary band; health-as-chip; count-color semantics fix; Recover-resolved filter CTA fix.
-- **Drift remediation + brand-token gate hardening (paired)** — hex→token in `conversation_live`/`search_modal`; gate fails on inline `style="…#hex…"`, raw `rgba()`, helper-returned hex; complementary Credo check.
-- **Conversation rail progressive disclosure (D2)** — safety-pinned native-`<details>` accordion (decisions first; never collapse pending/safety signals).
-- **Responsive (D3)** — desktop-first cockpit authored mobile-first; 768 tablet breakpoint; accessible table scrollers.
-- **Restrained motion** (brand §15, reduced-motion-safe) + **seed enrichment + light/dark screenshot regen + verification sweep**.
+**Target features (phases 46–52; decisions D-A/D-B/D-C + logo constraints ratified in the approved plan `~/.claude/plans/brand-book-pressure-test-abundant-dragonfly.md`):**
+- **Brand fidelity audit + token consolidation** — pressure-test the text brand book against the shipped system; collapse the 3+ palette copies into one canonical source (`priv/static/cairnloop.css` `:root`) so evolution propagates cleanly; WCAG-AA contrast baseline.
+- **Brand direction exploration (SELECTION GATE)** — 4 hand-authored logo directions (incl. a fully-integrated custom typemark), plus palette + type variants, on a local HTML "direction boards" page. Owner picks logo + palette + type.
+- **Token evolution: lock & propagate (D-A)** — apply chosen palette/type to the canonical source, propagate to example-app `app.css` + `tokens.json`, prefer value-changes/additions over renames, re-verify (brand-token gate, golden-path, contrast, E2E).
+- **Chosen-logo finalization** — full SVG asset family (lockups, mono/inverse, icon, optional tagline lockup), favicon (separately-authored small-size reduction), OG/social card; clearspace + min-size spec.
+- **Brandbook scaffold + token derivation** — self-contained `brandbook/` skeleton with `tokens.css` *derived* (not forked) from the canonical CSS.
+- **Full HTML brand book assembly** — all sections as live HTML (swatches, specimens, logo system + do/don't, light/dark), opens from `file://`, stands on its own.
+- **Collateral wiring + QA sweep (D-B)** — replace example-app logo, update favicon + `og:image`, add README SVG header; SVG-validity/contrast/diff-hygiene/repo-size QA; rendered-behavior → gated E2E.
 
-This is an owner-pulled **iteration/polish** milestone on the already-shipped operator surface — it deepens adoption quality, not product scope. Epics 12/13/14 (advanced routing, local AI, mobile SDK) stay out of scope, honoring the diminishing-returns posture.
+**Locked decisions:** **D-A** core palette + type are reopened/evolved (seed, not gospel) and propagated once with full re-verification; **D-B** the chosen logo is wired into README + example app + favicon + OG; **D-C** 4 hand-authored logo directions, one a mandatory integrated typemark. **Logo constraints:** no rectangular background cage (transparent/boundary-breaking default); logomark + logotype visually unified and close (not "icon left of text"); primary lockup has no subtitle (separate optional tagline lockup allowed); hand-authored SVG, not clipart. **Repo hygiene:** `brandbook/` self-contained, SVG-first, raster only for favicon/OG (≤~150KB), git-tracked but **out of the hex package** (`mix.exs` `files` unchanged).
+
+> **vM016 Operator UI/UX Iteration is PARKED (54%, not shipped)** to sequence this brand work first — its
+> Phase 45 screenshot regen must run against the *final* vM017 brand. Archived at
+> `.planning/milestones/vM016-phases/`; resume steps in `.planning/milestones/vM016-PARKED.md`. The product
+> remains "done enough for stated scope"; Epics 12/13/14 stay out of scope. This is a brand/identity +
+> docs-collateral milestone — no product feature scope.
 
 ## Current State
 
@@ -110,16 +116,15 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 
 ### Active
 
-**vM016 Operator UI/UX Iteration** (REQ-IDs in `.planning/REQUIREMENTS.md`):
-- ✓ Component primitives + layout tokens + inert-utility/`.cl-table` fixes (UIC-*) — Phase 37 complete (2026-06-03)
-- ✓ Shared page-shell migration through `cl_page` + origin-aware `cl_breadcrumb` (SHELL-01, SHELL-02) — Phase 38 complete (2026-06-04)
-- Cross-screen threading (THREAD-*) — Phase 42
-- Home two-tier primacy redesign / D1 (HOME-*)
-- Drift remediation + brand-token gate hardening (DRIFT-*, GATE-*)
-- Conversation rail progressive disclosure / D2 (RAIL-*)
-- Responsive desktop-first cockpit / D3 (RESP-*)
-- Restrained motion (MOTION-*)
-- Seed enrichment + light/dark screenshot regen + verification sweep (SEED-*, VERIFY-*)
+**vM017 Brand Identity System, Token Evolution & HTML Brand Book** (REQ-IDs in `.planning/REQUIREMENTS.md`,
+phases 46–52): brand fidelity audit + token consolidation, brand-direction exploration (logo/palette/type
+selection gate), token evolution + propagation, chosen-logo finalization, brandbook scaffold + token
+derivation, full HTML brand book assembly, collateral wiring + QA sweep.
+
+**vM016 Operator UI/UX Iteration — PARKED at 54%** (phases 37–45; reqs in
+`.planning/milestones/vM016-REQUIREMENTS.md`). Phases 37–43 complete; **phase 44 (motion) planned & ready**,
+**phase 45 (seed + screenshot regen + verify) unplanned**. Resume after vM017 ships — see
+`.planning/milestones/vM016-PARKED.md`.
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -304,4 +309,4 @@ This document evolves at phase transitions and milestone boundaries.
 **Post-done mode (vM016+)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
 
 ---
-*Last updated: 2026-06-04 — Phase 38 (Shared Page-Shell Migration) complete: all 8 operator screens render through `cl_page`; pure/total `BreadcrumbPresenter` wired on the KB-from-conversation deep path (SHELL-01, SHELL-02). Earlier: started milestone **vM016 Operator UI/UX Iteration** (phases 37–45) from the ratified `.planning/vM016-UI-ITERATION-BRIEF.md`. Reconciled stale planning state: since vM015 close, `v0.4.0` (operator design system: `cairnloop.css` + `Cairnloop.Web.Components` + Cockpit Home/nav), `v0.5.0` (`Automation.DraftGenerator` seam + Anthropic adapter), and `v0.5.1` (operator-identity + installer fix) shipped outside formal milestone numbering — current published version is `cairnloop` v0.5.1 on Hex.pm. vM016 iterates the already-shipped operator surface (consistency, IA threading, drift-proofing); product remains "done enough for stated scope," Epics 12/13/14 stay opt-in. Earlier open item: verification debt for phases 33/34/35 (no VERIFICATION.md) — see STATE.md.*
+*Last updated: 2026-06-23 — started milestone **vM017 Brand Identity System, Token Evolution & HTML Brand Book** (phases 46–52) from the approved plan. Logo system (4 hand-authored SVG directions + owner selection gate), reopened/evolved core palette+type (D-A), self-contained HTML brand book in `brandbook/`, and chosen-logo wiring into README + example app + favicon + OG (D-B). **vM016 Operator UI/UX Iteration parked at 54%** (phases 37–43 done, 44 ready, 45 unplanned) to sequence the brand work first — its screenshot regen must run against the final vM017 brand; archived under `.planning/milestones/vM016-phases/`, resume via `.planning/milestones/vM016-PARKED.md`. Published release: `cairnloop` v0.5.1 on Hex.pm. Product remains "done enough for stated scope"; Epics 12/13/14 stay opt-in.*
