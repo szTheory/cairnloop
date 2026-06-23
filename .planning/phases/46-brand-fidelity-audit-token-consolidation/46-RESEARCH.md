@@ -423,16 +423,20 @@ labeled "legacy alias" in canonical (lines 63, 65) — note them in the ledger a
 | A3 | `--cl-warning == --cl-primary` in dark (`#D98A4A`) is intentional, not a bug. | Token inventory | If unintentional it is a real drift/contrast concern; flag in ledger as a question for Phase 47, do not assume either way. |
 | A4 | The `text-soft` tokens are decorative (icons, separators) so the 4.5 text threshold may be advisory. | Pairing row 6 | If `text-soft` carries meaningful text anywhere, it must hit 4.5; executor should confirm usage context before assigning threshold. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does the example app render any `--cl-*` pairing via Tailwind utilities not present in lib CSS?**
+Both questions are answered-by-execution in the Phase 46 plan (`46-01-PLAN.md`, Task 2) — neither remains open for planning.
+
+1. **(RESOLVED — folded into Task 2)** Does the example app render any `--cl-*` pairing via Tailwind utilities not present in lib CSS?
    - What we know: `app.css @theme` generates `bg-cl-*`/`text-cl-*` utilities from the 15 primitives.
    - What's unclear: whether example-app HEEx uses a primitive-on-primitive combo not in the component rules.
    - Recommendation: executor greps `examples/.../lib/**/*.heex` for `text-cl-`/`bg-cl-` and folds any new pairing into the table (cheap, completeness insurance for A1).
+   - **Resolution:** Task 2 explicitly greps the example-app HEEx for `text-cl-`/`bg-cl-` utility pairings and folds any not already covered by the lib component rules into the contrast table.
 
-2. **Threshold for `text-soft` (row 6) and the route-marker-as-text vs route-marker-as-indicator.**
+2. **(RESOLVED — folded into Task 2)** Threshold for `text-soft` (row 6) and the route-marker-as-text vs route-marker-as-indicator.
    - What we know: D-06 splits 4.5 (text) vs 3.0 (UI/large). Copper is both a 32px stat count (large→3.0) and a 1px border (UI→3.0) and potentially link-sized text (4.5).
    - Recommendation: score copper at BOTH thresholds where it appears in both roles; annotate the verdict column with the role so Phase 51 reuse is unambiguous.
+   - **Resolution:** Task 2 scores the copper route-marker at BOTH 3.0 (UI/large) and 4.5 (text) thresholds with a role-annotated verdict; `text-soft` (row 6) is scored against the threshold matching its confirmed usage context.
 
 ## Environment Availability
 
