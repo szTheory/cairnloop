@@ -85,8 +85,8 @@ to `#141B19` (on light) or `#F4EEE2` (reversed on basalt).
 - **Primary horizontal:** mark + `cairnloop` in Fraunces 600, **tight kern**, mark optically centered
   to the wordmark's cap height (round-3's loose gap was rejected as too wide).
 - **Vertical / stacked:** mark centered above the wordmark.
-- **Integrated typemark / wordmark echo:** first `o` of `cairnl`**o**`op` drawn as an open copper
-  ring matching the mark; second `o` left as a calm stone.
+- **Wordmark:** plain `cairnloop` in Fraunces. (The `oo`-ring echo / integrated-typemark treatment
+  was explored and **dropped by the owner at finalization** — the mark stands alone.)
 - **Favicon:** the ring + two stones hold legibility at 16px (verified in the tournament proof strip).
 
 ---
@@ -112,6 +112,8 @@ classify the 12 border failures; Phase 48 SC4 re-verifies the full matrix.
   — deleted from the contest in Phase 49.
 - Palette **Conservative** (too static) and **Bolder** (risks the quiet/durable thesis).
 - **Spectral** display alternative — Fraunces kept.
+- **`oo`-ring echo / integrated typemark** — liked in rounds 3–4, but the owner dropped it at
+  finalization; the wordmark stays plain `cairnloop`.
 
 *This selection unlocks Phase 48 (apply Refined palette to `:root`) and Phase 49 (finalize the C3·6
 asset family).*

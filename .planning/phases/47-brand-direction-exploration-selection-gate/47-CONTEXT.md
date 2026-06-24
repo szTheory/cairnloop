@@ -58,9 +58,10 @@ directions + the chosen one) rather than running an open exploration.
 
 - **D-47-LOCKUP (defaults; finalized in Phase 49):** horizontal primary lockup (mark + `cairnloop`,
   **tight kern**, mark optically centered to the wordmark's cap height — round-3's wide gap was
-  rejected); vertical / stacked lockup; the **`oo`-ring echo** (first `o` rendered as an open copper
-  ring) retained as the integrated-typemark wordmark treatment per the milestone's mandatory
-  custom-typemark requirement; mono one-color cut for print; favicon proven at 16px.
+  rejected); vertical / stacked lockup; mono one-color cut for print; favicon proven at 16px.
+  **The `oo`-ring echo / integrated-typemark wordmark treatment was explored and REJECTED by the
+  owner** — the mark stands alone, plain `cairnloop` wordmark. (D-C's "explore one integrated
+  typemark direction" was satisfied by the exploration; shipping it was not required.)
 
 ### B. Auto-decided implementation choices (shift-left — recorded, not owner-surfaced)
 
@@ -149,9 +150,6 @@ redraw are planner/executor discretion within the constraints above.
   `x12 y25 w24 h7 rx3.5`; base stone (widest, calm) `x7 y34 w34 h8 rx4`.
 - **Refined hex set** (illustrative; Phase 48 finalizes): basalt `#141B19`, paper `#F4EEE2`, surface
   ~`#FAF5EB`, copper `#A8492A` (light) / `#D98A4A` (dark), muted `#5E665D`, dark-danger `#C96A55`.
-- **`oo`-ring echo**: render the first `o` of `cairnl**o**op` as an open copper ring matching the
-  mark; keep the second `o` a calm stone — ties mark + logotype into one system (the integrated
-  typemark requirement), kept subtle.
 - The copper route-marker (`--cl-path-copper` / `--cl-primary`) is the highest-AA-risk pairing —
   the Refined copper `#A8492A` is chosen specifically to pass white-text contrast.
 </specifics>
@@ -169,6 +167,8 @@ redraw are planner/executor discretion within the constraints above.
   not revisited unless the owner reopens.
 - The open-arch logo direction (**C10**) and the other round-2/round-3 marks — rejected; deleted
   from the contest in Phase 49.
+- The **`oo`-ring echo / integrated typemark** — explored and initially liked, **dropped by the owner
+  at finalization**; the wordmark stays plain `cairnloop`.
 </deferred>
 
 ---
