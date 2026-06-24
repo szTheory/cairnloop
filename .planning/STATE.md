@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: vM017
 milestone_name: Brand Identity System, Token Evolution & HTML Brand Book
-status: verifying
+status: planning
 last_updated: "2026-06-24T12:47:53.715Z"
-last_activity: 2026-06-23 — Phase 46 complete, transitioned to Phase 47
+last_activity: 2026-06-24 — Phase 47 context gathered (selection gate complete)
 progress:
   total_phases: 7
   completed_phases: 1
@@ -20,14 +20,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-06-23 — vM017 active)
 
 **Core value:** Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
-**Current focus:** Phase 46 — brand-fidelity-audit-token-consolidation
+**Current focus:** Phase 47 — brand-direction-exploration-selection-gate
 
 ## Current Position
 
 Phase: 47 — Brand Direction Exploration [SELECTION GATE]
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-06-23 — Phase 46 complete, transitioned to Phase 47
+Plan: Not started — context gathered, ready for `/gsd-plan-phase 47`
+Status: Selection gate COMPLETE — owner locked logo C3·6 (crowning-loop cairn) + Refined palette + current type stack (Atkinson/Fraunces/Martian)
+Last activity: 2026-06-24 — Phase 47 context + discussion log captured
 
 Progress: ░░░░░░░░░░ 0% (0/7 phases · 0/? plans)
 
