@@ -1,5 +1,95 @@
 # Milestones
 
+## vM019 OSS Trust Baseline (Shipped: 2026-07-01)
+
+**Delivered:** OSS trust hardening for Cairnloop as a respectful Phoenix/Ecto library: safer host boundaries, dedicated-schema persistence, truthful adoption docs, and source-backed CI/release confidence.
+
+**Phases completed:** 5 phases (57-61), 27 plans, 69 tasks
+**Audit:** tech debt accepted; 31/31 requirements implementation-satisfied, 0 requirement gaps, 0 integration blockers, 0 broken flows (`.planning/milestones/vM019-MILESTONE-AUDIT.md`)
+**Archive:** `.planning/milestones/vM019-ROADMAP.md`, `.planning/milestones/vM019-REQUIREMENTS.md`, `.planning/milestones/vM019-phases/`
+
+**Key accomplishments:**
+
+- Produced a blunt evidence-backed OSS quality baseline and used it to drive host-boundary, schema, docs, and CI work instead of generic checklist polish.
+- Separated customer/browser identity from operator identity across runtime persistence, widget ingress, dashboard actions, governance, recovery, search, and audit context.
+- Made widget, email webhook, MCP JSON-RPC, optional Scrypath side effects, logs, telemetry, `/health`, and doctor output fail closed or report trust posture honestly.
+- Defaulted new Cairnloop support-domain persistence to the dedicated `cairnloop` Postgres schema while preserving explicit `public` compatibility and keeping Oban host-owned.
+- Updated installer output, README, Quickstart, Host Integration, Troubleshooting, MCP, Extending, Auth/Operator Identity, SECURITY, UPGRADING, CHANGELOG, ExDoc, package metadata, and example docs to match live code.
+- Refreshed CI/release posture with current action/runtime choices, least-privilege workflow defaults, path-gated expensive checks, source-contract tests, bounded timing/cache evidence, and exact-SHA Hex publish preflight.
+
+**Known accepted debt at close:** stale planning artifacts were reconciled during closeout; Phase 59 has final verification evidence in `59-07-SUMMARY.md` rather than a standalone `59-VERIFICATION.md`; validation frontmatter remains draft for phases 58-61; Phase 57 has no validation artifact; live GitHub branch protection and hosted-runner timing/cache value are next-run inspection items.
+
+**What's next:** start a fresh milestone with `/gsd-new-milestone`; keep advanced product-surface epics adopter-pulled.
+
+---
+
+## vM018 Demo DX Adoption Proof (Shipped: 2026-06-29)
+
+**Delivered:** Docker-first first-run proof for adopters: `./bin/demo` boots a private pgvector-backed example stack, prints real runtime URLs, proves seeded Trailmark surfaces, and gives CI a dedicated demo smoke gate.
+
+**Phases completed:** 4 phases (53-56), 12 plans, 26 tasks
+**Audit:** tech debt accepted; 17/17 requirements satisfied, 0 requirement gaps, 0 integration blockers, 0 broken flows (`.planning/milestones/vM018-MILESTONE-AUDIT.md`)
+**Archive:** `.planning/milestones/vM018-ROADMAP.md`, `.planning/milestones/vM018-REQUIREMENTS.md`, `.planning/milestones/vM018-phases/`
+
+**Key accomplishments:**
+
+- Hardened the example runtime contract for Docker and manual local setup: local path dogfooding, ordered host-before-library migrations, setup-owned Trailmark seeds, quiet notifier/Chimeway/env config, and routable `/health`.
+- Added the canonical adopter-facing `./bin/demo` wrapper with start/up, URL discovery, logs, status/ps, stop/down/reset, help, isolated smoke, automatic localhost port fallback, and bounded failure diagnostics.
+- Kept the Docker demo Compose contract adopter-safe: private Postgres, dynamic or configured loopback Phoenix port, setup-before-server boot, and container-backed route checks.
+- Rewrote README, Quickstart, example README, and Troubleshooting around the Docker-first path, printed URLs, optional OpenAI first-run scope, reset/log/smoke flows, and manual setup as secondary.
+- Added DB-free source-scan tests for docs/wrapper/workflow drift plus a dedicated read-only `Demo smoke` GitHub Actions workflow that runs `./bin/demo smoke` for demo-relevant changes.
+- Verified the stack with fast CI, quality gates, Compose config, DB-backed seed checks, integration evidence, and multiple local Docker smoke runs over the locked route list.
+
+**Known accepted debt at close:** README high-level route copy omission; stale example `mix.exs` comment; demo-index hard-coded seed IDs need a future guard; `/health` remains liveness, not full DB readiness; smoke is HTTP route coverage, not browser automation; Phase 56 validation metadata is stale despite passing verification.
+
+**Git range:** `a2e53df` -> `606ee06`
+**Stats:** 68 commits; 70 files changed; 12,204 insertions and 164 deletions in the milestone range.
+
+**What's next:** define the next adoption or maintenance milestone with `/gsd-new-milestone`; keep product-surface epics adopter-pulled.
+
+---
+
+## vM016 Operator UI/UX Iteration (Shipped: 2026-06-26)
+
+**Phases completed:** 9 phases, 36 plans, 44 tasks
+**Audit:** passed (`.planning/milestones/vM016-MILESTONE-AUDIT.md`)
+**Archive:** `.planning/milestones/vM016-ROADMAP.md`, `.planning/milestones/vM016-REQUIREMENTS.md`, `.planning/milestones/vM016-phases/`
+
+**Key accomplishments:**
+
+- Built the shared operator UI primitive layer: `cl_page`, `cl_hero`, numeric-only `cl_stat`, native `cl_disclosure`, fact/source/status/switch primitives, layout tokens, inert utilities, and accessible table scrollers.
+- Migrated Home, Inbox, Audit Log, Settings, and Knowledge Base screens through the shared page shell, including origin-aware KB breadcrumbs.
+- Reworked the operator flow around a queue-first Home, resolved-filter recovery, safety-pinned rail disclosure, density controls, next-in-queue navigation, audit subject links, governed-action audit links, and KB-origin threading.
+- Removed render-file color drift and hardened the brand-token gate against inline hex, raw color functions, and helper-returned render colors.
+- Normalized the cockpit responsive layer around mobile-first breakpoints, browser-gated tap-target/bulk-bar geometry, CSS-only operator motion, and live reduced-motion proof.
+- Seeded the final-brand demo state, regenerated light/dark screenshots, recorded a 36-row visual acceptance ledger, and closed the milestone with root tests, integration, `mix check`, E2E, screenshot capture, and milestone audit all green.
+
+---
+
+## vM017 Brand Identity System, Token Evolution & HTML Brand Book (Shipped: 2026-06-26)
+
+**Phases completed:** 7 phases, 15 plans, 38 tasks
+
+**Key accomplishments:**
+
+- WCAG-AA contrast baseline (every fg/bg pairing × both themes, 3 real failures + 12 likely-exempt border failures flagged) and a per-token drift ledger (15 primitives all CLEAN, shadow-raised VALUE DRIFT + 5 semantic COVERAGE GAPs in app.css) establishing priv/static/cairnloop.css :root as the single canonical source
+- Self-contained file:// direction board with four hand-authored SVG directions, locked C3.6 selection, and Refined/current-type preview evidence
+- Locked C3.6 / Refined / current-type selection recorded with source, browser, Mix, and scope-guard evidence
+- Refined palette tokens are applied canonically and mirrored to the example app plus prompt-token JSON, with a pure ExUnit verifier guarding drift, token renames, and Phase 46 contrast rows.
+- Refined-token contrast evidence is captured against Phase 46 rows, and TOKEN-04 is complete with focused token, compile, full unit, integration, E2E, and forbidden-collateral scope gates green.
+- C3.6 crowning-loop cairn production SVG family with path-authored wordmark, subtitle-free primary lockup, first-class mono/reverse variants, and separate tagline lockup.
+- Simplified C3.6 favicon and 1200x630 OG/social card assets with ImageMagick raster exports under a 32KB committed raster footprint.
+- Diagram-ready logo usage rules plus rejected-contest cleanup and final SVG/raster hygiene gates for the Phase 49 asset family.
+- Offline static brandbook scaffold with deterministic token mirrors, provenance docs, and source/browser/package gates.
+- Deterministic static brandbook assembly with DB-free source, package, status-label, and logo-download guards
+- Complete offline HTML brand book with token-rendered sections, logo guidance, local theme toggle, and responsive CSS
+- File-url Playwright proof for the standalone brand book plus final source/browser gate alignment
+- README logo wiring plus DB-free collateral source guard for SVG, raster, and package hygiene
+- Approved logo, favicon, and OG collateral wired into the Phoenix example app with Playwright browser proof
+- Full automated collateral QA sweep with package boundary, contrast, raster, SVG, E2E, and diff-scope evidence
+
+---
+
 ## vM015 — Operator Polish + Maintenance Gates (Shipped: 2026-05-30)
 
 **Released as:** `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm (release-please pipeline)

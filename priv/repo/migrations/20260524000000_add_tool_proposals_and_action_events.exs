@@ -2,7 +2,10 @@ defmodule Cairnloop.Repo.Migrations.AddToolProposalsAndActionEvents do
   use Ecto.Migration
 
   def change do
-    create table(:cairnloop_tool_proposals) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+    ensure_schema(prefix)
+
+    create table(:cairnloop_tool_proposals, prefix: prefix) do
       add(:tool_ref, :string, null: false)
       add(:tool_version, :string)
       add(:idempotency_key, :string, null: false)
@@ -27,17 +30,17 @@ defmodule Cairnloop.Repo.Migrations.AddToolProposalsAndActionEvents do
     end
 
     # Idempotency unique index — not a partial index (D-25)
-    create(unique_index(:cairnloop_tool_proposals, [:idempotency_key]))
+    create(unique_index(:cairnloop_tool_proposals, [:idempotency_key], prefix: prefix))
 
     # Query indexes
-    create(index(:cairnloop_tool_proposals, [:status, :inserted_at]))
-    create(index(:cairnloop_tool_proposals, [:actor_id, :status]))
-    create(index(:cairnloop_tool_proposals, [:tool_ref, :inserted_at]))
+    create(index(:cairnloop_tool_proposals, [:status, :inserted_at], prefix: prefix))
+    create(index(:cairnloop_tool_proposals, [:actor_id, :status], prefix: prefix))
+    create(index(:cairnloop_tool_proposals, [:tool_ref, :inserted_at], prefix: prefix))
 
-    create table(:cairnloop_tool_action_events) do
+    create table(:cairnloop_tool_action_events, prefix: prefix) do
       add(
         :tool_proposal_id,
-        references(:cairnloop_tool_proposals, on_delete: :delete_all),
+        references(:cairnloop_tool_proposals, prefix: prefix, on_delete: :delete_all),
         null: false
       )
 
@@ -52,7 +55,19 @@ defmodule Cairnloop.Repo.Migrations.AddToolProposalsAndActionEvents do
       timestamps(type: :utc_datetime_usec, updated_at: false)
     end
 
-    create(index(:cairnloop_tool_action_events, [:tool_proposal_id, :inserted_at]))
-    create(index(:cairnloop_tool_action_events, [:event_type, :inserted_at]))
+    create(
+      index(:cairnloop_tool_action_events, [:tool_proposal_id, :inserted_at], prefix: prefix)
+    )
+
+    create(index(:cairnloop_tool_action_events, [:event_type, :inserted_at], prefix: prefix))
+  end
+
+  defp ensure_schema(nil), do: :ok
+
+  defp ensure_schema(prefix) do
+    execute(
+      "CREATE SCHEMA IF NOT EXISTS #{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+      "SELECT 1"
+    )
   end
 end

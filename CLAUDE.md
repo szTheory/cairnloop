@@ -30,7 +30,9 @@ the rest with recorded rationale.)
 ## Build / test conventions
 
 - **Warnings-clean builds are mandatory.** Code must pass `mix compile --warnings-as-errors`.
-- Run `mix test` before declaring work done. Report failures honestly with output.
+- Run `mix ci.fast` before declaring headless work done. For DB-backed, docs/package, or browser
+  changes, also run the corresponding lane: `mix ci.integration`, `mix ci.quality`, or
+  `cd examples/cairnloop_example && mix test.e2e`. Report failures honestly with output.
 - Known environment caveat: **`Cairnloop.Repo` may be unavailable in this workspace.** Prefer
   headless/pure tests (presenters, total functions) that don't need a live DB; tests that genuinely
   require a Postgres round-trip (e.g. JSONB atom→string key behavior) should be written but marked
@@ -50,6 +52,9 @@ the rest with recorded rationale.)
 - Operator copy is calm, fail-closed, reason-forward, honest — never raw Elixir terms / raw JSON to
   operators (humanize; raw only behind an explicit expander). Never state-by-color-alone (brand §7.5).
 - Brand tokens over hardcoded hex (primary `var(--cl-primary, #A94F30)`).
+- Operator UI work follows `docs/operator-ui-principles.md`: shipped dashboard CSS is tokenized
+  `.cl-*` / BEM, not Tailwind; component reuse beats one-off styles; UI/e2e specs must be fast,
+  deterministic, and non-flaky.
 
 ## Where the good context lives
 

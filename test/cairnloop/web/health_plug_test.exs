@@ -14,4 +14,26 @@ defmodule Cairnloop.Web.HealthPlugTest do
     assert conn.resp_body == ~s({"status": "ok"})
     assert get_resp_header(conn, "content-type") == ["application/json; charset=utf-8"]
   end
+
+  test "does not include readiness claims or dependency state" do
+    conn =
+      :get
+      |> conn("/health")
+      |> HealthPlug.call(HealthPlug.init([]))
+
+    decoded = Jason.decode!(conn.resp_body)
+
+    assert decoded == %{"status" => "ok"}
+
+    refute Map.has_key?(decoded, "ready")
+    refute Map.has_key?(decoded, "readiness")
+    refute Map.has_key?(decoded, "database")
+    refute Map.has_key?(decoded, "repo")
+    refute Map.has_key?(decoded, "oban")
+    refute Map.has_key?(decoded, "pgvector")
+    refute Map.has_key?(decoded, "notifier")
+    refute Map.has_key?(decoded, "ingress")
+    refute Map.has_key?(decoded, "mcp")
+    refute Map.has_key?(decoded, "scrypath")
+  end
 end

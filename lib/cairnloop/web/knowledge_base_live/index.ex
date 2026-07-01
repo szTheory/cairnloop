@@ -4,10 +4,18 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeBase
+  alias Cairnloop.Web.DashboardPath
 
   def mount(_params, session, socket) do
-    articles = KnowledgeBase.list_articles(scope_filters(session))
-    {:ok, assign(socket, articles: articles, scope_filters: scope_filters(session))}
+    scope_filters = scope_filters(session)
+    articles = KnowledgeBase.list_articles(scope_filters)
+
+    {:ok,
+     assign(socket,
+       articles: articles,
+       scope_filters: scope_filters,
+       dashboard_path: DashboardPath.from_session(session)
+     )}
   end
 
   def handle_event("suggest_revision", %{"article_id" => article_id}, socket) do
@@ -24,7 +32,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
                  suggestion.id,
                  socket.assigns.scope_filters
                ) do
-          {:noreply, push_navigate(socket, to: "/knowledge-base/suggestions?task=#{task.id}")}
+          {:noreply,
+           push_navigate(socket,
+             to:
+               DashboardPath.to(
+                 dashboard_path(socket),
+                 "/knowledge-base/suggestions?task=#{task.id}"
+               )
+           )}
         else
           _ ->
             {:noreply,
@@ -40,7 +55,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   def handle_event("new_article", _params, socket) do
     case KnowledgeBase.create_article(%{title: "Untitled article", status: :draft}) do
       {:ok, article} ->
-        {:noreply, push_navigate(socket, to: "/knowledge-base/#{article.id}/edit")}
+        {:noreply,
+         push_navigate(socket,
+           to: DashboardPath.to(dashboard_path(socket), "/knowledge-base/#{article.id}/edit")
+         )}
 
       {:error, _changeset} ->
         {:noreply,
@@ -49,22 +67,49 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   end
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:index} />
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page title="Knowledge Base" width="wide">
+        <:subnav><.kb_nav current={:index} dashboard_path={@dashboard_path} /></:subnav>
+        <:actions>
+          <.cl_button variant="primary" phx-click="new_article" phx-disable-with="Creating...">
+            New article
+          </.cl_button>
+        </:actions>
 
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Knowledge Base</h1>
-        <.cl_button variant="primary" phx-click="new_article" phx-disable-with="Creating...">
-          New article
-        </.cl_button>
-      </div>
+        <section class="cl-workflow-band" aria-label="Knowledge workflow">
+          <div class="cl-workflow-band__step">
+            <span class="cl-workflow-band__index">1</span>
+            <div>
+              <h3>Find evidence gaps</h3>
+              <p>Start from conversations where operators needed better canonical answers.</p>
+              <.link navigate={DashboardPath.to(@dashboard_path, "/knowledge-base/gaps")}>
+                Review KB gap candidates
+              </.link>
+            </div>
+          </div>
+          <div class="cl-workflow-band__step">
+            <span class="cl-workflow-band__index">2</span>
+            <div>
+              <h3>Review suggestions</h3>
+              <p>Approve, defer, reject, or edit proposed article changes before publishing.</p>
+              <.link navigate={DashboardPath.to(@dashboard_path, "/knowledge-base/suggestions")}>
+                Open suggestions
+              </.link>
+            </div>
+          </div>
+          <div class="cl-workflow-band__step">
+            <span class="cl-workflow-band__index">3</span>
+            <div>
+              <h3>Publish and reindex</h3>
+              <p>Keep the retrieval corpus aligned with reviewed, operator-approved knowledge.</p>
+            </div>
+          </div>
+        </section>
 
-      <p class="cl-mb-7">
-        <.link navigate="/knowledge-base/gaps">Review KB gap candidates</.link>
-      </p>
-
-      <.cl_card>
+        <.cl_card>
         <:header><h2>Articles</h2></:header>
 
         <.cl_empty
@@ -75,14 +120,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
           <p class="cl-text-muted">Create the first article to start building your knowledge base.</p>
         </.cl_empty>
 
-        <table :if={@articles != []} class="cl-table">
+        <div :if={@articles != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Knowledge base articles">
+        <table class="cl-table">
           <thead>
             <tr><th>Title</th><th>Status</th><th>Actions</th></tr>
           </thead>
           <tbody>
             <tr :for={article <- @articles}>
               <td>
-                <.link navigate={"/knowledge-base/#{article.id}/edit"}>{article.title}</.link>
+                <.link navigate={DashboardPath.to(@dashboard_path, "/knowledge-base/#{article.id}/edit")}>{article.title}</.link>
               </td>
               <td>
                 <.cl_chip
@@ -103,7 +149,9 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
             </tr>
           </tbody>
         </table>
-      </.cl_card>
+        </div>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end
@@ -111,6 +159,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Index do
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
   end
+
+  defp dashboard_path(socket), do: Map.get(socket.assigns, :dashboard_path, "")
 
   defp scope_filters(session) do
     host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)

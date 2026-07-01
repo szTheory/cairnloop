@@ -34,7 +34,7 @@ defmodule Cairnloop.Router do
   @doc """
   Mounts the operations endpoints a host needs for monitoring (OPS-01, OPS-02):
 
-    - `GET /health` → `Cairnloop.Web.HealthPlug` (liveness/readiness probe, 200 JSON).
+    - `GET /health` → `Cairnloop.Web.HealthPlug` (liveness only, 200 JSON).
     - `GET /metrics` → `Cairnloop.Web.MetricsPlug` (Prometheus text; 501 until
       `:telemetry_metrics_prometheus_core` is added).
 
@@ -106,6 +106,7 @@ defmodule Cairnloop.Router do
     {cairnloop_opts, session_opts} = Keyword.split(opts, [:live_session_name])
     cairnloop_opts = NimbleOptions.validate!(cairnloop_opts, @dashboard_opts_schema)
     live_session_name = cairnloop_opts[:live_session_name]
+    session_opts = put_dashboard_session(session_opts, path)
 
     quote do
       scope unquote(path), alias: false, as: false do
@@ -135,4 +136,38 @@ defmodule Cairnloop.Router do
       end
     end
   end
+
+  def dashboard_session(conn, dashboard_path, original_session) do
+    original_session
+    |> evaluate_dashboard_session(conn)
+    |> Map.put("cairnloop_dashboard_path", normalize_dashboard_path(dashboard_path))
+  end
+
+  defp put_dashboard_session(session_opts, path) do
+    default_session = quote(do: %{})
+
+    Keyword.update(session_opts, :session, default_session, fn original_session ->
+      quote do
+        {Cairnloop.Router, :dashboard_session, [unquote(path), unquote(original_session)]}
+      end
+    end)
+  end
+
+  defp evaluate_dashboard_session({module, function, args}, conn) when is_list(args) do
+    module
+    |> apply(function, [conn | args])
+    |> normalize_dashboard_session()
+  end
+
+  defp evaluate_dashboard_session(session, _conn), do: normalize_dashboard_session(session)
+
+  defp normalize_dashboard_session(session) when is_map(session), do: session
+  defp normalize_dashboard_session(session) when is_list(session), do: Map.new(session)
+  defp normalize_dashboard_session(_session), do: %{}
+
+  defp normalize_dashboard_path(nil), do: ""
+  defp normalize_dashboard_path(""), do: ""
+  defp normalize_dashboard_path("/"), do: ""
+  defp normalize_dashboard_path(path) when is_binary(path), do: String.trim_trailing(path, "/")
+  defp normalize_dashboard_path(_path), do: ""
 end

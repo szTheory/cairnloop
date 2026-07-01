@@ -34,8 +34,18 @@ defmodule CairnloopExampleWeb.Router do
   scope "/" do
     pipe_through :browser
 
+    # In test env (`:sql_sandbox` enabled) inject the Ecto-sandbox acceptance hook FIRST in the
+    # dashboard live_session, so the library-owned ConversationLive joins the browser E2E test's
+    # shared sandbox connection before any other on_mount runs. `cairnloop_dashboard/2` forwards
+    # every non-`:live_session_name` opt (here `:on_mount`) straight to `live_session/3`. Empty
+    # list in dev/prod — no behavioral change.
     Cairnloop.Router.cairnloop_dashboard("/support",
-      session: {CairnloopExampleWeb.OperatorAuth, :cairnloop_session, []}
+      session: {CairnloopExampleWeb.OperatorAuth, :cairnloop_session, []},
+      on_mount:
+        if(Application.compile_env(:cairnloop_example, :sql_sandbox),
+          do: [CairnloopExampleWeb.LiveAcceptance],
+          else: []
+        )
     )
   end
 

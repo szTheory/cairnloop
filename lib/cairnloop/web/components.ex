@@ -24,6 +24,8 @@ defmodule Cairnloop.Web.Components do
   """
   use Phoenix.Component
 
+  alias Phoenix.LiveView.JS
+
   @status_variants ~w(success info warning danger ai neutral)
 
   @doc "Primary/secondary/danger/ghost button. Buttons and inputs share token heights."
@@ -104,6 +106,59 @@ defmodule Cairnloop.Web.Components do
     """
   end
 
+  @doc """
+  Transient flash toast. Use for layout-level Phoenix flash notices; use
+  `cl_banner/1` for persistent, region-level status.
+  """
+  attr(:id, :string, default: nil)
+  attr(:flash, :map, default: %{})
+  attr(:title, :string, default: nil)
+  attr(:kind, :atom, values: [:info, :error], default: :info)
+  attr(:rest, :global)
+  slot(:inner_block)
+
+  def cl_flash(assigns) do
+    assigns =
+      assign(assigns,
+        id: assigns.id || "cl-flash-#{assigns.kind}",
+        title: assigns.title || flash_title(assigns.kind),
+        variant: flash_variant(assigns.kind),
+        icon: flash_icon(assigns.kind),
+        role: flash_role(assigns.kind),
+        live: flash_live(assigns.kind)
+      )
+
+    ~H"""
+    <div
+      :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
+      id={@id}
+      class={["cl-toast", "cl-toast--#{@variant}"]}
+      role={@role}
+      aria-live={@live}
+      phx-mounted={JS.transition("cl-toast-enter", time: 180)}
+      phx-remove={JS.transition("cl-toast-exit", time: 160)}
+      {@rest}
+    >
+      <.cl_icon name={@icon} class="cl-toast__icon" />
+      <div class="cl-toast__body">
+        <p class="cl-toast__title">{@title}</p>
+        <p class="cl-toast__message">{msg}</p>
+      </div>
+      <button
+        type="button"
+        class="cl-toast__dismiss"
+        aria-label={"Dismiss #{@title} notification"}
+        phx-click={
+          JS.push("lv:clear-flash", value: %{key: @kind})
+          |> JS.hide(to: "##{@id}", transition: "cl-toast-exit", time: 160)
+        }
+      >
+        <.cl_icon name="x-circle" />
+      </button>
+    </div>
+    """
+  end
+
   @doc "Calm, reassuring empty state. `:icon` slot optional; `title` + inner block carry the copy."
   attr(:title, :string, required: true)
   attr(:icon, :string, default: "compass")
@@ -125,7 +180,7 @@ defmodule Cairnloop.Web.Components do
   `calm?` renders the count in the success hue (used for the all-caught-up zero state).
   """
   attr(:job, :string, required: true)
-  attr(:count, :any, required: true)
+  attr(:count, :integer, required: true)
   attr(:meta, :string, default: nil)
   attr(:href, :string, default: nil)
   attr(:cta, :string, default: nil)
@@ -145,6 +200,214 @@ defmodule Cairnloop.Web.Components do
       <span :if={@cta} class="cl-stat__meta">{@cta} &rarr;</span>
       {render_slot(@inner_block)}
     </.link>
+    """
+  end
+
+  @doc """
+  Primary-count hero tile — Fraunces copper count (~2–3× heavier than `cl_stat`) with a
+  verb-led job label, an optional quiet `:detail` sub-line, and a primary CTA.
+
+  CTA precedence: when a `:cta_slot` is provided it wins; otherwise when `@cta` is set,
+  renders a `<.link navigate={@href}>` styled as `cl-button cl-button--primary`. Both are
+  optional. `calm?` switches the count to `--cl-success` (zero / all-caught-up state).
+  """
+  attr(:count, :integer, required: true)
+  attr(:job, :string, required: true)
+  attr(:href, :string, default: nil)
+  attr(:cta, :string, default: nil)
+  attr(:calm?, :boolean, default: false)
+  slot(:detail)
+  slot(:cta_slot)
+
+  def cl_hero(assigns) do
+    ~H"""
+    <section class="cl-hero">
+      <span class="cl-hero__job">{@job}</span>
+      <span
+        class={["cl-hero__count", @calm? && "cl-hero__count--calm"]}
+        phx-mounted={JS.transition("cl-motion-enter", time: 140)}
+      >
+        {@count}
+      </span>
+      <div :if={@detail != []} class="cl-hero__detail">{render_slot(@detail)}</div>
+      <div :if={@cta_slot != []} class="cl-hero__cta">{render_slot(@cta_slot)}</div>
+      <div :if={@cta_slot == [] && @cta} class="cl-hero__cta">
+        <.link navigate={@href} class="cl-button cl-button--primary">{@cta}</.link>
+      </div>
+    </section>
+    """
+  end
+
+  @doc """
+  Patch-safe native disclosure panel. Wraps native `<details>` with `phx-update="ignore"`
+  and a required stable `id` so a LiveView PubSub re-render cannot snap the panel shut.
+
+  The `open` attribute is rendered ONLY as the static HTML boolean attribute at initial
+  mount — it is NEVER bound to a server assign after that. Open/close state is owned
+  100% by the browser's native `<details>` toggle.
+
+  Forward-compat guardrail (P41): the `phx-update="ignore"` subtree freezes child content
+  from server diffs after mount. Any live-updating content must be placed OUTSIDE the
+  `<details>` element, not inside the `inner_block`.
+
+  `:rest` carries `data-tier`/`data-density` scoping hooks for rail-level progressive
+  disclosure controls (RAIL-03); all other global `data-*` pass through transparently.
+  """
+  attr(:id, :string, required: true)
+  attr(:open, :boolean, default: false)
+  attr(:rest, :global)
+  slot(:summary, required: true)
+  slot(:inner_block, required: true)
+
+  def cl_disclosure(assigns) do
+    ~H"""
+    <details class="cl-details cl-disclosure" id={@id} phx-update="ignore" open={@open} {@rest}>
+      <summary class="cl-details__summary">{render_slot(@summary)}</summary>
+      {render_slot(@inner_block)}
+    </details>
+    """
+  end
+
+  @doc """
+  Label/value definition list. Renders a `<dl>` of `%{label, value}` fact pairs with
+  dedicated `.cl-fact-list` styling (separate from `.cl-details dl` which is scoped inside
+  a disclosure). An optional `inner_block` renders custom rows after the facts list.
+
+  Facts are rendered via auto-escaped `{fact.label}` / `{fact.value}` — never `raw/1`.
+  """
+  attr(:facts, :list, default: [])
+  slot(:inner_block)
+
+  def cl_fact_list(assigns) do
+    ~H"""
+    <dl class="cl-fact-list">
+      <div :for={fact <- @facts} class="cl-fact-list__row">
+        <dt class="cl-fact-list__label">{fact.label}</dt>
+        <dd class="cl-fact-list__value">{fact.value}</dd>
+      </div>
+      {render_slot(@inner_block)}
+    </dl>
+    """
+  end
+
+  @doc """
+  ARIA switch toggle control. A real `<button role="switch">` (NOT a checkbox) with
+  server-owned checked state. `aria-checked` is rendered as the literal string `"true"`
+  or `"false"` via `to_string/1` — a raw boolean would emit a present/absent HTML boolean
+  attribute that assistive tech cannot announce as "off".
+
+  `label` is always visible (never color alone — brand §7.5). The 44px tap target and
+  checked visual (`[aria-checked="true"]` track fill + thumb translate) live in
+  `cairnloop.css`. Pass LiveView wiring via `:rest` — `phx-value-*` are included in the
+  allowlist because they are not default Phoenix.Component globals.
+  """
+  attr(:checked, :boolean, required: true)
+  attr(:label, :string, required: true)
+
+  attr(:rest, :global, include: ~w(phx-click phx-value-id phx-value-key disabled form name value))
+
+  def cl_switch(assigns) do
+    ~H"""
+    <button type="button" class="cl-switch" role="switch" aria-checked={to_string(@checked)} {@rest}>
+      <span class="cl-switch__track"><span class="cl-switch__thumb"></span></span>
+      <span class="cl-switch__label">{@label}</span>
+    </button>
+    """
+  end
+
+  @doc """
+  Status surface keyed by `source_variant` — a card with a distinct-silhouette header icon,
+  a required `:title` slot, an optional body, and an optional `:meta` footer row.
+
+  Mirrors `cl_banner`'s variant+icon+slot shape but provides a card-style container for
+  KB sources, retrieved evidence, and citation cards. The header icon is resolved from the
+  variant via the existing `status_icon/1` map (REUSE — no hand-authored SVG).
+
+  Drift-map alignment (P40): `source_variant="success"` replaces inline `#4A6238`; # cl-allow-color
+  `source_variant="info"` replaces inline `#3F6F80`. Icon MUST always be present
+  (never color alone — brand §7.5).
+  """
+  attr(:source_variant, :string,
+    values: ~w(success info neutral warning danger ai),
+    default: "neutral"
+  )
+
+  attr(:icon, :string, default: nil)
+  slot(:title, required: true)
+  slot(:meta)
+  slot(:inner_block)
+
+  def cl_source_card(assigns) do
+    assigns =
+      assign_new(assigns, :resolved_icon, fn ->
+        assigns[:icon] || status_icon(assigns.source_variant)
+      end)
+
+    ~H"""
+    <div class={["cl-source-card", "cl-source-card--#{@source_variant}"]}>
+      <header class="cl-source-card__header">
+        <.cl_icon name={@resolved_icon} class="cl-source-card__icon" />
+        {render_slot(@title)}
+      </header>
+      <div class="cl-source-card__body">{render_slot(@inner_block)}</div>
+      <div :if={@meta != []} class="cl-source-card__meta">{render_slot(@meta)}</div>
+    </div>
+    """
+  end
+
+  @doc """
+  Thin table-cell wrapper that delegates directly to `cl_chip` (no re-authored chip markup).
+  Provides a stable `.cl-status-cell` container for table column alignment.
+
+  `label` is always required and visible (never color alone — brand §7.5). The icon is
+  resolved automatically from the variant via `cl_chip`'s existing `status_icon/1` map
+  unless overridden. Variant and label are passed directly by callers (tone-mapping is
+  added in P38/P40 at adoption time; this primitive is tone-agnostic by design).
+  """
+  attr(:variant, :string, values: @status_variants, default: "neutral")
+  attr(:label, :string, required: true)
+  attr(:icon, :string, default: nil)
+
+  def cl_status_cell(assigns) do
+    ~H"""
+    <span class="cl-status-cell">
+      <.cl_chip variant={@variant} label={@label} icon={@icon} />
+    </span>
+    """
+  end
+
+  @doc """
+  Inner page frame. Renders the title/subtitle header row, optional breadcrumb above it,
+  optional actions slot right-aligned in the header, optional subnav between header and
+  body, and the body content. Must be used inside `cl_shell`'s `.cl-main`.
+
+  `width` drives `.cl-page--wide` (default, 1200px max) or `.cl-page--reading`
+  (352px rail — for conversation/detail views, P38+).
+  """
+  attr(:title, :string, required: true)
+  attr(:subtitle, :string, default: nil)
+  attr(:width, :string, values: ~w(wide reading), default: "wide")
+  slot(:actions)
+  slot(:breadcrumb)
+  slot(:subnav)
+  slot(:inner_block, required: true)
+
+  def cl_page(assigns) do
+    ~H"""
+    <div class={["cl-page", "cl-page--#{@width}"]}>
+      <header class="cl-page__header">
+        <div :if={@breadcrumb != []}>{render_slot(@breadcrumb)}</div>
+        <div class="cl-row cl-row--between">
+          <div>
+            <h1 class="cl-page__title">{@title}</h1>
+            <p :if={@subtitle} class="cl-page__subtitle">{@subtitle}</p>
+          </div>
+          <div :if={@actions != []}>{render_slot(@actions)}</div>
+        </div>
+      </header>
+      <div :if={@subnav != []} class="cl-page__subnav">{render_slot(@subnav)}</div>
+      <div class="cl-page__body">{render_slot(@inner_block)}</div>
+    </div>
     """
   end
 
@@ -248,6 +511,21 @@ defmodule Cairnloop.Web.Components do
   defp status_icon("danger"), do: "x-circle"
   defp status_icon("ai"), do: "waypoint"
   defp status_icon(_), do: "clock"
+
+  defp flash_title(:error), do: "Needs attention"
+  defp flash_title(_), do: "Notice"
+
+  defp flash_variant(:error), do: "danger"
+  defp flash_variant(_), do: "info"
+
+  defp flash_icon(:error), do: "alert-triangle"
+  defp flash_icon(_), do: "info"
+
+  defp flash_role(:error), do: "alert"
+  defp flash_role(_), do: "status"
+
+  defp flash_live(:error), do: "assertive"
+  defp flash_live(_), do: "polite"
 
   # Minimal stroke-icon set (feather-style). Distinct silhouettes for a11y.
   defp icon_paths("check-circle"),

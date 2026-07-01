@@ -1,8 +1,11 @@
 defmodule Cairnloop.Web.SearchModalComponent do
   use Phoenix.LiveComponent
 
+  import Cairnloop.Web.Components
+
   alias Cairnloop.Retrieval.GapRecorder
   alias Cairnloop.Retrieval.Telemetry
+  alias Cairnloop.Web.DashboardPath
   alias Cairnloop.Web.SearchResultPresenter
   alias Phoenix.LiveView.JS
 
@@ -53,7 +56,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
             phx-click-away="close"
             phx-target={@myself}
           >
-            <form phx-change="search" phx-submit="search" phx-target={@myself} style="padding: 24px 24px 16px; border-bottom: 1px solid rgba(64, 51, 43, 0.08);">
+            <form phx-change="search" phx-submit="search" phx-target={@myself} style="padding: 24px 24px 16px; border-bottom: 1px solid var(--cl-border);">
               <input
                 id={"#{@id}-search-input"}
                 type="text"
@@ -102,13 +105,13 @@ defmodule Cairnloop.Web.SearchModalComponent do
                         <h3 style="margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600;">
                           <%= section.title %>
                         </h3>
-                        <span style="font-size: 14px; color: rgba(47, 36, 29, 0.62);">
+                        <span class="cl-text-muted" style="font-size: 14px;">
                           <%= length(section.results) %>
                         </span>
                       </div>
 
                       <%= if Enum.empty?(section.results) do %>
-                        <div style="padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, 0.72); color: rgba(47, 36, 29, 0.68);">
+                        <div class="cl-text-muted" style="padding: 16px; border-radius: 12px; background: var(--cl-surface-raised);">
                           <%= empty_section_copy(section.source_type, @query) %>
                         </div>
                       <% else %>
@@ -126,23 +129,19 @@ defmodule Cairnloop.Web.SearchModalComponent do
                                 style={result_row_style(active?)}
                               >
                                 <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                                  <span style={source_badge_style(result.source_type)}>
-                                    <%= presenter.source_label %>
-                                  </span>
-                                  <span style={trust_badge_style(result.trust_level)}>
-                                    <%= presenter.trust_label %>
-                                  </span>
+                                  <.cl_chip variant={source_chip_variant(result.source_type)} label={presenter.source_label} />
+                                  <.cl_chip variant={trust_chip_variant(result.trust_level)} label={presenter.trust_label} />
                                 </div>
                                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
                                   <div>
                                     <p style="margin: 0 0 8px; font-size: 16px; line-height: 1.4; font-weight: 600;">
                                       <%= presenter.title %>
                                     </p>
-                                    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: rgba(47, 36, 29, 0.76);">
+                                    <p class="cl-text-muted" style="margin: 0; font-size: 14px; line-height: 1.5;">
                                       <%= presenter.row_snippet %>
                                     </p>
                                   </div>
-                                  <span style="font-size: 14px; color: rgba(47, 36, 29, 0.62); white-space: nowrap;">
+                                  <span class="cl-text-muted" style="font-size: 14px; white-space: nowrap;">
                                     <%= presenter.recency_label %>
                                   </span>
                                 </div>
@@ -159,26 +158,22 @@ defmodule Cairnloop.Web.SearchModalComponent do
                 </div>
               </div>
 
-              <div class="search-preview-pane" style="flex: 1 1 480px; min-width: min(420px, 100%); border-radius: 16px; background: rgba(255, 255, 255, 0.76); border: 1px solid rgba(64, 51, 43, 0.08); padding: 24px; overflow-y: auto;">
+              <div class="search-preview-pane" style="flex: 1 1 480px; min-width: min(420px, 100%); border-radius: 16px; background: var(--cl-surface-raised); border: 1px solid var(--cl-border); padding: 24px; overflow-y: auto;">
                 <%= if @preview do %>
                   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                    <span style={source_badge_style(@preview.result.source_type)}>
-                      <%= @preview.source_label %>
-                    </span>
-                    <span style={trust_badge_style(@preview.result.trust_level)}>
-                      <%= @preview.trust_label %>
-                    </span>
+                    <.cl_chip variant={source_chip_variant(@preview.result.source_type)} label={@preview.source_label} />
+                    <.cl_chip variant={trust_chip_variant(@preview.result.trust_level)} label={@preview.trust_label} />
                   </div>
                   <h3 style="margin: 0 0 8px; font-size: 28px; line-height: 1.2; font-weight: 600;">
                     <%= @preview.title %>
                   </h3>
-                  <p style="margin: 0 0 24px; font-size: 14px; color: rgba(47, 36, 29, 0.62);">
+                  <p class="cl-text-muted" style="margin: 0 0 24px; font-size: 14px;">
                     <%= @preview.recency_label %>
                   </p>
 
                   <div style="display: grid; gap: 16px;">
                     <%= for block <- @preview.preview_sections do %>
-                      <p style="margin: 0; font-size: 16px; line-height: 1.5; color: rgba(47, 36, 29, 0.84);">
+                      <p style="margin: 0; font-size: 16px; line-height: 1.5; color: var(--cl-text);">
                         <%= block %>
                       </p>
                     <% end %>
@@ -195,7 +190,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                         <%= @preview.open_action_label %>
                       </button>
                     <% else %>
-                      <span style="display: inline-flex; min-height: 44px; align-items: center; color: rgba(47, 36, 29, 0.62);">
+                      <span class="cl-text-muted" style="display: inline-flex; min-height: 44px; align-items: center;">
                         <%= @preview.open_action_label %>
                       </span>
                     <% end %>
@@ -204,7 +199,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
                   <h3 style="margin: 0 0 8px; font-size: 28px; line-height: 1.2; font-weight: 600;">
                     Preview results here
                   </h3>
-                  <p style="margin: 0; font-size: 16px; line-height: 1.5; color: rgba(47, 36, 29, 0.76);">
+                  <p class="cl-text-muted" style="margin: 0; font-size: 16px; line-height: 1.5;">
                     Move through results to inspect source details before you open anything.
                   </p>
                 <% end %>
@@ -336,6 +331,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
       gap_recorder: GapRecorder,
       host_surface: nil,
       host_user_id: nil,
+      dashboard_path: "",
       current_path: nil,
       preserve_reply_form: false
     )
@@ -587,7 +583,7 @@ defmodule Cairnloop.Web.SearchModalComponent do
       %{open_path: open_path} when is_binary(open_path) ->
         socket
         |> close_palette()
-        |> push_navigate(to: open_path)
+        |> push_navigate(to: DashboardPath.to(socket.assigns.dashboard_path, open_path))
 
       _ ->
         socket
@@ -611,26 +607,18 @@ defmodule Cairnloop.Web.SearchModalComponent do
   defp truthy?(value), do: value in [true, "true"]
 
   defp result_row_style(true) do
-    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid rgba(169, 79, 48, 0.22); background: rgba(169, 79, 48, 0.08); cursor: pointer;"
+    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--cl-primary); background: var(--cl-surface-sunken); cursor: pointer;"
   end
 
   defp result_row_style(false) do
-    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid rgba(64, 51, 43, 0.08); background: rgba(255, 255, 255, 0.9); cursor: pointer;"
+    "width: 100%; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--cl-border); background: var(--cl-surface-raised); cursor: pointer;"
   end
 
-  defp source_badge_style(:knowledge_base) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(74, 98, 56, 0.12); color: #4A6238; font-size: 14px; font-weight: 600;"
-  end
+  defp source_chip_variant(:knowledge_base), do: "success"
+  defp source_chip_variant(:resolved_case), do: "info"
+  defp source_chip_variant(_), do: "neutral"
 
-  defp source_badge_style(:resolved_case) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(63, 111, 128, 0.12); color: #3F6F80; font-size: 14px; font-weight: 600;"
-  end
-
-  defp trust_badge_style(:canonical) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(74, 98, 56, 0.08); color: rgba(47, 36, 29, 0.82); font-size: 14px; font-weight: 600;"
-  end
-
-  defp trust_badge_style(:assistive) do
-    "display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; background: rgba(63, 111, 128, 0.08); color: rgba(47, 36, 29, 0.82); font-size: 14px; font-weight: 600;"
-  end
+  defp trust_chip_variant(:canonical), do: "success"
+  defp trust_chip_variant(:assistive), do: "info"
+  defp trust_chip_variant(_), do: "neutral"
 end

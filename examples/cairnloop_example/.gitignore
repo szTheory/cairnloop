@@ -35,3 +35,7 @@ cairnloop_example-*.tar
 npm-debug.log
 /assets/node_modules/
 
+
+# phoenix_test_playwright debug artifacts (PW_TRACE / PW_SCREENSHOT)
+/traces/
+/screenshots/*.png

@@ -93,9 +93,9 @@ Cairnloop.Router.cairnloop_dashboard "/support",
 ```
 
 That works in a demo because there is only ever one operator. But a literal map passed to
-`:session` is evaluated **once, when your router module compiles** — it is frozen at build time and
-is identical for every request and every operator forever. There is no `conn` in scope, so there is
-no way for a literal map to carry *the operator who is actually signed in right now.*
+`:session` is evaluated **once, when your router module compiles**; static session maps are demo-only traps because they are frozen at build time and identical for every request and every operator forever.
+There is no `conn` in scope, so there is no way for a literal map to carry *the operator who is
+actually signed in right now.*
 
 Copy that line into a real app and you ship a dashboard where every staff member is `"demo_operator"`:
 the audit log attributes everyone's actions to one fictional id, and scoped search is scoped to a

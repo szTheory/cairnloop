@@ -7,6 +7,13 @@ defmodule Cairnloop.Automation do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
   def create_draft(conversation_id, attrs) do
     attrs =
       attrs
@@ -16,9 +23,10 @@ defmodule Cairnloop.Automation do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(
       :draft,
-      Draft.changeset(%Draft{}, attrs)
+      Draft.changeset(%Draft{}, attrs),
+      repo_opts()
     )
-    |> repo().transaction()
+    |> repo().transaction(repo_opts())
     |> case do
       {:ok, %{draft: draft}} ->
         :telemetry.execute(
@@ -36,14 +44,15 @@ defmodule Cairnloop.Automation do
 
   def latest_draft_for_conversation(conversation_id) do
     Draft
+    |> prefixed()
     |> where([draft], draft.conversation_id == ^conversation_id)
     |> order_by([draft], desc: draft.inserted_at, desc: draft.id)
     |> limit(1)
-    |> repo().one()
+    |> repo().one(repo_opts())
   end
 
   def approve_draft(draft_id, opts \\ []) do
-    draft = repo().get!(Draft, draft_id)
+    draft = repo().get!(Draft, draft_id, repo_opts())
     actor = Keyword.get(opts, :actor)
 
     auditor =
@@ -60,11 +69,12 @@ defmodule Cairnloop.Automation do
         conversation_id: draft.conversation_id,
         content: Draft.reply_content(draft),
         role: :agent
-      })
+      }),
+      repo_opts()
     )
-    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :approved}))
+    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :approved}), repo_opts())
     |> auditor.audit(:approve_draft, actor, %{draft_id: draft_id})
-    |> repo().transaction()
+    |> repo().transaction(repo_opts())
     |> case do
       {:ok, _result} = success ->
         :telemetry.execute(
@@ -81,7 +91,7 @@ defmodule Cairnloop.Automation do
   end
 
   def discard_draft(draft_id, opts \\ []) do
-    draft = repo().get!(Draft, draft_id)
+    draft = repo().get!(Draft, draft_id, repo_opts())
     actor = Keyword.get(opts, :actor)
 
     auditor =
@@ -92,9 +102,9 @@ defmodule Cairnloop.Automation do
       )
 
     Ecto.Multi.new()
-    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :discarded}))
+    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :discarded}), repo_opts())
     |> auditor.audit(:discard_draft, actor, %{draft_id: draft_id})
-    |> repo().transaction()
+    |> repo().transaction(repo_opts())
     |> case do
       {:ok, _result} = success ->
         :telemetry.execute(
@@ -111,7 +121,7 @@ defmodule Cairnloop.Automation do
   end
 
   def mark_draft_edited(draft_id, opts \\ []) do
-    draft = repo().get!(Draft, draft_id)
+    draft = repo().get!(Draft, draft_id, repo_opts())
     actor = Keyword.get(opts, :actor)
 
     auditor =
@@ -122,9 +132,9 @@ defmodule Cairnloop.Automation do
       )
 
     Ecto.Multi.new()
-    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :edited}))
+    |> Ecto.Multi.update(:draft, Ecto.Changeset.change(draft, %{status: :edited}), repo_opts())
     |> auditor.audit(:mark_draft_edited, actor, %{draft_id: draft_id})
-    |> repo().transaction()
+    |> repo().transaction(repo_opts())
     |> case do
       {:ok, _result} = success ->
         :telemetry.execute(

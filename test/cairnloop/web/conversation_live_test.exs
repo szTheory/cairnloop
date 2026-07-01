@@ -5,6 +5,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   alias Cairnloop.KnowledgeAutomation.{ArticleSuggestion, ReviewTask}
   alias Cairnloop.Web.ConversationLive
 
+  @missing_operator_identity_copy "Operator identity is missing. Cairnloop withheld this governed action so the audit trail does not guess who acted."
+
   defmodule MockRepo do
     def get!(Cairnloop.Conversation, 1) do
       %Cairnloop.Conversation{
@@ -49,9 +51,24 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       }
     end
 
+    def get!(Cairnloop.Conversation, 322) do
+      %Cairnloop.Conversation{
+        id: 322,
+        customer_ref: "cust_7",
+        host_user_id: nil,
+        subject: "Customer identity separation",
+        messages: [],
+        drafts: []
+      }
+    end
+
+    def get!(schema, id, _opts), do: get!(schema, id)
+
     def get(_schema, _id), do: nil
+    def get(schema, id, _opts), do: get(schema, id)
 
     def get_by(_schema, _clauses), do: nil
+    def get_by(schema, clauses, _opts), do: get_by(schema, clauses)
 
     def insert(%Ecto.Changeset{} = changeset) do
       # CR-01 regression test hook: force {:error, changeset} for specific tests
@@ -71,11 +88,15 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       end
     end
 
+    def insert(%Ecto.Changeset{} = changeset, _opts), do: insert(changeset)
+
     def all(_query), do: []
+    def all(query, _opts), do: all(query)
 
     # CR-02 fix: get_latest_approval/1 uses Ecto.Query |> repo().one().
     # In unit tests, return nil (no active approval) by default.
     def one(_query), do: nil
+    def one(query, _opts), do: one(query)
 
     def preload(record, _), do: record
 
@@ -86,6 +107,15 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   defmodule SuccessContextProvider do
     @behaviour Cairnloop.ContextProvider
     def get_context("user_42", _opts), do: {:ok, %{"Plan" => "Pro"}}
+  end
+
+  defmodule RecordingContextProvider do
+    @behaviour Cairnloop.ContextProvider
+
+    def get_context(actor_id, _opts) do
+      Process.put(:context_provider_actor, actor_id)
+      {:ok, %{"Operator scope" => actor_id}}
+    end
   end
 
   defmodule NestedSuccessContextProvider do
@@ -117,8 +147,9 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   defmodule MockKnowledgeAutomation do
-    def create_or_reuse_conversation_quick_fix(attrs, _opts) do
+    def create_or_reuse_conversation_quick_fix(attrs, opts) do
       Process.put(:create_quick_fix_attrs, attrs)
+      Process.put(:create_quick_fix_opts, opts)
       Process.get(:create_quick_fix_result)
     end
 
@@ -153,7 +184,10 @@ defmodule Cairnloop.Web.ConversationLiveTest do
        }}
     end
 
-    def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
+    def get_conversation_quick_fix(conversation_id, opts) do
+      Process.put(:get_quick_fix_called_with, {conversation_id, opts})
+      {:error, :not_found}
+    end
 
     defp quick_fix_suggestion(outcome) do
       metadata =
@@ -253,13 +287,19 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   defmodule ProcessBackedQuickFixKnowledgeAutomation do
-    def get_conversation_quick_fix(321, _opts),
-      do: Process.get(:conversation_quick_fix_result, {:error, :not_found})
+    def get_conversation_quick_fix(321, opts) do
+      Process.put(:get_quick_fix_called_with, {321, opts})
+      Process.get(:conversation_quick_fix_result, {:error, :not_found})
+    end
 
-    def get_conversation_quick_fix(_conversation_id, _opts), do: {:error, :not_found}
+    def get_conversation_quick_fix(conversation_id, opts) do
+      Process.put(:get_quick_fix_called_with, {conversation_id, opts})
+      {:error, :not_found}
+    end
 
-    def create_or_reuse_conversation_quick_fix(attrs, _opts) do
+    def create_or_reuse_conversation_quick_fix(attrs, opts) do
       Process.put(:create_quick_fix_attrs, attrs)
+      Process.put(:create_quick_fix_opts, opts)
       Process.get(:create_quick_fix_result)
     end
 
@@ -273,6 +313,35 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     def trigger(conversation_id, opts) do
       Process.put(:outbound_trigger_called_with, {conversation_id, opts})
       Process.get(:outbound_trigger_result, {:ok, %{message: %{id: 999}}})
+    end
+  end
+
+  defmodule MockChat do
+    def resolve_conversation(conversation_id, opts) do
+      Process.put(:resolve_conversation_called_with, {conversation_id, opts})
+      Process.get(:resolve_conversation_result, {:ok, %{conversation: %{id: conversation_id}}})
+    end
+  end
+
+  defmodule RecordingGovernance do
+    def propose(tool_ref, actor_id, context) do
+      Process.put(:governance_propose_called_with, {tool_ref, actor_id, context})
+      Process.get(:governance_propose_result, {:ok, %{id: 88}})
+    end
+
+    def approve(approval_id, actor_id, opts) do
+      Process.put(:governance_approve_called_with, {approval_id, actor_id, opts})
+      {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :approved}}
+    end
+
+    def reject(approval_id, actor_id, opts) do
+      Process.put(:governance_reject_called_with, {approval_id, actor_id, opts})
+      {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :rejected}}
+    end
+
+    def defer(approval_id, actor_id, opts) do
+      Process.put(:governance_defer_called_with, {approval_id, actor_id, opts})
+      {:ok, %Cairnloop.Governance.ToolApproval{id: approval_id, status: :deferred}}
     end
   end
 
@@ -407,6 +476,8 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     original_tools = Application.get_env(:cairnloop, :tools, [])
     original_knowledge_automation = Application.get_env(:cairnloop, :knowledge_automation)
     original_outbound_module = Application.get_env(:cairnloop, :outbound_module)
+    original_chat_module = Application.get_env(:cairnloop, :chat_module)
+    original_governance_module = Application.get_env(:cairnloop, :governance_module)
 
     original_outbound_recovery_template_id =
       Application.get_env(:cairnloop, :outbound_recovery_template_id)
@@ -428,6 +499,18 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         Application.put_env(:cairnloop, :outbound_module, original_outbound_module)
       else
         Application.delete_env(:cairnloop, :outbound_module)
+      end
+
+      if original_chat_module do
+        Application.put_env(:cairnloop, :chat_module, original_chat_module)
+      else
+        Application.delete_env(:cairnloop, :chat_module)
+      end
+
+      if original_governance_module do
+        Application.put_env(:cairnloop, :governance_module, original_governance_module)
+      else
+        Application.delete_env(:cairnloop, :governance_module)
       end
 
       if is_nil(original_outbound_recovery_template_id) do
@@ -456,7 +539,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "handles success tuple from configured context provider" do
       Application.put_env(:cairnloop, :context_provider, SuccessContextProvider)
 
-      assert {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
+      assert {:ok, socket} =
+               ConversationLive.mount(
+                 %{"id" => 1},
+                 %{"host_user_id" => "user_42"},
+                 %Phoenix.LiveView.Socket{}
+               )
+
       assert socket.assigns.host_context == %{"Plan" => "Pro"}
       assert socket.assigns.context_error == nil
     end
@@ -464,9 +553,78 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "handles error tuple from configured context provider" do
       Application.put_env(:cairnloop, :context_provider, ErrorContextProvider)
 
-      assert {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
+      assert {:ok, socket} =
+               ConversationLive.mount(
+                 %{"id" => 1},
+                 %{"host_user_id" => "user_42"},
+                 %Phoenix.LiveView.Socket{}
+               )
+
       assert socket.assigns.host_context == %{}
       assert socket.assigns.context_error == :not_found
+    end
+
+    test "stores dashboard session operator actor separately from customer identity" do
+      Application.put_env(:cairnloop, :context_provider, RecordingContextProvider)
+
+      Application.put_env(
+        :cairnloop,
+        :knowledge_automation,
+        ProcessBackedQuickFixKnowledgeAutomation
+      )
+
+      assert {:ok, socket} =
+               ConversationLive.mount(
+                 %{"id" => 322},
+                 %{"host_user_id" => "operator_7"},
+                 %Phoenix.LiveView.Socket{}
+               )
+
+      assert socket.assigns.operator_host_user_id == "operator_7"
+      assert socket.assigns.conversation.customer_ref == "cust_7"
+      assert socket.assigns.conversation.host_user_id == nil
+      assert Process.get(:context_provider_actor) == "operator_7"
+
+      assert Process.get(:get_quick_fix_called_with) ==
+               {322, [tenant_scope: :host_user_scoped, host_user_id: "operator_7"]}
+
+      html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
+
+      assert html =~ "data-host-user-id=\"operator_7\""
+      refute html =~ "data-host-user-id=\"cust_7\""
+      assert html =~ "Customer reference"
+      assert html =~ "cust_7"
+    end
+
+    test "accepts atom-key dashboard session operator actor" do
+      Application.put_env(:cairnloop, :context_provider, RecordingContextProvider)
+
+      assert {:ok, socket} =
+               ConversationLive.mount(
+                 %{"id" => 322},
+                 %{host_user_id: "operator_atom"},
+                 %Phoenix.LiveView.Socket{}
+               )
+
+      assert socket.assigns.operator_host_user_id == "operator_atom"
+      assert Process.get(:context_provider_actor) == "operator_atom"
+    end
+
+    test "missing dashboard session actor does not load host-scoped quick fix rows" do
+      Application.put_env(
+        :cairnloop,
+        :knowledge_automation,
+        ProcessBackedQuickFixKnowledgeAutomation
+      )
+
+      Process.delete(:get_quick_fix_called_with)
+
+      assert {:ok, socket} =
+               ConversationLive.mount(%{"id" => 322}, %{}, %Phoenix.LiveView.Socket{})
+
+      assert socket.assigns.operator_host_user_id == nil
+      assert socket.assigns.quick_fix_card.status == :idle
+      assert Process.get(:get_quick_fix_called_with) == nil
     end
   end
 
@@ -515,6 +673,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           drafts: [],
           host_user_id: "user_42"
         },
+        operator_host_user_id: "user_42",
         host_context: %{},
         context_error: nil,
         form: Phoenix.Component.to_form(%{"content" => ""}),
@@ -622,6 +781,30 @@ defmodule Cairnloop.Web.ConversationLiveTest do
   end
 
   describe "render/1 draft shell and inline actions" do
+    test "renders a next-decision band for open conversations" do
+      assigns = %{
+        conversation: %Cairnloop.Conversation{
+          id: 1,
+          status: :open,
+          subject: "Test",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+
+      html = render_html(assigns)
+
+      assert html =~ "Next decision"
+      assert html =~ "Close the loop when the customer is handled"
+      assert html =~ "Resolve conversation"
+    end
+
     test "renders outbound recovery card only for resolved conversations" do
       assigns = %{
         conversation: %Cairnloop.Conversation{
@@ -641,6 +824,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       html = render_html(assigns)
 
+      assert html =~ "Conversation resolved"
       assert html =~ "Outbound recovery"
       assert html =~ "Send Recovery Follow-up"
       assert html =~ "configured recovery template"
@@ -731,7 +915,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "renders the quick-fix card as a distinct evidence-rail section outside generic actions" do
       Application.put_env(:cairnloop, :context_provider, SuccessContextProvider)
 
-      {:ok, socket} = ConversationLive.mount(%{"id" => 1}, %{}, %Phoenix.LiveView.Socket{})
+      {:ok, socket} =
+        ConversationLive.mount(
+          %{"id" => 1},
+          %{"host_user_id" => "user_42"},
+          %Phoenix.LiveView.Socket{}
+        )
+
       html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
 
       assert html =~ "Actions"
@@ -744,7 +934,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "renders shell state copy, reason callout, and follow-through status rail" do
       Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
 
-      {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+      {:ok, socket} =
+        ConversationLive.mount(
+          %{"id" => 321},
+          %{"host_user_id" => "user_42"},
+          %Phoenix.LiveView.Socket{}
+        )
+
       html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
 
       assert html =~ "KB maintenance"
@@ -764,7 +960,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     test "renders retry-needed copy when reindex follow-through fails after publish" do
       Application.put_env(:cairnloop, :knowledge_automation, ReindexFailedKnowledgeAutomation)
 
-      {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+      {:ok, socket} =
+        ConversationLive.mount(
+          %{"id" => 321},
+          %{"host_user_id" => "user_42"},
+          %Phoenix.LiveView.Socket{}
+        )
+
       html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
 
       assert html =~ "Follow-through needs attention"
@@ -792,7 +994,13 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           follow_through_quick_fix_result(reindex_status)
         )
 
-        {:ok, socket} = ConversationLive.mount(%{"id" => 321}, %{}, %Phoenix.LiveView.Socket{})
+        {:ok, socket} =
+          ConversationLive.mount(
+            %{"id" => 321},
+            %{"host_user_id" => "user_42"},
+            %Phoenix.LiveView.Socket{}
+          )
+
         html = render_html(Map.put(socket.assigns, :socket, %Phoenix.LiveView.Socket{}))
 
         assert html =~ heading
@@ -983,6 +1191,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
           drafts: [],
           host_user_id: "user_42"
         },
+        operator_host_user_id: "user_42",
         host_context: %{"id" => "123"},
         context_error: nil,
         form: Phoenix.Component.to_form(%{"content" => ""}),
@@ -1009,6 +1218,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{"id" => "123"},
           flash: %{},
           __changed__: %{}
@@ -1033,6 +1243,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{"id" => "123"},
           flash: %{},
           __changed__: %{}
@@ -1057,6 +1268,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{},
           flash: %{},
           __changed__: %{}
@@ -1078,6 +1290,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{"id" => "123"},
           flash: %{},
           __changed__: %{}
@@ -1107,6 +1320,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{},
           flash: %{},
           __changed__: %{}
@@ -1134,6 +1348,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{},
           flash: %{},
           __changed__: %{}
@@ -1179,7 +1394,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       refute handler_region =~ "can_execute?"
       refute handler_region =~ ".execute("
       refute handler_region =~ "try do"
-      assert handler_region =~ "Governance.propose"
+      assert handler_region =~ "governance_module().propose"
       assert handler_region =~ "failure_reason_message"
     end
 
@@ -1193,6 +1408,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         endpoint: Cairnloop.Web.Endpoint,
         assigns: %{
           conversation: %Cairnloop.Conversation{id: 1, host_user_id: "user_42"},
+          operator_host_user_id: "user_42",
           host_context: %{"id" => "123"},
           flash: %{},
           __changed__: %{}
@@ -1216,7 +1432,101 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  describe "operator identity trust state" do
+    test "missing operator identity renders a persistent banner and withholds resolve and approval controls" do
+      html = render_html(missing_operator_trust_assigns())
+
+      assert html =~ @missing_operator_identity_copy
+      assert html =~ ~s(data-operator-trust-state="decision")
+      assert html =~ ~s(data-operator-trust-state="governed-actions")
+      assert html =~ "cl-banner--warning"
+
+      assert_occurs_before(html, ~s(data-operator-trust-state="decision"), "Resolve conversation")
+
+      assert_occurs_before(
+        html,
+        ~s(data-operator-trust-state="governed-actions"),
+        "Governed actions"
+      )
+
+      refute html =~ ~s(phx-click="resolve_conversation")
+      refute html =~ ~s(phx-click="approve_action")
+      refute html =~ ~s(phx-submit="reject_action")
+      refute html =~ ~s(phx-submit="defer_action")
+    end
+
+    test "missing operator identity withholds recovery action with adjacent banner" do
+      html =
+        render_html(
+          missing_operator_trust_assigns(%{
+            conversation: trust_state_conversation(%{status: :resolved})
+          })
+        )
+
+      assert html =~ @missing_operator_identity_copy
+      assert html =~ ~s(data-operator-trust-state="recovery")
+      assert_occurs_before(html, ~s(data-operator-trust-state="recovery"), "Outbound recovery")
+      refute html =~ ~s(phx-click="trigger_recovery_follow_up")
+    end
+
+    test "trust-state markup stays in the component system and avoids raw payloads" do
+      html = render_html(missing_operator_trust_assigns())
+      markup = operator_trust_state_markup(html)
+
+      assert markup =~ "cl-banner"
+      refute markup =~ "inspect("
+      refute markup =~ "%{"
+      refute markup =~ "{&quot;"
+      refute markup =~ ~r/\b(?:bg|text|border|rounded|shadow|p|m|mt|mb|ml|mr|px|py)-\d/
+      refute markup =~ ~r/(?:color|background|border)[^\";]*#[0-9A-Fa-f]{3,6}/
+    end
+  end
+
   describe "quick-fix launch actions" do
+    test "start_quick_fix scopes request attrs with dashboard session operator actor" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+
+      Process.put(
+        :create_quick_fix_result,
+        {:ok,
+         %{
+           suggestion:
+             struct(ArticleSuggestion,
+               id: 77,
+               entrypoint_type: :conversation_quick_fix,
+               entrypoint_id: 322,
+               status: :ready,
+               grounding_metadata: %{"quick_fix_outcome" => "ready"}
+             ),
+           review_task: struct(ReviewTask, id: 61, status: :pending_review),
+           reused?: false,
+           quick_fix: %{}
+         }}
+      )
+
+      socket =
+        quick_fix_socket(%{
+          operator_host_user_id: "operator_7",
+          conversation: %Cairnloop.Conversation{
+            id: 322,
+            status: :open,
+            customer_ref: "cust_7",
+            host_user_id: nil,
+            subject: "Customer identity separation",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, _socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, socket)
+
+      assert Process.get(:create_quick_fix_attrs).host_user_id == "operator_7"
+
+      assert Process.get(:create_quick_fix_opts) ==
+               [tenant_scope: :host_user_scoped, host_user_id: "operator_7"]
+    end
+
     test "start_quick_fix creates a review-ready task and redirects into the shared lane" do
       Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
 
@@ -1358,6 +1668,21 @@ defmodule Cairnloop.Web.ConversationLiveTest do
                "Quick fix could not prepare a reviewable suggestion."
     end
 
+    test "start_quick_fix withholds KnowledgeAutomation calls when operator identity is missing" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+      Process.delete(:create_quick_fix_attrs)
+      Process.delete(:create_quick_fix_opts)
+
+      socket = quick_fix_socket(%{operator_host_user_id: nil})
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("start_quick_fix", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+      assert Process.get(:create_quick_fix_attrs) == nil
+      assert Process.get(:create_quick_fix_opts) == nil
+    end
+
     test "open_manual_draft routes blocked quick fixes into the shared authoring path" do
       Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
 
@@ -1384,9 +1709,81 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       assert path =~ "review_task_id=62"
       assert path =~ "return_to=%2F321"
     end
+
+    test "open_manual_draft withholds KnowledgeAutomation calls when operator identity is missing" do
+      Application.put_env(:cairnloop, :knowledge_automation, MockKnowledgeAutomation)
+      Process.delete(:manual_draft_suggestion_id)
+
+      socket =
+        quick_fix_socket(%{
+          operator_host_user_id: nil,
+          quick_fix_card: %{
+            status: :blocked_manual_required,
+            suggestion_id: 78,
+            review_task_id: 62,
+            primary_action: %{event: "open_manual_draft", label: "Open manual draft"}
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("open_manual_draft", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+      assert Process.get(:manual_draft_suggestion_id) == nil
+      assert updated_socket.redirected == nil
+    end
   end
 
   describe "outbound recovery trigger" do
+    test "queues recovery with the dashboard session actor instead of conversation identity" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
+
+      socket =
+        operator_action_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            customer_ref: "cust_7",
+            host_user_id: "conversation_actor",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, _updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert Process.get(:outbound_trigger_called_with) ==
+               {321, [template_id: "recovery_v1", actor: "operator_7"]}
+    end
+
+    test "withholds recovery when dashboard session actor is missing" do
+      Application.put_env(:cairnloop, :outbound_module, MockOutbound)
+      Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
+
+      socket =
+        operator_action_socket(%{
+          operator_host_user_id: nil,
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            customer_ref: "cust_7",
+            host_user_id: "conversation_actor",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("trigger_recovery_follow_up", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+      assert Process.get(:outbound_trigger_called_with) == nil
+    end
+
     test "queues a recovery follow-up for resolved conversations" do
       Application.put_env(:cairnloop, :outbound_module, MockOutbound)
       Application.put_env(:cairnloop, :outbound_recovery_template_id, "recovery_v1")
@@ -1488,8 +1885,220 @@ defmodule Cairnloop.Web.ConversationLiveTest do
     end
   end
 
+  describe "operator mutation actor guard" do
+    test "resolve_conversation uses the dashboard session actor" do
+      Application.put_env(:cairnloop, :chat_module, MockChat)
+
+      socket =
+        operator_action_socket(%{
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :open,
+            customer_ref: "cust_7",
+            host_user_id: "conversation_actor",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, _updated_socket} =
+               ConversationLive.handle_event("resolve_conversation", %{}, socket)
+
+      assert Process.get(:resolve_conversation_called_with) ==
+               {321, [resolved_by: "operator_7"]}
+    end
+
+    test "resolve_conversation fails closed when dashboard session actor is missing" do
+      Application.put_env(:cairnloop, :chat_module, MockChat)
+
+      socket =
+        operator_action_socket(%{
+          operator_host_user_id: nil,
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :open,
+            customer_ref: "cust_7",
+            host_user_id: "conversation_actor",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        })
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event("resolve_conversation", %{}, socket)
+
+      assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+      assert Process.get(:resolve_conversation_called_with) == nil
+    end
+
+    test "execute_tool proposes with the dashboard session actor" do
+      Application.put_env(:cairnloop, :governance_module, RecordingGovernance)
+
+      tool_ref = Atom.to_string(SimpleTool)
+      socket = operator_action_socket(%{host_context: %{"id" => "123"}})
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => tool_ref, "tool_params" => %{}},
+                 socket
+               )
+
+      assert updated_socket.assigns.flash["info"] =~ "Proposed"
+
+      assert {^tool_ref, "operator_7", context} =
+               Process.get(:governance_propose_called_with)
+
+      assert context.conversation_id == 321
+    end
+
+    test "execute_tool fails closed before governance when actor is missing" do
+      Application.put_env(:cairnloop, :governance_module, RecordingGovernance)
+
+      socket =
+        operator_action_socket(%{operator_host_user_id: nil, host_context: %{"id" => "123"}})
+
+      assert {:noreply, updated_socket} =
+               ConversationLive.handle_event(
+                 "execute_tool",
+                 %{"tool" => Atom.to_string(SimpleTool), "tool_params" => %{}},
+                 socket
+               )
+
+      assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+      assert Process.get(:governance_propose_called_with) == nil
+    end
+
+    test "approval decisions use the dashboard session actor" do
+      Application.put_env(:cairnloop, :governance_module, RecordingGovernance)
+
+      assert {:noreply, _socket} =
+               ConversationLive.handle_event(
+                 "approve_action",
+                 %{"approval-id" => "99"},
+                 operator_action_socket()
+               )
+
+      assert Process.get(:governance_approve_called_with) == {99, "operator_7", []}
+
+      assert {:noreply, _socket} =
+               ConversationLive.handle_event(
+                 "reject_action",
+                 %{"approval-id" => "100", "reason" => "Out of scope"},
+                 operator_action_socket()
+               )
+
+      assert Process.get(:governance_reject_called_with) ==
+               {100, "operator_7", [reason: "Out of scope"]}
+
+      assert {:noreply, _socket} =
+               ConversationLive.handle_event(
+                 "defer_action",
+                 %{"approval-id" => "101", "reason" => "Wait for owner"},
+                 operator_action_socket()
+               )
+
+      assert Process.get(:governance_defer_called_with) ==
+               {101, "operator_7", [reason: "Wait for owner"]}
+    end
+
+    test "approval decisions fail closed before governance when actor is missing" do
+      Application.put_env(:cairnloop, :governance_module, RecordingGovernance)
+
+      for {event, params, process_key} <- [
+            {"approve_action", %{"approval-id" => "99"}, :governance_approve_called_with},
+            {"reject_action", %{"approval-id" => "100", "reason" => "No"},
+             :governance_reject_called_with},
+            {"defer_action", %{"approval-id" => "101", "reason" => "Later"},
+             :governance_defer_called_with}
+          ] do
+        assert {:noreply, updated_socket} =
+                 ConversationLive.handle_event(
+                   event,
+                   params,
+                   operator_action_socket(%{operator_host_user_id: nil})
+                 )
+
+        assert updated_socket.assigns.flash["error"] == @missing_operator_identity_copy
+        assert Process.get(process_key) == nil
+      end
+    end
+  end
+
   defp render_html(assigns) do
     render_component(&ConversationLive.render/1, assigns)
+  end
+
+  defp missing_operator_trust_assigns(overrides \\ %{}) do
+    conversation = Map.get(overrides, :conversation, trust_state_conversation())
+
+    governed_action =
+      tool_proposal_fixture(%{
+        status: :proposed,
+        approval_mode: :manual,
+        approval: pending_approval_fixture()
+      })
+
+    %{
+      conversation: conversation,
+      operator_host_user_id: nil,
+      host_context: %{"id" => "123"},
+      context_error: nil,
+      quick_fix_card: %{status: :idle},
+      governed_actions: [governed_action],
+      form: Phoenix.Component.to_form(%{"content" => ""}),
+      pending_discard_draft_id: nil,
+      socket: %Phoenix.LiveView.Socket{}
+    }
+    |> Map.merge(Map.drop(overrides, [:conversation]))
+  end
+
+  defp trust_state_conversation(overrides \\ %{}) do
+    %Cairnloop.Conversation{
+      id: 321,
+      status: :open,
+      customer_ref: "cust_7",
+      host_user_id: "conversation_actor",
+      subject: "Weekend export fails",
+      drafts: [],
+      messages: []
+    }
+    |> Map.merge(overrides)
+  end
+
+  defp operator_trust_state_markup(html) do
+    ~r/<div[^>]*operator-trust-state[^>]*>.*?<\/div>/s
+    |> Regex.scan(html)
+    |> Enum.map(&List.first/1)
+    |> Enum.join("\n")
+  end
+
+  defp assert_occurs_before(html, earlier, later) do
+    assert {earlier_at, _} = :binary.match(html, earlier)
+    assert {later_at, _} = :binary.match(html, later)
+    assert earlier_at < later_at
+  end
+
+  defp operator_action_socket(overrides \\ %{}) do
+    quick_fix_socket(
+      Map.merge(
+        %{
+          operator_host_user_id: "operator_7",
+          conversation: %Cairnloop.Conversation{
+            id: 321,
+            status: :resolved,
+            customer_ref: "cust_7",
+            host_user_id: "conversation_actor",
+            subject: "Weekend export fails",
+            drafts: [],
+            messages: []
+          }
+        },
+        overrides
+      )
+    )
   end
 
   defp quick_fix_socket(overrides \\ %{}) do
@@ -1502,6 +2111,7 @@ defmodule Cairnloop.Web.ConversationLiveTest do
         drafts: [],
         messages: []
       },
+      operator_host_user_id: "user_42",
       host_context: %{},
       context_error: nil,
       quick_fix_card: %{status: :idle},
@@ -2204,15 +2814,15 @@ defmodule Cairnloop.Web.ConversationLiveTest do
       source =
         File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
 
-      # Handler must call Governance.approve/reject/defer (at least 3 times total)
-      assert source =~ "Governance.approve",
-             "conversation_live must call Cairnloop.Governance.approve"
+      # Handler must call the governance facade (direct by default, injectable in tests)
+      assert source =~ "governance_module().approve",
+             "conversation_live must route approvals through the governance facade"
 
-      assert source =~ "Governance.reject",
-             "conversation_live must call Cairnloop.Governance.reject"
+      assert source =~ "governance_module().reject",
+             "conversation_live must route rejections through the governance facade"
 
-      assert source =~ "Governance.defer",
-             "conversation_live must call Cairnloop.Governance.defer"
+      assert source =~ "governance_module().defer",
+             "conversation_live must route deferrals through the governance facade"
 
       # Handler must NOT call run/3 or execute inline (APRV-01)
       # Extract approve_action handler region to avoid matching doc strings
@@ -2280,6 +2890,357 @@ defmodule Cairnloop.Web.ConversationLiveTest do
 
       assert socket.assigns.governed_actions_limit == 20
       assert is_list(socket.assigns.governed_actions)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 41 — Conversation rail progressive disclosure (D2)
+  #
+  # Wave 0 RED scaffold: 7 tests encoding the target structure from VALIDATION.md.
+  # Behavior 6 (D-09 render-purity) is GREEN now and stays green — it is a proxy
+  # assertion over the source file that no handle_event clause toggles disclosure
+  # open state. The other six tests are RED until Waves 1–3 land the production
+  # markup. Runtime dispatch (Function.capture) keeps --warnings-as-errors clean.
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action_card/1 — Phase 41 rail disclosure" do
+    # Behavior 1 (RAIL-01): Tier-1 isolation — pending footer + safety quartet
+    # render OUTSIDE any <details> (never collapsed). Asserts the post-restructure
+    # cl_disclosure Tier-2 groups exist AND the footer is balanced outside them.
+    test "RAIL-01: pending footer and safety quartet render outside any <details> (Tier-1 isolation)" do
+      proposal =
+        tool_proposal_fixture(%{
+          status: :proposed,
+          approval: %Cairnloop.Governance.ToolApproval{id: 7, status: :pending}
+        })
+
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # Pending footer must be present
+      assert html =~ "Approval required"
+
+      # The Tier-2 cl_disclosure groups must exist (post-restructure requirement);
+      # this assertion is RED until Wave 1 migrates the bespoke sections to cl_disclosure.
+      assert html =~ ~s(data-tier="2"),
+             "Expected Tier-2 cl_disclosure groups (data-tier=\"2\") to be present in the card markup (RAIL-01 post-restructure)"
+
+      # Split on the footer marker — everything before it must have balanced
+      # <details>/<details> tags (every disclosure opened before the footer is
+      # also closed before the footer, so the footer is a Tier-1 sibling).
+      [before_footer | _] = String.split(html, "governed-action-footer")
+      open_count = length(String.split(before_footer, "<details")) - 1
+      close_count = length(String.split(before_footer, "</details>")) - 1
+
+      assert open_count == close_count,
+             "All <details> opened before the footer must be closed before it (Tier-1 sibling invariant). " <>
+               "Found #{open_count} opens and #{close_count} closes before the footer marker."
+    end
+
+    # Behavior 2 (RAIL-02): Group structure — exactly 3 data-tier="2" groups +
+    # a standalone non-data-tier Trace group.
+    test "RAIL-02: exactly 3 Tier-2 groups with correct summaries, plus a non-tier-2 Trace group" do
+      proposal = tool_proposal_fixture(%{status: :proposed})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # Exactly 3 data-tier="2" occurrences
+      tier2_count = length(String.split(html, ~s(data-tier="2"))) - 1
+
+      assert tier2_count == 3,
+             "Expected exactly 3 data-tier=\"2\" groups (Inputs & scope, History, Policy explanation). Got #{tier2_count}."
+
+      # All three Tier-2 summaries present
+      assert html =~ "Inputs &amp; scope"
+      assert html =~ "History"
+      assert html =~ "Policy explanation"
+
+      # Trace group summary present
+      assert html =~ "Identifiers &amp; trace"
+
+      # Trace group is NOT Tier-2 (count stays at 3, not 4)
+      assert tier2_count == 3,
+             "Trace group must NOT carry data-tier=\"2\" (Expand-all must not reach it)."
+    end
+
+    # Behavior 3 (RAIL-02 mechanism): Every <details> carries phx-update="ignore"
+    # (patch-safe); count of <details equals count of phx-update="ignore".
+    test "RAIL-02 mechanism: every <details> carries phx-update=ignore and count >= 4" do
+      proposal = tool_proposal_fixture(%{status: :proposed})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      details_count = length(String.split(html, "<details")) - 1
+      ignore_count = length(String.split(html, ~s(phx-update="ignore"))) - 1
+
+      assert details_count == ignore_count,
+             "Every <details> must carry phx-update=\"ignore\" for PubSub patch-safety. " <>
+               "Got #{details_count} <details> elements but #{ignore_count} phx-update=\"ignore\" attributes."
+
+      assert details_count >= 4,
+             "Expected at least 4 <details> groups (3 Tier-2 + 1 Trace). Got #{details_count}."
+    end
+
+    # Behavior 4 (D-08 positive): Pending fixture → Inputs group emits static open.
+    # policy_denied fixture → both Inputs AND Policy groups emit open.
+    test "D-08 positive: pending proposal opens Inputs group; policy_denied opens both Inputs and Policy" do
+      # Pending: Inputs should be open
+      pending_proposal =
+        tool_proposal_fixture(%{
+          status: :proposed,
+          approval: %Cairnloop.Governance.ToolApproval{id: 8, status: :pending}
+        })
+
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html_pending = render_component(card_fn, proposal: pending_proposal)
+
+      assert html_pending =~ ~r/data-tier="2"[^>]*\bopen\b|\bopen\b[^>]*data-tier="2"/,
+             "Pending proposal must open the Inputs & scope Tier-2 group (D-08)"
+
+      # policy_denied: both Inputs and Policy should be open
+      denied_proposal = tool_proposal_fixture(%{status: :policy_denied})
+      html_denied = render_component(card_fn, proposal: denied_proposal)
+
+      open_tier2_count =
+        html_denied
+        |> String.split("<details")
+        |> Enum.drop(1)
+        |> Enum.count(fn segment ->
+          segment =~ ~s(data-tier="2") and segment =~ ~r/\bopen\b/
+        end)
+
+      assert open_tier2_count >= 2,
+             "policy_denied must open both Inputs & scope AND Policy explanation Tier-2 groups (D-08). " <>
+               "Found #{open_tier2_count} open Tier-2 groups."
+    end
+
+    # Behavior 5 (D-08 negative): Non-pending, non-blocked proposal → no Tier-2
+    # group emits a static open attribute. Asserts Tier-2 groups are present (post-restructure)
+    # but none carry open (the negative condition). RED until Wave 1 ships cl_disclosure groups.
+    test "D-08 negative: proposed (no pending approval) emits no static open on Tier-2 groups" do
+      proposal = tool_proposal_fixture(%{status: :proposed, approval: nil})
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      # The Tier-2 groups must be present in the post-restructure markup;
+      # this assertion is RED until Wave 1 migrates sections to cl_disclosure.
+      assert html =~ ~s(data-tier="2"),
+             "Expected Tier-2 cl_disclosure groups to be present; none found. (Post-restructure requirement — RED until Wave 1)"
+
+      refute html =~ ~r/data-tier="2"[^>]*\bopen\b/,
+             "Non-pending, non-blocked proposal must not emit static open on any Tier-2 group (D-08 negative)"
+    end
+
+    # Behavior 6 (D-09 render-purity — GREEN now and stays green):
+    # Assert no handle_event clause head names a disclosure/open-state toggle.
+    # Uses clause-head allow-list mechanism to avoid DOTALL false positives.
+    test "D-09 render-purity: no handle_event clause toggles <details> disclosure open state" do
+      # Resolve source path relative to this test file's location (robust, no hardcoded cwd)
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      # Extract all handle_event clause-head event names (NOT a DOTALL whole-file grep)
+      event_names =
+        Regex.scan(~r/def handle_event\(\s*"([^"]+)"/, src)
+        |> Enum.map(fn [_full, name] -> name end)
+
+      # Allow-list: the two known NAVIGATION events that happen to contain "open"
+      # but do NOT toggle a <details> open attribute
+      allowed_open_events = ["open_review_task", "open_manual_draft"]
+
+      # Any event name whose prefix suggests a disclosure toggle (open/close/toggle/expand/collapse/density)
+      # must be a subset of the allow-list (i.e. no undeclared disclosure events exist)
+      disclosure_like =
+        Enum.filter(event_names, fn name ->
+          name =~ ~r/^(open|close|toggle|expand|collapse|density)/
+        end)
+
+      assert disclosure_like -- allowed_open_events == [],
+             "Found handle_event clause heads that look like disclosure toggles but are not allow-listed: " <>
+               inspect(disclosure_like -- allowed_open_events) <>
+               " — D-09 requires no server-side disclosure open-state toggle."
+
+      # Belt-and-suspenders: assert no open={@...} binding exists in the source
+      # other than the two static auto-open assigns (auto_open_inputs / auto_open_policy)
+      refute src =~ ~r/open=\{@(?!auto_open_inputs|auto_open_policy)\w+\}/,
+             "Found open={@...} bound to an assign other than @auto_open_inputs or @auto_open_policy — " <>
+               "D-09 requires open state to be static-only (never a post-event live assign)."
+    end
+
+    # Behavior 7 (RAIL-03 controls): Rail-level control bar markup — Expand all /
+    # Collapse all with JS set_attribute/remove_attribute scoped to [data-tier='2'],
+    # plus data-density="comfortable" default.
+    test "RAIL-03: control bar has Expand/Collapse-all JS commands scoped to [data-tier='2'] and density default" do
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      assert src =~ "Expand all",
+             "Rail control bar must contain 'Expand all' button (RAIL-03)"
+
+      assert src =~ "Collapse all",
+             "Rail control bar must contain 'Collapse all' button (RAIL-03)"
+
+      assert src =~ ~s|set_attribute({"open", ""}|,
+             "Expand-all JS must use set_attribute({\"open\", \"\"}, ...) (RAIL-03)"
+
+      assert src =~ ~s|remove_attribute("open"|,
+             "Collapse-all JS must use remove_attribute(\"open\", ...) (RAIL-03)"
+
+      assert src =~ ~s|to: "[data-tier='2']"|,
+             "Expand/Collapse-all JS must be scoped to [data-tier='2'] (RAIL-03 — must not reach Tier-1 or Tier-3)"
+
+      assert src =~ ~s|data-density="comfortable"|,
+             "Rail must emit data-density=\"comfortable\" as the default density (RAIL-03)"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 42-04: Next-in-queue affordance + Queue-clear state (THREAD-01)
+  # ---------------------------------------------------------------------------
+
+  describe "outbound_recovery_card/1 — Next-in-queue affordance (THREAD-01)" do
+    defp resolved_base_assigns do
+      %{
+        conversation: %Cairnloop.Conversation{
+          id: 7,
+          status: :resolved,
+          subject: "Resolved convo",
+          messages: [],
+          drafts: [],
+          host_user_id: "user_42"
+        },
+        host_context: %{},
+        context_error: nil,
+        form: Phoenix.Component.to_form(%{"content" => ""}),
+        pending_discard_draft_id: nil,
+        socket: %Phoenix.LiveView.Socket{}
+      }
+    end
+
+    test "resolved + next_open_id present: renders 'Next in queue' link with scope-relative href" do
+      assigns = Map.put(resolved_base_assigns(), :next_open_id, 42)
+
+      html =
+        render_component(&ConversationLive.outbound_recovery_card/1,
+          conversation: assigns.conversation,
+          next_open_id: 42
+        )
+
+      assert html =~ "Next in queue"
+      # Phoenix renders <.link navigate="/42"> as href="/42" + data-phx-link="redirect"
+      assert html =~ ~s(href="/42")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+      refute html =~ "Queue clear"
+    end
+
+    test "resolved + next_open_id nil: renders 'Queue clear' state with /inbox back-link" do
+      html =
+        render_component(&ConversationLive.outbound_recovery_card/1,
+          conversation: %Cairnloop.Conversation{
+            id: 7,
+            status: :resolved,
+            subject: "Resolved convo",
+            messages: [],
+            drafts: [],
+            host_user_id: "user_42"
+          },
+          next_open_id: nil
+        )
+
+      assert html =~ "Queue clear"
+      # Phoenix renders <.link navigate="/inbox"> as href="/inbox" + data-phx-link="redirect"
+      assert html =~ ~s(href="/inbox")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+      refute html =~ ~s(href="/nil")
+    end
+
+    test "non-resolved (open) status: renders neither 'Next in queue' nor 'Queue clear'" do
+      html =
+        render_component(&ConversationLive.outbound_recovery_card/1,
+          conversation: %Cairnloop.Conversation{
+            id: 7,
+            status: :open,
+            subject: "Open convo",
+            messages: [],
+            drafts: [],
+            host_user_id: "user_42"
+          },
+          next_open_id: 42
+        )
+
+      refute html =~ "Next in queue"
+      refute html =~ "Queue clear"
+    end
+
+    test "@next_open_id assign is present in render/1 for a resolved conversation" do
+      assigns = Map.merge(resolved_base_assigns(), %{next_open_id: 99})
+      html = render_html(assigns)
+
+      assert html =~ "Next in queue"
+      # Phoenix renders <.link navigate="/99"> as href="/99" + data-phx-link="redirect"
+      assert html =~ ~s(href="/99")
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 42-04: Audit-trail deep-link in Tier-3 trace group (THREAD-03a)
+  # ---------------------------------------------------------------------------
+
+  describe "governed_action_card/1 — audit deep-link in Tier-3 trace group (THREAD-03a)" do
+    test "Tier-3 trace group renders 'View audit trail' link with scope-relative audit-log href" do
+      proposal =
+        tool_proposal_fixture(%{
+          id: 55,
+          status: :proposed,
+          events: []
+        })
+
+      card_fn = Function.capture(Cairnloop.Web.ConversationLive, :governed_action_card, 1)
+      html = render_component(card_fn, proposal: proposal)
+
+      assert html =~ "View audit trail"
+
+      # Phoenix renders <.link navigate="/audit-log?proposal=55"> as href= + data-phx-link="redirect"
+      assert html =~ ~s(href="/audit-log?proposal=55")
+      assert html =~ ~s(data-phx-link="redirect")
+      refute html =~ "/support/"
+    end
+
+    test "audit deep-link uses declarative navigate, not push_navigate or push_patch" do
+      project_root =
+        __ENV__.file
+        |> Path.expand()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+        |> Path.dirname()
+
+      src =
+        File.read!(Path.join([project_root, "lib", "cairnloop", "web", "conversation_live.ex"]))
+
+      assert src =~ ~s(navigate={DashboardPath.to(@dashboard_path, "/audit-log?proposal=),
+             "Audit deep-link must use declarative <.link navigate> (D-14)"
+
+      refute src =~ "push_navigate.*audit-log",
+             "Audit deep-link must not use push_navigate"
     end
   end
 end

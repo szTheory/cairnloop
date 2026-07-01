@@ -7,23 +7,64 @@ defmodule Cairnloop.Chat do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   def list_conversations do
     Conversation
+    |> prefixed()
     |> order_by(desc: :updated_at)
     |> repo().all()
   end
 
+  # Phase 39 Plan 01 (D-02, HOME-02): status-scoped read.
+  # Additive sibling clause — the sealed 0-arity clause above is preserved verbatim.
+  # opts: [status: :open | :resolved | :archived | nil | unknown_atom]
+  # Unknown/nil status falls through scope_status/2 to the unscoped query (D-03 defense-in-depth).
+  def list_conversations(opts) when is_list(opts) do
+    Conversation
+    |> prefixed()
+    |> order_by(desc: :updated_at)
+    |> scope_status(Keyword.get(opts, :status))
+    |> repo().all()
+  end
+
+  # Phase 39 Plan 01 (D-09, HOME-05): cheap SELECT count(*) — never a full list load + Enum.count.
+  # opts: [status: :open | :resolved | :archived | nil | unknown_atom]
+  def count_conversations(opts \\ []) do
+    Conversation
+    |> prefixed()
+    |> scope_status(Keyword.get(opts, :status))
+    |> repo().aggregate(:count, :id)
+  end
+
+  # Private where-builder shared by list_conversations/1 and count_conversations/1.
+  # Single source of truth so list and count can never disagree.
+  # Three clauses:
+  #   nil        → unscoped (passthrough)
+  #   known atom → where c.status == ^status (parameterized pin, no string interpolation)
+  #   unknown    → unscoped (D-03 defense-in-depth; never crash on bad input)
+  defp scope_status(query, nil), do: query
+
+  defp scope_status(query, status) when status in [:open, :resolved, :archived],
+    do: where(query, [c], c.status == ^status)
+
+  defp scope_status(query, _other), do: query
+
   @doc "Tolerant lookup of a single message by id. Returns %Cairnloop.Message{} or nil. Used by ChatLive's role-dedup branch (Phase 28 Pitfall 7) so a stale broadcast id can never crash a customer's chat tab."
   def get_message(id) do
-    repo().get(Cairnloop.Message, id)
+    repo().get(Cairnloop.Message, id, repo_opts())
   end
 
   def get_conversation!(id) do
     Conversation
-    |> repo().get!(id)
+    |> repo().get!(id, repo_opts())
     |> repo().preload(
-      messages: from(m in Message, order_by: [asc: m.inserted_at]),
-      drafts: from(d in Cairnloop.Automation.Draft, order_by: [asc: d.inserted_at])
+      messages: from(m in prefixed(Message), order_by: [asc: m.inserted_at]),
+      drafts: from(d in prefixed(Cairnloop.Automation.Draft), order_by: [asc: d.inserted_at])
     )
   end
 
@@ -32,14 +73,18 @@ defmodule Cairnloop.Chat do
   # On success broadcasts {:conversations_changed} on "conversations" so InboxLive refreshes.
   # Returns {:ok, conversation} on success, {:error, changeset} on failure.
   def create_customer_conversation(attrs) when is_map(attrs) do
+    customer_ref = fetch_attr(attrs, :customer_ref) || fetch_attr(attrs, :host_user_id)
+    operator_host_user_id = fetch_attr(attrs, :operator_host_user_id)
+
     changeset =
       Cairnloop.Conversation.changeset(%Cairnloop.Conversation{}, %{
         status: :open,
-        subject: Map.get(attrs, :subject, "Customer chat"),
-        host_user_id: Map.fetch!(attrs, :host_user_id)
+        subject: fetch_attr(attrs, :subject) || "Customer chat",
+        customer_ref: customer_ref,
+        host_user_id: operator_host_user_id
       })
 
-    case repo().insert(changeset) do
+    case repo().insert(changeset, repo_opts()) do
       {:ok, conversation} ->
         broadcast_safely("conversations", {:conversations_changed})
         {:ok, conversation}
@@ -65,7 +110,7 @@ defmodule Cairnloop.Chat do
         role: :user
       })
 
-    case repo().insert(changeset) do
+    case repo().insert(changeset, repo_opts()) do
       {:ok, message} ->
         broadcast_safely("conversation:#{conversation_id}", {:message_created, message.id})
         broadcast_safely("conversations", {:conversations_changed})
@@ -76,8 +121,12 @@ defmodule Cairnloop.Chat do
     end
   end
 
+  defp fetch_attr(attrs, key) when is_atom(key) do
+    Map.get(attrs, key) || Map.get(attrs, Atom.to_string(key))
+  end
+
   def reply_to_conversation(conversation_id, content, role \\ :agent, opts \\ []) do
-    conversation = repo().get!(Conversation, conversation_id)
+    conversation = repo().get!(Conversation, conversation_id, repo_opts())
     actor = Keyword.get(opts, :actor)
 
     auditor =
@@ -98,9 +147,14 @@ defmodule Cairnloop.Chat do
             conversation_id: conversation.id,
             content: content,
             role: role
-          })
+          }),
+          repo_opts()
         )
-        |> Ecto.Multi.update(:conversation, Ecto.Changeset.change(conversation, %{status: :open}))
+        |> Ecto.Multi.update(
+          :conversation,
+          Ecto.Changeset.change(conversation, %{status: :open}),
+          repo_opts()
+        )
         |> auditor.audit(:reply_to_conversation, actor, %{conversation_id: conversation.id})
 
       multi =
@@ -116,7 +170,7 @@ defmodule Cairnloop.Chat do
           |> Ecto.Multi.merge(fn _changes ->
             active_sla =
               repo().one(
-                from(s in SLA,
+                from(s in prefixed(SLA),
                   where: s.conversation_id == ^conversation.id and s.status == :active
                 )
               )
@@ -135,7 +189,7 @@ defmodule Cairnloop.Chat do
                 })
 
               Ecto.Multi.new()
-              |> Ecto.Multi.insert(:new_sla, sla_changeset)
+              |> Ecto.Multi.insert(:new_sla, sla_changeset, repo_opts())
               |> Ecto.Multi.merge(fn %{new_sla: sla} ->
                 job =
                   Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id},
@@ -151,7 +205,7 @@ defmodule Cairnloop.Chat do
           |> Ecto.Multi.merge(fn _changes ->
             active_sla =
               repo().one(
-                from(s in SLA,
+                from(s in prefixed(SLA),
                   where: s.conversation_id == ^conversation.id and s.status == :active
                 )
               )
@@ -166,7 +220,8 @@ defmodule Cairnloop.Chat do
                   Ecto.Changeset.change(active_sla, %{
                     status: :fulfilled,
                     completed_at: DateTime.utc_now()
-                  })
+                  }),
+                  repo_opts()
                 )
               else
                 m
@@ -183,7 +238,7 @@ defmodule Cairnloop.Chat do
               })
 
             m
-            |> Ecto.Multi.insert(:new_sla, sla_changeset)
+            |> Ecto.Multi.insert(:new_sla, sla_changeset, repo_opts())
             |> Ecto.Multi.merge(fn %{new_sla: sla} ->
               job =
                 Cairnloop.Workers.SlaCountdownWorker.new(%{"sla_id" => sla.id},
@@ -229,7 +284,7 @@ defmodule Cairnloop.Chat do
         Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.NoOp)
       )
 
-    conversation = repo().get!(Conversation, conversation_id)
+    conversation = repo().get!(Conversation, conversation_id, repo_opts())
     resolved_at = DateTime.utc_now()
 
     # Safely handle missing inserted_at for old rows or test mock edge cases.
@@ -245,18 +300,14 @@ defmodule Cairnloop.Chat do
 
     duration_seconds = DateTime.diff(resolved_at, inserted_at, :second)
 
-    meta = %{
-      conversation_id: conversation.id,
-      host_user_id: conversation.host_user_id,
-      actor: actor,
-      metadata: Enum.into(metadata, %{})
-    }
+    meta = conversation_resolve_metadata(conversation)
 
     Cairnloop.Telemetry.span([:conversation, :resolve], meta, fn ->
       Ecto.Multi.new()
       |> Ecto.Multi.update(
         :conversation,
-        Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at})
+        Ecto.Changeset.change(conversation, %{status: :resolved, resolved_at: resolved_at}),
+        repo_opts()
       )
       |> Ecto.Multi.insert(
         :system_message,
@@ -265,7 +316,8 @@ defmodule Cairnloop.Chat do
           content: "Please rate your experience.",
           role: :system,
           metadata: %{"type" => "csat_request"}
-        })
+        }),
+        repo_opts()
       )
       |> Ecto.Multi.insert(
         :notify_job,
@@ -285,14 +337,17 @@ defmodule Cairnloop.Chat do
       |> Ecto.Multi.merge(fn _changes ->
         active_sla =
           repo().one(
-            from(s in SLA, where: s.conversation_id == ^conversation.id and s.status == :active)
+            from(s in prefixed(SLA),
+              where: s.conversation_id == ^conversation.id and s.status == :active
+            )
           )
 
         if active_sla do
           Ecto.Multi.update(
             Ecto.Multi.new(),
             :fulfill_sla,
-            Ecto.Changeset.change(active_sla, %{status: :fulfilled, completed_at: resolved_at})
+            Ecto.Changeset.change(active_sla, %{status: :fulfilled, completed_at: resolved_at}),
+            repo_opts()
           )
         else
           Ecto.Multi.new()
@@ -302,25 +357,37 @@ defmodule Cairnloop.Chat do
       |> case do
         {:ok, results} ->
           measurements = %{duration_seconds: duration_seconds, count: 1}
-          event_meta = Map.put(meta, :conversation, results.conversation)
+          event_meta = conversation_resolve_metadata(results.conversation, :resolved)
           Cairnloop.Telemetry.execute([:conversation, :resolved], measurements, event_meta)
 
-          {{:ok, results}, meta}
+          {{:ok, results}, event_meta}
 
         error ->
-          {error, meta}
+          {error, conversation_resolve_metadata(conversation, :failed)}
       end
     end)
   end
 
+  defp conversation_resolve_metadata(%Conversation{} = conversation, outcome \\ nil) do
+    metadata = %{
+      conversation_id: conversation.id,
+      operation: :resolve
+    }
+
+    case outcome do
+      nil -> metadata
+      outcome -> Map.put(metadata, :outcome, outcome)
+    end
+  end
+
   def submit_csat(conversation_id, rating) do
-    conversation = repo().get!(Conversation, conversation_id)
+    conversation = repo().get!(Conversation, conversation_id, repo_opts())
     meta = %{conversation_id: conversation.id, rating: rating}
 
     Cairnloop.Telemetry.span([:feedback, :csat], meta, fn ->
       case conversation
            |> Ecto.Changeset.cast(%{"csat_rating" => rating}, [:csat_rating])
-           |> repo().update() do
+           |> repo().update(repo_opts()) do
         {:ok, updated_conversation} ->
           {{:ok, updated_conversation}, meta}
 
@@ -328,6 +395,21 @@ defmodule Cairnloop.Chat do
           {error, meta}
       end
     end)
+  end
+
+  # Phase 42 Plan 02 (THREAD-01, D-04/D-06/D-07): next open conversation in inbox order.
+  # Additive sibling to list_conversations/1 — sealed clauses above are NOT modified.
+  # select(:id) only — never a full row load (D-07, cheap read).
+  # order_by mirrors inbox order: desc updated_at, then desc id as deterministic tiebreak (D-07).
+  # Returns the next open conversation id, or nil when the queue is clear (D-06).
+  def next_open_conversation(current_id) do
+    Conversation
+    |> prefixed()
+    |> where([c], c.status == :open and c.id != ^current_id)
+    |> order_by([c], desc: c.updated_at, desc: c.id)
+    |> limit(1)
+    |> select([c], c.id)
+    |> repo().one()
   end
 
   # Phase 28: defensive PubSub broadcast helper.

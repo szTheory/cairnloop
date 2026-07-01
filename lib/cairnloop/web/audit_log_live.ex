@@ -16,16 +16,47 @@ defmodule Cairnloop.Web.AuditLogLive do
 
   import Cairnloop.Web.Components
   alias Cairnloop.Web.AuditLogPresenter, as: P
+  alias Cairnloop.Web.DashboardPath
 
   @page_size 50
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     socket =
       socket
-      |> assign(query: "", action_filter: "all", limit: @page_size)
+      |> assign(
+        query: "",
+        action_filter: "all",
+        limit: @page_size,
+        proposal_filter: nil,
+        dashboard_path: DashboardPath.from_session(session)
+      )
       |> load_events()
 
     {:ok, socket}
+  end
+
+  # handle_params/2 — tolerant ?proposal filter (THREAD-03a, T-42-07).
+  # Parses the raw query param with Integer.parse/1; valid positive integer → assign filter
+  # and load filtered events; invalid/garbage/missing → proposal_filter: nil, full honest view.
+  # NEVER string-interpolate raw param into a query (Pitfall: param tampering, V5).
+  def handle_params(%{"proposal" => raw}, _uri, socket) do
+    proposal_filter =
+      case Integer.parse(raw) do
+        {id, _rest} when id > 0 -> id
+        _ -> nil
+      end
+
+    {:noreply,
+     socket
+     |> assign(proposal_filter: proposal_filter)
+     |> load_events()}
+  end
+
+  def handle_params(_params, _uri, socket) do
+    {:noreply,
+     socket
+     |> assign(proposal_filter: nil)
+     |> load_events()}
   end
 
   def handle_event("search", %{"query" => query}, socket) do
@@ -41,12 +72,31 @@ defmodule Cairnloop.Web.AuditLogLive do
   end
 
   # Fetch from the configured auditor, then apply the current search/filter.
+  # Threads proposal_filter into the auditor read via the proposal_id: opt when non-nil
+  # (THREAD-03a, D-10). The unfiltered path is byte-identical to before when filter is nil.
   defp load_events(socket) do
     auditor = Application.get_env(:cairnloop, :auditor, Cairnloop.Auditor.Governance)
-    events = auditor.list_events(limit: socket.assigns.limit)
+    limit = socket.assigns.limit
+
+    # WR-03/WR-04: fetch one sentinel row beyond the page so "Load more" reflects whether
+    # the SERVER actually has more rows, not whether the fetch happened to hit the limit.
+    # length(events) >= limit was true even when exactly `limit` rows existed (off-by-one:
+    # the button showed once spuriously whenever the total was an exact multiple of the page
+    # size). Fetching limit + 1 and rendering only the first `limit` removes that off-by-one.
+    opts = [limit: limit + 1]
+
+    opts =
+      case Map.get(socket.assigns, :proposal_filter) do
+        nil -> opts
+        id -> Keyword.put(opts, :proposal_id, id)
+      end
+
+    fetched = auditor.list_events(opts)
+    more? = length(fetched) > limit
+    events = Enum.take(fetched, limit)
 
     socket
-    |> assign(events: events, maybe_more?: length(events) >= socket.assigns.limit)
+    |> assign(events: events, maybe_more?: more?)
     |> recompute()
   end
 
@@ -85,15 +135,15 @@ defmodule Cairnloop.Web.AuditLogLive do
   end
 
   def render(assigns) do
-    ~H"""
-    <.cl_shell current={:audit} destinations={Cairnloop.Web.Nav.destinations()}>
-      <header class="cl-mb-7">
-        <h1>Audit Log</h1>
-        <p class="cl-text-muted">
-          A timeline of governed actions and their outcomes. Search or filter to narrow the view.
-        </p>
-      </header>
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
 
+    ~H"""
+    <.cl_shell current={:audit} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page
+        title="Audit Log"
+        subtitle="A timeline of governed actions and their outcomes. Search or filter to narrow the view."
+        width="wide"
+      >
       <.cl_card>
         <:header>
           <div class="cl-row cl-row--wrap cl-grow">
@@ -126,9 +176,10 @@ defmodule Cairnloop.Web.AuditLogLive do
           <p class="cl-text-muted">Governed actions and their outcomes will appear here as operators work.</p>
         </.cl_empty>
 
-        <table :if={@visible_events != []} class="cl-table">
+        <div :if={@visible_events != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Audit log">
+        <table class="cl-table">
           <thead>
-            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Details</th></tr>
+            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Reason</th><th>Conversation</th><th>Details</th></tr>
           </thead>
           <tbody>
             <tr :for={event <- @visible_events}>
@@ -136,6 +187,18 @@ defmodule Cairnloop.Web.AuditLogLive do
               <td>{P.actor_label(Map.get(event, :actor_id))}</td>
               <td>{P.action_label(Map.get(event, :action))}</td>
               <td>{P.reason_label(Map.get(event, :reason))}</td>
+              <td>
+                <%!-- Subject link: scope-relative /#{id} when conversation is present; plain fallback on nil (D-08, T-42-09, Pitfall 3/4/6). --%>
+                <%= case P.subject_href(event) do %>
+                  <% nil -> %>
+                    <span class="cl-text-muted">—</span>
+                  <% href -> %>
+                    <.link
+                      navigate={DashboardPath.to(@dashboard_path, href)}
+                      aria-label={"View conversation #{Map.get(event, :conversation_id)}"}
+                    >View conversation</.link>
+                <% end %>
+              </td>
               <td>
                 <%= case P.metadata_rows(Map.get(event, :metadata)) do %>
                   <% [] -> %>
@@ -155,11 +218,13 @@ defmodule Cairnloop.Web.AuditLogLive do
             </tr>
           </tbody>
         </table>
+        </div>
 
         <div :if={@visible_events != [] and @maybe_more?} class="cl-pagination">
           <.cl_button type="button" phx-click="load_more" variant="ghost">Load more</.cl_button>
         </div>
       </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

@@ -27,12 +27,33 @@ config :chimeway, Chimeway.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 2
 
-# We don't run a server during test. If one is required,
-# you can enable the server option below.
+# Run the endpoint during test so browser E2E (phoenix_test_playwright) can drive a real
+# Chromium against it. Unit/LiveViewTest specs are unaffected by an idle listener.
 config :cairnloop_example, CairnloopExampleWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 4002],
+  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PHX_TEST_PORT") || "4002")],
   secret_key_base: "55SiwpW85WfSTlCQHPel0ISJLNaXjWwXuNKyzdCVp6U+7uu6tKWlBaJCHXI9f6yq",
-  server: false
+  server: true
+
+config :cairnloop, :widget_token_verifier, Cairnloop.Widget.Verifier.Demo
+
+# Browser E2E plumbing (test env only).
+# `:sql_sandbox` activates the Phoenix.Ecto.SQL.Sandbox endpoint plug + the dashboard
+# `LiveAcceptance` on_mount, so a real browser session can join the test's shared DB connection.
+config :cairnloop_example, :sql_sandbox, true
+
+# phoenix_test_playwright: which OTP app's `:ecto_repos` to checkout for the sandbox, and the
+# Playwright knobs. Headless by default; flip PW_TRACE/PW_SCREENSHOT/PW_HEADLESS for local
+# debugging. `ecto_sandbox_stop_owner_delay` gives the LiveView a beat to release the connection
+# on teardown (avoids DBConnection.OwnershipError races).
+config :phoenix_test,
+  otp_app: :cairnloop_example,
+  playwright: [
+    browser: :chromium,
+    headless: System.get_env("PW_HEADLESS", "true") in ~w(t true 1),
+    trace: System.get_env("PW_TRACE", "false") in ~w(t true 1),
+    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(t true 1),
+    ecto_sandbox_stop_owner_delay: 50
+  ]
 
 # Print only warnings and errors during test
 config :logger, level: :warning

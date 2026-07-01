@@ -41,6 +41,7 @@ defmodule Cairnloop.Integration.ApprovalFooterLiveTest do
       })
 
     approval = approval_fixture(proposal, %{status: :pending})
+    conn = Plug.Test.init_test_session(conn, %{"host_user_id" => conversation.host_user_id})
 
     %{conn: conn, conversation: conversation, proposal: proposal, approval: approval}
   end

@@ -17,7 +17,9 @@ defmodule Cairnloop.Web.Nav do
     %{key: :settings, label: "Settings", href: "/settings", icon: "gear"}
   ]
 
+  alias Cairnloop.Web.DashboardPath
+
   @doc "The ordered top-level destinations for the persistent nav shell."
   @spec destinations() :: [map()]
-  def destinations, do: @destinations
+  def destinations(prefix \\ ""), do: DashboardPath.scope_items(@destinations, prefix)
 end

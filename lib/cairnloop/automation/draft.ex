@@ -1,5 +1,6 @@
 defmodule Cairnloop.Automation.Draft do
   use Ecto.Schema
+  @schema_prefix Application.compile_env(:cairnloop, :schema_prefix, "cairnloop")
   import Ecto.Changeset
 
   schema "cairnloop_drafts" do

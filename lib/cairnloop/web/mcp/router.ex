@@ -13,8 +13,10 @@ defmodule Cairnloop.Web.MCP.Router do
 
       forward "/mcp", Cairnloop.Web.MCP.Router
 
-  The host SHOULD add authentication middleware before the `forward` — Cairnloop does not
-  prescribe an auth mechanism (D17-09).
+  The router validates Cairnloop MCP Bearer tokens through `Cairnloop.Web.MCP.AuthPlug`.
+  Token-required methods fail closed before capabilities, tool metadata, or governed
+  write surfaces are exposed. Well-known OAuth/resource metadata remains the public
+  discovery surface.
 
   ## JSON-RPC 2.0 semantics
 
@@ -50,7 +52,11 @@ defmodule Cairnloop.Web.MCP.Router do
     with {:ok, body, conn} <- Plug.Conn.read_body(conn),
          {:ok, %{"jsonrpc" => "2.0", "id" => id, "method" => method} = req} <-
            Jason.decode(body) do
-      handle_method(conn, id, method, Map.get(req, "params", %{}))
+      if token_required_method?(method) and not Map.has_key?(conn.assigns, :mcp_token) do
+        unauthorized(conn)
+      else
+        handle_method(conn, id, method, Map.get(req, "params", %{}))
+      end
     else
       _ ->
         json_error(conn, nil, -32600, "Invalid Request")
@@ -60,6 +66,11 @@ defmodule Cairnloop.Web.MCP.Router do
   # ---------------------------------------------------------------------------
   # Method handlers
   # ---------------------------------------------------------------------------
+
+  defp token_required_method?(method) when method in ["initialize", "tools/list", "tools/call"],
+    do: true
+
+  defp token_required_method?(_method), do: false
 
   defp handle_method(conn, id, "initialize", _params) do
     result = %{

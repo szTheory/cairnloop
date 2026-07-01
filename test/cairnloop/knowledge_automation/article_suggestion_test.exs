@@ -73,6 +73,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       |> all_for_source(query)
     end
 
+    def all(queryable, _opts), do: all(queryable)
+
     def one!(%Ecto.Query{} = query) do
       Process.put(:last_one_query, query)
 
@@ -81,6 +83,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       |> one_for_source(query, true)
     end
 
+    def one!(query, _opts), do: one!(query)
+
     def one(%Ecto.Query{} = query) do
       Process.put(:last_one_query, query)
 
@@ -88,6 +92,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       |> query_source()
       |> one_for_source(query, false)
     end
+
+    def one(query, _opts), do: one(query)
 
     def insert(%Ecto.Changeset{} = changeset) do
       if changeset.valid? do
@@ -106,6 +112,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       end
     end
 
+    def insert(changeset, _opts), do: insert(changeset)
+
     def update(%Ecto.Changeset{} = changeset) do
       if changeset.valid? do
         suggestion =
@@ -119,6 +127,8 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         {:error, changeset}
       end
     end
+
+    def update(changeset, _opts), do: update(changeset)
 
     defp maybe_put_id(%{id: nil} = struct), do: %{struct | id: System.unique_integer([:positive])}
     defp maybe_put_id(struct), do: struct
@@ -354,12 +364,18 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     [migration] = Path.wildcard("priv/repo/migrations/*_add_article_suggestions.exs")
     content = File.read!(migration)
 
-    assert content =~ "create table(:cairnloop_article_suggestions)"
-    assert content =~ "unique_index(:cairnloop_article_suggestions, [:stable_key])"
-    assert content =~ "index(:cairnloop_article_suggestions, [:status])"
-    assert content =~ "index(:cairnloop_article_suggestions, [:entrypoint_type, :entrypoint_id])"
-    assert content =~ "index(:cairnloop_article_suggestions, [:evidence_digest])"
-    assert content =~ "index(:cairnloop_article_suggestions, [:base_revision_id])"
+    assert content =~ "create table(:cairnloop_article_suggestions, prefix: prefix)"
+
+    assert content =~
+             "unique_index(:cairnloop_article_suggestions, [:stable_key], prefix: prefix)"
+
+    assert content =~ "index(:cairnloop_article_suggestions, [:status], prefix: prefix)"
+
+    assert content =~
+             "index(:cairnloop_article_suggestions, [:entrypoint_type, :entrypoint_id], prefix: prefix)"
+
+    assert content =~ "index(:cairnloop_article_suggestions, [:evidence_digest], prefix: prefix)"
+    assert content =~ "index(:cairnloop_article_suggestions, [:base_revision_id], prefix: prefix)"
   end
 
   test "list_article_suggestions scopes by tenant and host, filters status, and orders deterministically" do
@@ -444,7 +460,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     Process.put(:gap_events, [
       %GapEvent{
         id: 12,
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
@@ -545,7 +561,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         ]
       },
       %{
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
         tenant_scope: :host_user_scoped,
@@ -786,7 +802,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
     Process.put(:gap_events, [
       %GapEvent{
         id: 301,
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
@@ -808,7 +824,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
       },
       %GapEvent{
         id: 302,
-        occurred_at: ~U[2026-05-22 10:00:00Z],
+        occurred_at: ~U[2026-06-22 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
@@ -1069,7 +1085,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
   test "suggest_revision rejects age-only requests and requires repeated article-linked failures plus fresh canonical evidence" do
     gap_events = [
       %{
-        occurred_at: ~U[2026-05-20 10:00:00Z],
+        occurred_at: ~U[2026-06-20 10:00:00Z],
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
         tenant_scope: :host_user_scoped,
@@ -1084,7 +1100,7 @@ defmodule Cairnloop.KnowledgeAutomation.ArticleSuggestionTest do
         ]
       },
       %{
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
         tenant_scope: :host_user_scoped,

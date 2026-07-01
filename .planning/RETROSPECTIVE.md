@@ -4,6 +4,10 @@
 
 | Milestone | Date | Phases | Plans |
 |-----------|------|--------|-------|
+| vM019     | 2026-07-01 | 5 | 27 |
+| vM018     | 2026-06-29 | 4 | 12 |
+| vM016     | 2026-06-26 | 9 | 36 |
+| vM017     | 2026-06-26 | 7 | 15 |
 | vM015     | 2026-05-30 | 4 | 6 |
 | vM014     | 2026-05-29 | 7 | 25 |
 | vM013     | 2026-05-27 | 5 | 9 |
@@ -16,6 +20,113 @@
 | M001      | -    | -      | -     |
 | M002      | -    | -      | -     |
 | M003      | 2024-05-11 | 3      | 3     |
+
+## Milestone: vM019 — OSS Trust Baseline
+
+**Shipped:** 2026-07-01
+**Phases:** 5 (57-61) | **Plans:** 27
+
+### What Was Built
+- Evidence-backed OSS trust baseline: 36-dimension quality evaluation, CI/CD topology audit, Postgres schema-prefix contract, and local compile/test/xref evidence.
+- Host-app trust hardening: customer/operator identity separation, explicit widget verifier seam, fail-closed email and MCP auth, inert optional Scrypath side effects, bounded logs/telemetry, liveness-only `/health`, and doctor trust diagnostics.
+- Dedicated Postgres schema contract: default `cairnloop` support schema for new installs, explicit public compatibility, qualified migrations/runtime paths, safe vector rollback, Oban host ownership, integration proof, and example-app setup proof.
+- Public adoption truth: README, guides, SECURITY, UPGRADING, CHANGELOG, ExDoc/package metadata, installer output, example docs, and docs source-scan guardrails aligned to live code.
+- CI/release confidence: current action/runtime posture, least-privilege workflow defaults, path-gated expensive checks, bounded timing/cache evidence, workflow source-contract tests, and exact-SHA Hex publish preflight.
+
+### What Worked
+- The Phase 57 audit gave later work a concrete risk-ranked target list, so vM019 stayed focused on adoption trust instead of drifting into product-surface expansion.
+- DB-free source scans were a good fit for docs/package/workflow truth: they were cheap, deterministic, and caught drift where runtime tests would be unnecessary.
+- Phase 59 proved the schema contract from multiple angles: source scans, dedicated DB catalog checks, explicit public compile/setup/test, runtime prefix tests, integration CI, and example-app setup.
+- The milestone audit found no product blockers; remaining issues were planning metadata drift and hosted-runner observations that cannot be proven locally.
+
+### What Was Inefficient
+- Requirements traceability drift recurred: DB rows, TRUST rows, and DOC rows lagged behind phase verification until milestone close.
+- Phase 59 ended with excellent final-gate evidence in `59-07-SUMMARY.md` but no standalone `59-VERIFICATION.md`, forcing the milestone audit to treat it as equivalent evidence.
+- Validation artifacts remained `status: draft` / `wave_0_complete:false` even after verification passed, creating avoidable closeout noise.
+
+### Patterns Established
+- **Trust-first OSS hardening:** for an embedded library, host-app compatibility, schema isolation, auth seams, and truthful docs are product quality, not secondary polish.
+- **Explicit public compatibility lane:** default dedicated-schema behavior and public-schema compatibility should be proven as separate compile/config/database modes.
+- **Workflow source contracts:** GitHub Actions posture can be guarded locally by DB-free ExUnit tests that read workflow YAML and docs.
+- **Docs as code contracts:** public guides, installer output, package metadata, and ExDoc assets deserve source-scan tests when they are adoption-critical.
+
+### Key Lessons
+- Flip requirement status as part of phase verification, not during milestone close. vM019 repeated a known stale-state pattern and only avoided blocker status because the audit reconciled against independent evidence.
+- If a phase uses a final verification plan instead of `/gsd-verify-work`, either backfill the standard `*-VERIFICATION.md` artifact or make that deviation explicit before audit.
+- Keep local CI changes honest about what cannot be locally proven: branch protection, hosted-runner cache value, and artifact usefulness need next-run inspection, not source-only claims.
+
+### Cost Observations
+- Reconstructed from closeout artifacts; per-session cost data was not captured in the retrospective.
+
+## Milestone: vM018 — Demo DX Adoption Proof
+
+**Shipped:** 2026-06-29
+**Phases:** 4 (53-56) | **Plans:** 12
+
+### What Was Built
+- Docker/manual example runtime contract: local path dogfooding, ordered host-before-library migrations, setup-owned Trailmark seeds, quiet demo notifier/config, and `/health` mounted through the operations route.
+- Canonical `./bin/demo` wrapper with start/up, discovered URLs, logs, status/ps, stop/down/reset, help, isolated smoke, automatic port fallback, container-backed route checks, and bounded diagnostics.
+- Docker-first adopter docs across README, Quickstart, example README, and Troubleshooting, with printed URL guidance, optional OpenAI scope, reset/log/smoke flows, and manual setup clearly secondary.
+- Dedicated read-only `Demo smoke` GitHub Actions workflow plus DB-free source-scan tests for wrapper/docs/workflow drift.
+
+### What Worked
+- Keeping the milestone adoption/DX-only avoided churn to sealed Cairnloop product contracts while still improving the first-run proof materially.
+- The wrapper became the single operational surface, so docs and CI could delegate to `./bin/demo` instead of reimplementing Compose or curl logic.
+- Source-scan tests were enough for docs/workflow drift, leaving DB and Docker cost in the places that actually prove runtime behavior.
+- The final audit found no requirement, integration, or flow gaps; remaining issues are low-severity maintenance candidates.
+
+### What Was Inefficient
+- The archive command generated raw accomplishment lines that needed curation before the milestone history was useful.
+- Phase 56 had passing verification evidence but stale validation metadata, creating a `tech_debt` audit status for process rather than product behavior.
+- The live ROADMAP still needed manual collapse after the archive command; archive generation alone did not make current planning state constant-size.
+
+### Patterns Established
+- **Wrapper-owned demo truth:** adopter docs and CI should call the same local wrapper command rather than duplicate route or Compose logic.
+- **Docker-first, manual-secondary docs:** first-run docs should lead with a path that does not require local Elixir or Postgres, then explain manual local setup separately.
+- **Source-scan drift gates:** docs, wrapper help, route inventories, and workflow YAML can be guarded cheaply in DB-free ExUnit tests.
+- **Accepted smoke scope:** `./bin/demo smoke` is HTTP route coverage; browser-rendered behavior remains in the existing E2E lane or a future explicit browser-walkthrough requirement.
+
+### Key Lessons
+- Closeout should curate generated MILESTONES entries; raw phase one-liners are too granular for shipped history.
+- Keep `/health` copy precise. It is enough as a Compose liveness gate when paired with setup ordering and smoke checks, but future consumers should not mistake it for a full DB/dashboard readiness probe.
+- Hard-coded demo deep-link IDs work for the fresh-clone seed path, but the next maintenance pass should pin them with a guard if seed order keeps mattering.
+
+### Cost Observations
+- Reconstructed from closeout artifacts; per-session cost data was not captured in the retrospective.
+
+## Milestone: vM016 — Operator UI/UX Iteration
+
+**Shipped:** 2026-06-26
+**Phases:** 9 (37–45) | **Plans:** 36
+
+### What Was Built
+- Shared operator primitives and shell: `cl_page`, `cl_hero`, numeric `cl_stat`, native disclosure, fact/source/status/switch primitives, layout tokens, accessible table scrollers, and KB breadcrumbs.
+- Queue-first operator flow: Home primacy, resolved-filter recovery, safety-pinned rail disclosure, density controls, next-in-queue navigation, audit subject links, governed-action audit links, and KB origin threading.
+- UI hardening: render-file token drift cleanup, hardened brand-token gate, mobile-first responsive CSS, tap-target/bulk-bar geometry E2E, CSS-only motion, and live reduced-motion proof.
+- Final-brand proof: deterministic demo seed, light/dark screenshots, 36-row visual acceptance ledger, root tests, integration, `mix check`, example E2E, screenshot capture, and final milestone audit.
+
+### What Worked
+- Running vM017 first gave Phase 45 the final logo, palette, type, and brandbook decisions it needed; vM016 could close against the real brand rather than pre-brand placeholders.
+- The "rendered behavior is gated E2E, never human UAT" rule paid off: old Phase 38/42 human-needed artifacts were closed with Phase 45 automated screenshot/E2E evidence instead of subjective reconstruction.
+- The final audit against live artifacts caught stale UAT/validation metadata before archive, and the cleanup left `audit-open` clear.
+
+### What Was Inefficient
+- The first vM016 audit was stale by design: it ran on 2026-06-04 before phases 43-45 existed, then remained visible as `gaps_found` until the final closeout.
+- Generated milestone accomplishments included raw task fragments, requiring manual compression before the shipped record was useful.
+- The archive command moved phase directories correctly but left live `ROADMAP.md`, `PROJECT.md`, and `STATE.md` describing vM016 as active; closeout still needed manual state reconciliation.
+
+### Patterns Established
+- **Final-brand proof gate:** visual proof for a UI milestone should run only after brand assets and token derivatives are locked.
+- **Browser-proof by default:** geometry, motion, client-only persistence, and screenshot acceptance belong in E2E/screenshot lanes, not human-UAT placeholders.
+- **Close stale artifacts before archive:** run `audit-open`, reconcile stale UAT/verification/validation frontmatter, then archive.
+
+### Key Lessons
+- Do not leave a mid-milestone audit at the canonical milestone-audit path without clearly superseding it at final close; it creates false blocker noise.
+- Milestone closeout needs both archive generation and live-document collapse. Moving phase folders is not enough if `ROADMAP.md` still presents them as active.
+- Keep milestone summaries curated. Raw task-log lines are useful during execution but poor shipped history.
+
+### Cost Observations
+- Reconstructed from closeout artifacts; per-session cost data was not captured in the retrospective.
 
 ## Milestone: vM015 — Operator Polish + Maintenance Gates
 

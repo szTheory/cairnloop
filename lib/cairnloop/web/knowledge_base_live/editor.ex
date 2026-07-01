@@ -7,6 +7,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
   alias Cairnloop.Web.GapCandidatePresenter
+  alias Cairnloop.Web.BreadcrumbPresenter
+  alias Cairnloop.Web.DashboardPath
 
   def mount(params, session, socket) do
     try do
@@ -20,6 +22,23 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
       content = preload_content(suggestion, latest_revision)
       gap_candidate = load_gap_candidate_from_suggestion(suggestion, scope_filters)
 
+      # WR-02: avoid a guaranteed-nil SELECT on every mount. Only :conversation_quick_fix
+      # suggestions can ever yield an origin (D-12). When the in-scope suggestion is already
+      # loaded we know its entrypoint_type in-process, so short-circuit. The nil-suggestion
+      # branch preserves the article-keyed lookup for the direct-visit case (Pitfall 2), so
+      # the deep-link still resolves.
+      origin_conversation_id =
+        case suggestion do
+          %{entrypoint_type: :conversation_quick_fix, entrypoint_id: entrypoint_id} ->
+            entrypoint_id
+
+          %{} ->
+            nil
+
+          nil ->
+            knowledge_automation().originating_conversation_id(article.id, scope_filters)
+        end
+
       socket =
         socket
         |> assign(article: article)
@@ -29,6 +48,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
         |> assign(review_context: review_context)
         |> assign(review_origin?: review_context.review_task != nil)
         |> assign(gap_candidate: gap_candidate)
+        |> assign(origin_conversation_id: origin_conversation_id)
+        |> assign(dashboard_path: DashboardPath.from_session(session))
 
       {:ok, socket}
     rescue
@@ -39,7 +60,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
            :error,
            "This editor can only be opened from the review queue. Return to Suggestions and use 'Open for manual edit' to begin editing."
          )
-         |> push_navigate(to: "/knowledge-base/suggestions")}
+         |> push_navigate(
+           to:
+             DashboardPath.to(DashboardPath.from_session(session), "/knowledge-base/suggestions")
+         )}
     end
   end
 
@@ -94,7 +118,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   end
 
   defp parse_markdown(nil), do: ""
-  defp parse_markdown(content), do: Earmark.as_html!(content)
+  defp parse_markdown(content), do: Cairnloop.Markdown.to_html(content)
 
   defp preload_content(%{proposed_markdown: proposed_markdown}, _latest_revision),
     do: proposed_markdown
@@ -258,20 +282,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
   defp metadata_value(_, _), do: nil
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.cl_breadcrumb items={[
-        %{label: "Knowledge", href: "/knowledge-base"},
-        %{label: "Editing: #{@article.title}"}
-      ]} />
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page title={"Editing: #{@article.title}"} width="wide">
+        <:breadcrumb>
+          <.cl_breadcrumb items={BreadcrumbPresenter.editor_items(@origin_conversation_id, @review_context.return_to, @article.title) |> DashboardPath.scope_items(@dashboard_path)} />
+        </:breadcrumb>
+        <:subnav><.kb_nav current={:editor} dashboard_path={@dashboard_path} /></:subnav>
 
-      <.kb_nav current={:editor} />
-
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Editing: {@article.title}</h1>
-      </div>
-
-      <.cl_banner
+        <.cl_banner
         :if={@revision && @revision.state == :published}
         variant="info"
         class="cl-mb-7"
@@ -284,7 +305,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
           <strong>Review-origin draft</strong>
           <span>{@review_context.operator_summary}</span>
           <span class="cl-text-muted">{@review_context.evidence_count} evidence sources</span>
-          <.link navigate={@review_context.return_to}>Return to review task</.link>
+          <.link navigate={DashboardPath.to(@dashboard_path, @review_context.return_to)}>Return to review task</.link>
           <span class="cl-text-muted">
             Publish stays in the review lane so approval and publish history remain aligned.
           </span>
@@ -325,20 +346,21 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Editor do
         </.cl_card>
       </div>
 
-      <.cl_card :if={@gap_candidate} class="cl-mt-5" aria-label="Source gap evidence">
-        <:header><h3>Source gap</h3></:header>
-        <div class="cl-stack">
-          <strong>{@gap_candidate.title}</strong>
-          <div class="cl-row">
-            <span class="cl-text-muted">{"#{@gap_candidate.evidence_count} evidence"}</span>
-            <span class="cl-text-muted">{GapCandidatePresenter.freshness_label(@gap_candidate)}</span>
+        <.cl_card :if={@gap_candidate} class="cl-mt-5" aria-label="Source gap evidence">
+          <:header><h3>Source gap</h3></:header>
+          <div class="cl-stack">
+            <strong>{@gap_candidate.title}</strong>
+            <div class="cl-row">
+              <span class="cl-text-muted">{"#{@gap_candidate.evidence_count} evidence"}</span>
+              <span class="cl-text-muted">{GapCandidatePresenter.freshness_label(@gap_candidate)}</span>
+            </div>
+            <h4>Retrieval evidence</h4>
+            <p :if={@gap_candidate.evidence_count == 0} class="cl-text-muted">
+              No retrieval evidence linked to this gap.
+            </p>
           </div>
-          <h4>Retrieval evidence</h4>
-          <p :if={@gap_candidate.evidence_count == 0} class="cl-text-muted">
-            No retrieval evidence linked to this gap.
-          </p>
-        </div>
-      </.cl_card>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

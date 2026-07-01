@@ -4,7 +4,9 @@ defmodule Cairnloop.MCPTest do
   alias Cairnloop.MCP
 
   defmodule MockRepo do
-    def insert(%Ecto.Changeset{} = changeset) do
+    def insert(%Ecto.Changeset{} = changeset, opts \\ []) do
+      Process.put(:mcp_insert_opts, opts)
+
       if changeset.valid? do
         struct =
           changeset
@@ -20,7 +22,9 @@ defmodule Cairnloop.MCPTest do
       end
     end
 
-    def update(%Ecto.Changeset{} = changeset) do
+    def update(%Ecto.Changeset{} = changeset, opts \\ []) do
+      Process.put(:mcp_update_opts, opts)
+
       if changeset.valid? do
         updated =
           changeset
@@ -37,6 +41,8 @@ defmodule Cairnloop.MCPTest do
     end
 
     def one(%Ecto.Query{} = query) do
+      Process.put(:mcp_one_query, query)
+
       token_hash =
         Enum.find_value(query.wheres, fn clause ->
           Enum.find_value(clause.params, fn
@@ -52,11 +58,20 @@ defmodule Cairnloop.MCPTest do
           (is_nil(t.expires_at) or DateTime.compare(t.expires_at, DateTime.utc_now()) == :gt)
       end)
     end
+
+    def all(%Ecto.Query{} = query) do
+      Process.put(:mcp_all_query, query)
+      Process.get(:mcp_tokens, [])
+    end
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
     Process.put(:mcp_tokens, [])
+    Process.delete(:mcp_insert_opts)
+    Process.delete(:mcp_update_opts)
+    Process.delete(:mcp_one_query)
+    Process.delete(:mcp_all_query)
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
@@ -72,6 +87,7 @@ defmodule Cairnloop.MCPTest do
       assert is_binary(raw)
       assert token.name == "Test Token"
       assert token.token_hash == :crypto.hash(:sha256, raw)
+      assert Keyword.get(Process.get(:mcp_insert_opts), :prefix) == "cairnloop"
 
       # Check it's in the DB
       assert length(Process.get(:mcp_tokens, [])) == 1
@@ -89,6 +105,7 @@ defmodule Cairnloop.MCPTest do
 
       assert {:ok, valid_token} = MCP.validate_token(raw)
       assert valid_token.id == token.id
+      assert Process.get(:mcp_one_query).prefix == "cairnloop"
     end
 
     test "returns {:error, :unauthorized} for an invalid raw token" do
@@ -115,6 +132,7 @@ defmodule Cairnloop.MCPTest do
       {:ok, token, _raw} = MCP.issue_token(%{name: "Old Name"})
       assert {:ok, updated_token} = MCP.update_token(token, %{name: "New Name"})
       assert updated_token.name == "New Name"
+      assert Keyword.get(Process.get(:mcp_update_opts), :prefix) == "cairnloop"
 
       [db_token] = Process.get(:mcp_tokens)
       assert db_token.name == "New Name"
@@ -128,10 +146,18 @@ defmodule Cairnloop.MCPTest do
 
       assert {:ok, revoked_token} = MCP.revoke_token(token)
       assert not is_nil(revoked_token.revoked_at)
+      assert Keyword.get(Process.get(:mcp_update_opts), :prefix) == "cairnloop"
 
       # Check DB is updated
       [db_token] = Process.get(:mcp_tokens)
       assert not is_nil(db_token.revoked_at)
+    end
+  end
+
+  describe "list_active_tokens/0" do
+    test "queries active tokens through the configured prefix" do
+      assert [] = MCP.list_active_tokens()
+      assert Process.get(:mcp_all_query).prefix == "cairnloop"
     end
   end
 end

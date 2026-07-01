@@ -33,9 +33,11 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorker do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"approval_id" => approval_id}}) do
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         # Deleted — idempotent no-op (mirrors SlaCountdownWorker nil branch)
         :ok
@@ -61,7 +63,7 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorker do
         decided_at: DateTime.utc_now()
       })
 
-    with {:ok, updated} <- repo().update(cs),
+    with {:ok, updated} <- repo().update(cs, repo_opts()),
          {:ok, _event} <-
            %ToolActionEvent{}
            |> ToolActionEvent.changeset(%{
@@ -76,7 +78,7 @@ defmodule Cairnloop.Workers.ApprovalExpiryWorker do
                new_approval_status: :expired
              }
            })
-           |> repo().insert() do
+           |> repo().insert(repo_opts()) do
       # Telemetry AFTER with success — never inside the with clause list (D-29)
       Cairnloop.Telemetry.execute(
         [:governance, :approval_transition],

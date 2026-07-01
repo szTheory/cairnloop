@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cairnloop brand book</title>
+    <link rel="stylesheet" href="./assets/css/tokens.css">
+    <link rel="stylesheet" href="./assets/css/brandbook.css">
+  </head>
+  <body>
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("cairnloop-brandbook-theme");
+          if (saved === "dark") document.documentElement.dataset.theme = "dark";
+        } catch (_error) {}
+      })();
+    </script>
+    <main class="brandbook-shell">
+      <header class="brandbook-header">
+        <div class="brandbook-header__main">
+          <div class="brandbook-kicker">Canonical source: priv/static/cairnloop.css :root</div>
+          <h1 class="brandbook-title">Cairnloop brand book</h1>
+          <p class="brandbook-display">Support that leaves a trail.</p>
+          <p class="brandbook-copy">
+            A standalone, file-ready reference for Cairnloop tokens, logo usage, copy patterns,
+            imagery rules, motion guidance, and local downloads.
+          </p>
+        </div>
+        <div class="brandbook-theme-toggle" aria-label="Theme">
+          <button type="button" class="brandbook-theme-toggle__button" data-theme-choice="light" aria-pressed="true">Light</button>
+          <button type="button" class="brandbook-theme-toggle__button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+        <div class="brandbook-status-grid brandbook-status-grid--four" aria-label="Brand book status">
+          <div class="brandbook-cell"><strong>Token status: derived from canonical CSS</strong><span>Generated from brandbook/assets/css/tokens.css</span></div>
+          <div class="brandbook-cell"><strong>Network dependency: none</strong><span>Required content is committed HTML, CSS, SVG, PNG, ICO, and JSON.</span></div>
+          <div class="brandbook-cell"><strong>Brandbook is git-tracked and unshipped</strong><span>Package boundary remains outside the Hex files allowlist.</span></div>
+          <div class="brandbook-cell"><strong>Logo-family sign-off remains before Phase 52 wiring</strong><span>Phase 51 documents the assets; Phase 52 wires shipped surfaces.</span></div>
+        </div>
+      </header>
+
+      <nav class="brandbook-section brandbook-contents" aria-label="Contents">
+        <h2>Contents</h2>
+        <ol class="brandbook-list">
+          <li><a href="#color">Color</a></li>
+          <li><a href="#typography">Typography</a></li>
+          <li><a href="#tokens">Spacing, Radius, Shadow, Motion tokens</a></li>
+          <li><a href="#logo">Logo system</a></li>
+          <li><a href="#voice">Voice and Microcopy</a></li>
+          <li><a href="#microcopy">Microcopy</a></li>
+          <li><a href="#imagery">Imagery</a></li>
+          <li><a href="#motion">Motion guidance</a></li>
+          <li><a href="#downloads">Downloads</a></li>
+        </ol>
+      </nav>
+
+      <section class="brandbook-section" id="color" aria-labelledby="color-heading">
+        <h2 id="color-heading">Color</h2>
+        <p>Canonical source: priv/static/cairnloop.css :root. Token status: derived from canonical CSS.</p>
+        <h3>Primitive tokens</h3>
+<div class="brandbook-token-grid">
+  <div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-basalt);"></div>
+  <code>--cl-color-basalt</code>
+  <span>#141B19</span>
+  <span>core text / dark surface</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-moss-ink);"></div>
+  <code>--cl-color-moss-ink</code>
+  <span>#263A2E</span>
+  <span>secondary dark / deep UI</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-trailpaper);"></div>
+  <code>--cl-color-trailpaper</code>
+  <span>#F4EEE2</span>
+  <span>main canvas</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-warm-stone);"></div>
+  <code>--cl-color-warm-stone</code>
+  <span>#FAF5EB</span>
+  <span>card surface</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-granite);"></div>
+  <code>--cl-color-granite</code>
+  <span>#8E8068</span>
+  <span>quiet border</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-slate-lichen);"></div>
+  <code>--cl-color-slate-lichen</code>
+  <span>#5E665D</span>
+  <span>muted text / disabled</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-path-copper);"></div>
+  <code>--cl-color-path-copper</code>
+  <span>#A8492A</span>
+  <span>primary action / active route</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-copper-glow);"></div>
+  <code>--cl-color-copper-glow</code>
+  <span>#C46A3A</span>
+  <span>decorative accent only</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-lichen);"></div>
+  <code>--cl-color-lichen</code>
+  <span>#A8B56C</span>
+  <span>success accent / safe sourced answer</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-deep-lichen);"></div>
+  <code>--cl-color-deep-lichen</code>
+  <span>#4A6238</span>
+  <span>success text / positive state</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-glacier-mist);"></div>
+  <code>--cl-color-glacier-mist</code>
+  <span>#DDE8E3</span>
+  <span>info surface / retrieval panel</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-color-waypoint-blue);"></div>
+  <code>--cl-color-waypoint-blue</code>
+  <span>#3F6F80</span>
+  <span>info text / links when needed</span>
+  <strong>Light</strong>
+</div>
+
+</div>
+
+        <h3>Semantic light tokens</h3>
+<div class="brandbook-token-grid">
+  <div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-bg);"></div>
+  <code>--cl-bg</code>
+  <span>#F4EEE2</span>
+  <span>page canvas</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface);"></div>
+  <code>--cl-surface</code>
+  <span>#FAF5EB</span>
+  <span>default surface</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface-raised);"></div>
+  <code>--cl-surface-raised</code>
+  <span>#FFFFFF</span>
+  <span>raised surface</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface-sunken);"></div>
+  <code>--cl-surface-sunken</code>
+  <span>#EFE9DC</span>
+  <span>sunken surface</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text);"></div>
+  <code>--cl-text</code>
+  <span>#141B19</span>
+  <span>primary text</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text-muted);"></div>
+  <code>--cl-text-muted</code>
+  <span>#5E665D</span>
+  <span>secondary text</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text-soft);"></div>
+  <code>--cl-text-soft</code>
+  <span>#8A8C82</span>
+  <span>soft metadata text</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-border);"></div>
+  <code>--cl-border</code>
+  <span>#8E8068</span>
+  <span>default boundary</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-border-strong);"></div>
+  <code>--cl-border-strong</code>
+  <span>#BFB6A2</span>
+  <span>emphasized boundary</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary);"></div>
+  <code>--cl-primary</code>
+  <span>#A8492A</span>
+  <span>primary copper route marker</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary-hover);"></div>
+  <code>--cl-primary-hover</code>
+  <span>#97462A</span>
+  <span>primary hover</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary-text);"></div>
+  <code>--cl-primary-text</code>
+  <span>#FFFFFF</span>
+  <span>text on primary</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-on-primary);"></div>
+  <code>--cl-on-primary</code>
+  <span>#FFFFFF</span>
+  <span>alias for text on primary</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-danger-button-text);"></div>
+  <code>--cl-danger-button-text</code>
+  <span>#FFFFFF</span>
+  <span>text on danger button</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-success);"></div>
+  <code>--cl-success</code>
+  <span>#4A6238</span>
+  <span>success state</span>
+  <strong>Light</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-info);"></div>
+  <code>--cl-info</code>
+  <span>#3F6F80</span>
+  <span>information state</span>
+  <strong>Light</strong>
+</div>
+
+</div>
+
+        <h3>Semantic dark tokens</h3>
+<div class="brandbook-token-grid">
+  <div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-bg);"></div>
+  <code>--cl-bg</code>
+  <span>#101614</span>
+  <span>page canvas</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface);"></div>
+  <code>--cl-surface</code>
+  <span>#141B19</span>
+  <span>default surface</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface-raised);"></div>
+  <code>--cl-surface-raised</code>
+  <span>#1F2C28</span>
+  <span>raised surface</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-surface-sunken);"></div>
+  <code>--cl-surface-sunken</code>
+  <span>#0C110F</span>
+  <span>sunken surface</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text);"></div>
+  <code>--cl-text</code>
+  <span>#F5F0E6</span>
+  <span>primary text</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text-muted);"></div>
+  <code>--cl-text-muted</code>
+  <span>#B7C0B2</span>
+  <span>secondary text</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-text-soft);"></div>
+  <code>--cl-text-soft</code>
+  <span>#8A9488</span>
+  <span>soft metadata text</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-border);"></div>
+  <code>--cl-border</code>
+  <span>#5B7066</span>
+  <span>default boundary</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-border-strong);"></div>
+  <code>--cl-border-strong</code>
+  <span>#627A6E</span>
+  <span>emphasized boundary</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary);"></div>
+  <code>--cl-primary</code>
+  <span>#D98A4A</span>
+  <span>primary copper route marker</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary-hover);"></div>
+  <code>--cl-primary-hover</code>
+  <span>#E69A5C</span>
+  <span>primary hover</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-primary-text);"></div>
+  <code>--cl-primary-text</code>
+  <span>#18211F</span>
+  <span>text on primary</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-danger-button-text);"></div>
+  <code>--cl-danger-button-text</code>
+  <span>#141B19</span>
+  <span>text on danger button</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-success);"></div>
+  <code>--cl-success</code>
+  <span>#A8B56C</span>
+  <span>success state</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-info);"></div>
+  <code>--cl-info</code>
+  <span>#9EC3CF</span>
+  <span>information state</span>
+  <strong>Dark</strong>
+</div>
+
+<div class="brandbook-token">
+  <div class="brandbook-swatch" style="background: var(--cl-ai);"></div>
+  <code>--cl-ai</code>
+  <span>#C9A7C6</span>
+  <span>AI/evaluation state</span>
+  <strong>Dark</strong>
+</div>
+
+</div>
+
+        <div class="brandbook-status-grid">
+          <div class="brandbook-cell"><strong>AA pass</strong><span>Meaningful text pairings from Phase 48 meet 4.5:1.</span></div>
+          <div class="brandbook-cell"><strong>UI pass</strong><span>Focus, route-marker, and boundary pairings meet the UI threshold.</span></div>
+          <div class="brandbook-cell"><strong>Decorative exempt</strong><span>Status chip outlines are decorative because text carries state.</span></div>
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="typography" aria-labelledby="typography-heading">
+        <h2 id="typography-heading">Typography</h2>
+        <p>Source: brandbook/assets/css/tokens.css. The committed SVG wordmark is the only logo wordmark rendering source.</p>
+        <div class="brandbook-specimen-grid">
+          <div class="brandbook-type-card">
+  <strong>Title specimen</strong>
+  <p style="font-family: var(--cl-font-display);">Support that leaves a trail.</p>
+  <code>--cl-font-display</code>
+  <span>Display/tagline specimens</span>
+</div>
+
+          <div class="brandbook-type-card">
+  <strong>Panel specimen</strong>
+  <p style="font-family: var(--cl-font-sans);">Review needed before sending.</p>
+  <code>--cl-font-sans</code>
+  <span>Panels, body, labels, and navigation</span>
+</div>
+
+          <div class="brandbook-type-card">
+  <strong>Code specimen</strong>
+  <p style="font-family: var(--cl-font-mono);">mix run scripts/assemble_brandbook.exs --check</p>
+  <code>--cl-font-mono</code>
+  <span>Token names, commands, and file paths</span>
+</div>
+
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="tokens" aria-labelledby="tokens-heading">
+        <h2 id="tokens-heading">Spacing, Radius, Shadow, Motion tokens</h2>
+        <p>Source: brandbook/assets/css/tokens.css. Use the token name, not copied raw values, when building Cairnloop UI.</p>
+        <div class="brandbook-table-wrap">
+  <h3>Spacing</h3>
+  <table class="brandbook-table">
+    <thead><tr><th>Specimen</th><th>Token</th><th>Value</th><th>Usage rule</th></tr></thead>
+    <tbody>
+      <tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-0);"></span></td>
+  <td><code>--cl-space-0</code></td>
+  <td><code>0</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-1);"></span></td>
+  <td><code>--cl-space-1</code></td>
+  <td><code>2px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-2);"></span></td>
+  <td><code>--cl-space-2</code></td>
+  <td><code>4px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-3);"></span></td>
+  <td><code>--cl-space-3</code></td>
+  <td><code>8px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-4);"></span></td>
+  <td><code>--cl-space-4</code></td>
+  <td><code>12px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-5);"></span></td>
+  <td><code>--cl-space-5</code></td>
+  <td><code>16px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-6);"></span></td>
+  <td><code>--cl-space-6</code></td>
+  <td><code>20px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-ruler" style="width: var(--cl-space-7);"></span></td>
+  <td><code>--cl-space-7</code></td>
+  <td><code>24px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+    </tbody>
+  </table>
+</div>
+
+        <div class="brandbook-table-wrap">
+  <h3>Radius</h3>
+  <table class="brandbook-table">
+    <thead><tr><th>Specimen</th><th>Token</th><th>Value</th><th>Usage rule</th></tr></thead>
+    <tbody>
+      <tr>
+  <td><span class="brandbook-radius-chip" style="border-radius: var(--cl-radius-xs);"></span></td>
+  <td><code>--cl-radius-xs</code></td>
+  <td><code>4px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-radius-chip" style="border-radius: var(--cl-radius-sm);"></span></td>
+  <td><code>--cl-radius-sm</code></td>
+  <td><code>6px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-radius-chip" style="border-radius: var(--cl-radius-md);"></span></td>
+  <td><code>--cl-radius-md</code></td>
+  <td><code>10px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-radius-chip" style="border-radius: var(--cl-radius-lg);"></span></td>
+  <td><code>--cl-radius-lg</code></td>
+  <td><code>14px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-radius-chip" style="border-radius: var(--cl-radius-full);"></span></td>
+  <td><code>--cl-radius-full</code></td>
+  <td><code>9999px</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+    </tbody>
+  </table>
+</div>
+
+        <div class="brandbook-table-wrap">
+  <h3>Shadow</h3>
+  <table class="brandbook-table">
+    <thead><tr><th>Specimen</th><th>Token</th><th>Value</th><th>Usage rule</th></tr></thead>
+    <tbody>
+      <tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-1);"></span></td>
+  <td><code>--cl-shadow-1</code></td>
+  <td><code>0 1px 2px rgba(24, 33, 31, 0.06)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-2);"></span></td>
+  <td><code>--cl-shadow-2</code></td>
+  <td><code>0 1px 3px rgba(24, 33, 31, 0.10), 0 1px 2px rgba(24, 33, 31, 0.06)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-3);"></span></td>
+  <td><code>--cl-shadow-3</code></td>
+  <td><code>0 4px 8px rgba(24, 33, 31, 0.10), 0 2px 4px rgba(24, 33, 31, 0.06)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-4);"></span></td>
+  <td><code>--cl-shadow-4</code></td>
+  <td><code>0 12px 24px rgba(24, 33, 31, 0.12), 0 4px 8px rgba(24, 33, 31, 0.06)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-raised);"></span></td>
+  <td><code>--cl-shadow-raised</code></td>
+  <td><code>var(--cl-shadow-1)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-card);"></span></td>
+  <td><code>--cl-shadow-card</code></td>
+  <td><code>var(--cl-shadow-1)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-overlay);"></span></td>
+  <td><code>--cl-shadow-overlay</code></td>
+  <td><code>var(--cl-shadow-2)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-shadow-sample" style="box-shadow: var(--cl-shadow-modal);"></span></td>
+  <td><code>--cl-shadow-modal</code></td>
+  <td><code>var(--cl-shadow-4)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+    </tbody>
+  </table>
+</div>
+
+        <div class="brandbook-table-wrap">
+  <h3>Motion</h3>
+  <table class="brandbook-table">
+    <thead><tr><th>Specimen</th><th>Token</th><th>Value</th><th>Usage rule</th></tr></thead>
+    <tbody>
+      <tr>
+  <td><span class="brandbook-motion-sample" style=""></span></td>
+  <td><code>--cl-ease-out</code></td>
+  <td><code>cubic-bezier(0.23, 1, 0.32, 1)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-motion-sample" style=""></span></td>
+  <td><code>--cl-ease-in-out</code></td>
+  <td><code>cubic-bezier(0.77, 0, 0.175, 1)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-motion-sample" style=""></span></td>
+  <td><code>--cl-ease-drawer</code></td>
+  <td><code>cubic-bezier(0.32, 0.72, 0, 1)</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+<tr>
+  <td><span class="brandbook-motion-sample" style=""></span></td>
+  <td><code>--cl-ease-linear</code></td>
+  <td><code>linear</code></td>
+  <td>Use the token for Cairnloop UI; do not copy this value into a new palette.</td>
+</tr>
+
+    </tbody>
+  </table>
+</div>
+
+      </section>
+
+      <section class="brandbook-section" id="logo" aria-labelledby="logo-heading">
+        <h2 id="logo-heading">Logo system</h2>
+        <p>Source: logo/USAGE.md. Use committed files as assets; do not redraw, recolor, or recreate the wordmark with live text.</p>
+        <div class="brandbook-logo-gallery">
+          <div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/cairnloop-lockup-horizontal.svg" alt="cairnloop-lockup-horizontal.svg" loading="lazy">
+  <code>cairnloop-lockup-horizontal.svg</code>
+  <a href="../logo/cairnloop-lockup-horizontal.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/cairnloop-lockup-stacked.svg" alt="cairnloop-lockup-stacked.svg" loading="lazy">
+  <code>cairnloop-lockup-stacked.svg</code>
+  <a href="../logo/cairnloop-lockup-stacked.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--48">
+  <img src="../logo/cairnloop-mark.svg" alt="cairnloop-mark.svg" loading="lazy">
+  <code>cairnloop-mark.svg</code>
+  <a href="../logo/cairnloop-mark.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/cairnloop-lockup-horizontal-mono.svg" alt="cairnloop-lockup-horizontal-mono.svg" loading="lazy">
+  <code>cairnloop-lockup-horizontal-mono.svg</code>
+  <a href="../logo/cairnloop-lockup-horizontal-mono.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/cairnloop-lockup-horizontal-reverse.svg" alt="cairnloop-lockup-horizontal-reverse.svg" loading="lazy">
+  <code>cairnloop-lockup-horizontal-reverse.svg</code>
+  <a href="../logo/cairnloop-lockup-horizontal-reverse.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/cairnloop-lockup-tagline.svg" alt="cairnloop-lockup-tagline.svg" loading="lazy">
+  <code>cairnloop-lockup-tagline.svg</code>
+  <a href="../logo/cairnloop-lockup-tagline.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--112">
+  <img src="../logo/favicon.svg" alt="favicon.svg" loading="lazy">
+  <code>favicon.svg</code>
+  <a href="../logo/favicon.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--16">
+  <img src="../logo/favicon-16.png" alt="favicon-16.png" loading="lazy">
+  <code>favicon-16.png</code>
+  <a href="../logo/favicon-16.png" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--24">
+  <img src="../logo/favicon-32.png" alt="favicon-32.png" loading="lazy">
+  <code>favicon-32.png</code>
+  <a href="../logo/favicon-32.png" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--256">
+  <img src="../logo/favicon.ico" alt="favicon.ico" loading="lazy">
+  <code>favicon.ico</code>
+  <a href="../logo/favicon.ico" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--256">
+  <img src="../logo/cairnloop-og.svg" alt="cairnloop-og.svg" loading="lazy">
+  <code>cairnloop-og.svg</code>
+  <a href="../logo/cairnloop-og.svg" download>Download</a>
+</div>
+
+<div class="brandbook-logo-card brandbook-logo-card--256">
+  <img src="../logo/cairnloop-og.png" alt="cairnloop-og.png" loading="lazy">
+  <code>cairnloop-og.png</code>
+  <a href="../logo/cairnloop-og.png" download>Download</a>
+</div>
+
+        </div>
+        <div class="brandbook-status-grid">
+          <div class="brandbook-cell"><strong>Do</strong><span>Use `cairnloop-lockup-horizontal.svg` as the default public lockup. Use `cairnloop-mark.svg` only when the wordmark would be too small or redundant. Use the mono basalt or reverse trailpaper lockup when full color does not meet contrast.</span></div>
+          <div class="brandbook-cell brandbook-cell--danger"><strong>Do not</strong><span>No rectangular cage. No chat bubble. No infinity symbol. No robot/headset trope. No loose icon-left-of-plain-text spacing. No subtitle on primary lockup. No live-text wordmark recreation.</span></div>
+          <div class="brandbook-cell"><strong>Clearspace</strong><span>Use 1x where x = top stone/ring height.</span><span class="brandbook-clearspace">1x</span></div>
+          <div class="brandbook-cell"><strong>Minimum sizes</strong><span>Icon 24px digital; favicon 16px digital; horizontal lockup 112px width digital; print icon 0.35in height.</span></div>
+        </div>
+        <div class="brandbook-size-row" aria-label="Logo size proofs">
+          <img class="brandbook-logo-proof brandbook-logo-proof--16" src="../logo/favicon.svg" alt="16px favicon proof">
+          <img class="brandbook-logo-proof brandbook-logo-proof--24" src="../logo/cairnloop-mark.svg" alt="24px mark proof">
+          <img class="brandbook-logo-proof brandbook-logo-proof--48" src="../logo/cairnloop-mark.svg" alt="48px mark proof">
+          <img class="brandbook-logo-proof brandbook-logo-proof--112" src="../logo/cairnloop-lockup-horizontal.svg" alt="112px lockup proof">
+          <img class="brandbook-logo-proof brandbook-logo-proof--256" src="../logo/cairnloop-mark.svg" alt="256px mark proof">
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="voice" aria-labelledby="voice-heading">
+        <h2 id="voice-heading">Voice</h2>
+        <p>Source: prompts/cairnloop_brand_book.md. Voice should be calm, specific, protective, and OSS-native.</p>
+        <div class="brandbook-status-grid">
+          <div class="brandbook-cell"><strong>Precise</strong><span>Use: Draft saved with source trail. Avoid: Your AI agent crushed it.</span></div>
+          <div class="brandbook-cell"><strong>Calm</strong><span>Use: Review needed before sending. Avoid: Something went wrong!</span></div>
+          <div class="brandbook-cell"><strong>Protective</strong><span>Use: Escalated because policy confidence is low. Avoid: Send anyway.</span></div>
+          <div class="brandbook-cell"><strong>OSS-native</strong><span>Use: Regenerate tokens locally. Avoid: Configure the design cloud.</span></div>
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="microcopy" aria-labelledby="microcopy-heading">
+        <h2 id="microcopy-heading">Microcopy</h2>
+        <div class="brandbook-status-grid">
+          <div class="brandbook-cell"><strong>CTA</strong><span>Download logo assets</span></div>
+          <div class="brandbook-cell"><strong>Empty</strong><span>Brand book section unavailable. The source file for this section is missing.</span></div>
+          <div class="brandbook-cell brandbook-cell--danger"><strong>Error</strong><span>Brandbook asset failed to load. Check relative paths, regenerate tokens from priv/static/cairnloop.css, and rerun the file-load verification.</span></div>
+          <div class="brandbook-cell"><strong>Success</strong><span>AA pass. UI pass. Decorative exempt.</span></div>
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="imagery" aria-labelledby="imagery-heading">
+        <h2 id="imagery-heading">Imagery</h2>
+        <div class="brandbook-status-grid">
+          <div class="brandbook-cell"><strong>Do</strong><span>Trail markers, topographic routes, material textures, operator workspace, product UI composites, abstract support loops.</span></div>
+          <div class="brandbook-cell"><strong>Do not</strong><span>No headset agents, call centers, chat bubbles, robots, purple neural gradients, wellness pebble stacks, fantasy maps, or generic SaaS people.</span></div>
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="motion" aria-labelledby="motion-heading">
+        <h2 id="motion-heading">Motion guidance</h2>
+        <p>Use route, state, and progress motion sparingly. Transform and opacity only; honor reduced motion; avoid bouncy, chatbot, glowing, or layout-shifting motion.</p>
+        <div class="brandbook-route-specimen" aria-label="Static route progress specimen">
+          <span>Ask</span><span>Retrieve</span><span>Draft</span><span>Handoff</span><span>Improve</span>
+        </div>
+      </section>
+
+      <section class="brandbook-section" id="downloads" aria-labelledby="downloads-heading">
+        <h2 id="downloads-heading">Downloads</h2>
+        <p><a href="../logo/cairnloop-lockup-horizontal.svg" download>Download logo assets</a></p>
+        <ul class="brandbook-list">
+          <li><a href="../logo/cairnloop-lockup-horizontal.svg" download>../logo/cairnloop-lockup-horizontal.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-lockup-stacked.svg" download>../logo/cairnloop-lockup-stacked.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-mark.svg" download>../logo/cairnloop-mark.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-lockup-horizontal-mono.svg" download>../logo/cairnloop-lockup-horizontal-mono.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-lockup-horizontal-reverse.svg" download>../logo/cairnloop-lockup-horizontal-reverse.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-lockup-tagline.svg" download>../logo/cairnloop-lockup-tagline.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/favicon.svg" download>../logo/favicon.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/favicon-16.png" download>../logo/favicon-16.png</a><span>approved local asset</span></li>
+<li><a href="../logo/favicon-32.png" download>../logo/favicon-32.png</a><span>approved local asset</span></li>
+<li><a href="../logo/favicon.ico" download>../logo/favicon.ico</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-og.svg" download>../logo/cairnloop-og.svg</a><span>approved local asset</span></li>
+<li><a href="../logo/cairnloop-og.png" download>../logo/cairnloop-og.png</a><span>approved local asset</span></li>
+        </ul>
+      </section>
+
+      <footer class="brandbook-footer" id="footer">
+        <strong>Footer</strong>
+        <span>Regenerate with: mix run scripts/assemble_brandbook.exs. Check drift with: mix run scripts/assemble_brandbook.exs --check. Brandbook is git-tracked and unshipped. Phase 52 owns README, example app, favicon, and OG wiring.</span>
+      </footer>
+    </main>
+    <script>
+      (function () {
+        var buttons = document.querySelectorAll("[data-theme-choice]");
+        function setTheme(theme) {
+          document.documentElement.dataset.theme = theme;
+          buttons.forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme));
+          });
+          try { localStorage.setItem("cairnloop-brandbook-theme", theme); } catch (_error) {}
+        }
+        buttons.forEach(function (button) {
+          button.addEventListener("click", function () { setTheme(button.dataset.themeChoice); });
+        });
+        setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+      })();
+    </script>
+  </body>
+</html>

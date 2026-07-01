@@ -13,15 +13,22 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
       end
     end
 
+    def get(schema, id, opts) do
+      send(self(), {:repo_get, schema, id, opts})
+      get(schema, id)
+    end
+
     def transaction(multi) do
       operations = Ecto.Multi.to_list(multi)
 
       results =
         Enum.reduce(operations, %{}, fn
-          {name, {:delete_all, _query, _opts}}, acc ->
+          {name, {:delete_all, query, opts}}, acc ->
+            send(self(), {:delete_old_chunks_query, query, opts})
             Map.put(acc, name, {1, nil})
 
-          {name, {:insert_all, _schema, records, _opts}}, acc ->
+          {name, {:insert_all, schema, records, opts}}, acc ->
+            send(self(), {:insert_chunks_opts, schema, opts})
             send(self(), {:inserted_chunk_records, records})
             Map.put(acc, name, {length(records), nil})
 
@@ -88,6 +95,13 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevisionTest do
     assert count == 2
     assert Enum.map(records, & &1.chunk_index) == [0, 1]
     assert Enum.map(records, & &1.heading) == ["Header 1", "Subheader"]
+    assert_received {:repo_get, Revision, 42, get_opts}
+    assert Keyword.get(get_opts, :prefix) == "cairnloop"
+    assert_received {:delete_old_chunks_query, delete_query, delete_opts}
+    assert delete_query.prefix == "cairnloop"
+    assert Keyword.get(delete_opts, :prefix) == "cairnloop"
+    assert_received {:insert_chunks_opts, Cairnloop.KnowledgeBase.Chunk, insert_opts}
+    assert Keyword.get(insert_opts, :prefix) == "cairnloop"
     assert_received {:reindex_outcome_recorded, 42, :ok}
   end
 

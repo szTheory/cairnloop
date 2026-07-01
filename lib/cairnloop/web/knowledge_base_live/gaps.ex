@@ -4,6 +4,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   import Cairnloop.Web.Components
   import Cairnloop.Web.KnowledgeBaseLive.NavComponent
 
+  alias Cairnloop.Web.DashboardPath
   alias Cairnloop.Web.GapCandidatePresenter
 
   def mount(_params, session, socket) do
@@ -13,6 +14,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
      assign(socket,
        candidates: candidates,
        selected_candidate: nil,
+       dashboard_path: DashboardPath.from_session(session),
        scope_filters: scope_filters(session)
      )}
   end
@@ -46,7 +48,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
                  suggestion.id,
                  socket.assigns.scope_filters
                ) do
-          {:noreply, push_navigate(socket, to: "/knowledge-base/suggestions?task=#{task.id}")}
+          {:noreply,
+           push_navigate(socket,
+             to:
+               DashboardPath.to(
+                 dashboard_path(socket),
+                 "/knowledge-base/suggestions?task=#{task.id}"
+               )
+           )}
         else
           _ ->
             {:noreply,
@@ -60,18 +69,18 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   end
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:gaps} />
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page
+        title="Knowledge gaps"
+        subtitle="Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling."
+        width="wide"
+      >
+        <:subnav><.kb_nav current={:gaps} dashboard_path={@dashboard_path} /></:subnav>
 
-      <header class="cl-mb-7">
-        <h1>Knowledge gaps</h1>
-        <p class="cl-text-muted">
-          Ranked maintenance signals from retrieval misses, weak grounding, and repeated manual handling.
-        </p>
-      </header>
-
-      <.cl_card class="cl-mb-7">
+        <.cl_card class="cl-mb-7">
         <:header><h2>Gap candidates</h2></:header>
 
         <.cl_empty :if={@candidates == []} title="No gap candidates yet." icon="compass">
@@ -81,7 +90,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
         <ul :if={@candidates != []} class="cl-stack--lg cl-stack">
           <li :for={candidate <- @candidates} id={"candidate-#{candidate.id}"} class="cl-stack">
             <div class="cl-row cl-row--wrap cl-row--between">
-              <.link patch={"/knowledge-base/gaps?candidate=#{candidate.id}"}>
+              <.link patch={DashboardPath.to(@dashboard_path, "/knowledge-base/gaps?candidate=#{candidate.id}")}>
                 <strong>{candidate.title}</strong>
               </.link>
               <.cl_chip variant="info" label={GapCandidatePresenter.reason_label(candidate)} />
@@ -145,14 +154,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
             <div class="cl-text-small">{evidence.resolution_note}</div>
             <div class="cl-text-small cl-text-muted">{Enum.join(evidence.actions_taken || [], ", ")}</div>
             <.link
-              :if={GapCandidatePresenter.conversation_target(evidence)}
-              navigate={GapCandidatePresenter.conversation_target(evidence)}
+              :if={path = GapCandidatePresenter.conversation_target(evidence)}
+              navigate={DashboardPath.to(@dashboard_path, path)}
             >
               Open conversation
             </.link>
           </li>
         </ul>
-      </.cl_card>
+        </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end
@@ -160,6 +170,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.Gaps do
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, Cairnloop.KnowledgeAutomation)
   end
+
+  defp dashboard_path(socket), do: Map.get(socket.assigns, :dashboard_path, "")
 
   defp scope_filters(session) do
     host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)

@@ -1,0 +1,445 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--cl-bg);
+  color: var(--cl-text);
+  font-family: var(--cl-font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--cl-primary);
+  text-underline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--cl-focus-ring);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.brandbook-shell {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.brandbook-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--cl-border);
+}
+
+.brandbook-header__main {
+  display: grid;
+  gap: 8px;
+}
+
+.brandbook-kicker,
+.brandbook-label,
+.brandbook-footer,
+.brandbook-path,
+.brandbook-table code,
+.brandbook-token code,
+.brandbook-logo-card code {
+  font-family: var(--cl-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.brandbook-kicker {
+  color: var(--cl-primary);
+  font-weight: var(--cl-weight-semibold);
+}
+
+.brandbook-title {
+  margin: 0;
+  font-family: var(--cl-font-display);
+  font-size: 28px;
+  font-weight: var(--cl-weight-semibold);
+  line-height: 1.29;
+}
+
+.brandbook-copy {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--cl-text-muted);
+}
+
+.brandbook-theme-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(88px, 1fr));
+  width: min(100%, 240px);
+  min-height: 44px;
+  padding: 4px;
+  background: var(--cl-surface-sunken);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-theme-toggle__button {
+  min-height: 44px;
+  color: var(--cl-text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--cl-radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+.brandbook-theme-toggle__button[aria-pressed="true"] {
+  color: var(--cl-on-primary);
+  background: var(--cl-primary);
+}
+
+.brandbook-section {
+  padding: 32px 0;
+  border-bottom: 1px solid var(--cl-border);
+  scroll-margin-top: 24px;
+}
+
+.brandbook-section h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: var(--cl-weight-semibold);
+  line-height: 1.44;
+}
+
+.brandbook-section h3 {
+  margin: 24px 0 12px;
+  font-size: 15px;
+  font-weight: var(--cl-weight-semibold);
+}
+
+.brandbook-status-grid,
+.brandbook-specimen-grid,
+.brandbook-token-grid,
+.brandbook-logo-gallery {
+  display: grid;
+  gap: 16px;
+}
+
+.brandbook-status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brandbook-status-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.brandbook-specimen-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brandbook-token-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.brandbook-logo-gallery {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.brandbook-cell,
+.brandbook-token,
+.brandbook-logo-card,
+.brandbook-type-card {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+  padding: 16px;
+}
+
+.brandbook-cell--danger {
+  background: var(--cl-danger-surface);
+  border-color: var(--cl-danger-border);
+}
+
+.brandbook-cell strong,
+.brandbook-type-card strong {
+  display: block;
+  font-weight: var(--cl-weight-semibold);
+}
+
+.brandbook-cell span,
+.brandbook-type-card span,
+.brandbook-token span {
+  display: block;
+  margin-top: 4px;
+  color: var(--cl-text-muted);
+}
+
+.brandbook-swatch {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 8px;
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-xs);
+}
+
+.brandbook-token code,
+.brandbook-path,
+.brandbook-table code,
+.brandbook-logo-card code {
+  color: var(--cl-text);
+}
+
+.brandbook-display {
+  margin: 0;
+  font-family: var(--cl-font-display);
+  font-size: 28px;
+  font-weight: var(--cl-weight-semibold);
+  line-height: 1.29;
+}
+
+.brandbook-type-card p {
+  min-height: 72px;
+  margin: 12px 0;
+  font-size: 18px;
+  line-height: 1.44;
+}
+
+.brandbook-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.brandbook-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.brandbook-table th,
+.brandbook-table td {
+  padding: 8px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--cl-border);
+}
+
+.brandbook-table th {
+  color: var(--cl-text-muted);
+  font-size: 12px;
+  font-weight: var(--cl-weight-semibold);
+}
+
+.brandbook-ruler,
+.brandbook-radius-chip,
+.brandbook-shadow-sample,
+.brandbook-motion-sample {
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  vertical-align: middle;
+  background: var(--cl-primary);
+  border: 1px solid var(--cl-border-strong);
+}
+
+.brandbook-ruler {
+  min-width: 4px;
+  max-width: 96px;
+}
+
+.brandbook-radius-chip {
+  background: var(--cl-surface-raised);
+}
+
+.brandbook-shadow-sample {
+  background: var(--cl-surface-raised);
+}
+
+.brandbook-motion-sample {
+  background: linear-gradient(90deg, var(--cl-primary) 0 40%, var(--cl-border) 40% 100%);
+}
+
+.brandbook-logo-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.brandbook-logo-card img {
+  display: block;
+  object-fit: contain;
+  min-height: 48px;
+  padding: 8px;
+  background: var(--cl-surface-raised);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-logo-card--16 img {
+  width: 16px;
+}
+
+.brandbook-logo-card--24 img {
+  width: 24px;
+}
+
+.brandbook-logo-card--48 img {
+  width: 48px;
+}
+
+.brandbook-logo-card--112 img {
+  width: 112px;
+}
+
+.brandbook-logo-card--256 img {
+  width: 256px;
+}
+
+.brandbook-size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 24px;
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-logo-proof {
+  object-fit: contain;
+  background: var(--cl-surface-raised);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-logo-proof--16 {
+  width: 16px;
+}
+
+.brandbook-logo-proof--24 {
+  width: 24px;
+}
+
+.brandbook-logo-proof--48 {
+  width: 48px;
+}
+
+.brandbook-logo-proof--112 {
+  width: 112px;
+}
+
+.brandbook-logo-proof--256 {
+  width: 256px;
+}
+
+.brandbook-clearspace {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 64px;
+  color: var(--cl-primary);
+  border: 1px dashed var(--cl-primary);
+}
+
+.brandbook-route-specimen {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 16px;
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-route-specimen span {
+  min-height: 44px;
+  padding: 8px;
+  text-align: center;
+  background: var(--cl-surface-raised);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+
+.brandbook-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.brandbook-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cl-border);
+}
+
+.brandbook-footer {
+  display: grid;
+  gap: 4px;
+  padding-top: 24px;
+  color: var(--cl-text-muted);
+}
+
+@media (min-width: 900px) {
+  .brandbook-shell {
+    width: min(1200px, calc(100% - 64px));
+    padding: 64px 0;
+  }
+
+  .brandbook-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .brandbook-header .brandbook-status-grid {
+    grid-column: 1 / -1;
+  }
+
+  .brandbook-contents {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--cl-bg);
+  }
+}
+
+@media (max-width: 899px) {
+  .brandbook-status-grid,
+  .brandbook-status-grid--four,
+  .brandbook-specimen-grid,
+  .brandbook-token-grid,
+  .brandbook-logo-gallery,
+  .brandbook-route-specimen {
+    grid-template-columns: 1fr;
+  }
+
+  .brandbook-contents {
+    position: static;
+  }
+
+  .brandbook-list li {
+    display: grid;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

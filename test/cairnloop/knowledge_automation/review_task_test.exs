@@ -34,6 +34,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       end
     end
 
+    def all(query, _opts), do: all(query)
+
     def one!(%Ecto.Query{} = query) do
       case query.from.source do
         {"cairnloop_review_tasks", _module} ->
@@ -64,6 +66,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       end
     end
 
+    def one!(query, _opts), do: one!(query)
+
     def insert(%Ecto.Changeset{} = changeset) do
       if changeset.valid? do
         struct =
@@ -81,6 +85,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
       end
     end
 
+    def insert(changeset, _opts), do: insert(changeset)
+
     def update(%Ecto.Changeset{} = changeset) do
       if changeset.valid? do
         struct =
@@ -94,6 +100,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
         {:error, changeset}
       end
     end
+
+    def update(changeset, _opts), do: update(changeset)
 
     def preload(struct_or_structs, preloads)
 
@@ -111,6 +119,8 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     end
 
     def preload(struct, _preloads), do: struct
+
+    def preload(struct_or_structs, preloads, _opts), do: preload(struct_or_structs, preloads)
 
     defp normalize_preload({key, nested}), do: {key, List.wrap(nested)}
     defp normalize_preload(key), do: {key, []}
@@ -355,14 +365,17 @@ defmodule Cairnloop.KnowledgeAutomation.ReviewTaskTest do
     [migration] = Path.wildcard("priv/repo/migrations/*_add_review_tasks_and_events.exs")
     content = File.read!(migration)
 
-    assert content =~ "create table(:cairnloop_review_tasks)"
-    assert content =~ "create table(:cairnloop_review_task_events)"
+    assert content =~ "create table(:cairnloop_review_tasks, prefix: prefix)"
+    assert content =~ "create table(:cairnloop_review_task_events, prefix: prefix)"
 
     assert content =~
              "status IN ('pending_review', 'review_needed', 'approved_ready_to_publish', 'deferred')"
 
-    assert content =~ "index(:cairnloop_review_tasks, [:status, :inserted_at])"
-    assert content =~ "index(:cairnloop_review_task_events, [:review_task_id, :inserted_at])"
+    assert content =~ "index(:cairnloop_review_tasks, [:status, :inserted_at], prefix: prefix)"
+
+    assert content =~
+             "index(:cairnloop_review_task_events, [:review_task_id, :inserted_at], prefix: prefix)"
+
     assert content =~ "timestamps(type: :utc_datetime_usec, updated_at: false)"
   end
 

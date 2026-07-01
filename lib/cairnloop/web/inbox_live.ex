@@ -39,7 +39,7 @@ defmodule Cairnloop.Web.InboxLive do
   (aliased to `--cl-primary-text` in app.css), `--cl-surface`,
   `--cl-surface-raised`, `--cl-border`, `--cl-text`, `--cl-danger`.
 
-  Non-canonical tokens that retain `rgba(...)` fallbacks (deferred to vM015):
+  Non-canonical tokens that retain `rgba(...)` fallbacks (deferred to vM015): # cl-allow-color
   `--cl-text-soft`, `--cl-overlay`, `--cl-shadow`, `--cl-danger-soft`,
   `--cl-primary-disabled`, `--cl-surface-translucent`.
   """
@@ -48,6 +48,7 @@ defmodule Cairnloop.Web.InboxLive do
   import Cairnloop.Web.Components
 
   alias Cairnloop.Chat
+  alias Cairnloop.Web.DashboardPath
 
   # ---------------------------------------------------------------------------
   # Module-private indirection (mirrors lib/cairnloop/web/conversation_live.ex
@@ -89,12 +90,16 @@ defmodule Cairnloop.Web.InboxLive do
       Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversations")
     end
 
-    conversations = Chat.list_conversations()
-
+    # Phase 39 Plan 02 (D-01): list load moved to handle_params/3 to support the
+    # ?status= filter. Mount seeds conversations: [] + status: nil so the existing
+    # mount test (which asserts conversations == []) keeps passing (RESEARCH Pitfall 2:
+    # avoids a double-query when LiveView calls mount → handle_params on every navigation).
     {:ok,
      assign(socket,
-       conversations: conversations,
+       conversations: [],
+       status: nil,
        host_user_id: Map.get(session, "host_user_id"),
+       dashboard_path: DashboardPath.from_session(session),
        # D-04: selection state is LiveView-local. No persistence across reloads —
        # each remount starts at an empty MapSet, which inherently satisfies the
        # "cleared on navigate-away" half of D-04.
@@ -106,34 +111,101 @@ defmodule Cairnloop.Web.InboxLive do
   end
 
   # ---------------------------------------------------------------------------
+  # handle_params/3 — Phase 39 Plan 02 (D-01, HOME-02).
+  # Reads ?status= query param (untrusted), normalizes it through the fail-closed
+  # whitelist, loads the filtered conversation list, and reconciles selection state.
+  # Called by LiveView on every navigation to /inbox (including initial mount).
+  # ---------------------------------------------------------------------------
+
+  def handle_params(params, _uri, socket) do
+    status = normalize_status(params["status"])
+    conversations = Chat.list_conversations(status: status)
+    selected_ids = prune_selected_ids(socket.assigns.selected_ids, conversations)
+
+    {:noreply,
+     assign(socket,
+       status: status,
+       conversations: conversations,
+       selected_ids: selected_ids
+     )}
+  end
+
+  # ---------------------------------------------------------------------------
+  # normalize_status/1 — Phase 39 Plan 02 (D-03 / T-39-03).
+  # Fail-closed string whitelist: ONLY "resolved" maps to an atom. Everything
+  # else (including "open", "garbage", SQL-injection probes, nil) returns nil
+  # (unfiltered). NEVER calls String.to_existing_atom/String.to_atom on raw
+  # input — prevents atom-table exhaustion and ArgumentError crashes from
+  # attacker-controlled URL parameters.
+  # Public so the pure whitelist tests can call it directly.
+  # ---------------------------------------------------------------------------
+
+  def normalize_status("resolved"), do: :resolved
+  def normalize_status(_), do: nil
+
+  # ---------------------------------------------------------------------------
   # Render.
   # ---------------------------------------------------------------------------
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.live_component
-        module={Cairnloop.Web.SearchModalComponent}
-        id="search-modal"
-        host_surface="inbox"
-        host_user_id={@host_user_id}
-        current_path="/"
-      />
+    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page title="Inbox" width="wide">
+        <.live_component
+          module={Cairnloop.Web.SearchModalComponent}
+          id="search-modal"
+          host_surface="inbox"
+          host_user_id={@host_user_id}
+          dashboard_path={@dashboard_path}
+          current_path="/"
+        />
 
-      <div class="cairnloop-inbox">
-        <h1>Inbox</h1>
+        <div class="cairnloop-inbox">
+          <.cl_banner variant="info" class="cl-inbox-orientation">
+            <div>
+              <strong>Work the queue first.</strong>
+              Pick the next conversation, close the loop, then use resolved cases for recovery
+              follow-ups when needed.
+            </div>
+          </.cl_banner>
 
-        <%= if @conversations == [] do %>
-          <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
-          <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
-            No conversations yet.
-          </p>
-        <% end %>
+          <%!-- Phase 39 Plan 02 (D-05): applied-filter row — visible ONLY when status=resolved
+               is active. Composed from existing .cl-row + .cl-text-small utilities; the
+               decorative .cl-applied-filter rule is owned and shipped by Plan 03 (the sole
+               owner of priv/static/cairnloop.css this wave). No CSS is added here. --%>
+          <%= if @status == :resolved do %>
+            <div class="cl-applied-filter cl-row cl-text-small">
+              <.cl_chip variant="success" label="Resolved" />
+              <span>Showing resolved conversations ·</span>
+              <.link patch={DashboardPath.to(@dashboard_path, "/inbox")}>Show all</.link>
+            </div>
+          <% end %>
+
+          <%!-- Phase 39 Plan 02 (D-05): split empty state.
+               - resolved filter active + empty → cl_empty with exact UI-SPEC copy (filtered-empty).
+               - no filter + empty → existing calm sentence (genuinely empty inbox).
+               Do NOT show the resolved copy on a genuinely empty inbox (D-05). --%>
+          <%= if @conversations == [] do %>
+            <%= if @status == :resolved do %>
+              <.cl_empty title="No resolved conversations to recover">
+                Nothing is waiting for a recovery follow-up right now.
+                <.link navigate={DashboardPath.to(@dashboard_path, "/inbox")}>Show all conversations</.link>
+              </.cl_empty>
+            <% else %>
+              <%!-- Phase 26 D-08: empty inbox state. Calm, reason-forward, brand-aligned (brand book §7.5). --%>
+              <p class="inbox-empty-state cl-text-muted cl-text-small mt-4">
+                No conversations yet.
+              </p>
+            <% end %>
+          <% end %>
 
         <%= if has_visible_eligible?(@conversations) do %>
           <div class="cairnloop-inbox-bulk-header cl-row cl-list-row">
             <input
               type="checkbox"
+              class="cl-checkbox"
               phx-click="toggle_select_all_visible"
               checked={all_visible_selected?(@conversations, @selected_ids)}
               aria-label="Select all visible resolved conversations"
@@ -142,22 +214,38 @@ defmodule Cairnloop.Web.InboxLive do
           </div>
         <% end %>
 
-        <ul class="cl-stack">
+        <ul class="cl-stack cl-inbox-list--bulk-clearance cl-list-stagger">
           <%= for conv <- @conversations do %>
-            <li class="cl-row cl-list-row">
-              <%= if conv.status == :resolved do %>
-                <input
-                  type="checkbox"
-                  phx-click="toggle_select"
-                  phx-value-id={conv.id}
-                  checked={MapSet.member?(@selected_ids, conv.id)}
-                  aria-label={"Select conversation: #{conv.subject || "No subject"}"}
-                />
-              <% end %>
-              <.link navigate={"/#{conv.id}"} class="cl-grow">
+            <li class="cl-inbox-row cl-list-row">
+              <div class="cl-inbox-row__select">
+                <%= if conv.status == :resolved do %>
+                  <input
+                    type="checkbox"
+                    class="cl-checkbox"
+                    phx-click="toggle_select"
+                    phx-value-id={conv.id}
+                    checked={MapSet.member?(@selected_ids, conv.id)}
+                    aria-label={"Select conversation: #{conv.subject || "No subject"}"}
+                  />
+                <% else %>
+                  <span class="cl-inbox-row__select-spacer" aria-hidden="true"></span>
+                <% end %>
+              </div>
+
+              <.link
+                navigate={DashboardPath.to(@dashboard_path, "/#{conv.id}")}
+                class="cl-inbox-row__main cl-focusable"
+              >
                 <strong><%= conv.subject || "No Subject" %></strong>
+                <span class="cl-inbox-row__summary">
+                  <%= customer_label(conv) %> · <%= status_hint(conv.status) %>
+                </span>
               </.link>
-              <.cl_chip variant={status_variant(conv.status)} label={status_label(conv.status)} />
+
+              <div class="cl-inbox-row__status">
+                <.cl_chip variant={status_variant(conv.status)} label={status_label(conv.status)} />
+                <span class="cl-text-muted cl-text-small"><%= updated_label(conv) %></span>
+              </div>
             </li>
           <% end %>
         </ul>
@@ -170,12 +258,12 @@ defmodule Cairnloop.Web.InboxLive do
             class="bulk-action-bar cl-inbox-bulk-bar cl-row cl-row--wrap"
           >
             <span><%= MapSet.size(@selected_ids) %> selected</span>
-            <.cl_button variant="ghost" phx-click="clear_selection">
+            <.cl_button variant="ghost" size="lg" phx-click="clear_selection">
               Clear selection
             </.cl_button>
             <%!-- Brand §7.5 never-color-alone: text label AND the literal --cl-primary token
                   (test/integration assert the rendered HTML carries `var(--cl-primary)`). --%>
-            <.cl_button variant="primary" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
+            <.cl_button variant="primary" size="lg" phx-click="open_bulk_confirm" style="background: var(--cl-primary);">
               Send recovery follow-up to <%= MapSet.size(@selected_ids) %>
             </.cl_button>
           </div>
@@ -275,7 +363,8 @@ defmodule Cairnloop.Web.InboxLive do
             </.focus_wrap>
           </div>
         <% end %>
-      </div>
+        </div>
+      </.cl_page>
     </.cl_shell>
     """
   end
@@ -287,14 +376,21 @@ defmodule Cairnloop.Web.InboxLive do
   # Phase 28 D-10: react to new conversations (create_customer_conversation/1) and new
   # messages (ingest_widget_message/2) that broadcast {:conversations_changed} on the
   # "conversations" topic of Cairnloop.PubSub. Subscribed in mount/3 above (D-09).
-  # prune_selected_ids/2 (line ~568) is now load-bearing — any conversation that disappears
-  # from the list is automatically removed from @selected_ids to keep the bulk-bar count
-  # accurate (WR-02 forward-compat fulfilled).
+  # prune_selected_ids/2 is load-bearing — any conversation that disappears from the
+  # list is automatically removed from @selected_ids to keep the bulk-bar count accurate
+  # (WR-02 forward-compat fulfilled).
+  # Phase 39 Plan 02 (D-04): re-query is filter-aware — passes socket.assigns.status so
+  # a new :open conversation arriving over PubSub cannot leak into a resolved-filter view,
+  # and stale bulk selections are pruned to prevent silent count inflation.
   def handle_info({:conversations_changed}, socket) do
-    conversations = Chat.list_conversations()
+    conversations = Chat.list_conversations(status: socket.assigns.status)
     selected_ids = prune_selected_ids(socket.assigns.selected_ids, conversations)
     {:noreply, assign(socket, conversations: conversations, selected_ids: selected_ids)}
   end
+
+  # Fail-closed catch-all: an unexpected PubSub message must not crash the LiveView
+  # (symmetric with HomeLive.handle_info/2).
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ---------------------------------------------------------------------------
   # Event handlers — Task 1 (selection state).
@@ -553,6 +649,38 @@ defmodule Cairnloop.Web.InboxLive do
   end
 
   defp status_label(status), do: to_string(status)
+
+  defp customer_label(%{host_user_id: nil}), do: "Unscoped customer"
+  defp customer_label(%{host_user_id: ""}), do: "Unscoped customer"
+  defp customer_label(%{host_user_id: host_user_id}), do: "Customer #{host_user_id}"
+  defp customer_label(_conversation), do: "Customer"
+
+  defp status_hint(:open), do: "Needs operator decision"
+  defp status_hint(:resolved), do: "Eligible for recovery"
+  defp status_hint(:archived), do: "Archived"
+  defp status_hint(_status), do: "Review conversation"
+
+  defp updated_label(%{updated_at: nil}), do: "No recent activity"
+
+  defp updated_label(%{updated_at: %NaiveDateTime{} = updated_at}) do
+    updated_at
+    |> DateTime.from_naive!("Etc/UTC")
+    |> relative_time_label()
+  end
+
+  defp updated_label(%{updated_at: %DateTime{} = updated_at}), do: relative_time_label(updated_at)
+  defp updated_label(_conversation), do: "Recent activity"
+
+  defp relative_time_label(updated_at) do
+    seconds = max(DateTime.diff(DateTime.utc_now(), updated_at, :second), 0)
+
+    cond do
+      seconds < 60 -> "Updated just now"
+      seconds < 3600 -> "Updated #{div(seconds, 60)}m ago"
+      seconds < 86_400 -> "Updated #{div(seconds, 3600)}h ago"
+      true -> "Updated #{div(seconds, 86_400)}d ago"
+    end
+  end
 
   defp visible_eligible_ids(conversations) do
     conversations

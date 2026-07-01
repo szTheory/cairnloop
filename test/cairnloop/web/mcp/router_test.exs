@@ -56,26 +56,58 @@ defmodule Cairnloop.Web.MCP.RouterTest do
     |> Cairnloop.Web.MCP.Router.call([])
   end
 
+  defp assert_unauthorized(resp) do
+    assert resp.status == 401
+    assert {"www-authenticate", "Bearer"} in resp.resp_headers
+
+    body = Jason.decode!(resp.resp_body)
+    assert body["error"] == "Unauthorized"
+    refute Map.has_key?(body, "result")
+    refute inspect(body) =~ "capabilities"
+    refute inspect(body) =~ "tools"
+    body
+  end
+
+  defp initialize_request do
+    %{
+      "jsonrpc" => "2.0",
+      "id" => 1,
+      "method" => "initialize",
+      "params" => %{}
+    }
+  end
+
+  defp tools_list_request do
+    %{
+      "jsonrpc" => "2.0",
+      "id" => 1,
+      "method" => "tools/list",
+      "params" => %{}
+    }
+  end
+
   # ---------------------------------------------------------------------------
   # tools/list
   # ---------------------------------------------------------------------------
 
   describe "tools/list" do
+    test "missing token returns 401 without exposing tool metadata", %{conn: conn} do
+      conn = call(conn, tools_list_request(), nil)
+
+      assert_unauthorized(conn)
+    end
+
+    test "invalid token returns 401 without exposing tool metadata", %{conn: conn} do
+      conn = call(conn, tools_list_request(), "invalid-token")
+
+      assert_unauthorized(conn)
+    end
+
     test "returns JSON-RPC 2.0 result envelope with tools array", %{
       conn: conn,
       raw_token: raw_token
     } do
-      conn =
-        call(
-          conn,
-          %{
-            "jsonrpc" => "2.0",
-            "id" => 1,
-            "method" => "tools/list",
-            "params" => %{}
-          },
-          raw_token
-        )
+      conn = call(conn, tools_list_request(), raw_token)
 
       assert conn.status == 200
 
@@ -91,21 +123,23 @@ defmodule Cairnloop.Web.MCP.RouterTest do
   # ---------------------------------------------------------------------------
 
   describe "initialize" do
+    test "missing token returns 401 without exposing capabilities", %{conn: conn} do
+      conn = call(conn, initialize_request(), nil)
+
+      assert_unauthorized(conn)
+    end
+
+    test "invalid token returns 401 without exposing capabilities", %{conn: conn} do
+      conn = call(conn, initialize_request(), "invalid-token")
+
+      assert_unauthorized(conn)
+    end
+
     test "returns protocolVersion 2025-11-05 and capabilities.tools", %{
       conn: conn,
       raw_token: raw_token
     } do
-      conn =
-        call(
-          conn,
-          %{
-            "jsonrpc" => "2.0",
-            "id" => 1,
-            "method" => "initialize",
-            "params" => %{}
-          },
-          raw_token
-        )
+      conn = call(conn, initialize_request(), raw_token)
 
       assert conn.status == 200
 
@@ -207,6 +241,22 @@ defmodule Cairnloop.Web.MCP.RouterTest do
 
       body = Jason.decode!(resp.resp_body)
       assert body["error"] == "Unauthorized"
+    end
+
+    test "invalid token returns 401 before governed write validation", %{conn: conn} do
+      req_body = %{
+        "jsonrpc" => "2.0",
+        "id" => 2,
+        "method" => "tools/call",
+        "params" => %{
+          "name" => Atom.to_string(Cairnloop.Tools.InternalNote),
+          "arguments" => %{}
+        }
+      }
+
+      resp = call(conn, req_body, "invalid-token")
+
+      assert_unauthorized(resp)
     end
 
     test "invalid arguments returns JSON-RPC error -32602", %{conn: conn, raw_token: raw_token} do

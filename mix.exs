@@ -8,6 +8,11 @@ defmodule Cairnloop.MixProject do
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      # Required so the LiveView 1.1 compiler extracts this library's colocated hooks/JS
+      # (e.g. the rail's `RailDensity` hook) into `phoenix-colocated/cairnloop/` at compile time.
+      # Without it the hook is silently never emitted, so a consumer's esbuild import of
+      # `phoenix-colocated/cairnloop` can't resolve and the hook never loads in the browser.
+      compilers: [:phoenix_live_view] ++ Mix.compilers(),
       aliases: aliases(),
       deps: deps(),
       description:
@@ -16,7 +21,24 @@ defmodule Cairnloop.MixProject do
       homepage_url: "https://github.com/szTheory/cairnloop",
       package: [
         name: "cairnloop",
-        files: ~w(lib priv guides mix.exs README.md LICENSE CHANGELOG.md),
+        files: ~w(
+            lib
+            priv
+            mix.exs
+            README.md
+            logo/cairnloop-lockup-horizontal.svg
+            LICENSE
+            SECURITY.md
+            UPGRADING.md
+            CHANGELOG.md
+            guides/01-quickstart.md
+            guides/02-jtbd-walkthrough.md
+            guides/03-host-integration.md
+            guides/04-troubleshooting.md
+            guides/05-mcp-clients.md
+            guides/06-extending.md
+            guides/07-auth-and-operator-identity.md
+          ),
         licenses: ["MIT"],
         links: %{
           "GitHub" => "https://github.com/szTheory/cairnloop",
@@ -34,13 +56,15 @@ defmodule Cairnloop.MixProject do
           {"guides/04-troubleshooting.md", title: "Troubleshooting"},
           {"guides/05-mcp-clients.md", title: "MCP Clients"},
           {"guides/06-extending.md", title: "Extending Cairnloop"},
+          "UPGRADING.md",
           "README.md",
+          "SECURITY.md",
           "CHANGELOG.md"
         ],
         groups_for_extras: [
           Guides: ~r/^guides\//
         ],
-        assets: %{"guides/assets" => "assets"},
+        assets: %{"guides/assets" => "assets", "logo" => "logo"},
         groups_for_modules: [
           Governance: [~r/^Cairnloop\.Governance/, ~r/^Cairnloop\.Tool/],
           "Knowledge Base": [~r/^Cairnloop\.KnowledgeBase/, ~r/^Cairnloop\.KnowledgeAutomation/],
@@ -55,7 +79,14 @@ defmodule Cairnloop.MixProject do
 
   # Run the integration aliases under MIX_ENV=test without an explicit prefix.
   def cli do
-    [preferred_envs: ["test.integration": :test, "test.setup": :test]]
+    [
+      preferred_envs: [
+        "ci.fast": :test,
+        "ci.integration": :test,
+        "test.integration": :test,
+        "test.setup": :test
+      ]
+    ]
   end
 
   # test/support holds the integration test host (Repo, Endpoint, Router, case
@@ -66,6 +97,15 @@ defmodule Cairnloop.MixProject do
 
   defp aliases do
     [
+      ci: [
+        "cmd mix ci.fast",
+        "cmd mix ci.integration",
+        "cmd mix ci.quality"
+      ],
+      "ci.full": [
+        "cmd mix ci",
+        "cmd --cd examples/cairnloop_example mix test.e2e"
+      ],
       # DB bootstrap for the integration suite (Cairnloop.Repo + Chimeway.Repo boot DB).
       # Host-owned tables (conversations/messages/drafts) are created FIRST via the
       # test-host migration path — the library's own migrations reference but do not
@@ -83,15 +123,32 @@ defmodule Cairnloop.MixProject do
       # Default `mix test` stays DB-free and excludes :integration (fast inner loop).
       # Run the DB-backed suite explicitly with `mix test.integration`.
       "test.integration": ["test.setup", "test --include integration test/integration"],
-      # Static quality gate (mirrors the CI `quality` job). Tests are NOT bundled here —
-      # they run via the `phase-12-shift-left` + `integration` CI jobs (a bare headless
-      # `mix test` carries the documented Automation.DraftTest M005-drift baseline failure).
-      check: [
+      # Fast CI lane: DB-free, locked deps, warnings-clean compile, and the complete headless
+      # ExUnit suite. DB-backed checks stay in `ci.integration`.
+      "ci.fast": [
+        "deps.get --check-locked",
         "format --check-formatted",
         "compile --warnings-as-errors",
+        "test --exclude integration --warnings-as-errors"
+      ],
+      "ci.integration": ["deps.get --check-locked", "test.integration"],
+      # Static quality gate (mirrors the CI `quality` job). Tests are NOT bundled here —
+      # they run via `ci.fast` + `ci.integration` so docs/package/audit failures remain easy
+      # to distinguish from behavioral regressions.
+      "ci.quality": [
+        "deps.get --check-locked",
+        "deps.unlock --check-unused",
+        "compile --warnings-as-errors",
         "credo --strict",
+        "cmd mix hex.build",
         "docs --warnings-as-errors",
-        "deps.audit"
+        # Hackney advisories are currently unsolvable through optional Chimeway 1.0.0:
+        # chimeway -> tzdata ~> 1.1 -> hackney ~> 1.17. Keep the gate active for
+        # every other advisory and remove this list when Chimeway can resolve Hackney 4.x.
+        "deps.audit --ignore-advisory-ids GHSA-gp9c-pm5m-5cxr,GHSA-j9wq-vxxc-94wf,GHSA-mp55-p8c9-rfw2,GHSA-pj7v-xfvx-wmjq"
+      ],
+      check: [
+        "ci.quality"
       ]
     ]
   end
@@ -116,8 +173,7 @@ defmodule Cairnloop.MixProject do
       {:nimble_options, "~> 1.0"},
       {:oban, "~> 2.17"},
       {:mailglass, "~> 0.2"},
-      {:hackney, "~> 1.9"},
-      {:earmark, "~> 1.4"},
+      {:earmark_parser, "~> 1.4"},
       {:req, "~> 0.5"},
       {:chimeway, "~> 1.0", optional: true},
       {:scrypath, ">= 0.0.0", optional: true},

@@ -325,6 +325,12 @@ defmodule Cairnloop.Workers.ToolExecutionWorkerTest do
     def rollback(reason) do
       throw({:rollback, reason})
     end
+
+    def get(schema, id, _opts), do: get(schema, id)
+    def get!(schema, id, _opts), do: get!(schema, id)
+    def update(changeset, _opts), do: update(changeset)
+    def insert(changeset, _opts), do: insert(changeset)
+    def transaction(fun, _opts), do: transaction(fun)
   end
 
   setup do

@@ -37,6 +37,20 @@ defmodule Cairnloop.KnowledgeAutomation do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
+  defp all(queryable), do: queryable |> prefixed() |> repo().all(repo_opts())
+  defp one(queryable), do: queryable |> prefixed() |> repo().one(repo_opts())
+  defp one!(queryable), do: queryable |> prefixed() |> repo().one!(repo_opts())
+  defp insert(changeset), do: repo().insert(changeset, repo_opts())
+  defp update(changeset), do: repo().update(changeset, repo_opts())
+  defp repo_preload(rows, preloads), do: repo().preload(rows, preloads, repo_opts())
+
   def list_gap_candidates(opts \\ []) do
     GapCandidate
     |> apply_scope(opts)
@@ -46,7 +60,7 @@ defmodule Cairnloop.KnowledgeAutomation do
       desc: candidate.last_seen_at,
       desc: candidate.id
     )
-    |> repo().all()
+    |> all()
   end
 
   def get_gap_candidate!(id, opts \\ []) do
@@ -55,7 +69,7 @@ defmodule Cairnloop.KnowledgeAutomation do
       |> apply_scope(opts)
       |> where([candidate], candidate.id == ^id)
       |> preload(:memberships)
-      |> repo().one!()
+      |> one!()
       |> enforce_scope!(opts, GapCandidate)
 
     hydrate_memberships(candidate)
@@ -66,15 +80,46 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(opts)
     |> maybe_filter_article_suggestion_status(opts)
     |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
-    |> repo().all()
+    |> all()
   end
 
   def get_article_suggestion!(id, opts \\ []) do
     ArticleSuggestion
     |> apply_scope(opts)
     |> where([suggestion], suggestion.id == ^id)
-    |> repo().one!()
+    |> one!()
     |> enforce_scope!(opts, ArticleSuggestion)
+  end
+
+  # Phase 42 Plan 02 (THREAD-03b, D-12/Pitfall 2): article→conversation origin read.
+  # NEW lookup keyed on article_id — do NOT reuse the editor's in-scope suggestion (nil
+  # on direct visit, Pitfall 2); Article has no belongs_to(:suggestion).
+  # Applies tenant_scope/host_user_id WHERE clauses via apply_scope/2 WHEN provided, and
+  # re-verifies the fetched row against opts post-fetch (scope_matches?/3) — mirroring the
+  # belt-and-suspenders pattern of the sibling reads (get_article_suggestion!/2, etc.,
+  # T-42-04/WR-01). Because apply_scope/2 is a pass-through on nil opts, the post-fetch check
+  # is what makes a PARTIAL scope (e.g. host_user_id only) fail closed rather than leak a row
+  # from another tenant. With fully-empty opts the read is intentionally unscoped (the editor
+  # owns auth in that path); the post-fetch check is a no-op there, consistent with siblings.
+  # Only :conversation_quick_fix rows carry a conversation id (D-12);
+  # :gap_candidate / :article_revision / unknown article → nil → honest absence.
+  # All bindings parameterized with ^ (never interpolated, T-42-05).
+  # select/2 exposes only the three fields needed for the scope check (T-42-06).
+  def originating_conversation_id(article_id, opts \\ []) do
+    ArticleSuggestion
+    |> apply_scope(opts)
+    |> where([s], s.article_id == ^article_id and s.entrypoint_type == :conversation_quick_fix)
+    |> order_by([s], asc: s.inserted_at)
+    |> limit(1)
+    |> select([s], {s.entrypoint_id, s.tenant_scope, s.host_user_id})
+    |> one()
+    |> case do
+      nil ->
+        nil
+
+      {entrypoint_id, tenant_scope, host_user_id} ->
+        if scope_matches?(opts, tenant_scope, host_user_id), do: entrypoint_id, else: nil
+    end
   end
 
   def get_gap_candidate(id, opts \\ []) do
@@ -87,7 +132,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     now = now_fn(opts).()
     suggestion = get_article_suggestion!(suggestion_id, opts)
 
-    case suggestion |> ArticleSuggestion.manual_edit_changeset(now) |> repo().update() do
+    case suggestion |> ArticleSuggestion.manual_edit_changeset(now) |> update() do
       {:ok, updated} -> {:ok, updated, DateTime.to_iso8601(now)}
       error -> error
     end
@@ -120,12 +165,12 @@ defmodule Cairnloop.KnowledgeAutomation do
         desc: task.inserted_at,
         desc: task.id
       )
-      |> repo().all()
+      |> all()
 
     if preloads == [] do
       tasks
     else
-      repo().preload(tasks, preloads)
+      repo_preload(tasks, preloads)
     end
   end
 
@@ -133,9 +178,9 @@ defmodule Cairnloop.KnowledgeAutomation do
     ReviewTask
     |> apply_scope(opts)
     |> where([task], task.id == ^id)
-    |> repo().one!()
+    |> one!()
     |> enforce_scope!(opts, ReviewTask)
-    |> repo().preload([:article_suggestion, :events])
+    |> repo_preload([:article_suggestion, :events])
   end
 
   def ensure_review_task_for_suggestion(id, opts \\ []) do
@@ -167,7 +212,7 @@ defmodule Cairnloop.KnowledgeAutomation do
         with {:ok, task} <-
                %ReviewTask{}
                |> ReviewTask.changeset(attrs)
-               |> repo().insert(),
+               |> insert(),
              {:ok, _event} <-
                %ReviewTaskEvent{}
                |> ReviewTaskEvent.changeset(%{
@@ -177,7 +222,7 @@ defmodule Cairnloop.KnowledgeAutomation do
                  actor_id: actor_id || suggestion.host_user_id || "system",
                  metadata: %{article_suggestion_id: suggestion.id}
                })
-               |> repo().insert() do
+               |> insert() do
           {:ok, task}
         end
     end
@@ -558,7 +603,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     id
     |> get_article_suggestion!(opts)
     |> ArticleSuggestion.dismiss_changeset(now_fn.())
-    |> repo().update()
+    |> update()
   end
 
   def regenerate_article_suggestion(id, opts \\ []) do
@@ -567,7 +612,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     with {:ok, regenerated} <-
            suggestion
            |> ArticleSuggestion.regenerate_changeset()
-           |> repo().update(),
+           |> update(),
          {:ok, _job} <- enqueue_generation_job(regenerated, opts) do
       {:ok, regenerated}
     end
@@ -604,7 +649,7 @@ defmodule Cairnloop.KnowledgeAutomation do
                      article.id
                    )
                })
-               |> repo().update() do
+               |> update() do
           {:ok, map_value(updated.grounding_metadata, :authoring_article_id)}
         end
     end
@@ -666,7 +711,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     case suggestion
          |> ArticleSuggestion.changeset(attrs)
-         |> repo().update() do
+         |> update() do
       {:ok, updated} = result ->
         emit_suggestion_outcome(:ready, updated)
         result
@@ -692,7 +737,7 @@ defmodule Cairnloop.KnowledgeAutomation do
 
     case suggestion
          |> ArticleSuggestion.changeset(attrs)
-         |> repo().update() do
+         |> update() do
       {:ok, updated} = result ->
         emit_suggestion_outcome(:failed, updated, failure_reason)
         result
@@ -1031,7 +1076,7 @@ defmodule Cairnloop.KnowledgeAutomation do
            prepared
            |> Map.delete(:quick_fix_package)
            |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
-           |> repo().insert(),
+           |> insert(),
          {:ok, _job} <- maybe_enqueue_quick_fix_generation(suggestion, opts) do
       emit_suggestion_outcome(
         quick_fix_telemetry_outcome(suggestion),
@@ -1070,7 +1115,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     with {:ok, suggestion} <-
            %ArticleSuggestion{}
            |> ArticleSuggestion.changeset(prepared)
-           |> repo().insert(),
+           |> insert(),
          {:ok, _job} <- enqueue_generation_job(suggestion, opts) do
       emit_suggestion_outcome(:queued, suggestion)
       {:ok, suggestion}
@@ -1084,7 +1129,7 @@ defmodule Cairnloop.KnowledgeAutomation do
          |> Map.put(:status, :failed)
          |> Map.put(:generated_at, now_fn.())
          |> then(&ArticleSuggestion.changeset(%ArticleSuggestion{}, &1))
-         |> repo().insert() do
+         |> insert() do
       {:ok, suggestion} = result ->
         emit_suggestion_outcome(
           :failed,
@@ -1530,7 +1575,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(scope_opts_from_attrs(attrs))
     |> order_by([event], desc: event.occurred_at, desc: event.id)
     |> limit(25)
-    |> repo().all()
+    |> all()
     |> Enum.filter(&article_linked_gap_event?(&1, article_id, base_revision_id))
   end
 
@@ -1719,7 +1764,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     task =
       id
       |> get_review_task!(opts)
-      |> repo().preload(:article_suggestion)
+      |> repo_preload(:article_suggestion)
 
     if task.article_suggestion do
       {:ok, task, task.article_suggestion}
@@ -1849,11 +1894,11 @@ defmodule Cairnloop.KnowledgeAutomation do
   end
 
   defp update_task_with_event(task, changeset, event_attrs, result_type \\ :ok) do
-    with {:ok, updated_task} <- repo().update(changeset),
+    with {:ok, updated_task} <- update(changeset),
          {:ok, _event} <-
            %ReviewTaskEvent{}
            |> ReviewTaskEvent.changeset(Map.put(event_attrs, :review_task_id, task.id))
-           |> repo().insert() do
+           |> insert() do
       emit_review_task_event(updated_task, task, event_attrs)
       {result_type, updated_task}
     end
@@ -1863,8 +1908,8 @@ defmodule Cairnloop.KnowledgeAutomation do
     ReviewTask
     |> apply_scope(opts)
     |> where([task], task.published_revision_id == ^revision_id)
-    |> repo().all()
-    |> repo().preload(:article_suggestion)
+    |> all()
+    |> repo_preload(:article_suggestion)
     |> List.first()
   end
 
@@ -2136,21 +2181,29 @@ defmodule Cairnloop.KnowledgeAutomation do
   defp metadata_value(_, _), do: nil
 
   defp enforce_scope!(candidate, opts, queryable) do
-    expected_tenant_scope = Keyword.get(opts, :tenant_scope)
-    expected_host_user_id = Keyword.get(opts, :host_user_id)
-
-    tenant_scope_matches? =
-      is_nil(expected_tenant_scope) or candidate.tenant_scope == expected_tenant_scope
-
-    host_user_id_matches? =
-      is_nil(expected_host_user_id) or
-        to_string(candidate.host_user_id) == to_string(expected_host_user_id)
-
-    if tenant_scope_matches? and host_user_id_matches? do
+    if scope_matches?(opts, candidate.tenant_scope, candidate.host_user_id) do
       candidate
     else
       raise Ecto.NoResultsError, queryable: queryable
     end
+  end
+
+  # Belt-and-suspenders scope check shared by enforce_scope!/3 (raises on mismatch) and
+  # originating_conversation_id/2 (returns nil on mismatch — an optional lookup, not a get!).
+  # A nil expected value means "no constraint requested" → matches (apply_scope/2 likewise
+  # adds no WHERE clause for nil), so a partial scope still fails closed on the field it pins.
+  defp scope_matches?(opts, row_tenant_scope, row_host_user_id) do
+    expected_tenant_scope = Keyword.get(opts, :tenant_scope)
+    expected_host_user_id = Keyword.get(opts, :host_user_id)
+
+    tenant_scope_matches? =
+      is_nil(expected_tenant_scope) or row_tenant_scope == expected_tenant_scope
+
+    host_user_id_matches? =
+      is_nil(expected_host_user_id) or
+        to_string(row_host_user_id) == to_string(expected_host_user_id)
+
+    tenant_scope_matches? and host_user_id_matches?
   end
 
   defp find_active_review_task(%ArticleSuggestion{} = suggestion, opts) do
@@ -2158,7 +2211,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(opts)
     |> where([task], task.article_suggestion_id == ^suggestion.id)
     |> where([task], task.status in ^active_review_task_statuses())
-    |> repo().all()
+    |> all()
     |> List.first()
   end
 
@@ -2167,7 +2220,7 @@ defmodule Cairnloop.KnowledgeAutomation do
     |> apply_scope(opts)
     |> where([suggestion], suggestion.stable_key == ^stable_key)
     |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
-    |> repo().all()
+    |> all()
     |> List.first()
   end
 
@@ -2180,7 +2233,7 @@ defmodule Cairnloop.KnowledgeAutomation do
         suggestion.entrypoint_id == ^conversation_id
     )
     |> order_by([suggestion], desc: suggestion.inserted_at, desc: suggestion.id)
-    |> repo().all()
+    |> all()
     |> List.first()
   end
 
@@ -2209,7 +2262,7 @@ defmodule Cairnloop.KnowledgeAutomation do
         GapEvent
         |> where([event], event.id in ^retrieval_ids)
         |> order_by([event], desc: event.occurred_at, desc: event.id)
-        |> repo().all()
+        |> all()
         |> Enum.map(&serialize_gap_event/1)
       end
 
@@ -2220,7 +2273,7 @@ defmodule Cairnloop.KnowledgeAutomation do
         ResolvedCaseEvidence
         |> where([evidence], evidence.id in ^manual_ids)
         |> order_by([evidence], desc: evidence.resolved_at, desc: evidence.id)
-        |> repo().all()
+        |> all()
         |> Enum.map(&serialize_manual_handling_evidence/1)
       end
 

@@ -17,13 +17,13 @@
 
 :root {
   /* ---- Primitive colors (raw, context-free) ------------------------------ */
-  --cl-color-basalt:        #18211F;
+  --cl-color-basalt:        #141B19;
   --cl-color-moss-ink:      #263A2E;
-  --cl-color-trailpaper:    #F5F0E6;
-  --cl-color-warm-stone:    #FBF7EE;
-  --cl-color-granite:       #D8D0BF;
-  --cl-color-slate-lichen:  #677066;
-  --cl-color-path-copper:   #A94F30;
+  --cl-color-trailpaper:    #F4EEE2;
+  --cl-color-warm-stone:    #FAF5EB;
+  --cl-color-granite:       #8E8068;
+  --cl-color-slate-lichen:  #5E665D;
+  --cl-color-path-copper:   #A8492A;
   --cl-color-copper-glow:   #C46A3A;
   --cl-color-lichen:        #A8B56C;
   --cl-color-deep-lichen:   #4A6238;
@@ -47,6 +47,7 @@
   --cl-primary-hover:  #97462A;
   --cl-primary-text:   #FFFFFF;
   --cl-on-primary:     var(--cl-primary-text);   /* alias for sealed render code */
+  --cl-danger-button-text: #FFFFFF;
   --cl-success:        var(--cl-color-deep-lichen);
   --cl-info:           var(--cl-color-waypoint-blue);
   --cl-ai:             var(--cl-color-heather);
@@ -56,7 +57,8 @@
   --cl-overlay:        rgba(24, 33, 31, 0.44);
 
   /* Status triplets (surface / border / text) — for badges, banners, chips.
-     Text step is darker than fill so text-on-surface keeps 4.5:1 contrast. */
+     Text step is darker than fill so text-on-surface keeps 4.5:1 contrast.
+     Chip borders are decorative: status meaning is carried by text + icon. */
   --cl-success-surface: #EDF1E2;  --cl-success-border: #C9D3A6;  --cl-success-text: #3C5430;
   --cl-info-surface:    #DDE8E3;  --cl-info-border:    #B7CDD4;  --cl-info-text:    #335A68;
   --cl-warning-surface: #F6ECDD;  --cl-warning-border: #E3C9A0;  --cl-warning-text: #7A4818;
@@ -132,6 +134,13 @@
   --cl-control-h-md: 36px; --cl-control-px-md: 14px;
   --cl-control-h-lg: 44px; --cl-control-px-lg: 20px;
 
+  /* ---- Layout tokens (D-09, UIC-05) -------------------------------------- */
+  /* Note: var() is illegal inside @media conditions — these tokens drive     */
+  /* max-width values only, never breakpoint conditions (that work is P43).   */
+  --cl-content-max: 1200px;  /* matches existing .cl-main max-width */
+  --cl-rail-width:  352px;   /* matches existing .evidence-rail width */
+  --cl-page-gutter: var(--cl-space-5);  /* = 16px; inner padding for cl_page shell */
+
   /* ---- Motion (Emil Kowalski: ease-out default, fast, transform+opacity) - */
   --cl-dur-instant: 100ms;  /* press feedback, toggles */
   --cl-dur-micro:   140ms;  /* tooltips, hover, icon swap */
@@ -152,22 +161,23 @@
 /* ---- Dark theme: override semantic tokens only ------------------------- */
 [data-theme="dark"] {
   --cl-bg:             #101614;
-  --cl-surface:        #18211F;
+  --cl-surface:        #141B19;
   --cl-surface-raised: #1F2C28;
   --cl-surface-sunken: #0C110F;
   --cl-text:           #F5F0E6;
   --cl-text-muted:     #B7C0B2;
   --cl-text-soft:      #8A9488;
-  --cl-border:         #34443D;
-  --cl-border-strong:  #44564D;
+  --cl-border:         #5B7066;
+  --cl-border-strong:  #627A6E;
   --cl-primary:        #D98A4A;
   --cl-primary-hover:  #E69A5C;
   --cl-primary-text:   #18211F;
+  --cl-danger-button-text: #141B19;
   --cl-success:        #A8B56C;
   --cl-info:           #9EC3CF;
   --cl-ai:             #C9A7C6;
   --cl-warning:        #D98A4A;
-  --cl-danger:         #E18C7D;
+  --cl-danger:         #C96A55;
   --cl-focus:          #D98A4A;
   --cl-overlay:        rgba(0, 0, 0, 0.58);
 
@@ -190,7 +200,11 @@
 @media (prefers-reduced-motion: reduce) {
   .cl-app *,
   .cl-app *::before,
-  .cl-app *::after {
+  .cl-app *::after,
+  .cl-toast,
+  .cl-toast *,
+  .cl-toast::before,
+  .cl-toast::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -201,6 +215,62 @@
     transition-duration: 120ms !important;
     transition-property: opacity, color, background-color, border-color !important;
   }
+}
+
+/* ---- Motion primitives -------------------------------------------------- */
+@keyframes cl-enter-up {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes cl-reveal-x {
+  from { opacity: 0; transform: translate3d(12px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes cl-toast-enter {
+  from { opacity: 0; transform: translate3d(0, -8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes cl-toast-exit {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -8px, 0); }
+}
+
+.cl-motion-enter {
+  animation: cl-enter-up var(--cl-dur-micro, 140ms) var(--cl-ease-out) both;
+}
+
+.cl-motion-reveal {
+  animation: cl-reveal-x var(--cl-dur-panel, 260ms) var(--cl-ease-drawer) both;
+}
+
+.cl-motion-state {
+  transition-property: opacity, color, background-color, border-color;
+  transition-duration: var(--cl-dur-ui, 180ms);
+  transition-timing-function: var(--cl-ease-linear);
+}
+
+.cl-list-stagger > li:nth-child(-n+5) {
+  animation-name: cl-enter-up;
+  animation-duration: var(--cl-dur-ui, 180ms);
+  animation-timing-function: var(--cl-ease-out);
+  animation-fill-mode: both;
+}
+
+.cl-list-stagger > li:nth-child(1) { animation-delay: 0ms; }
+.cl-list-stagger > li:nth-child(2) { animation-delay: calc(var(--cl-stagger, 50ms) * 1); }
+.cl-list-stagger > li:nth-child(3) { animation-delay: calc(var(--cl-stagger, 50ms) * 2); }
+.cl-list-stagger > li:nth-child(4) { animation-delay: calc(var(--cl-stagger, 50ms) * 3); }
+.cl-list-stagger > li:nth-child(5) { animation-delay: calc(var(--cl-stagger, 50ms) * 4); }
+
+.cl-toast-enter {
+  animation: cl-toast-enter var(--cl-dur-ui, 180ms) var(--cl-ease-out) both;
+}
+
+.cl-toast-exit {
+  animation: cl-toast-exit var(--cl-dur-exit, 160ms) var(--cl-ease-in-out) both;
 }
 
 /* ============================================================================
@@ -251,13 +321,14 @@
 
 /* ---- Nav shell ---------------------------------------------------------- */
 .cl-shell { display: flex; flex-direction: column; min-height: 100vh; background: var(--cl-bg, #F5F0E6); }
-.cl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: var(--cl-space-7, 24px); }
+.cl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: var(--cl-space-5, 16px); }
 .cl-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
-@media (max-width: 640px) { .cl-main { padding: var(--cl-space-5, 16px); } }
+@media (min-width: 640px) { .cl-main { padding: var(--cl-space-7, 24px); } }
+@media (min-width: 768px) { .cl-main { padding: var(--cl-space-8, 32px); } }
 .cl-nav {
   position: sticky; top: 0; z-index: var(--cl-z-sticky, 1100);
-  display: flex; align-items: center; gap: var(--cl-space-5, 16px);
-  padding: 0 var(--cl-space-7, 24px); height: 56px;
+  display: flex; align-items: center; gap: var(--cl-space-3, 8px);
+  padding: 0 var(--cl-space-4, 12px); height: 56px;
   background: var(--cl-surface, #FBF7EE);
   border-bottom: 1px solid var(--cl-border, #D8D0BF);
 }
@@ -270,7 +341,7 @@
 .cl-nav__links { display: flex; align-items: center; gap: var(--cl-space-1, 2px); flex: 1; }
 .cl-nav__link {
   display: inline-flex; align-items: center; gap: var(--cl-space-2, 4px);
-  padding: var(--cl-space-2, 4px) var(--cl-space-4, 12px);
+  padding: var(--cl-space-2, 4px) var(--cl-space-3, 8px);
   height: 36px; border-radius: var(--cl-radius-sm, 6px);
   color: var(--cl-text-muted, #677066); font-size: var(--cl-font-small, 13px);
   font-weight: var(--cl-weight-medium, 500);
@@ -308,7 +379,7 @@
 }
 .cl-button--primary:hover { background: var(--cl-primary-hover, #97462A); border-color: transparent; }
 .cl-button--danger {
-  background: var(--cl-danger, #B54C36); color: #FFFFFF; border-color: transparent;
+  background: var(--cl-danger, #B54C36); color: var(--cl-danger-button-text, #FFFFFF); border-color: transparent;
 }
 .cl-button--danger:hover { background: #9A3E2C; }
 .cl-button--ghost { background: transparent; border-color: transparent; color: var(--cl-text-muted, #677066); }
@@ -360,6 +431,56 @@
 .cl-banner--info    { background: var(--cl-info-surface);    border-color: var(--cl-info-border); }
 .cl-banner--warning { background: var(--cl-warning-surface); border-color: var(--cl-warning-border); }
 .cl-banner--danger  { background: var(--cl-danger-surface);  border-color: var(--cl-danger-border); }
+
+/* ---- Toasts (transient flash notices) ----------------------------------- */
+.cl-toast {
+  position: fixed;
+  inset-block-start: var(--cl-space-5, 16px);
+  inset-inline-end: var(--cl-space-5, 16px);
+  z-index: var(--cl-z-toast, 1500);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cl-space-3, 8px);
+  inline-size: min(28rem, calc(100vw - (var(--cl-space-5, 16px) * 2)));
+  padding: var(--cl-space-4, 12px) var(--cl-space-5, 16px);
+  border: 1px solid var(--cl-neutral-border);
+  border-radius: var(--cl-radius-md, 10px);
+  background: var(--cl-neutral-surface);
+  color: var(--cl-text, #18211F);
+  box-shadow: var(--cl-shadow-overlay);
+  font-size: var(--cl-font-small, 13px);
+  line-height: var(--cl-leading-small, 20px);
+}
+.cl-toast--info { background: var(--cl-info-surface); border-color: var(--cl-info-border); color: var(--cl-info-text); }
+.cl-toast--danger { background: var(--cl-danger-surface); border-color: var(--cl-danger-border); color: var(--cl-danger-text); }
+.cl-toast__icon { flex-shrink: 0; margin-top: var(--cl-space-1, 2px); }
+.cl-toast__body { min-inline-size: 0; display: grid; gap: var(--cl-space-1, 2px); }
+.cl-toast__title {
+  margin: 0;
+  color: inherit;
+  font-size: var(--cl-font-small, 13px);
+  font-weight: var(--cl-weight-semibold, 600);
+  line-height: var(--cl-leading-small, 20px);
+}
+.cl-toast__message { margin: 0; color: inherit; overflow-wrap: anywhere; }
+.cl-toast__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-inline-size: var(--cl-control-h-sm, 28px);
+  min-block-size: var(--cl-control-h-sm, 28px);
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cl-radius-sm, 6px);
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  opacity: 0.68;
+}
+.cl-toast__dismiss:hover { opacity: 1; }
+.cl-toast__dismiss:focus-visible { outline: none; box-shadow: var(--cl-focus-ring); }
 
 /* ---- Form fields -------------------------------------------------------- */
 .cl-field { display: flex; flex-direction: column; gap: var(--cl-space-2, 4px); }
@@ -425,6 +546,10 @@
 .cl-row--wrap { flex-wrap: wrap; }
 .cl-stack { display: flex; flex-direction: column; gap: var(--cl-space-3, 8px); }
 .cl-stack--lg { gap: var(--cl-space-5, 16px); }
+/* ---- Inert utility escape hatches (D-10, UIC-05) — use .cl-row/.cl-stack composites first */
+.cl-gap-2          { gap: var(--cl-space-2); }
+.cl-align-center   { align-items: center; }
+.cl-justify-between { justify-content: space-between; }
 .cl-grow { flex: 1; }
 .cl-mt-5 { margin-top: var(--cl-space-5, 16px); }
 .cl-mb-7 { margin-bottom: var(--cl-space-7, 24px); }
@@ -432,6 +557,18 @@
 .cl-list-row { border-bottom: 1px solid var(--cl-border, #D8D0BF); padding: var(--cl-space-4, 12px) 0; }
 .cl-list-row:last-child { border-bottom: 0; }
 .cl-code-block { font-family: var(--cl-font-mono); font-size: var(--cl-font-code, 13px); background: var(--cl-surface-sunken, #EFE9DC); padding: var(--cl-space-3, 8px); border-radius: var(--cl-radius-sm, 6px); word-break: break-all; display: block; }
+/* ---- Accessible table scroll wrapper (D-11, UIC-05) -------------------- */
+/* role="region" + tabindex="0" + aria-label must be set at each call site. */
+.cl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cl-table-scroll:focus-visible { box-shadow: var(--cl-focus-ring); border-radius: var(--cl-radius-xs); }
+
+/* ---- Applied-filter row (Plan 39-03 — sole owner; consumed by InboxLive Plan 39-02) --- */
+/* Composes from .cl-row + .cl-text-small; adds surface background + padding tokens.    */
+/* No raw hex — token-only (D-14, T-39-08). Parallel Plan 02 emits this class markup.  */
+.cl-applied-filter {
+  display: flex; align-items: center; gap: var(--cl-space-3);
+  background: var(--cl-surface); padding: var(--cl-space-3) 0;
+}
 
 /* ---- Toolbar ------------------------------------------------------------ */
 .cl-toolbar {
@@ -487,12 +624,67 @@
 /* ---- Pagination --------------------------------------------------------- */
 .cl-pagination { display: flex; align-items: center; gap: var(--cl-space-2, 4px); justify-content: center; padding: var(--cl-space-5, 16px) 0; }
 
+/* ---- Workflow orientation bands ---------------------------------------- */
+.cl-workflow-band {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--cl-space-4, 12px);
+  margin-bottom: var(--cl-space-7, 24px);
+}
+
+.cl-workflow-band__step {
+  display: grid;
+  grid-template-columns: var(--cl-control-h-md, 36px) 1fr;
+  gap: var(--cl-space-3, 8px);
+  align-items: start;
+  padding: var(--cl-space-5, 16px);
+  border: 1px solid var(--cl-border, #D8D0BF);
+  border-radius: var(--cl-radius-md, 10px);
+  background: var(--cl-surface, #FBF7EE);
+  box-shadow: var(--cl-shadow-card);
+}
+
+.cl-workflow-band__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--cl-control-h-md, 36px);
+  block-size: var(--cl-control-h-md, 36px);
+  border-radius: var(--cl-radius-full, 9999px);
+  background: var(--cl-surface-sunken, #EFE9DC);
+  color: var(--cl-primary, #A94F30);
+  font-weight: var(--cl-weight-semibold, 600);
+}
+
+.cl-workflow-band__step h3 {
+  margin: 0 0 var(--cl-space-1, 2px);
+}
+
+.cl-workflow-band__step p {
+  margin: 0 0 var(--cl-space-3, 8px);
+  color: var(--cl-text-muted, #677066);
+  font-size: var(--cl-font-small, 13px);
+  line-height: var(--cl-leading-small, 20px);
+}
+
+@media (min-width: 1024px) {
+  .cl-workflow-band {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 /* ============================================================================
-   Responsive — mobile-first; widen the rail layout at >= 1024px
+   BREAKPOINTS — mobile-first (min-width). Literal pixel constants ONLY.
+   var() is ILLEGAL inside @media conditions (silent no-op) — never tokenize these.
+     sm  = 640px   (small → medium handoff; nav gains larger gap/padding, 1→2 col)
+     md  = 768px   (tablet; introduced Phase 43)
+     lg  = 1024px  (desktop; rail row layout, 3 col, conversation 2-col)
+   Layout VALUES (max-width, rail width, gutters) stay tokens: --cl-content-max,
+   --cl-rail-width, --cl-page-gutter. Only the @media CONDITION numbers are literals.
    ============================================================================ */
-@media (max-width: 640px) {
-  .cl-nav { gap: var(--cl-space-3, 8px); padding: 0 var(--cl-space-4, 12px); }
-  .cl-nav__link { padding: var(--cl-space-2, 4px) var(--cl-space-3, 8px); }
+@media (min-width: 640px) {
+  .cl-nav { gap: var(--cl-space-5, 16px); padding: 0 var(--cl-space-7, 24px); }
+  .cl-nav__link { padding: var(--cl-space-2, 4px) var(--cl-space-4, 12px); }
 }
 
 /* ---- Modals & Inbox Specific -------------------------------------------- */
@@ -501,7 +693,155 @@
 .cl-modal-close { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; border: none; background: transparent; color: var(--cl-text-muted); font-size: 24px; line-height: 1; cursor: pointer; padding: 0; }
 .cl-inbox-bulk-bar { position: sticky; bottom: 0; background: var(--cl-surface-raised, #FFF); border-top: 1px solid var(--cl-border); padding: var(--cl-space-4, 12px); z-index: 1100; }
 
+/* ---- Checkbox tap-target utility (D3-07 / RESP-02) ---------------------- */
+/* Gives raw <input type="checkbox"> a ≥44×44px hit area without hiding      */
+/* check state — mirrors .cl-modal-close / .cl-switch 44px precedent.        */
+/* cursor:pointer + :focus-visible ring preserve keyboard a11y.               */
+.cl-checkbox {
+  min-width: var(--cl-control-h-lg, 44px);
+  min-height: var(--cl-control-h-lg, 44px);
+  cursor: pointer;
+  padding: 0 var(--cl-space-3, 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cl-checkbox:focus-visible { outline: none; box-shadow: var(--cl-focus-ring); }
+
+/* ---- Inbox list bottom clearance (D3-06 / RESP-02) ---------------------- */
+/* Reserves padding-bottom so the sticky bulk-bar never occludes the last     */
+/* selectable row. Bar height = 44px button (--cl-control-h-lg) + 12px×2 bar   */
+/* padding ≈ 68px; reserve the full bar height (control + space-7 = 68px) so   */
+/* the last row clears it even if the bar ever changes to position: fixed.     */
+.cl-inbox-list--bulk-clearance { padding-bottom: calc(var(--cl-control-h-lg, 44px) + var(--cl-space-7, 24px)); }
+
+.cl-inbox-orientation {
+  margin-bottom: var(--cl-space-5, 16px);
+}
+
+.cl-inbox-row {
+  display: grid;
+  grid-template-columns: var(--cl-control-h-lg, 44px) 1fr;
+  gap: var(--cl-space-3, 8px);
+  align-items: center;
+}
+
+.cl-inbox-row__select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cl-inbox-row__select-spacer {
+  inline-size: var(--cl-control-h-lg, 44px);
+  block-size: var(--cl-control-h-lg, 44px);
+}
+
+.cl-inbox-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cl-space-1, 2px);
+  min-inline-size: 0;
+  color: var(--cl-text, #18211F);
+}
+
+.cl-inbox-row__main:hover {
+  text-decoration: none;
+}
+
+.cl-inbox-row__main strong,
+.cl-inbox-row__summary {
+  overflow-wrap: anywhere;
+}
+
+.cl-inbox-row__summary {
+  color: var(--cl-text-muted, #677066);
+  font-size: var(--cl-font-small, 13px);
+  line-height: var(--cl-leading-small, 20px);
+}
+
+.cl-inbox-row__status {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--cl-space-3, 8px);
+  flex-wrap: wrap;
+}
+
+@media (min-width: 640px) {
+  .cl-inbox-row {
+    grid-template-columns: var(--cl-control-h-lg, 44px) minmax(0, 1fr) auto;
+  }
+
+  .cl-inbox-row__status {
+    grid-column: auto;
+    justify-content: flex-end;
+    text-align: right;
+  }
+}
+
 /* ---- Conversation Layout ------------------------------------------------ */
+.cl-conversation-header {
+  margin-bottom: var(--cl-space-2, 4px);
+}
+
+.cl-decision-band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cl-space-5, 16px);
+  padding: var(--cl-space-5, 16px);
+  border: 1px solid var(--cl-border, #D8D0BF);
+  border-left: 3px solid var(--cl-primary, #A94F30);
+  border-radius: var(--cl-radius-md, 10px);
+  background: var(--cl-surface, #FBF7EE);
+  box-shadow: var(--cl-shadow-card);
+}
+
+.cl-decision-band__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cl-space-2, 4px);
+}
+
+.cl-decision-band__copy p {
+  margin: 0;
+  color: var(--cl-text-muted, #677066);
+  font-size: var(--cl-font-small, 13px);
+  line-height: var(--cl-leading-small, 20px);
+}
+
+.cl-decision-band__eyebrow {
+  display: block;
+  font-size: var(--cl-font-micro, 12px);
+  font-weight: var(--cl-weight-semibold, 600);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cl-text-muted, #677066);
+}
+
+.cl-decision-band__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cl-space-3, 8px);
+  flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .cl-decision-band {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .cl-decision-band__copy {
+    max-inline-size: 42rem;
+  }
+
+  .cl-decision-band__actions {
+    justify-content: flex-end;
+  }
+}
+
 .conversation-layout { display: flex; flex-direction: column; gap: var(--cl-space-8, 32px); }
 @media (min-width: 1024px) {
   .conversation-layout { flex-direction: row; }
@@ -509,6 +849,21 @@
   .evidence-rail { width: 352px; flex-shrink: 0; }
 }
 .evidence-rail { display: flex; flex-direction: column; gap: var(--cl-space-7, 24px); }
+
+/* ---- Rail density variants (D-04: spacing only, never drives <details> open/closed) ---------- */
+/* Both comfortable + base rule retain the default gap/padding so no flash before hook fires.     */
+.evidence-rail[data-density="comfortable"] { gap: var(--cl-space-7, 24px); }
+.evidence-rail[data-density="comfortable"] > .cl-card { padding: var(--cl-space-gutter, 16px); }
+.evidence-rail[data-density="compact"] { gap: var(--cl-space-4, 12px); }
+.evidence-rail[data-density="compact"] > .cl-card { padding: var(--cl-space-4, 12px); }
+
+/* ---- Rail controls row (Expand all / Collapse all / density toggle — RAIL-03) --------------- */
+/* Copies .cl-toolbar flex idiom; right-aligned; >=44px tap target via min-height on controls.   */
+.cl-rail-controls {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: var(--cl-space-3, 8px); flex-wrap: wrap; padding: var(--cl-space-3, 8px) 0;
+}
+.cl-rail-controls .cl-button { min-height: var(--cl-control-h-lg, 44px); }
 
 /* ---- Conversation: message timeline -------------------------------------- */
 .message-card { padding: var(--cl-space-gutter, 16px); }
@@ -660,3 +1015,129 @@ dl.governed-action-trace > div { display: flex; gap: var(--cl-space-2, 4px); }
 dl.governed-action-trace dt { font-weight: var(--cl-weight-medium, 500); }
 dl.governed-action-trace dd { margin: 0; }
 .governed-action-footer:not(:empty) { margin-top: var(--cl-space-5, 16px); padding-top: var(--cl-space-4, 12px); border-top: 1px solid var(--cl-border, #D8D0BF); }
+
+/* ============================================================================
+   PRIMITIVE COMPONENTS (Phase 37 — Component Primitives, UIC-01..05)
+   All color/spacing via bare var(--cl-*) tokens — zero hardcoded hex.
+   BEM: .cl-block__element--modifier convention throughout.
+   ============================================================================ */
+
+/* ---- cl_page (UIC-01 / D-08) ------------------------------------------- */
+.cl-page {
+  width: 100%;
+}
+.cl-page--wide    { max-width: var(--cl-content-max); margin: 0 auto; padding: 0 var(--cl-page-gutter); }
+.cl-page--reading { max-width: var(--cl-rail-width);  margin: 0 auto; padding: 0 var(--cl-page-gutter); }
+.cl-page__header {
+  display: flex; flex-direction: column; gap: var(--cl-space-3);
+  margin-bottom: var(--cl-space-7);
+}
+.cl-page__title {
+  font-size: var(--cl-font-title); line-height: var(--cl-leading-title);
+  font-weight: var(--cl-weight-semibold); font-family: var(--cl-font-sans);
+  color: var(--cl-text); margin: 0;
+}
+.cl-page__subtitle {
+  font-size: var(--cl-font-body); line-height: var(--cl-leading-body);
+  color: var(--cl-text-muted); margin: 0;
+}
+.cl-page__subnav { margin-bottom: var(--cl-space-5); }
+.cl-page__body   { width: 100%; }
+
+/* ---- cl_hero (UIC-02 / D-02) ------------------------------------------- */
+.cl-hero {
+  width: 100%;
+  padding: var(--cl-space-7) 0;
+  display: flex; flex-direction: column; gap: var(--cl-space-3);
+}
+.cl-hero__job {
+  font-size: var(--cl-font-panel); line-height: var(--cl-leading-panel);
+  font-weight: var(--cl-weight-semibold); color: var(--cl-text);
+}
+/* Hero count: Fraunces 48px copper — ~2-3x the visual weight of cl-stat__count (32px). */
+.cl-hero__count {
+  font-family: var(--cl-font-display); font-size: 48px; line-height: 1;
+  color: var(--cl-primary);
+}
+.cl-hero__count--calm { color: var(--cl-success); }
+.cl-hero__detail {
+  font-size: var(--cl-font-small); line-height: var(--cl-leading-small);
+  color: var(--cl-text-muted);
+}
+.cl-hero__cta { margin-top: var(--cl-space-2); }
+
+/* ---- cl_fact_list (UIC-04 / D-05) -------------------------------------- */
+/* Dedicated class — NOT reuse of .cl-details dl (scoped inside .cl-details). */
+.cl-fact-list { margin: 0; padding: 0; list-style: none; }
+.cl-fact-list__row { padding: var(--cl-space-4) 0; }
+.cl-fact-list__row + .cl-fact-list__row { border-top: 1px solid var(--cl-border); }
+.cl-fact-list__label {
+  font-size: var(--cl-font-micro); font-weight: var(--cl-weight-medium);
+  color: var(--cl-text-muted); margin: 0 0 var(--cl-space-1);
+}
+.cl-fact-list__value {
+  font-size: var(--cl-font-small); font-weight: var(--cl-weight-regular);
+  color: var(--cl-text); margin: 0;
+}
+
+/* ---- cl_source_card (UIC-04 / D-06) ------------------------------------ */
+/* Base surface — variant modifiers override bg/border/color below. */
+.cl-source-card {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-sm);
+}
+/* Variant triplets (surface/border/text) — same shape as cl_chip variants. */
+.cl-source-card--success { background: var(--cl-success-surface); border-color: var(--cl-success-border); color: var(--cl-success-text); }
+.cl-source-card--info    { background: var(--cl-info-surface);    border-color: var(--cl-info-border);    color: var(--cl-info-text); }
+.cl-source-card--warning { background: var(--cl-warning-surface); border-color: var(--cl-warning-border); color: var(--cl-warning-text); }
+.cl-source-card--danger  { background: var(--cl-danger-surface);  border-color: var(--cl-danger-border);  color: var(--cl-danger-text); }
+.cl-source-card--ai      { background: var(--cl-ai-surface);      border-color: var(--cl-ai-border);      color: var(--cl-ai-text); }
+.cl-source-card--neutral { background: var(--cl-neutral-surface); border-color: var(--cl-neutral-border); color: var(--cl-neutral-text); }
+.cl-source-card__header {
+  display: flex; align-items: center; gap: var(--cl-space-2);
+  padding: var(--cl-space-3) var(--cl-space-4);
+  border-bottom: 1px solid var(--cl-border);
+}
+.cl-source-card__icon { width: 16px; height: 16px; flex-shrink: 0; }
+.cl-source-card__body {
+  padding: var(--cl-space-4);
+  font-size: var(--cl-font-small); line-height: var(--cl-leading-small);
+  color: var(--cl-text-muted);
+}
+.cl-source-card__meta {
+  padding: 0 var(--cl-space-4) var(--cl-space-3);
+  font-size: var(--cl-font-micro); color: var(--cl-text-muted);
+}
+
+/* ---- cl_switch (UIC-04 / D-04) ----------------------------------------- */
+/* Server-owned toggle — aria-checked drives visual state via attribute selector.  */
+/* 44px tap target (preemptive RESP-02 / UI-SPEC spacing exception).              */
+.cl-switch {
+  display: inline-flex; align-items: center; gap: var(--cl-space-2);
+  min-height: 44px; min-width: 44px;
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.cl-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+.cl-switch__track {
+  position: relative; display: inline-flex; align-items: center;
+  width: 44px; height: 24px;
+  background: var(--cl-border);
+  border-radius: var(--cl-radius-full);
+  transition: background-color var(--cl-dur-instant) var(--cl-ease-out);
+  flex-shrink: 0;
+}
+/* Checked state: [aria-checked="true"] drives the fill — never color alone (§7.5). */
+.cl-switch[aria-checked="true"] .cl-switch__track { background: var(--cl-primary); }
+.cl-switch__thumb {
+  position: absolute; left: 2px;
+  width: 20px; height: 20px;
+  background: var(--cl-surface-raised);
+  border-radius: var(--cl-radius-full);
+  transition: transform var(--cl-dur-instant) var(--cl-ease-out);
+}
+.cl-switch[aria-checked="true"] .cl-switch__thumb { transform: translateX(20px); }
+.cl-switch__label {
+  font-size: var(--cl-font-small); font-weight: var(--cl-weight-medium);
+  color: var(--cl-text);
+}

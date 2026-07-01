@@ -85,6 +85,13 @@ defmodule Cairnloop.Governance do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
   # ---------------------------------------------------------------------------
   # Approval TTL config (D15-13) — finite 48h default; host-configurable.
   # ---------------------------------------------------------------------------
@@ -128,13 +135,13 @@ defmodule Cairnloop.Governance do
   # ---------------------------------------------------------------------------
 
   defp update_approval_with_event(approval, changeset, event_attrs) do
-    with {:ok, updated_approval} <- repo().update(changeset),
+    with {:ok, updated_approval} <- repo().update(changeset, repo_opts()),
          {:ok, _event} <-
            %ToolActionEvent{}
            |> ToolActionEvent.changeset(
              Map.put(event_attrs, :tool_proposal_id, approval.tool_proposal_id)
            )
-           |> repo().insert() do
+           |> repo().insert(repo_opts()) do
       # Telemetry AFTER with success — never inside the with clause list (D-29).
       # Approval events use Cairnloop.Telemetry.execute/3 directly (Governance.Telemetry
       # only covers proposal events — mirrors workers pattern, 15-02-SUMMARY).
@@ -315,7 +322,7 @@ defmodule Cairnloop.Governance do
     # Check for existing proposal first — avoids the on_conflict footgun (Pitfall 6, D-25).
     # In a real Repo this is a SELECT before INSERT; a race condition is still handled by
     # the unique_constraint error path below (defense-in-depth).
-    case repo().get_by(ToolProposal, idempotency_key: idempotency_key) do
+    case repo().get_by(ToolProposal, [idempotency_key: idempotency_key], repo_opts()) do
       %ToolProposal{} = existing ->
         Telemetry.emit(:proposal_duplicate, %{count: 1}, %{outcome: :duplicate})
         {:ok, existing}
@@ -377,7 +384,7 @@ defmodule Cairnloop.Governance do
     with {:ok, proposal} <-
            %ToolProposal{}
            |> ToolProposal.changeset(proposal_attrs)
-           |> repo().insert(),
+           |> repo().insert(repo_opts()),
          {:ok, _event} <-
            %ToolActionEvent{}
            |> ToolActionEvent.changeset(%{
@@ -388,7 +395,7 @@ defmodule Cairnloop.Governance do
              actor_id: actor_id,
              metadata: %{}
            })
-           |> repo().insert() do
+           |> repo().insert(repo_opts()) do
       # Telemetry AFTER with success — never inside the with clause list (D-29)
       Telemetry.emit(:proposal_created, %{count: 1}, %{
         outcome: :proposed,
@@ -409,7 +416,7 @@ defmodule Cairnloop.Governance do
       {:error, %Ecto.Changeset{} = cs} ->
         # Handle unique constraint violation (race condition defense-in-depth)
         if unique_constraint_error?(cs, :idempotency_key) do
-          existing = repo().get_by(ToolProposal, idempotency_key: idempotency_key)
+          existing = repo().get_by(ToolProposal, [idempotency_key: idempotency_key], repo_opts())
           Telemetry.emit(:proposal_duplicate, %{count: 1}, %{outcome: :duplicate})
           {:ok, existing}
         else
@@ -444,7 +451,7 @@ defmodule Cairnloop.Governance do
     idempotency_key = derive_idempotency_key(tool_ref, actor_id, context, input_snapshot)
 
     # Pre-check for existing blocked proposal — mirrors propose_valid/4 defense-in-depth (WR-06).
-    case repo().get_by(ToolProposal, idempotency_key: idempotency_key) do
+    case repo().get_by(ToolProposal, [idempotency_key: idempotency_key], repo_opts()) do
       %ToolProposal{} ->
         Telemetry.emit(:proposal_duplicate, %{count: 1}, %{outcome: :duplicate})
         :ok
@@ -522,7 +529,7 @@ defmodule Cairnloop.Governance do
     with {:ok, proposal} <-
            %ToolProposal{}
            |> ToolProposal.blocked_changeset(proposal_attrs)
-           |> repo().insert(),
+           |> repo().insert(repo_opts()),
          {:ok, _event} <-
            %ToolActionEvent{}
            |> ToolActionEvent.changeset(%{
@@ -534,7 +541,7 @@ defmodule Cairnloop.Governance do
              reason: reason_str,
              metadata: %{}
            })
-           |> repo().insert() do
+           |> repo().insert(repo_opts()) do
       # Telemetry AFTER with success (D-29)
       Telemetry.emit(:proposal_blocked, %{count: 1}, %{
         outcome: outcome,
@@ -577,7 +584,7 @@ defmodule Cairnloop.Governance do
   Returns a `ToolProposal` by id, or nil if not found.
   """
   def get_proposal(id) do
-    repo().get(ToolProposal, id)
+    repo().get(ToolProposal, id, repo_opts())
   end
 
   @doc """
@@ -588,7 +595,11 @@ defmodule Cairnloop.Governance do
   facade — pipeline internals stay private (D15-17).
   """
   def get_active_approval(tool_proposal_id) do
-    repo().get_by(ToolApproval, tool_proposal_id: tool_proposal_id, status: :pending)
+    repo().get_by(
+      ToolApproval,
+      [tool_proposal_id: tool_proposal_id, status: :pending],
+      repo_opts()
+    )
   end
 
   @doc """
@@ -606,10 +617,11 @@ defmodule Cairnloop.Governance do
   """
   def get_latest_approval(tool_proposal_id) do
     ToolApproval
+    |> prefixed()
     |> where([a], a.tool_proposal_id == ^tool_proposal_id)
     |> order_by([a], desc: a.updated_at)
     |> limit(1)
-    |> repo().one()
+    |> repo().one(repo_opts())
   end
 
   @doc """
@@ -676,7 +688,7 @@ defmodule Cairnloop.Governance do
     # Step 2: co-commit the :approval_requested event via update_approval_with_event,
     #         passing a no-op Ecto.Changeset.change/2 so the shared helper can insert the
     #         event and emit telemetry via the common code path.
-    with {:ok, approval} <- repo().insert(insert_cs),
+    with {:ok, approval} <- repo().insert(insert_cs, repo_opts()),
          {:ok, _updated} <-
            update_approval_with_event(
              approval,
@@ -712,7 +724,7 @@ defmodule Cairnloop.Governance do
     enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)
     reason = Keyword.get(opts, :note)
 
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         {:error, :not_found}
 
@@ -770,7 +782,7 @@ defmodule Cairnloop.Governance do
   def reject(approval_id, actor_id, opts \\ []) do
     reason = Keyword.get(opts, :reason)
 
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         {:error, :not_found}
 
@@ -826,7 +838,7 @@ defmodule Cairnloop.Governance do
   def defer(approval_id, actor_id, opts \\ []) do
     reason = Keyword.get(opts, :reason)
 
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         {:error, :not_found}
 
@@ -880,7 +892,7 @@ defmodule Cairnloop.Governance do
   def expire(approval_id, opts \\ []) do
     actor_id = Keyword.get(opts, :actor_id, "system")
 
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         {:error, :not_found}
 
@@ -934,7 +946,7 @@ defmodule Cairnloop.Governance do
   def execute_approved(approval_id, opts \\ []) do
     enqueue_fn = Keyword.get(opts, :enqueue_fn, &safe_enqueue/1)
 
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         {:error, :not_found}
 
@@ -977,9 +989,10 @@ defmodule Cairnloop.Governance do
   """
   def list_events(proposal_id) do
     ToolActionEvent
+    |> prefixed()
     |> where([e], e.tool_proposal_id == ^proposal_id)
     |> order_by([e], asc: e.inserted_at)
-    |> repo().all()
+    |> repo().all(repo_opts())
   end
 
   @doc """
@@ -992,19 +1005,30 @@ defmodule Cairnloop.Governance do
   Options:
   - `:limit` — cap the number of rows returned (default `100`). Use for pagination.
   - `:offset` — skip this many rows (default `0`).
+  - `:proposal_id` — when a non-nil integer, filter to events for that proposal only
+    (D-10, THREAD-03a backing). When absent or nil, the unfiltered read is unchanged.
 
   Goes through the `repo()` indirection — never `Cairnloop.Repo` directly (D-30).
   """
   def list_action_events(opts \\ []) do
     limit = Keyword.get(opts, :limit, 100)
     offset = Keyword.get(opts, :offset, 0)
+    proposal_id = Keyword.get(opts, :proposal_id)
 
     ToolActionEvent
+    |> prefixed()
+    |> maybe_where_proposal(proposal_id)
     |> order_by([e], desc: e.inserted_at, desc: e.id)
     |> limit(^limit)
     |> offset(^offset)
     |> preload(:tool_proposal)
-    |> repo().all()
+    |> repo().all(repo_opts())
+  end
+
+  defp maybe_where_proposal(query, nil), do: query
+
+  defp maybe_where_proposal(query, proposal_id) when is_integer(proposal_id) do
+    where(query, [e], e.tool_proposal_id == ^proposal_id)
   end
 
   @doc """
@@ -1020,17 +1044,19 @@ defmodule Cairnloop.Governance do
 
     events_query =
       ToolActionEvent
+      |> prefixed()
       |> order_by([e], asc: e.inserted_at)
 
     query =
       ToolProposal
+      |> prefixed()
       |> where([p], p.conversation_id == ^conversation_id)
       |> order_by([p], desc: p.inserted_at)
       |> preload(events: ^events_query, approval: [])
 
     query = if limit, do: limit(query, ^limit), else: query
 
-    repo().all(query)
+    repo().all(query, repo_opts())
   end
 
   # ---------------------------------------------------------------------------
@@ -1065,9 +1091,10 @@ defmodule Cairnloop.Governance do
   def list_eligible_conversation_ids_for_bulk_recovery(candidate_ids)
       when is_list(candidate_ids) do
     Conversation
+    |> prefixed()
     |> where([c], c.id in ^candidate_ids and c.status == :resolved)
     |> select([c], c.id)
-    |> repo().all()
+    |> repo().all(repo_opts())
   end
 
   @doc """
@@ -1093,6 +1120,7 @@ defmodule Cairnloop.Governance do
   def preview_bulk_recovery_cohort(candidate_ids) when is_list(candidate_ids) do
     rows =
       Conversation
+      |> prefixed()
       |> where([c], c.id in ^candidate_ids and c.status == :resolved)
       |> order_by([c], desc: c.updated_at)
       |> select([c], %{
@@ -1101,7 +1129,7 @@ defmodule Cairnloop.Governance do
         host_user_id: c.host_user_id,
         updated_at: c.updated_at
       })
-      |> repo().all()
+      |> repo().all(repo_opts())
 
     total = length(rows)
     sample = rows |> Enum.take(5) |> Enum.map(&bulk_recovery_label_for/1)
@@ -1164,10 +1192,11 @@ defmodule Cairnloop.Governance do
     end
 
     BulkEnvelope
+    |> prefixed()
     |> filter_envelope_status(status)
     |> order_by([e], desc: e.requested_at)
     |> limit(^limit)
-    |> repo().all()
+    |> repo().all(repo_opts())
   end
 
   @doc """
@@ -1183,7 +1212,7 @@ defmodule Cairnloop.Governance do
   directly (D-14).
   """
   def get_bulk_outbound_envelope(id) do
-    repo().get(BulkEnvelope, id)
+    repo().get(BulkEnvelope, id, repo_opts())
   end
 
   # Format a single cohort row into an operator-visible label. A bound subject

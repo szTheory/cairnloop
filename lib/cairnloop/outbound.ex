@@ -33,6 +33,8 @@ defmodule Cairnloop.Outbound do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
   # D-09 / Pitfall 4: cap is read fresh on each call so ops can tune via env without
   # restart. Direct Application.get_env per research Open Question 3 (no Config module).
   defp max_batch_size, do: Application.get_env(:cairnloop, :max_batch_size, 25)
@@ -187,7 +189,8 @@ defmodule Cairnloop.Outbound do
           "status" => "pending",
           "bulk_envelope_id" => bulk_envelope_id
         }
-      })
+      }),
+      repo_opts()
     )
     |> Ecto.Multi.merge(fn changes ->
       message = Map.fetch!(changes, message_key)
@@ -311,7 +314,7 @@ defmodule Cairnloop.Outbound do
       effective_cap: cap
     }
 
-    case repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs)) do
+    case repo().insert(BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs), repo_opts()) do
       {:ok, _envelope} ->
         Cairnloop.Telemetry.execute(
           [:outbound, :bulk, :triggered],
@@ -406,7 +409,11 @@ defmodule Cairnloop.Outbound do
       fn ->
         multi =
           Ecto.Multi.new()
-          |> Ecto.Multi.insert(:envelope, BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs))
+          |> Ecto.Multi.insert(
+            :envelope,
+            BulkEnvelope.changeset(%BulkEnvelope{}, envelope_attrs),
+            repo_opts()
+          )
           |> Ecto.Multi.merge(fn %{envelope: env} ->
             Enum.reduce(conversation_ids, Ecto.Multi.new(), fn cid, acc ->
               recipient_opts =

@@ -6,11 +6,28 @@ An embedded, Phoenix-native customer support automation layer that turns support
 ## Core Value
 Deflect what can be safely deflected, draft and summarize what cannot, escalate risks cleanly, and expose support quality as an operator-grade health signal.
 
+## Current Focus
+
+No milestone is active. vM019 OSS Trust Baseline shipped on 2026-07-01; the next step is to define
+fresh requirements for the next adopter-pulled maintenance or product milestone.
+
+## Next Milestone Goals
+
+- Start with `/gsd-new-milestone` so requirements are defined from current adopter signals before
+  any new phase work starts.
+- Before opening a substantial new milestone, run a pre-milestone repo hygiene pass: clean local
+  worktrees, triage GitHub PRs, verify main CI, review `[Unreleased]`, and confirm GSD is between
+  milestones. Do not publish Hex.pm unless explicitly chosen for that pass.
+- Inspect live GitHub Actions branch protection, hosted-runner timing/cache behavior, and release
+  artifacts after the next PR/main/release run.
+- Keep Epic 12 advanced routing, Epic 13 local AI, Epic 14 mobile SDK, and hosted-demo work out of
+  scope unless a real adopter pulls them.
+
 ## Current State
 
-**Latest shipped milestone: `vM015 Operator Polish + Maintenance Gates` on 2026-05-30 — published as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm.**
+**Latest shipped milestone: `vM019 OSS Trust Baseline` on 2026-07-01. Current published version remains `cairnloop` v0.5.1 on Hex.pm; vM019 did not cut a Hex release because it hardened trust boundaries, schema defaults, docs, and CI/release confidence rather than publishing a package release.**
 
-**What is now true (cumulative through vM015):**
+**What is now true (cumulative through vM019 close):**
 - Cairnloop has a host-owned hybrid retrieval layer over published Knowledge Base content and resolved support evidence (vM008–vM009).
 - Operators have a retrieval-backed `cmd+k` search flow with explicit source, recency, trust, and citation cues (vM009).
 - Durable gap signals project into a ranked KB maintenance queue with inspectable evidence and stable candidate identity (vM010).
@@ -38,8 +55,19 @@ Deflect what can be safely deflected, draft and summarize what cannot, escalate 
 - Adopters and operators have operability surfaces: `Cairnloop.Web.AuditLogLive` (`/audit-log`), `/health` (`HealthPlug`) and `/metrics` (`MetricsPlug`, Prometheus via optional `telemetry_metrics_prometheus_core`) mountable via `cairnloop_operations/1`, `Auditor.list_events/1`, and governed-actions rail pagination (vM015).
 - Adopters have MCP-client and extension guides (`guides/05-mcp-clients.md`, `guides/06-extending.md`), `CONTRIBUTING.md`, and `docs/architecture.md` (vM015).
 - The repo ships releases through the canonical szTheory **release-please** pipeline (`fix:`/`feat:` commit on `main` → bot PR → auto-tag + `publish-hex`), gated on a now-green DB-backed integration suite in `release_gate` (vM015).
+- Cairnloop has a final brand foundation: C3.6 crowning-loop logo family, refined canonical tokens and derivatives, favicon/OG assets, offline brand book, and wired README/example-app collateral with package-boundary proof (vM017).
+- The operator/admin cockpit now has shared page primitives, queue-first Home IA, shell-wide breadcrumbs, progressive rail disclosure, cross-screen threading, mobile-first responsive behavior, CSS-only motion, final-brand demo fixtures, light/dark screenshot evidence, and full release-gate verification (vM016).
+- The example app runtime contract is hardened for Docker and manual local setup: ordered host-before-library migrations, local path dependency dogfooding with Hex docs, `/health` readiness, quiet notifier/Chimeway/env config, setup-owned Trailmark seeds, DB-backed seed idempotency, and Docker smoke all passed (vM018 Phase 53).
+- The canonical `./bin/demo` wrapper is now the adopter-facing operational surface: start/up, discovered URL printing, logs, status/ps, stop/down/reset, help, isolated smoke, bounded diagnostics, automatic localhost port fallback, and container-backed route checks all passed Phase 54 verification.
+- The adopter docs now tell one Docker-first story across README, Quickstart, the example README, and Troubleshooting: `./bin/demo` comes first, Docker users follow printed URLs, manual local setup is secondary, OpenAI credentials are optional for first-run/smoke/seeded click-through, and a DB-free docs source-scan test guards the story (vM018 Phase 55).
+- CI now proves the Docker demo path with a dedicated read-only `Demo smoke` workflow: manual, weekly, push, and pull-request triggers cover demo-relevant files, `./bin/demo smoke` remains the canonical runner-owned command, a DB-free ExUnit source contract pins workflow drift, and full Docker smoke verification passed locally (vM018 Phase 56).
+- Cairnloop has an evidence-backed OSS trust baseline: 36-dimension software-quality evaluation, CI/CD topology/runtime audit, Postgres schema-prefix implementation contract, and local DB-free timing/compile/xref evidence (vM019 Phase 57).
+- Host-app trust boundaries are now safer by default: customer/browser identity persists as `customer_ref`, operator actions require dashboard session identity, widget/email/MCP ingress fail closed before sensitive work, optional Scrypath side effects are inert by default, logs/telemetry are bounded, `/health` is liveness-only, and doctor owns readiness/trust diagnostics (vM019 Phase 58).
+- New Cairnloop installs default support-domain persistence to the dedicated `cairnloop` Postgres schema while explicit `public` compatibility, qualified migrations/runtime paths, safe vector rollback, Oban host ownership, integration proof, and example-app setup are preserved (vM019 Phase 59).
+- The public adoption path is now source-backed for installer, upgrade, package, ExDoc, security, MCP, extending, and auth/operator-identity guidance: fresh host installs use `mix igniter.install cairnloop`, package/docs assets build through `mix ci.quality`, `SECURITY.md` is a public OSS policy, and DB-free source scans pin DOC-01 through DOC-06 (vM019 Phase 60).
+- CI/release posture is source-guarded: current action/runtime choices, least-privilege workflow defaults, path-gated expensive checks, maintainer timing/cache summaries, workflow source-contract tests, and exact-SHA Hex publish preflight are in place (vM019 Phase 61).
 
-**Current milestone:** None. **The diminishing-returns line was reached at vM015 close** — Cairnloop is "done enough for stated scope." vM016+ is adoption + maintenance, not features; use `/gsd-new-milestone` only when a real adopter signal pulls. Epic 12/13/14 strategic optionality stays opt-in only.
+**Active milestone:** none. vM019, vM018, vM017, and vM016 are archived under `.planning/milestones/`.
 
 ## Architectural Invariants
 
@@ -89,11 +117,32 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 - ✓ Operator Settings cockpit: MCP token CRUD, Notifier + retrieval health, dark mode — vM015 (SET-01..SET-04)
 - ✓ Audit Log surface, `/health` + `/metrics` endpoints, governed-actions rail pagination — vM015 (AUDIT-01, OPS-01, OPS-02, TECH-01)
 - ✓ MCP-client + extension guides, CONTRIBUTING.md, architecture doc, v0.2.x release — vM015 (DOC-01..DOC-04, REL-01, REL-02)
+- ✓ Brand fidelity audit + canonical token-source designation + WCAG-AA contrast baseline — vM017 Phase 46 (FIDELITY-01..FIDELITY-03)
+- ✓ Brand direction selection gate: local direction board, C3.6 crowning-loop cairn, Refined palette, current Atkinson/Fraunces/Martian type stack, and downstream handoff evidence — vM017 Phase 47 (LOGO-01..LOGO-03, TOKEN-01)
+- ✓ Token evolution lock and propagation: Refined tokens applied to canonical `:root`, derivatives synchronized, contrast baseline re-verified, and full unit/integration/E2E gates green — vM017 Phase 48 (TOKEN-02..TOKEN-04)
+- ✓ Chosen logo finalization: optimized SVG lockups, favicon/OG assets, usage rules, and rejected-direction cleanup — vM017 Phase 49 (LOGO-04..LOGO-06)
+- ✓ Brandbook scaffold and token derivation: self-contained `brandbook/` scaffold and derived token artifacts — vM017 Phase 50 (BOOK-01..BOOK-02)
+- ✓ Full HTML brand book assembly: live HTML logo/token/voice/motion guidance with local file verification — vM017 Phase 51 (BOOK-03..BOOK-05)
+- ✓ Collateral wiring and QA sweep: README logo header, example-app logo/favicon/OG wiring, gated Playwright E2E, SVG/raster/package/diff evidence — vM017 Phase 52 (WIRE-01..WIRE-03, HYGIENE-01..HYGIENE-03)
+- ✓ Operator UI primitive foundation and shared page shell: `cl_page`, `cl_hero`, numeric `cl_stat`, native disclosure, fact/source/status/switch primitives, table scrollers, and KB breadcrumbs — vM016 Phases 37-38 (UIC-01..05, SHELL-01..02)
+- ✓ Queue-first Home and brand-token drift remediation: resolved-filter recovery, scoped counts, calmer secondary band, render-file token cleanup, and hardened brand-token gates — vM016 Phases 39-40 (HOME-01..05, DRIFT-01..02, GATE-01..02)
+- ✓ Operator flow threading and responsive cockpit: safety-pinned rail disclosure, density controls, next-in-queue, audit/KB links, mobile-first breakpoints, tap-target proof, and bulk-bar geometry guard — vM016 Phases 41-43 (RAIL-01..03, THREAD-01..03, RESP-01..02)
+- ✓ Restrained operator motion layer: CSS-only hero count entrance, evidence-rail reveal, status-chip cross-fade, inbox list stagger, reusable `cl_flash` toast, and reduced-motion E2E proof — vM016 Phase 44 (MOTION-01..MOTION-02)
+- ✓ Final-brand seed, screenshots, visual acceptance, and release-gate verification: enriched demo state, light/dark screenshot matrix, 36-row visual ledger, root tests, integration, `mix check`, E2E, and screenshot capture — vM016 Phase 45 (SEED-01, VERIFY-01..02)
+- ✓ Example app runtime hardened for Docker and manual local setup without weakening sealed Cairnloop contracts — vM018 Phase 53 (RUNT-01..RUNT-05)
+- ✓ Demo wrapper experience: canonical `./bin/demo` operational surface with dynamic/private Compose contract, discovered URLs, status/log/reset/help commands, isolated smoke, automatic port fallback, bounded diagnostics, clean code review, and full Docker smoke verification — vM018 Phase 54 (BOOT-01..BOOT-04, VER-01..VER-02)
+- ✓ Docker-first adopter docs: README, Quickstart, example README, and Troubleshooting align around `./bin/demo`, printed URLs, dynamic ports, reset/log/smoke flows, optional OpenAI first-run scope, and DB-free docs drift tests — vM018 Phase 55 (DOC-01..DOC-04)
+- ✓ Demo smoke CI gate: dedicated read-only workflow runs `./bin/demo smoke` for demo-relevant push/PR/manual/scheduled changes, with DB-free workflow drift tests and full Docker smoke verification — vM018 Phase 56 (VER-03..VER-04)
+- ✓ OSS trust baseline audit: 36-dimension software-quality evaluation, CI/CD topology/runtime audit, Postgres schema-prefix implementation contract, and local DB-free timing/compile/xref evidence — vM019 Phase 57 (AUDIT-01..03, CI-01)
+- ✓ Identity, ingress, and side-effect trust: customer/operator separation, widget verifier seam, email/MCP fail-closed auth, inert optional Scrypath side effects, bounded logs/telemetry, liveness-only `/health`, and doctor trust diagnostics — vM019 Phase 58 (TRUST-01..05, OPS-01..04)
+- ✓ Dedicated Postgres schema contract: new installs default to `schema_prefix: "cairnloop"` while explicit public compatibility, qualified migrations/runtime paths, safe vector rollback, Oban host ownership, integration proof, and example-app setup are preserved — vM019 Phase 59 (DB-01..DB-07)
+- ✓ Installer/docs/upgrade/package/security trust: README, Quickstart, Host Integration, Troubleshooting, MCP, Extending, Auth/Operator Identity, SECURITY, UPGRADING, CHANGELOG, ExDoc/package metadata, and source-scan guardrails are current and green — vM019 Phase 60 (DOC-01..DOC-06)
+- ✓ CI/CD efficiency and release confidence: current action/runtime posture, least-privilege workflows, path-gated expensive checks, bounded maintainer evidence, source-contract tests, and exact-SHA Hex release preflight — vM019 Phase 61 (CI-02..CI-06)
 
 
 ### Active
 
-(None)
+None currently. Define fresh active requirements with `/gsd-new-milestone`.
 
 ### Out of Scope
 - Marketing/newsletter drip campaigns
@@ -126,21 +175,29 @@ These patterns have proven across vM011/vM012/vM013 close audits and are now pro
 | Run `/gsd-audit-milestone` against live source (not phase summaries) as the milestone gate | vM015 | ⚠️ Revisit — caught 3 broken features + a false CHANGELOG claim, but only *after* v0.2.0 shipped; move the gate before the release tag |
 | Close KnowledgeAutomation security threats by pinning with regression tests rather than refactoring already-correct domain code | vM015 | ✓ Good — honored "seal completed phases"; zero churn to sealed paths |
 | Gate hex releases on a green DB-backed integration suite in `release_gate` (after greening it) | vM015 | ✓ Good — turned a chronically-red suite into a release gate |
+| Treat host-app compatibility/adoption trust as the weakest vM019 quality dimension | vM019 | ✓ Good — kept the milestone focused on production library behavior instead of new product surface |
+| Default new Cairnloop support-domain tables to the dedicated `cairnloop` Postgres schema; keep `public` explicit compatibility | vM019 | ✓ Good — DB-backed dedicated and public proofs passed, and docs/installer now match the contract |
+| Do not rely on `mix ecto.migrate --prefix` for Cairnloop migrations | vM019 | ✓ Good — migrations/runtime helpers qualify Cairnloop-owned objects without redirecting host schema_migrations or Oban |
+| Keep optional Scrypath/external side effects inert unless explicitly enabled and ready | vM019 | ✓ Good — disabled/misconfigured paths do not enqueue or issue HTTP, and doctor/docs report posture |
+| Treat docs, installer output, package metadata, SECURITY, UPGRADING, and ExDoc as quality-gated surfaces | vM019 | ✓ Good — DB-free source scans and `mix ci.quality` pin public truth |
+| Make CI changes evidence-backed before removing expensive checks or caches | vM019 | ✓ Good — workflows now emit timing/cache/failure evidence; live hosted-runner observations remain explicit next-run checks |
 
 ## Context
 
-**Codebase at vM015 close:** ~43k LOC Elixir / Phoenix / LiveView / Ecto / Oban / OpenInference telemetry / pgvector. Published as `cairnloop` v0.2.2 on Hex.pm. Releases flow through the release-please pipeline; the headless `mix test` suite + the DB-backed `integration` suite both gate `release_gate` in CI (integration suite greened in vM015). Baseline: `Automation.DraftTest` M005-drift failure remains documented/known.
+**Codebase at current close:** Elixir / Phoenix / LiveView / Ecto / Oban / OpenInference telemetry / pgvector. Published as `cairnloop` v0.5.1 on Hex.pm. Releases flow through the release-please pipeline; vM018 adds Docker-first demo smoke proof on top of the existing headless, integration, quality, and example E2E lanes.
 
 **Tech stack:** Elixir, Phoenix LiveView, Ecto (PostgreSQL + pgvector), Oban, Chimeway, OpenInference telemetry, ExDoc, Hex.pm, release-please.
 
 **Integration test harness:** `MIX_ENV=test mix test.integration` against dockerized Postgres; fast headless `mix test` remains DB-free. As of vM015 the integration suite is green and gated in `release_gate`.
 
 **Known tech debt:**
-- **Verification debt (vM015):** phases 33/34/35 shipped without `VERIFICATION.md`; Nyquist `*-VALIDATION.md` exists only for phase 36. Code is green in CI through v0.2.2 but GSD verification artifacts were never produced. Backfill via `/gsd-verify-work` if required.
 - Centralize duplicated fail-closed search guards (pre-existing from vM009).
-- **Process:** the milestone audit gate ran *after* the v0.2.0 release tag, so 3 broken features + 1 false CHANGELOG claim shipped as post-release defects (remediated in v0.2.1). Move audit/verification before the release tag.
+- **Process:** keep the milestone audit gate before release/tag closeout. vM016 corrected this by running the audit and stale-artifact cleanup before archive/tag.
 
-**Closed since prior milestone:** all five vM010 `SECURITY.md` threats (T-10-09/11 in vM014; T-10-10/12/13 in vM015); AR-14-02 governed-actions rail pagination (vM015 TECH-01); D-10 brand-token CSS extraction (vM014).
+**Closed since prior milestone:** vM019 OSS trust baseline: evidence-backed quality audit, host identity/ingress/side-effect safety, dedicated-schema default with explicit public compatibility, truthful public adoption/docs/upgrade surface, and CI/release confidence guardrails.
+
+**Current milestone focus:** none. Next milestone requirements should be defined from current adopter
+signals before any new phase work starts.
 
 ## Previous Milestone Briefs
 
@@ -275,7 +332,7 @@ This document evolves at phase transitions and milestone boundaries.
 
 **Cairnloop hits "done enough for stated scope" at the close of vM015.** Stated scope = host-owned Phoenix-native customer-support automation library (deflect / draft / summarize / escalate / outbound recovery + KB substrate + governed actions + MCP seam + operator-grade health signal). After vM015 the library covers Help Scout's "AI quality is downstream of grounded retrieval" lesson, Plain's "API-first + embedded" lesson, Pylon's "runbook-shaped HITL" lesson, and Papercups' "embedded is the defensible wedge" lesson — no obvious sixth lesson remains without leaving stated scope.
 
-**Post-done mode (vM016+)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
+**Post-done mode (future milestones)** is adoption + maintenance, not features. Watch for real adopter signals (open issues, hex.pm engaged downloads, MCP-client integrations). Cut v1.0.0 once at least one non-maintainer host runs cairnloop in production. The trap is shipping Epic 12/13/14 before they're asked for — wheel-spinning territory.
 
 ---
-*Last updated: 2026-05-30 after vM015 milestone — Operator Polish + Maintenance Gates shipped as `cairnloop` v0.2.0 → v0.2.1 → v0.2.2 on Hex.pm. All 17 v1 requirements satisfied across Phases 33–36: KnowledgeAutomation security closure (T-10-10/12/13), `SettingsLive` operator cockpit, Audit Log + `/health` + `/metrics` + rail pagination, MCP/extending guides + CONTRIBUTING + architecture docs. Repo migrated to the release-please pipeline; DB-backed integration suite greened and gated. **Diminishing-returns line reached — Cairnloop is "done enough for stated scope"; vM016+ is adoption + maintenance.** Open: verification debt for phases 33/34/35 (no VERIFICATION.md).*
+*Last updated: 2026-07-01 after vM019 OSS Trust Baseline close. Published release remains `cairnloop` v0.5.1 on Hex.pm. Product remains "done enough for stated scope"; future expansion stays adopter-pulled.*

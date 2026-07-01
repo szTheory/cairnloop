@@ -20,8 +20,20 @@ if System.get_env("PHX_SERVER") do
   config :cairnloop_example, CairnloopExampleWeb.Endpoint, server: true
 end
 
-config :cairnloop_example, CairnloopExampleWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+# Dev/prod read the HTTP port from PORT (default 4000). In :test the port is fixed by
+# config/test.exs (4002) so the browser-E2E endpoint never collides with a running dev server —
+# don't let this runtime override clobber it.
+if config_env() != :test do
+  bind_ip =
+    case System.get_env("PHX_BIND") || "127.0.0.1" do
+      "0.0.0.0" -> {0, 0, 0, 0}
+      "127.0.0.1" -> {127, 0, 0, 1}
+      other -> raise "Unsupported PHX_BIND=#{inspect(other)}. Use 127.0.0.1 or 0.0.0.0."
+    end
+
+  config :cairnloop_example, CairnloopExampleWeb.Endpoint,
+    http: [ip: bind_ip, port: String.to_integer(System.get_env("PORT", "4000"))]
+end
 
 if config_env() == :prod do
   database_url =

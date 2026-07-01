@@ -1,0 +1,305 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_FILE="$ROOT/examples/cairnloop_example/compose.demo.yml"
+CONTAINER_PORT=4000
+
+default_project_name() {
+  local base hash
+  base="$(basename "$ROOT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')"
+  base="${base%-}"
+  hash="$(printf '%s' "$ROOT" | cksum | awk '{print $1}')"
+  printf '%s_demo_%s' "$base" "$hash"
+}
+
+export CAIRNLOOP_COMPOSE_PROJECT="${CAIRNLOOP_COMPOSE_PROJECT:-$(default_project_name)}"
+export CAIRNLOOP_WEB_PORT="${CAIRNLOOP_WEB_PORT:-4100-4199}"
+export CAIRNLOOP_BIND_HOST="${CAIRNLOOP_BIND_HOST:-127.0.0.1}"
+export LOCAL_UID="${LOCAL_UID:-$(id -u)}"
+export LOCAL_GID="${LOCAL_GID:-$(id -g)}"
+
+compose() {
+  docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+require_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker is not installed or not on PATH." >&2
+    exit 1
+  fi
+  if ! docker compose version >/dev/null 2>&1; then
+    echo "Docker Compose v2 is required. Install Docker Desktop or the Compose plugin." >&2
+    exit 1
+  fi
+}
+
+web_endpoint() {
+  compose port web "$CONTAINER_PORT" 2>/dev/null | tail -n 1
+}
+
+url_from_endpoint() {
+  local endpoint host port
+  endpoint="$1"
+  host="${endpoint%:*}"
+  port="${endpoint##*:}"
+  host="${host#[}"
+  host="${host%]}"
+
+  if [[ "$host" == "0.0.0.0" || "$host" == "::" ]]; then
+    host="127.0.0.1"
+  fi
+
+  printf 'http://%s:%s' "$host" "$port"
+}
+
+base_url() {
+  local endpoint
+  endpoint="$(web_endpoint)"
+  if [[ -z "$endpoint" ]]; then
+    echo "The demo web service is not running yet. Run ./bin/demo first." >&2
+    exit 1
+  fi
+
+  url_from_endpoint "$endpoint"
+}
+
+wait_for_web_endpoint() {
+  local endpoint attempts
+  attempts=120
+
+  until endpoint="$(web_endpoint)" && [[ -n "$endpoint" ]]; do
+    attempts=$((attempts - 1))
+    if [[ "$attempts" -le 0 ]]; then
+      fail_with_web_logs "Demo web service did not publish port $CONTAINER_PORT after compose up."
+    fi
+    sleep 1
+  done
+
+  url_from_endpoint "$endpoint"
+}
+
+print_urls() {
+  local url
+  url="$(base_url)"
+
+  cat <<URLS
+
+Cairnloop demo is ready.
+
+Demo index:        $url/
+Operator cockpit:  $url/support
+Inbox:             $url/support/inbox
+Customer chat:     $url/chat
+Knowledge Base:    $url/support/knowledge-base
+Gaps:              $url/support/knowledge-base/gaps
+Suggestions:       $url/support/knowledge-base/suggestions
+Audit log:         $url/support/audit-log
+Settings:          $url/support/settings
+Health:            $url/health
+
+Useful commands:
+  ./bin/demo logs    Follow web and db logs
+  ./bin/demo stop    Stop containers, keep the seeded database
+  ./bin/demo reset   Delete demo volumes and reseed from scratch
+
+URLS
+}
+
+recent_web_logs() {
+  echo "Recent web logs:" >&2
+  compose logs --tail=80 web >&2 || true
+}
+
+fail_with_web_logs() {
+  local message
+  message="$1"
+  echo "$message" >&2
+  recent_web_logs
+  exit 1
+}
+
+run_compose_or_explain() {
+  local description
+  description="$1"
+  shift
+
+  if ! compose "$@"; then
+    fail_with_web_logs "Compose command failed while ${description}: docker compose -f \"$COMPOSE_FILE\" $*"
+  fi
+}
+
+compose_up_with_port_fallback() {
+  local description original_port start end port output
+  description="$1"
+  original_port="$CAIRNLOOP_WEB_PORT"
+
+  if [[ "$original_port" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+    start="${BASH_REMATCH[1]}"
+    end="${BASH_REMATCH[2]}"
+
+    for ((port = start; port <= end; port++)); do
+      export CAIRNLOOP_WEB_PORT="$port"
+
+      if output="$(compose up -d --build 2>&1)"; then
+        printf '%s\n' "$output"
+        return 0
+      fi
+
+      printf '%s\n' "$output" >&2
+
+      if [[ "$output" != *"address already in use"* &&
+        "$output" != *"port is already allocated"* &&
+        "$output" != *"ports are not available"* ]]; then
+        fail_with_web_logs "Compose command failed while ${description}: docker compose -f \"$COMPOSE_FILE\" up -d --build"
+      fi
+
+      compose down --remove-orphans >/dev/null 2>&1 || true
+    done
+
+    export CAIRNLOOP_WEB_PORT="$original_port"
+    fail_with_web_logs "No available localhost port found for CAIRNLOOP_WEB_PORT=$original_port while ${description}."
+  else
+    run_compose_or_explain "$description" up -d --build
+  fi
+}
+
+web_get() {
+  local route
+  route="$1"
+  compose exec -T web curl -fsS "http://127.0.0.1:${CONTAINER_PORT}${route}" >/dev/null 2>&1
+}
+
+wait_for_health() {
+  local url attempts
+  url="$(wait_for_web_endpoint)/health"
+  attempts=120
+
+  printf 'Waiting for %s' "$url"
+  until web_get "/health"; do
+    attempts=$((attempts - 1))
+    if [[ "$attempts" -le 0 ]]; then
+      echo
+      fail_with_web_logs "Demo did not become healthy at $url."
+    fi
+    printf '.'
+    sleep 1
+  done
+  echo
+}
+
+smoke_route() {
+  local url route
+  url="$1"
+  route="$2"
+
+  if web_get "$route"; then
+    printf 'ok  %s\n' "$route"
+  else
+    fail_with_web_logs "Smoke check failed for $url$route"
+  fi
+}
+
+start_demo() {
+  require_docker
+  compose_up_with_port_fallback "starting the demo stack"
+  wait_for_health
+  print_urls
+}
+
+smoke_demo() (
+  local smoke_id
+
+  require_docker
+
+  smoke_id="${BASHPID:-$$}"
+  export CAIRNLOOP_COMPOSE_PROJECT="${CAIRNLOOP_COMPOSE_PROJECT}_smoke_${smoke_id}"
+  export CAIRNLOOP_WEB_PORT="${CAIRNLOOP_SMOKE_WEB_PORT:-${CAIRNLOOP_WEB_PORT}}"
+
+  trap 'compose down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
+
+  compose_up_with_port_fallback "starting the smoke stack"
+  wait_for_health
+
+  url="$(base_url)"
+  echo "Running smoke checks against $url"
+
+  smoke_route "$url" "/"
+  smoke_route "$url" "/support"
+  smoke_route "$url" "/support/inbox"
+  smoke_route "$url" "/chat"
+  smoke_route "$url" "/support/knowledge-base"
+  smoke_route "$url" "/support/knowledge-base/gaps"
+  smoke_route "$url" "/support/knowledge-base/suggestions"
+  smoke_route "$url" "/support/audit-log"
+  smoke_route "$url" "/support/settings"
+
+  echo "Docker demo smoke passed."
+)
+
+usage() {
+  cat <<'HELP'
+Usage: ./bin/demo [command]
+
+Commands:
+  start, up    Build/start the Docker demo and print clickable URLs (default)
+  smoke        Boot an isolated stack, check the main demo routes, then clean up
+  urls         Print URLs for the running demo
+  logs         Follow web and db logs
+  stop         Stop containers and preserve named volumes
+  down         Remove containers/network and preserve named volumes
+  reset        Remove containers/network/volumes, then rebuild and reseed
+  ps, status   Show Compose service status
+  help         Show this help
+
+Environment:
+  CAIRNLOOP_WEB_PORT=4100-4199       Localhost port range, or a fixed port
+  CAIRNLOOP_SMOKE_WEB_PORT=<range>   Optional port/range for ./bin/demo smoke
+  CAIRNLOOP_BIND_HOST=127.0.0.1      Host interface for the browser-facing port
+  CAIRNLOOP_COMPOSE_PROJECT=<name>   Compose project namespace
+  OPENAI_API_KEY=<key>               Optional semantic embeddings in seeded data
+HELP
+}
+
+cmd="${1:-start}"
+
+case "$cmd" in
+  start|up)
+    start_demo
+    ;;
+  smoke)
+    smoke_demo
+    ;;
+  urls)
+    require_docker
+    print_urls
+    ;;
+  logs)
+    require_docker
+    compose logs -f web db
+    ;;
+  stop)
+    require_docker
+    compose stop
+    ;;
+  down)
+    require_docker
+    compose down --remove-orphans
+    ;;
+  reset)
+    require_docker
+    compose down -v --remove-orphans
+    start_demo
+    ;;
+  ps|status)
+    require_docker
+    compose ps
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

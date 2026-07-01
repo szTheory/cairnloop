@@ -156,6 +156,11 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     end
 
     def get_gap_candidate(_id, _opts), do: nil
+
+    # Phase 42 (THREAD-03b): editor mount resolves the originating conversation on
+    # direct (non-review) visits. These fixtures have no originating conversation —
+    # honest absence (nil).
+    def originating_conversation_id(_article_id, _opts \\ []), do: nil
   end
 
   setup do
@@ -179,7 +184,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     %Phoenix.LiveView.Socket{assigns: %{__changed__: %{}, flash: %{}}}
   end
 
-  test "Editor renders preview side-by-side using Earmark when Markdown is input" do
+  test "Editor renders preview side-by-side using safe markdown HTML when Markdown is input" do
     Process.put(:mock_repo_one_result, %Revision{
       id: 1,
       article_id: 42,
@@ -210,6 +215,32 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
 
     html = render_html(socket.assigns)
     assert html =~ "<strong>Bold</strong> text"
+  end
+
+  test "Editor markdown preview escapes link attributes safely" do
+    payload = "[click](http://example.com/?a=x\" onerror=\"alert(1))"
+
+    Process.put(:mock_repo_one_result, %Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: payload
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    refute html =~ ~s(onerror="alert)
+
+    assert Cairnloop.Markdown.to_html(payload) =~
+             "href=\"http://example.com/?a=x&quot; onerror=&quot;alert(1)\""
   end
 
   test "Editor handles debounced phx-change events properly to avoid excessive parsing" do
@@ -662,6 +693,80 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
     refute html =~ "Source gap"
   end
 
+  test "KB Editor renders inside cl-page--wide with title, subnav, and breadcrumb in slot" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Editing: "
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ ~s(cl-breadcrumb)
+    assert html =~ ~s(aria-current="page")
+  end
+
+  test "KB Editor breadcrumb contains static Knowledge crumb and current Editing crumb" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ "Knowledge"
+    assert html =~ "/knowledge-base"
+    assert html =~ ~s(aria-current="page")
+    assert html =~ "Editing: "
+  end
+
+  test "KB Index renders inside cl-page--wide with title, subnav, and actions" do
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Index.mount(
+        %{},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html =
+      socket.assigns
+      |> Cairnloop.Web.KnowledgeBaseLive.Index.render()
+      |> Phoenix.HTML.Safe.to_iodata()
+      |> IO.iodata_to_binary()
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Knowledge Base"
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ "New article"
+    assert html =~ "Find evidence gaps"
+    assert html =~ "Review suggestions"
+    assert html =~ "Publish and reindex"
+  end
+
   test "Index new_article event creates an article and push_navigates to its editor" do
     {:ok, socket} =
       Cairnloop.Web.KnowledgeBaseLive.Index.mount(
@@ -711,6 +816,144 @@ defmodule Cairnloop.Web.KnowledgeBaseLiveTest do
              "Unable to create the article right now. Try again."
 
     Application.put_env(:cairnloop, :repo, MockRepo)
+  end
+
+  # --- Task 38-04: origin-aware breadcrumb via BreadcrumbPresenter ---
+
+  test "editor breadcrumb from a conversation: ≥2 crumbs, back link, humanized label, aria-current" do
+    # return_to = "/42" → origin label "Conversation", not the raw path as label
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    Process.put(:mock_review_task, %{
+      id: 27,
+      article_suggestion_id: 15,
+      status: :pending_review,
+      article_suggestion: %Cairnloop.KnowledgeAutomation.ArticleSuggestion{
+        id: 15,
+        article_id: 42,
+        proposed_markdown: "# Suggested copy\n\nPrepared from review.",
+        operator_summary: "Improve billing export steps.",
+        evidence_snapshot: []
+      }
+    })
+
+    handoff =
+      EditorHandoff.sign(15, 42, 27, "/42",
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{
+          "id" => "42",
+          "suggestion_id" => "15",
+          "review_task_id" => "27",
+          "return_to" => "/42",
+          "handoff" => handoff
+        },
+        %{},
+        socket_with_flash()
+      )
+
+    html = render_html(socket.assigns)
+
+    # Must have breadcrumb container
+    assert html =~ ~s(cl-breadcrumb)
+    # Must have a back link to the conversation
+    assert html =~ ~s(navigate="/42") or html =~ ~s(href="/42")
+    # Must have a separator (≥2 crumbs ⇒ ≥1 separator)
+    assert html =~ ~s(cl-breadcrumb__sep)
+    # Must have aria-current on the last crumb
+    assert html =~ ~s(aria-current="page")
+    # Origin label must be "Conversation" (humanized), not the raw "/42" as crumb text
+    assert html =~ "Conversation"
+    # The raw path "/42" must NOT appear as a crumb label (it may appear only in href)
+    refute html =~ ">/42<"
+  end
+
+  test "editor breadcrumb from the suggestion lane: origin label is Suggestions with back link" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    Process.put(:mock_review_task, %{
+      id: 27,
+      article_suggestion_id: 15,
+      status: :pending_review,
+      article_suggestion: %Cairnloop.KnowledgeAutomation.ArticleSuggestion{
+        id: 15,
+        article_id: 42,
+        proposed_markdown: "# Suggested copy\n\nPrepared from review.",
+        operator_summary: "Lane origin draft.",
+        evidence_snapshot: []
+      }
+    })
+
+    handoff =
+      EditorHandoff.sign(15, 42, 27, "/knowledge-base/suggestions?task=27",
+        manual_edit_opened_at: DateTime.utc_now() |> DateTime.to_iso8601()
+      )
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{
+          "id" => "42",
+          "suggestion_id" => "15",
+          "review_task_id" => "27",
+          "return_to" => "/knowledge-base/suggestions?task=27",
+          "handoff" => handoff
+        },
+        %{},
+        socket_with_flash()
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-breadcrumb)
+    # Origin label is "Suggestions" (humanized from the path shape)
+    assert html =~ "Suggestions"
+    # Back link to the suggestion lane
+    assert html =~ ~s(navigate="/knowledge-base/suggestions?task=27") or
+             html =~ ~s(href="/knowledge-base/suggestions?task=27")
+
+    assert html =~ ~s(aria-current="page")
+  end
+
+  test "editor breadcrumb with no return_to: static fallback Knowledge + current Editing crumb" do
+    Process.put(:mock_repo_one_result, %Cairnloop.KnowledgeBase.Revision{
+      id: 1,
+      article_id: 42,
+      version: 1,
+      state: :draft,
+      content: "# Hello"
+    })
+
+    {:ok, socket} =
+      Cairnloop.Web.KnowledgeBaseLive.Editor.mount(
+        %{"id" => "42"},
+        %{},
+        %Phoenix.LiveView.Socket{}
+      )
+
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-breadcrumb)
+    # Static Knowledge back link
+    assert html =~ ~s(navigate="/knowledge-base") or html =~ ~s(href="/knowledge-base")
+    assert html =~ "Knowledge"
+    # Current Editing crumb
+    assert html =~ "Editing:"
+    assert html =~ ~s(aria-current="page")
   end
 
   defp render_html(assigns) do

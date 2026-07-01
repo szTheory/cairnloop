@@ -11,9 +11,13 @@ defmodule CairnloopExampleWeb.Endpoint do
     same_site: "Lax"
   ]
 
+  # `:user_agent` is declared so browser E2E (phoenix_test_playwright) can ship Ecto-sandbox
+  # metadata in the User-Agent header and have the LiveView process join the shared test
+  # connection (see CairnloopExampleWeb.LiveAcceptance + the :sql_sandbox-gated plug below).
+  # Harmless in dev/prod — it's just an exposed connect_info key.
   socket "/live", Phoenix.LiveView.Socket,
-    websocket: [connect_info: [session: @session_options]],
-    longpoll: [connect_info: [session: @session_options]]
+    websocket: [connect_info: [:user_agent, session: @session_options]],
+    longpoll: [connect_info: [:user_agent, session: @session_options]]
 
   # Phase 28 D-15: mount the widget channel transport at /widget.
   # WebSocket-only (longpoll: false) — the widget is a single-tab browser UI;
@@ -56,5 +60,14 @@ defmodule CairnloopExampleWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+
+  # Browser E2E only (test env, `config :cairnloop_example, :sql_sandbox, true`): allow the HTTP
+  # request process (the LiveView dead-render mount) to join the test's shared Ecto sandbox
+  # connection, reading the metadata phoenix_test_playwright sends in the User-Agent header.
+  # Compiled out entirely in dev/prod.
+  if Application.compile_env(:cairnloop_example, :sql_sandbox) do
+    plug Phoenix.Ecto.SQL.Sandbox
+  end
+
   plug CairnloopExampleWeb.Router
 end

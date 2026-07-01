@@ -12,6 +12,8 @@ defmodule Cairnloop.Workers.ProcessMessageTest do
     def insert(%Ecto.Changeset{} = changeset) do
       {:ok, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 777)}
     end
+
+    def insert(%Ecto.Changeset{} = changeset, _opts), do: insert(changeset)
   end
 
   setup do
@@ -52,23 +54,29 @@ defmodule Cairnloop.Workers.ProcessMessageTest do
   end
 
   describe "perform/1 email channel" do
-    # Behavior 2 (email branch): preserves existing logger stub (Pitfall 2 / OQ-2).
+    # Behavior 2 (email branch): preserves existing unhandled-email stub (Pitfall 2 / OQ-2).
     # The EmailWebhookPlug calls ProcessMessage.new(%{channel: "email", content: content})
     # — this clause keeps that secondary caller working under D-07's arg reshape.
-    test "email channel preserves logger stub (Pitfall 2)" do
-      # The email stub uses Logger.warning/1 (not :info) so it is captured even with the
-      # :warning threshold set in config/test.exs. The log level is :warning because the
-      # stub is intentionally a temporary placeholder — using :warning signals to operators
-      # that email ingress is not fully wired yet, which is accurate (D-07 / Pitfall 2).
+    test "email channel warns without logging message body or payload detail" do
       log =
         capture_log(fn ->
           :ok =
             ProcessMessage.perform(%Oban.Job{
-              args: %{"channel" => "email", "content" => "hello"}
+              args: %{
+                "channel" => "email",
+                "content" => "customer says the invoice export contains secrets",
+                "payload" => %{"raw_body" => "raw provider payload"},
+                "raw_body" => "raw email MIME body"
+              }
             })
         end)
 
-      assert log =~ "Processed email message: hello"
+      assert log =~
+               "Received email ingress message but no email conversation handler is configured"
+
+      refute log =~ "customer says the invoice export contains secrets"
+      refute log =~ "raw provider payload"
+      refute log =~ "raw email MIME body"
     end
   end
 end

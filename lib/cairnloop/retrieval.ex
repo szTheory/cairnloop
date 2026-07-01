@@ -9,6 +9,11 @@ defmodule Cairnloop.Retrieval do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   def system_health do
     try do
       # 1. Check pgvector extension
@@ -17,7 +22,9 @@ defmodule Cairnloop.Retrieval do
       ext_ok? = ext_res.num_rows > 0
 
       # 2. Check vector index health (can we query the chunk tables?)
-      idx_query = "SELECT id FROM cairnloop_chunks LIMIT 1"
+      idx_query =
+        "SELECT id FROM #{Cairnloop.SchemaPrefix.quoted_table("cairnloop_chunks")} LIMIT 1"
+
       {:ok, _} = Ecto.Adapters.SQL.query(repo(), idx_query, [])
       index_ok? = true
 
@@ -245,6 +252,7 @@ defmodule Cairnloop.Retrieval do
 
   defp published_revision_ids do
     Revision
+    |> prefixed()
     |> where([revision], revision.state == :published)
     |> select([revision], revision.id)
     |> repo().all()
@@ -252,6 +260,7 @@ defmodule Cairnloop.Retrieval do
 
   defp resolved_conversation_ids do
     Conversation
+    |> prefixed()
     |> where([conversation], conversation.status == :resolved)
     |> select([conversation], conversation.id)
     |> repo().all()

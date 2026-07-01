@@ -15,6 +15,7 @@ defmodule CairnloopExample.SeedsTest do
   alias Cairnloop.Automation.Draft
   alias Cairnloop.Governance.ToolActionEvent
   alias Cairnloop.Governance.ToolApproval
+  alias Cairnloop.Governance.ToolProposal
   alias Cairnloop.KnowledgeBase.Article
   alias Cairnloop.KnowledgeBase.Chunk
   alias Cairnloop.KnowledgeBase.Revision
@@ -22,6 +23,8 @@ defmodule CairnloopExample.SeedsTest do
   alias Cairnloop.KnowledgeAutomation.GapCandidate
   alias Cairnloop.KnowledgeAutomation.GapCandidateMembership
   alias Cairnloop.KnowledgeAutomation.ReviewTask
+  alias Cairnloop.MCP.Token
+  alias Cairnloop.Web.AuditLogPresenter
 
   import Ecto.Query
 
@@ -44,6 +47,35 @@ defmodule CairnloopExample.SeedsTest do
     Code.eval_file(seed_path)
     :ok
   end
+
+  defp audit_event_search_text(%ToolActionEvent{} = event) do
+    [
+      AuditLogPresenter.action_label(event.event_type),
+      AuditLogPresenter.actor_label(event.actor_id),
+      AuditLogPresenter.reason_label(event.reason),
+      audit_metadata_values(event.metadata)
+    ]
+    |> List.flatten()
+    |> Enum.map(&to_string/1)
+    |> Enum.join(" ")
+    |> String.downcase()
+  end
+
+  defp audit_metadata_values(metadata) when is_map(metadata) do
+    metadata
+    |> Map.values()
+    |> Enum.flat_map(&audit_metadata_values/1)
+  end
+
+  defp audit_metadata_values(values) when is_list(values),
+    do: Enum.flat_map(values, &audit_metadata_values/1)
+
+  defp audit_metadata_values(value)
+       when is_binary(value) or is_number(value) or is_boolean(value),
+       do: [value]
+
+  defp audit_metadata_values(value) when is_atom(value), do: [value]
+  defp audit_metadata_values(_value), do: []
 
   describe "priv/repo/seeds.exs" do
     # -------------------------------------------------------------------------
@@ -203,6 +235,122 @@ defmodule CairnloopExample.SeedsTest do
              "Expected ≥1 :system_outbound message (showcase stage 8 / demo-20)"
     end
 
+    @tag :phase45_seed_contract
+    test "SEED-01: Phase 45 seed contract covers governed, KB, draft, token, and audit empty states" do
+      assert :ok == run_seed!()
+
+      # SEED-01 / D-02: the governed-action lane needs rejected and deferred approval
+      # evidence with durable, human-readable reasons for audit and conversation screenshots.
+      rejected_or_deferred =
+        Repo.all(
+          from a in ToolApproval,
+            where: a.status in [:rejected, :deferred],
+            select: {a.status, a.reason}
+        )
+
+      assert {:rejected, _reason} =
+               Enum.find(rejected_or_deferred, fn {status, reason} ->
+                 status == :rejected and is_binary(reason) and byte_size(reason) > 0
+               end),
+             "SEED-01/D-02 expected a rejected ToolApproval with a human-readable reason"
+
+      assert {:deferred, _reason} =
+               Enum.find(rejected_or_deferred, fn {status, reason} ->
+                 status == :deferred and is_binary(reason) and byte_size(reason) > 0
+               end),
+             "SEED-01/D-02 expected a deferred ToolApproval with a human-readable reason"
+
+      event_types =
+        Repo.all(from e in ToolActionEvent, where: e.event_type in [:rejected, :deferred])
+        |> Enum.map(& &1.event_type)
+        |> MapSet.new()
+
+      assert MapSet.subset?(MapSet.new([:rejected, :deferred]), event_types),
+             "SEED-01/D-02 expected durable ToolActionEvent rows for rejected and deferred decisions"
+
+      event_times = Repo.all(from e in ToolActionEvent, select: e.inserted_at)
+      oldest = Enum.min_by(event_times, &DateTime.to_unix(&1, :second))
+      newest = Enum.max_by(event_times, &DateTime.to_unix(&1, :second))
+
+      assert DateTime.diff(newest, oldest, :day) >= 13,
+             "SEED-01/D-02/D-06 expected governed audit timestamps to span roughly 14 days"
+
+      # SEED-01 / D-03: suggestion review states belong to ReviewTask, never to
+      # ArticleSuggestion status atoms.
+      review_statuses =
+        Repo.all(from t in ReviewTask, select: t.status)
+        |> MapSet.new()
+
+      assert MapSet.subset?(
+               MapSet.new([:rejected, :deferred, :approved_ready_to_publish, :published]),
+               review_statuses
+             ),
+             "SEED-01/D-03 expected ReviewTask statuses :rejected, :deferred, :approved_ready_to_publish, and :published"
+
+      # SEED-01 / D-02: one knowledge article remains a visible draft with an
+      # unpublished draft revision for the editor screenshot.
+      assert Repo.aggregate(
+               from(a in Article,
+                 join: r in Revision,
+                 on: r.article_id == a.id,
+                 where: a.status == :draft and r.state == :draft
+               ),
+               :count
+             ) >= 1,
+             "SEED-01/D-02 expected one draft Article with an unpublished draft Revision"
+
+      # SEED-01 / D-04: active MCP tokens are created through the MCP facade and
+      # tests assert only source-safe names plus the masked Settings handle cl_mcp_***.
+      tokens =
+        Repo.all(
+          from t in Token,
+            where: is_nil(t.revoked_at),
+            where: t.name in ["Demo docs integration", "Demo audit export"],
+            order_by: t.name
+        )
+
+      assert Enum.map(tokens, & &1.name) == ["Demo audit export", "Demo docs integration"],
+             "SEED-01/D-04 expected active MCP token rows named Demo docs integration and Demo audit export"
+
+      assert Enum.all?(tokens, &(is_binary(&1.token_hash) and byte_size(&1.token_hash) == 32)),
+             "SEED-01/D-04 expected hashed token material only; Settings displays cl_mcp_***, never raw token values"
+
+      # SEED-01 / D-05: the higher-risk approval-required boundary is example-app-only.
+      high_risk_tool_ref = "Elixir.CairnloopExample.Tools.HighRiskDemoAction"
+
+      high_risk_proposal =
+        Repo.one(from p in ToolProposal, where: p.tool_ref == ^high_risk_tool_ref)
+
+      assert high_risk_proposal,
+             "SEED-01/D-05 expected a proposal for the example-only HighRiskDemoAction"
+
+      assert high_risk_proposal.risk_tier == :high_write
+      assert high_risk_proposal.approval_mode == :requires_approval
+
+      assert Repo.aggregate(
+               from(a in ToolApproval,
+                 where: a.tool_proposal_id == ^high_risk_proposal.id and a.status == :pending
+               ),
+               :count
+             ) == 1,
+             "SEED-01/D-05 expected the high-risk demo proposal to sit in the pending approval lane"
+
+      # SEED-01 / VERIFY-01: Plan 45-03 uses this sentinel to drive the audit log
+      # into the real empty state. The seed must not hand-author a matching ledger row.
+      sentinel = "phase45-empty-audit-filter"
+
+      matching_audit_events =
+        Repo.all(ToolActionEvent)
+        |> Enum.filter(fn event ->
+          event
+          |> audit_event_search_text()
+          |> String.contains?(sentinel)
+        end)
+
+      assert matching_audit_events == [],
+             "SEED-01/VERIFY-01 expected phase45-empty-audit-filter to match zero seeded audit events"
+    end
+
     # -------------------------------------------------------------------------
     # Test 4: D-02 idempotency — running the seed TWICE produces stable row counts
     # -------------------------------------------------------------------------
@@ -220,7 +368,8 @@ defmodule CairnloopExample.SeedsTest do
         review_tasks: Repo.aggregate(ReviewTask, :count),
         drafts: Repo.aggregate(Draft, :count),
         approvals: Repo.aggregate(ToolApproval, :count),
-        action_events: Repo.aggregate(ToolActionEvent, :count)
+        action_events: Repo.aggregate(ToolActionEvent, :count),
+        mcp_tokens: Repo.aggregate(Token, :count)
       }
 
       # Second run — must be a complete no-op (D-02: idempotent seeds via natural-key guards).
@@ -237,7 +386,8 @@ defmodule CairnloopExample.SeedsTest do
         review_tasks: Repo.aggregate(ReviewTask, :count),
         drafts: Repo.aggregate(Draft, :count),
         approvals: Repo.aggregate(ToolApproval, :count),
-        action_events: Repo.aggregate(ToolActionEvent, :count)
+        action_events: Repo.aggregate(ToolActionEvent, :count),
+        mcp_tokens: Repo.aggregate(Token, :count)
       }
 
       assert counts_after_run_1 == counts_after_run_2,

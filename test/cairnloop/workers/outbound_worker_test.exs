@@ -6,6 +6,8 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
 
   defmodule MockRepo do
     def get!(Message, 1) do
+      record_repo_call(:get!, Message, [])
+
       %Message{
         id: 1,
         conversation_id: 10,
@@ -16,14 +18,28 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
     end
 
     def get!(Conversation, 10) do
+      record_repo_call(:get!, Conversation, [])
       %Conversation{id: 10, host_user_id: "user_123"}
     end
 
-    def update(changeset) do
+    def get!(schema, id, opts) do
+      record_repo_call(:get!, schema, opts)
+      get!(schema, id)
+    end
+
+    def update(changeset, opts \\ []) do
+      record_repo_call(:update, schema_from_changeset(changeset), opts)
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
 
     def preload(struct, _), do: struct
+
+    defp schema_from_changeset(%Ecto.Changeset{data: %{__struct__: schema}}), do: schema
+
+    defp record_repo_call(operation, schema, opts) do
+      calls = Process.get(:repo_calls, [])
+      Process.put(:repo_calls, calls ++ [%{operation: operation, schema: schema, opts: opts}])
+    end
   end
 
   defmodule MockNotifier do
@@ -57,10 +73,12 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
     Application.put_env(:cairnloop, :notifier, MockNotifier)
+    Process.put(:repo_calls, [])
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       Application.delete_env(:cairnloop, :notifier)
+      Process.delete(:repo_calls)
     end)
 
     :ok
@@ -71,7 +89,16 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
       assert {:ok, _} = OutboundWorker.perform(%Oban.Job{args: %{"message_id" => 1}})
 
       assert_receive {:notified, 1, 10}
-      # Status update is handled via MockRepo.update which we could verify if we captured it.
+
+      assert Enum.any?(Process.get(:repo_calls, []), fn call ->
+               call.schema == Message and call.operation == :get! and
+                 Keyword.get(call.opts, :prefix) == "cairnloop"
+             end)
+
+      assert Enum.any?(Process.get(:repo_calls, []), fn call ->
+               call.schema == Message and call.operation == :update and
+                 Keyword.get(call.opts, :prefix) == "cairnloop"
+             end)
     end
 
     test "handles notifier error and updates status to failed" do
@@ -91,11 +118,11 @@ defmodule Cairnloop.Workers.OutboundWorkerTest do
     # (perform/1 doesn't crash with or without bulk_envelope_id in args), this gives us
     # full confidence in the D-11 invariant without coupling to Oban internals.
     test "OutboundWorker source declares unique: keys [:conversation_id, :template_id, :bulk_envelope_id]" do
-      source = File.read!("lib/cairnloop/workers/outbound_worker.ex")
+      unique = OutboundWorker.__opts__()[:unique]
 
-      assert source =~
-               "unique: [period: :infinity, fields: [:worker, :args], keys: [:conversation_id, :template_id, :bulk_envelope_id]]",
-             "OutboundWorker must declare D-11 dedup keys at compile time"
+      assert unique[:period] == :infinity
+      assert unique[:fields] == [:worker, :args]
+      assert unique[:keys] == [:conversation_id, :template_id, :bulk_envelope_id]
     end
 
     test "Oban.Job constructed from OutboundWorker.new/2 with all dedup keys is a valid job" do

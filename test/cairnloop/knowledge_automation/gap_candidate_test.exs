@@ -27,9 +27,13 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidateTest do
       end
     end
 
+    def all(query, _opts), do: all(query)
+
     def one!(%Ecto.Query{} = query) do
       Process.get(:gap_candidate_detail_lookup).(query)
     end
+
+    def one!(query, _opts), do: one!(query)
   end
 
   setup do
@@ -100,11 +104,11 @@ defmodule Cairnloop.KnowledgeAutomation.GapCandidateTest do
     [migration] = Path.wildcard("priv/repo/migrations/*_add_gap_candidates_and_memberships.exs")
     content = File.read!(migration)
 
-    assert content =~ "create table(:cairnloop_gap_candidates)"
-    assert content =~ "create table(:cairnloop_gap_candidate_memberships)"
-    assert content =~ "create unique_index(:cairnloop_gap_candidates, [:stable_key])"
-    assert content =~ "create index(:cairnloop_gap_candidates, [:status])"
-    assert content =~ "create index(:cairnloop_gap_candidates, [:last_seen_at])"
+    assert content =~ "create table(:cairnloop_gap_candidates, prefix: prefix)"
+    assert content =~ "create table(:cairnloop_gap_candidate_memberships, prefix: prefix)"
+    assert content =~ "unique_index(:cairnloop_gap_candidates, [:stable_key], prefix: prefix)"
+    assert content =~ "index(:cairnloop_gap_candidates, [:status], prefix: prefix)"
+    assert content =~ "index(:cairnloop_gap_candidates, [:last_seen_at], prefix: prefix)"
     assert content =~ "[:gap_candidate_id, :source_type, :source_id]"
   end
 

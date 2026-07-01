@@ -50,13 +50,15 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
   @impl Oban.Worker
   def perform(%Oban.Job{
         attempt: attempt,
         max_attempts: max_attempts,
         args: %{"approval_id" => approval_id}
       }) do
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         # Deleted — idempotent no-op (mirrors SlaCountdownWorker nil branch)
         :ok
@@ -76,7 +78,7 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
   # ---------------------------------------------------------------------------
 
   defp execute_pending(approval, attempt, max_attempts) do
-    proposal = repo().get!(ToolProposal, approval.tool_proposal_id)
+    proposal = repo().get!(ToolProposal, approval.tool_proposal_id, repo_opts())
 
     # LAYER-2 terminal guard (D16-05): if result_state == :succeeded, run/3 already
     # completed. This guards the TOCTOU window between the LAYER-1 status check and
@@ -224,18 +226,21 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
     # WR-04: return value depends on whether the transaction committed. On failure, return
     # {:error, ...} so Oban retries — never {:cancel} after a failed durable write.
     tx_result =
-      repo().transaction(fn ->
-        with {:ok, _updated_approval} <- repo().update(approval_cs),
-             {:ok, _updated_proposal} <- repo().update(proposal_cs),
-             {:ok, _event} <-
-               %ToolActionEvent{}
-               |> ToolActionEvent.changeset(event_attrs)
-               |> repo().insert() do
-          :ok
-        else
-          {:error, reason} -> repo().rollback(reason)
-        end
-      end)
+      repo().transaction(
+        fn ->
+          with {:ok, _updated_approval} <- repo().update(approval_cs, repo_opts()),
+               {:ok, _updated_proposal} <- repo().update(proposal_cs, repo_opts()),
+               {:ok, _event} <-
+                 %ToolActionEvent{}
+                 |> ToolActionEvent.changeset(event_attrs)
+                 |> repo().insert(repo_opts()) do
+            :ok
+          else
+            {:error, reason} -> repo().rollback(reason)
+          end
+        end,
+        repo_opts()
+      )
 
     case tx_result do
       {:ok, :ok} ->
@@ -306,18 +311,21 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
         )
 
       tx_result =
-        repo().transaction(fn ->
-          with {:ok, _} <- repo().update(approval_cs),
-               {:ok, _} <- repo().update(proposal_cs),
-               {:ok, _} <-
-                 %ToolActionEvent{}
-                 |> ToolActionEvent.changeset(event_attrs)
-                 |> repo().insert() do
-            :ok
-          else
-            {:error, r} -> repo().rollback(r)
-          end
-        end)
+        repo().transaction(
+          fn ->
+            with {:ok, _} <- repo().update(approval_cs, repo_opts()),
+                 {:ok, _} <- repo().update(proposal_cs, repo_opts()),
+                 {:ok, _} <-
+                   %ToolActionEvent{}
+                   |> ToolActionEvent.changeset(event_attrs)
+                   |> repo().insert(repo_opts()) do
+              :ok
+            else
+              {:error, r} -> repo().rollback(r)
+            end
+          end,
+          repo_opts()
+        )
 
       case tx_result do
         {:ok, :ok} ->
@@ -366,17 +374,20 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       }
 
       tx_result =
-        repo().transaction(fn ->
-          with {:ok, _} <- repo().update(proposal_cs),
-               {:ok, _} <-
-                 %ToolActionEvent{}
-                 |> ToolActionEvent.changeset(event_attrs)
-                 |> repo().insert() do
-            :ok
-          else
-            {:error, r} -> repo().rollback(r)
-          end
-        end)
+        repo().transaction(
+          fn ->
+            with {:ok, _} <- repo().update(proposal_cs, repo_opts()),
+                 {:ok, _} <-
+                   %ToolActionEvent{}
+                   |> ToolActionEvent.changeset(event_attrs)
+                   |> repo().insert(repo_opts()) do
+              :ok
+            else
+              {:error, r} -> repo().rollback(r)
+            end
+          end,
+          repo_opts()
+        )
 
       case tx_result do
         {:ok, :ok} ->
@@ -426,17 +437,20 @@ defmodule Cairnloop.Workers.ToolExecutionWorker do
       metadata: %{}
     }
 
-    repo().transaction(fn ->
-      with {:ok, _} <- repo().update(approval_cs),
-           {:ok, _} <-
-             %ToolActionEvent{}
-             |> ToolActionEvent.changeset(event_attrs)
-             |> repo().insert() do
-        :ok
-      else
-        {:error, r} -> repo().rollback(r)
-      end
-    end)
+    repo().transaction(
+      fn ->
+        with {:ok, _} <- repo().update(approval_cs, repo_opts()),
+             {:ok, _} <-
+               %ToolActionEvent{}
+               |> ToolActionEvent.changeset(event_attrs)
+               |> repo().insert(repo_opts()) do
+          :ok
+        else
+          {:error, r} -> repo().rollback(r)
+        end
+      end,
+      repo_opts()
+    )
   end
 
   # ---------------------------------------------------------------------------

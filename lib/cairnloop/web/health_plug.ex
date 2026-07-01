@@ -1,8 +1,11 @@
 defmodule Cairnloop.Web.HealthPlug do
   @moduledoc """
-  A plug for liveness checks.
+  A plug for liveness-only checks.
 
-  Returns a 200 OK with `{"status": "ok"}` JSON payload.
+  Returns a 200 OK with `{"status": "ok"}` JSON payload. It does not check
+  the database, Oban, pgvector, notifier, ingress auth, MCP tokens, or optional
+  Scrypath automation. Use `mix cairnloop.doctor` for those readiness and trust
+  diagnostics.
   """
   @behaviour Plug
 

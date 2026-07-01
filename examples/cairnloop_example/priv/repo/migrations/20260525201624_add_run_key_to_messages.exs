@@ -13,15 +13,28 @@ defmodule CairnloopExample.Repo.Migrations.AddRunKeyToMessages do
   use Ecto.Migration
 
   def change do
-    alter table(:cairnloop_messages) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+    ensure_schema(prefix)
+
+    alter table(:cairnloop_messages, prefix: prefix) do
       add(:run_key, :string)
     end
 
     create(
       unique_index(:cairnloop_messages, [:run_key],
         name: :cairnloop_messages_run_key_unique_index,
+        prefix: prefix,
         where: "run_key IS NOT NULL"
       )
+    )
+  end
+
+  defp ensure_schema(nil), do: :ok
+
+  defp ensure_schema(prefix) do
+    execute(
+      "CREATE SCHEMA IF NOT EXISTS #{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+      "SELECT 1"
     )
   end
 end

@@ -7,7 +7,11 @@ defmodule Mix.Tasks.Cairnloop.Doctor do
   It inspects your router and `:cairnloop` config to catch the "compiles but isn't wired"
   problems that are easy to miss: a dashboard or `/health` route that was never mounted, a
   `/metrics` endpoint that will 501 because the optional Prometheus dependency is absent, or an
-  audit log that will render empty because no auditor is configured.
+  audit log that will render empty because no auditor is configured. It reports the configured
+  Cairnloop support-table Postgres schema prefix, then the Phase 58 trust seams: widget verifier,
+  email webhook authentication, MCP token posture, notifier callbacks, Oban/pgvector availability,
+  and Scrypath side-effect state. It is honest about dependencies it does not query: those findings
+  are printed as "Not checked here" rather than readiness claims.
 
   ## Usage
 

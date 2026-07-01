@@ -2,12 +2,19 @@ defmodule Cairnloop.Repo.Migrations.AlignRetrievalGapEventScopeSemantics do
   use Ecto.Migration
 
   def up do
-    alter table(:cairnloop_retrieval_gap_events) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    gap_events_table =
+      Cairnloop.SchemaPrefix.quoted_table("cairnloop_retrieval_gap_events",
+        schema_prefix: prefix
+      )
+
+    alter table(:cairnloop_retrieval_gap_events, prefix: prefix) do
       add(:ui_surface, :string, default: "unspecified", null: false)
     end
 
     execute("""
-    UPDATE cairnloop_retrieval_gap_events
+    UPDATE #{gap_events_table}
     SET
       ui_surface =
         CASE tenant_scope
@@ -28,47 +35,59 @@ defmodule Cairnloop.Repo.Migrations.AlignRetrievalGapEventScopeSemantics do
         END
     """)
 
-    alter table(:cairnloop_retrieval_gap_events) do
+    alter table(:cairnloop_retrieval_gap_events, prefix: prefix) do
       modify(:tenant_scope, :string, default: "system_unscoped", null: false)
     end
 
-    create(index(:cairnloop_retrieval_gap_events, [:ui_surface]))
+    create(index(:cairnloop_retrieval_gap_events, [:ui_surface], prefix: prefix))
+
     create(
-      index(:cairnloop_retrieval_gap_events, [
-        :query_fingerprint,
-        :tenant_scope,
-        :host_user_id,
-        :ui_surface,
-        :surface,
-        :outcome_class,
-        :reason,
-        :occurred_at
-      ])
+      index(
+        :cairnloop_retrieval_gap_events,
+        [
+          :query_fingerprint,
+          :tenant_scope,
+          :host_user_id,
+          :ui_surface,
+          :surface,
+          :outcome_class,
+          :reason,
+          :occurred_at
+        ], prefix: prefix)
     )
   end
 
   def down do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    gap_events_table =
+      Cairnloop.SchemaPrefix.quoted_table("cairnloop_retrieval_gap_events",
+        schema_prefix: prefix
+      )
+
     drop_if_exists(
-      index(:cairnloop_retrieval_gap_events, [
-        :query_fingerprint,
-        :tenant_scope,
-        :host_user_id,
-        :ui_surface,
-        :surface,
-        :outcome_class,
-        :reason,
-        :occurred_at
-      ])
+      index(
+        :cairnloop_retrieval_gap_events,
+        [
+          :query_fingerprint,
+          :tenant_scope,
+          :host_user_id,
+          :ui_surface,
+          :surface,
+          :outcome_class,
+          :reason,
+          :occurred_at
+        ], prefix: prefix)
     )
 
-    drop_if_exists(index(:cairnloop_retrieval_gap_events, [:ui_surface]))
+    drop_if_exists(index(:cairnloop_retrieval_gap_events, [:ui_surface], prefix: prefix))
 
-    alter table(:cairnloop_retrieval_gap_events) do
+    alter table(:cairnloop_retrieval_gap_events, prefix: prefix) do
       modify(:tenant_scope, :string, null: true, default: nil)
     end
 
     execute("""
-    UPDATE cairnloop_retrieval_gap_events
+    UPDATE #{gap_events_table}
     SET tenant_scope =
       CASE
         WHEN ui_surface IN ('conversation', 'inbox', 'settings') THEN ui_surface
@@ -77,7 +96,7 @@ defmodule Cairnloop.Repo.Migrations.AlignRetrievalGapEventScopeSemantics do
       END
     """)
 
-    alter table(:cairnloop_retrieval_gap_events) do
+    alter table(:cairnloop_retrieval_gap_events, prefix: prefix) do
       remove(:ui_surface)
     end
   end

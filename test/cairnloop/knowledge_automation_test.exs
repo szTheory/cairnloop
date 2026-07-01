@@ -12,15 +12,21 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       end
     end
 
+    def one!(query, _opts), do: one!(query)
+
     def preload(record, _associations) do
       record
     end
+
+    def preload(record, associations, _opts), do: preload(record, associations)
 
     def update(changeset) do
       applied = Ecto.Changeset.apply_changes(changeset)
       send(self(), {:updated, applied, changeset.changes})
       {:ok, applied}
     end
+
+    def update(changeset, _opts), do: update(changeset)
 
     def insert(changeset) do
       applied = Ecto.Changeset.apply_changes(changeset)
@@ -30,13 +36,22 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       {:ok, applied}
     end
 
+    def insert(changeset, _opts), do: insert(changeset)
+
     def all(_query) do
       []
     end
 
-    def one(_query) do
-      nil
+    def all(query, _opts), do: all(query)
+
+    def one(query) do
+      # WR-05: capture the built query so headless tests can assert its filter/scope shape
+      # without a live Repo. Optionally return a seeded tuple/row via :mock_one_result.
+      Process.put(:mock_one_query, query)
+      Process.get(:mock_one_result, nil)
     end
+
+    def one(query, _opts), do: one(query)
   end
 
   setup do
@@ -231,6 +246,129 @@ defmodule Cairnloop.KnowledgeAutomationTest do
       assert changeset.valid?
       assert changeset.changes == %{manual_edit_opened_at: newer_ts}
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Phase 42 Plan 02: originating_conversation_id/2 article→conversation read (THREAD-03b)
+  # ---------------------------------------------------------------------------
+
+  describe "originating_conversation_id/2 (Phase 42, D-12/Pitfall 2)" do
+    setup do
+      # Isolate the per-test mock query/result captures so a seeded :mock_one_result
+      # never leaks into another test (process-dictionary state is per ExUnit test pid).
+      Process.delete(:mock_one_result)
+      Process.delete(:mock_one_query)
+      :ok
+    end
+
+    # --- Query-shape assertions (headless, no live Repo) ---
+
+    test "returns nil for an unknown article_id (MockRepo.one returns nil)" do
+      # MockRepo.one/1 returns nil — unknown article_id results in nil
+      assert nil == KnowledgeAutomation.originating_conversation_id(999_999)
+    end
+
+    test "accepts opts keyword list (defaults to empty list)" do
+      # Should not raise — opts \\ [] default honored
+      assert nil == KnowledgeAutomation.originating_conversation_id(1, [])
+    end
+
+    # --- Built-query shape + post-fetch scope assertions (WR-05): prove the
+    # :conversation_quick_fix filter, the article_id pin, and the scope where-clauses
+    # survive refactors without a live Repo. A regression dropping the
+    # entrypoint_type filter or the apply_scope call fails here in the default suite. ---
+
+    test "built query pins entrypoint_type == :conversation_quick_fix and the article_id (WR-05)" do
+      Process.put(:mock_one_result, nil)
+      KnowledgeAutomation.originating_conversation_id(4242)
+      query = Process.get(:mock_one_query)
+      assert %Ecto.Query{} = query
+
+      inspected = inspect(query)
+      assert inspected =~ "conversation_quick_fix"
+      assert inspected =~ "entrypoint_type"
+      assert inspected =~ "article_id"
+      # cheap read: one-row select with deterministic earliest-origin ordering (A2)
+      assert inspected =~ "limit: 1"
+      assert inspected =~ "order_by"
+    end
+
+    test "built query adds tenant_scope/host_user_id where-clauses when scope opts are passed (WR-05/T-42-04)" do
+      Process.put(:mock_one_result, nil)
+
+      KnowledgeAutomation.originating_conversation_id(7,
+        tenant_scope: :host_user_scoped,
+        host_user_id: "host-123"
+      )
+
+      inspected = Process.get(:mock_one_query) |> inspect()
+      assert inspected =~ "tenant_scope"
+      assert inspected =~ "host_user_id"
+    end
+
+    test "post-fetch scope check returns nil on a cross-tenant row (WR-05/T-42-04)" do
+      # Fetched row belongs to host-AAA; caller scopes to host-BBB → fail closed (nil),
+      # even though apply_scope is a query-side filter (defense in depth).
+      Process.put(:mock_one_result, {99, :host_user_scoped, "host-AAA"})
+
+      assert nil ==
+               KnowledgeAutomation.originating_conversation_id(7,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "host-BBB"
+               )
+    end
+
+    test "post-fetch scope check returns the entrypoint_id when the row matches scope (WR-05)" do
+      Process.put(:mock_one_result, {99, :host_user_scoped, "host-AAA"})
+
+      assert 99 ==
+               KnowledgeAutomation.originating_conversation_id(7,
+                 tenant_scope: :host_user_scoped,
+                 host_user_id: "host-AAA"
+               )
+    end
+
+    test "post-fetch scope check returns the entrypoint_id for an unscoped (empty-opts) read (WR-05)" do
+      # Empty opts → no constraint requested → match (consistent with apply_scope pass-through).
+      Process.put(:mock_one_result, {77, :host_user_scoped, "host-AAA"})
+      assert 77 == KnowledgeAutomation.originating_conversation_id(7)
+    end
+
+    # --- Round-trip tests (require live Postgres; headless suite skips these) ---
+
+    # REPO-UNAVAILABLE: :conversation_quick_fix returns entrypoint_id
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":conversation_quick_fix suggestion returns entrypoint_id (REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :conversation_quick_fix and entrypoint_id: 42
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == 42
+    # end
+
+    # REPO-UNAVAILABLE: :gap_candidate → nil (D-12)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":gap_candidate suggestion returns nil (D-12, REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :gap_candidate
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == nil
+    # end
+
+    # REPO-UNAVAILABLE: :article_revision → nil (D-12)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test ":article_revision suggestion returns nil (D-12, REPO-UNAVAILABLE)" do
+    #   # Seed an ArticleSuggestion with entrypoint_type: :article_revision
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == nil
+    # end
+
+    # REPO-UNAVAILABLE: scope honored — tenant_scope filter applied
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "scope honored — tenant_scope filter prevents cross-tenant leak (T-42-04, REPO-UNAVAILABLE)" do
+    #   # Seed suggestion for tenant A; query with tenant B scope → nil (no cross-tenant leak)
+    # end
+
+    # REPO-UNAVAILABLE: earliest origin when multiple :conversation_quick_fix suggestions exist (A2)
+    # Run in CI :integration lane via `mix test.integration`.
+    # test "returns earliest entrypoint_id for multiple quick-fix suggestions (A2, REPO-UNAVAILABLE)" do
+    #   # Seed two conversation_quick_fix suggestions for same article_id with different inserted_at
+    #   # assert KnowledgeAutomation.originating_conversation_id(article_id) == earliest.entrypoint_id
+    # end
   end
 
   describe "record_editor_handoff/2" do

@@ -17,6 +17,8 @@ defmodule Cairnloop.Web.MCP.AuthPlugTest do
       {:ok, struct}
     end
 
+    def insert(changeset, _opts), do: insert(changeset)
+
     def one(%Ecto.Query{} = query) do
       token_hash =
         Enum.find_value(query.wheres, fn clause ->

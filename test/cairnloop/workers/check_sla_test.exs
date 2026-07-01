@@ -3,21 +3,33 @@ defmodule Cairnloop.Workers.CheckSLATest do
 
   defmodule DummyNotifier do
     @behaviour Cairnloop.Notifier
+
+    @impl true
     def on_sla_breach(conversation, sla, metadata) do
       send(self(), {:sla_breached, conversation, sla, metadata})
       :ok
     end
 
+    @impl true
     def on_conversation_resolved(_conversation, _metadata), do: :ok
+
+    @impl true
+    def on_outbound_triggered(_message, _conversation), do: {:ok, :delivered}
   end
 
   defmodule ErrorNotifier do
     @behaviour Cairnloop.Notifier
+
+    @impl true
     def on_sla_breach(_conversation, _sla, _metadata) do
       raise "Notifier failed"
     end
 
+    @impl true
     def on_conversation_resolved(_conversation, _metadata), do: :ok
+
+    @impl true
+    def on_outbound_triggered(_message, _conversation), do: {:ok, :delivered}
   end
 
   setup do
