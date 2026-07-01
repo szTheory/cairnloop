@@ -52,7 +52,7 @@ defmodule CairnloopExample.MixProject do
       {:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false},
       {:chimeway, "~> 1.0"},
       {:oban, "~> 2.17"},
-      {:pgvector, "~> 0.3.1"},
+      {:pgvector, "~> 0.4.0"},
       {:igniter, "~> 0.5"},
       {:phoenix, "~> 1.8.7"},
       {:phoenix_ecto, "~> 4.5"},
