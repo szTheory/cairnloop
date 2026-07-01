@@ -8,17 +8,24 @@ defmodule Cairnloop.TestHost.Migrations.AddConversationSlas do
   use Ecto.Migration
 
   def change do
-    create table(:cairnloop_conversation_slas) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    create table(:cairnloop_conversation_slas, prefix: prefix) do
       add(:target_type, :string, null: false)
       add(:status, :string, null: false)
       add(:target_at, :utc_datetime_usec, null: false)
       add(:completed_at, :utc_datetime_usec)
-      add(:conversation_id, references(:cairnloop_conversations, on_delete: :delete_all), null: false)
+
+      add(
+        :conversation_id,
+        references(:cairnloop_conversations, prefix: prefix, on_delete: :delete_all),
+        null: false
+      )
 
       timestamps()
     end
 
-    create(index(:cairnloop_conversation_slas, [:conversation_id]))
-    create(index(:cairnloop_conversation_slas, [:conversation_id, :status]))
+    create(index(:cairnloop_conversation_slas, [:conversation_id], prefix: prefix))
+    create(index(:cairnloop_conversation_slas, [:conversation_id, :status], prefix: prefix))
   end
 end

@@ -37,6 +37,7 @@ defmodule CairnloopExampleWeb.ChatLiveTest do
       }
 
     def get(Cairnloop.Message, _id), do: nil
+    def get(schema, id, _opts), do: get(schema, id)
   end
 
   # ---------------------------------------------------------------------------

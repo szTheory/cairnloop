@@ -6,6 +6,7 @@ defmodule CairnloopExample.Repo.Migrations.AddVectorExtension do
   end
 
   def down do
-    execute("DROP EXTENSION IF EXISTS vector;")
+    # `vector` is shared database infrastructure, not owned by this demo migration.
+    :ok
   end
 end

@@ -16,7 +16,10 @@ defmodule Cairnloop.Repo.Migrations.AddOutboundBulkEnvelopes do
   use Ecto.Migration
 
   def change do
-    create table(:cairnloop_outbound_bulk_envelopes, primary_key: false) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+    ensure_schema(prefix)
+
+    create table(:cairnloop_outbound_bulk_envelopes, primary_key: false, prefix: prefix) do
       add(:id, :binary_id, primary_key: true)
       add(:template_id, :string, null: false)
       # Snapshotted rendered body — never re-rendered at worker run time (CLAUDE.md).
@@ -48,7 +51,16 @@ defmodule Cairnloop.Repo.Migrations.AddOutboundBulkEnvelopes do
 
     # Indexes support OBS-02 queries: "show me bulk attempts ordered by time" and
     # "show me bulk attempts for template X".
-    create(index(:cairnloop_outbound_bulk_envelopes, [:requested_at]))
-    create(index(:cairnloop_outbound_bulk_envelopes, [:template_id]))
+    create(index(:cairnloop_outbound_bulk_envelopes, [:requested_at], prefix: prefix))
+    create(index(:cairnloop_outbound_bulk_envelopes, [:template_id], prefix: prefix))
+  end
+
+  defp ensure_schema(nil), do: :ok
+
+  defp ensure_schema(prefix) do
+    execute(
+      "CREATE SCHEMA IF NOT EXISTS #{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+      "SELECT 1"
+    )
   end
 end

@@ -5,6 +5,8 @@ defmodule CairnloopExampleWeb.Layouts do
   """
   use CairnloopExampleWeb, :html
 
+  import Cairnloop.Web.Components, only: [cl_flash: 1]
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -37,9 +39,8 @@ defmodule CairnloopExampleWeb.Layouts do
     ~H"""
     <header class="navbar px-4 sm:px-6 lg:px-8">
       <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
+        <a href="/" class="flex w-fit items-center">
+          <img src={~p"/images/logo.svg"} alt="Cairnloop" width="164" class="h-10 w-auto" />
         </a>
       </div>
       <div class="flex-none">
@@ -85,8 +86,8 @@ defmodule CairnloopExampleWeb.Layouts do
   def flash_group(assigns) do
     ~H"""
     <div id={@id} aria-live="polite">
-      <.flash kind={:info} flash={@flash} />
-      <.flash kind={:error} flash={@flash} />
+      <.cl_flash kind={:info} flash={@flash} />
+      <.cl_flash kind={:error} flash={@flash} />
 
       <.flash
         id="client-error"

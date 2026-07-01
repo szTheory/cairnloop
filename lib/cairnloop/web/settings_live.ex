@@ -4,6 +4,7 @@ defmodule Cairnloop.Web.SettingsLive do
   import Ecto.Query
   import Cairnloop.Web.Components
   alias Cairnloop.MCP.Token
+  alias Cairnloop.Web.DashboardPath
 
   def mount(_params, session, socket) do
     provider =
@@ -33,6 +34,7 @@ defmodule Cairnloop.Web.SettingsLive do
     socket =
       socket
       |> assign(:host_user_id, Map.get(session, "host_user_id"))
+      |> assign(:dashboard_path, DashboardPath.from_session(session))
       |> assign(:provider, provider)
       |> assign(:priorities, [:low, :normal, :high, :urgent])
       |> assign(:notifier_health, notifier_health)
@@ -152,28 +154,31 @@ defmodule Cairnloop.Web.SettingsLive do
   end
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:settings} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.live_component
-        module={Cairnloop.Web.SearchModalComponent}
-        id="search-modal"
-        host_surface="settings"
-        host_user_id={@host_user_id}
-        current_path="/settings"
-      />
+    <.cl_shell current={:settings} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page title="Settings" width="wide">
+        <:actions>
+          <button
+            type="button"
+            onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
+            class="cl-button cl-button--ghost"
+          >
+            Toggle dark mode
+          </button>
+        </:actions>
 
-      <div class="cl-row cl-row--between cl-mb-7">
-        <h1>Settings</h1>
-        <button
-          type="button"
-          onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('phx:theme', document.documentElement.dataset.theme); window.dispatchEvent(new CustomEvent('phx:set-theme'));"
-          class="cl-button cl-button--ghost"
-        >
-          Toggle dark mode
-        </button>
-      </div>
+        <.live_component
+          module={Cairnloop.Web.SearchModalComponent}
+          id="search-modal"
+          host_surface="settings"
+          host_user_id={@host_user_id}
+          dashboard_path={@dashboard_path}
+          current_path={DashboardPath.to(@dashboard_path, "/settings")}
+        />
 
-      <.cl_banner :if={Phoenix.Flash.get(@flash, :info)} variant="success" class="cl-mb-7">
+        <.cl_banner :if={Phoenix.Flash.get(@flash, :info)} variant="success" class="cl-mb-7">
         {Phoenix.Flash.get(@flash, :info)}
       </.cl_banner>
       <.cl_banner :if={Phoenix.Flash.get(@flash, :error)} variant="danger" class="cl-mb-7">
@@ -243,7 +248,8 @@ defmodule Cairnloop.Web.SettingsLive do
         <.cl_empty :if={@policies == []} title="No active SLA policies" icon="clock">
           <p class="cl-text-muted">Set a target below to start tracking response and resolution time.</p>
         </.cl_empty>
-        <table :if={@policies != []} class="cl-table cl-mb-7">
+        <div :if={@policies != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Policies">
+        <table class="cl-table cl-mb-7">
           <thead>
             <tr><th>Priority</th><th>First response</th><th>Resolution</th></tr>
           </thead>
@@ -255,6 +261,7 @@ defmodule Cairnloop.Web.SettingsLive do
             </tr>
           </tbody>
         </table>
+        </div>
 
         <h3 class="cl-mt-5 cl-mb-7">Update policy</h3>
         <form phx-submit="save_policy" class="cl-stack--lg cl-stack">
@@ -275,6 +282,7 @@ defmodule Cairnloop.Web.SettingsLive do
           <div><.cl_button type="submit" variant="primary">Save policy</.cl_button></div>
         </form>
       </.cl_card>
+      </.cl_page>
     </.cl_shell>
     """
   end

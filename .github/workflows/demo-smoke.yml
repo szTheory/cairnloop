@@ -1,0 +1,74 @@
+name: Demo smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 10 * * 1"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".dockerignore"
+      - "bin/demo"
+      - "examples/cairnloop_example/**"
+      - ".github/workflows/demo-smoke.yml"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "guides/**"
+      - "mix.exs"
+      - "mix.lock"
+      - "config/**"
+  pull_request:
+    paths:
+      - ".dockerignore"
+      - "bin/demo"
+      - "examples/cairnloop_example/**"
+      - ".github/workflows/demo-smoke.yml"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "guides/**"
+      - "mix.exs"
+      - "mix.lock"
+      - "config/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-smoke-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  demo-smoke:
+    name: demo-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Docker versions
+        run: |
+          docker version
+          docker compose version
+          {
+            echo "## Demo smoke"
+            echo "- Docker version: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo unavailable)"
+            echo "- Docker Compose version: $(docker compose version --short 2>/dev/null || echo unavailable)"
+            echo "- event: ${{ github.event_name }}"
+            echo "- ref: ${{ github.ref }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run Docker demo smoke
+        run: |
+          start="$(date +%s)"
+          ./bin/demo smoke
+          end="$(date +%s)"
+          echo "- demo smoke duration seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"

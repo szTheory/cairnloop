@@ -9,6 +9,7 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.RefreshGapCandidatesTest do
 
   defmodule MockRepo do
     def one(_query), do: nil
+    def one(query, _opts), do: one(query)
 
     def transaction(multi) do
       results =
@@ -25,6 +26,8 @@ defmodule Cairnloop.KnowledgeAutomation.Workers.RefreshGapCandidatesTest do
 
       {:ok, results}
     end
+
+    def transaction(multi, _opts), do: transaction(multi)
   end
 
   setup do

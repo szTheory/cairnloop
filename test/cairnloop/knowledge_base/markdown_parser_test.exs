@@ -44,7 +44,7 @@ defmodule Cairnloop.KnowledgeBase.MarkdownParserTest do
       assert Enum.all?(chunks, &(String.length(&1) <= 4000))
     end
 
-    test "groups layout HTML correctly using Earmark.as_ast/1" do
+    test "groups layout HTML correctly using EarmarkParser.as_ast/1" do
       markdown = """
       ## Section
       <div class="custom">HTML content</div>

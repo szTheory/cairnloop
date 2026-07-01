@@ -12,7 +12,9 @@ defmodule Cairnloop.Repo.Migrations.RelaxActionEventToStatusNull do
   use Ecto.Migration
 
   def change do
-    alter table(:cairnloop_tool_action_events) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    alter table(:cairnloop_tool_action_events, prefix: prefix) do
       modify(:to_status, :string, null: true, from: {:string, null: false})
     end
   end

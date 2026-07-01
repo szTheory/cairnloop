@@ -9,7 +9,8 @@ defmodule Cairnloop.KnowledgeBaseTest do
       Process.get(:mock_articles, [])
     end
 
-    def one(%Ecto.Query{}) do
+    def one(%Ecto.Query{} = q) do
+      Process.put(:mock_one_query, q)
       Process.get(:mock_repo_one_result)
     end
 
@@ -21,11 +22,18 @@ defmodule Cairnloop.KnowledgeBaseTest do
       end
     end
 
-    def insert(changeset, _opts \\ []) do
+    def get!(schema, id, opts) do
+      Process.put(:mock_get_bang_opts, {schema, id, opts})
+      get!(schema, id)
+    end
+
+    def insert(changeset, opts \\ []) do
+      Process.put(:mock_insert_opts, opts)
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
 
-    def update(changeset, _opts \\ []) do
+    def update(changeset, opts \\ []) do
+      Process.put(:mock_update_opts, opts)
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
 
@@ -34,16 +42,19 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       results =
         Enum.reduce(operations, %{}, fn
-          {name, {:insert, changeset, _}}, acc ->
+          {name, {:insert, changeset, opts}}, acc ->
             inserted = Ecto.Changeset.apply_changes(changeset)
             send(self(), {:multi_insert, name, inserted})
+            Process.put({:mock_multi_opts, name}, opts)
             Map.put(acc, name, inserted)
 
-          {name, {:update, changeset, _}}, acc when is_map(changeset) ->
+          {name, {:update, changeset, opts}}, acc when is_map(changeset) ->
+            Process.put({:mock_multi_opts, name}, opts)
             Map.put(acc, name, Ecto.Changeset.apply_changes(changeset))
 
-          {name, {:update, run_fn, _}}, acc when is_function(run_fn) ->
+          {name, {:update, run_fn, opts}}, acc when is_function(run_fn) ->
             {:ok, result} = run_fn.(__MODULE__, acc)
+            Process.put({:mock_multi_opts, name}, opts)
             Map.put(acc, name, result)
 
           {name, {:run, run_fn}}, acc ->
@@ -57,6 +68,10 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.delete(:mock_insert_opts)
+    Process.delete(:mock_update_opts)
+    Process.delete(:mock_get_bang_opts)
+    Process.delete(:mock_one_query)
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
@@ -71,6 +86,7 @@ defmodule Cairnloop.KnowledgeBaseTest do
       Process.put(:mock_repo_one_result, mock_rev)
 
       assert ^mock_rev = KnowledgeBase.get_latest_active_revision(42)
+      assert Process.get(:mock_one_query).prefix == "cairnloop"
     end
   end
 
@@ -89,6 +105,7 @@ defmodule Cairnloop.KnowledgeBaseTest do
       assert revision.version == 2
       assert revision.state == :draft
       assert revision.content == "new content"
+      assert Keyword.get(Process.get({:mock_multi_opts, :revision}), :prefix) == "cairnloop"
     end
 
     test "updates the existing draft if latest revision is a draft" do
@@ -116,6 +133,10 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       assert {:ok, published_revision} = KnowledgeBase.publish_revision(revision)
       assert published_revision.state == :published
+      assert {Article, 42, opts} = Process.get(:mock_get_bang_opts)
+      assert Keyword.get(opts, :prefix) == "cairnloop"
+      assert Keyword.get(Process.get({:mock_multi_opts, :revision}), :prefix) == "cairnloop"
+      assert Keyword.get(Process.get(:mock_update_opts), :prefix) == "cairnloop"
     end
 
     test "enqueues the chunk indexing job transactionally" do
@@ -139,6 +160,8 @@ defmodule Cairnloop.KnowledgeBaseTest do
 
       result = KnowledgeBase.list_articles([])
       assert result == articles
+      assert_received {:list_query, q}
+      assert q.prefix == "cairnloop"
     end
 
     test "query has desc order_bys on inserted_at and id" do
@@ -170,6 +193,14 @@ defmodule Cairnloop.KnowledgeBaseTest do
       KnowledgeBase.list_articles([])
       assert_received {:list_query, q}
       assert q.wheres == []
+    end
+  end
+
+  describe "search_chunks/2" do
+    test "queries chunks through the configured prefix" do
+      assert [] = KnowledgeBase.search_chunks(List.duplicate(0.0, 1536), 3)
+      assert_received {:list_query, q}
+      assert q.prefix == "cairnloop"
     end
   end
 end

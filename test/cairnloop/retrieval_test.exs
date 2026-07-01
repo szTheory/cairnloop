@@ -2,6 +2,7 @@ defmodule Cairnloop.RetrievalTest do
   use ExUnit.Case, async: false
 
   alias Cairnloop.Retrieval
+  alias Cairnloop.Retrieval.Providers
   alias Cairnloop.Retrieval.Result
 
   defmodule KnowledgeBaseProviderMock do
@@ -79,6 +80,33 @@ defmodule Cairnloop.RetrievalTest do
       send(self(), :ranker_merge_called)
       []
     end
+  end
+
+  defmodule PrefixRepoMock do
+    def all(%Ecto.Query{} = query) do
+      send(self(), {:repo_all_query, query})
+      []
+    end
+  end
+
+  defp use_repo(repo) do
+    original = Application.get_env(:cairnloop, :repo)
+    Application.put_env(:cairnloop, :repo, repo)
+
+    on_exit(fn ->
+      if original do
+        Application.put_env(:cairnloop, :repo, original)
+      else
+        Application.delete_env(:cairnloop, :repo)
+      end
+    end)
+  end
+
+  defp join_source_prefixes(%Ecto.Query{} = query) do
+    Enum.map(query.joins, fn
+      %{source: %Ecto.Query{prefix: prefix}} -> prefix
+      %{prefix: prefix} -> prefix
+    end)
   end
 
   test "search/2 normalizes result labeling and prefers knowledge-base truth" do
@@ -238,5 +266,37 @@ defmodule Cairnloop.RetrievalTest do
              )
 
     refute_received :ranker_merge_called
+  end
+
+  test "knowledge-base provider queries use the configured support prefix" do
+    use_repo(PrefixRepoMock)
+
+    assert [] = Providers.KnowledgeBase.keyword_candidates("billing export", 2)
+    assert_received {:repo_all_query, query}
+    assert query.prefix == "cairnloop"
+    assert join_source_prefixes(query) == ["cairnloop", "cairnloop"]
+  end
+
+  test "resolved-case provider queries use the configured support prefix" do
+    use_repo(PrefixRepoMock)
+
+    assert [] =
+             Providers.ResolvedCases.keyword_candidates("billing export", 2,
+               host_user_id: "operator_1"
+             )
+
+    assert_received {:repo_all_query, query}
+    assert query.prefix == "cairnloop"
+    assert join_source_prefixes(query) == ["cairnloop"]
+  end
+
+  test "system health qualifies support tables while keeping Oban host-owned" do
+    source = File.read!("lib/cairnloop/retrieval.ex")
+
+    assert source =~ ~s|SchemaPrefix.quoted_table("cairnloop_chunks")|
+    assert source =~ "FROM oban_jobs"
+    assert source =~ "from(job in Oban.Job"
+    refute source =~ ~s|SchemaPrefix.quoted_table("oban_jobs")|
+    refute source =~ "prefixed(Oban.Job)"
   end
 end

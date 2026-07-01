@@ -15,6 +15,13 @@ defmodule Cairnloop.Retrieval.GapRecorder do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
   def record(attrs, opts \\ []) do
     normalized_attrs = normalize_attrs(attrs, opts)
 
@@ -24,8 +31,12 @@ defmodule Cairnloop.Retrieval.GapRecorder do
 
       nil ->
         Ecto.Multi.new()
-        |> Ecto.Multi.insert(:gap_event, GapEvent.changeset(%GapEvent{}, normalized_attrs))
-        |> repo().transaction()
+        |> Ecto.Multi.insert(
+          :gap_event,
+          GapEvent.changeset(%GapEvent{}, normalized_attrs),
+          repo_opts()
+        )
+        |> repo().transaction(repo_opts())
         |> case do
           {:ok, %{gap_event: gap_event}} ->
             _ = maybe_schedule_prune(opts)
@@ -45,9 +56,10 @@ defmodule Cairnloop.Retrieval.GapRecorder do
     limit = Keyword.get(opts, :limit, 50)
 
     GapEvent
+    |> prefixed()
     |> order_by([gap_event], desc: gap_event.occurred_at, desc: gap_event.inserted_at)
     |> limit(^limit)
-    |> repo().all()
+    |> repo().all(repo_opts())
   end
 
   defp maybe_schedule_prune(opts) do
@@ -292,6 +304,7 @@ defmodule Cairnloop.Retrieval.GapRecorder do
       DateTime.add(attrs.occurred_at, -@assistive_search_dedupe_window_seconds, :second)
 
     GapEvent
+    |> prefixed()
     |> where([gap_event], gap_event.occurred_at >= ^window_start)
     |> where([gap_event], gap_event.query_fingerprint == ^attrs.query_fingerprint)
     |> where([gap_event], gap_event.tenant_scope == ^attrs.tenant_scope)
@@ -302,6 +315,6 @@ defmodule Cairnloop.Retrieval.GapRecorder do
     |> where([gap_event], gap_event.reason == ^attrs.reason)
     |> order_by([gap_event], desc: gap_event.occurred_at, desc: gap_event.inserted_at)
     |> limit(1)
-    |> repo().one()
+    |> repo().one(repo_opts())
   end
 end

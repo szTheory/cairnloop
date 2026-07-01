@@ -11,6 +11,13 @@ defmodule Cairnloop.Retrieval.Workers.PruneGapEvents do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
   def retention_days, do: @retention_days
 
   def new_job(args \\ %{}, opts \\ []) do
@@ -57,8 +64,9 @@ defmodule Cairnloop.Retrieval.Workers.PruneGapEvents do
 
   defp delete_before(cutoff) do
     GapEvent
+    |> prefixed()
     |> where([gap_event], gap_event.occurred_at < ^cutoff)
-    |> repo().delete_all()
+    |> repo().delete_all(repo_opts())
   end
 
   defp normalize_retention_days(value) when is_integer(value) and value > 0, do: value

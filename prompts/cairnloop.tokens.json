@@ -9,7 +9,7 @@
   "color": {
     "primitive": {
       "basalt": {
-        "value": "#18211F",
+        "value": "#141B19",
         "description": "core text / dark surface"
       },
       "moss_ink": {
@@ -17,23 +17,23 @@
         "description": "secondary dark / deep UI"
       },
       "trailpaper": {
-        "value": "#F5F0E6",
+        "value": "#F4EEE2",
         "description": "main canvas"
       },
       "warm_stone": {
-        "value": "#FBF7EE",
+        "value": "#FAF5EB",
         "description": "card surface"
       },
       "granite": {
-        "value": "#D8D0BF",
+        "value": "#8E8068",
         "description": "quiet border"
       },
       "slate_lichen": {
-        "value": "#677066",
+        "value": "#5E665D",
         "description": "muted text / disabled"
       },
       "path_copper": {
-        "value": "#A94F30",
+        "value": "#A8492A",
         "description": "primary action / active route"
       },
       "copper_glow": {
@@ -70,35 +70,35 @@
       }
     },
     "semantic_light": {
-      "bg": "#F5F0E6",
-      "surface": "#FBF7EE",
+      "bg": "#F4EEE2",
+      "surface": "#FAF5EB",
       "surface_raised": "#FFFFFF",
-      "text": "#18211F",
-      "text_muted": "#677066",
-      "border": "#D8D0BF",
-      "primary": "#A94F30",
+      "text": "#141B19",
+      "text_muted": "#5E665D",
+      "border": "#8E8068",
+      "primary": "#A8492A",
       "primary_text": "#FFFFFF",
       "success": "#4A6238",
       "info": "#3F6F80",
       "ai": "#7A5D78",
       "warning": "#8B531E",
       "danger": "#B54C36",
-      "focus": "#A94F30"
+      "focus": "#A8492A"
     },
     "semantic_dark": {
       "bg": "#101614",
-      "surface": "#18211F",
+      "surface": "#141B19",
       "surface_raised": "#1F2C28",
       "text": "#F5F0E6",
       "text_muted": "#B7C0B2",
-      "border": "#34443D",
+      "border": "#5B7066",
       "primary": "#D98A4A",
       "primary_text": "#18211F",
       "success": "#A8B56C",
       "info": "#9EC3CF",
       "ai": "#C9A7C6",
       "warning": "#D98A4A",
-      "danger": "#E18C7D",
+      "danger": "#C96A55",
       "focus": "#D98A4A"
     }
   },

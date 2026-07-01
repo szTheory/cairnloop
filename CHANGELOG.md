@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Add a Docker-first demo path with `./bin/demo`, seeded Trailmark fixtures, route smoke checks,
+  and a dedicated demo-smoke GitHub Actions workflow.
+- Add the final Cairnloop brand foundation: logo family, refined tokens, offline HTML brand book,
+  README/example collateral, and package-boundary proof.
+- Add host-app trust hardening for customer/operator identity separation, widget/email/MCP ingress,
+  optional Scrypath side effects, dedicated-schema installs, and doctor-led readiness diagnostics.
+
+### Changed
+
+- Rework the operator cockpit around shared `.cl-*` page primitives, queue-first Home IA,
+  breadcrumbs, responsive behavior, progressive disclosure, and restrained CSS-only motion.
+- Align installer, ExDoc, upgrade, security, changelog, package metadata, CI/release guardrails,
+  and guide assets with the current v0.5.1 public package surface.
+- Keep this work unreleased for Hex.pm until a separate release pass explicitly opts in.
+
 ## [0.5.1](https://github.com/szTheory/cairnloop/compare/v0.5.0...v0.5.1) (2026-06-03)
 
 
@@ -76,8 +95,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **0.2.1:** repair AUDIT-01 audit log + OPS endpoints; adopt release-please ([bb74b1a](https://github.com/szTheory/cairnloop/commit/bb74b1af1dcd89573d070d0c3bb20eacb3cfe4e3))
 * **0.2.1:** repair AUDIT-01 audit log + OPS health/metrics mounting ([62b7989](https://github.com/szTheory/cairnloop/commit/62b7989b00bd6f1f82b3c5abc1ebbf81026a795a))
 
-## [Unreleased]
-
 ## [0.2.0] - 2026-05-29
 
 ### Added
@@ -120,6 +137,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bounded `[:cairnloop, :retrieval, …]` and `Cairnloop.Governance.Telemetry` event namespaces
 - Read-only MCP seam (`tools/list`, `initialize`) via optional `Cairnloop.Web.MCP.Router` Plug
 
-[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/szTheory/cairnloop/compare/v0.5.1...HEAD
 [0.2.0]: https://github.com/szTheory/cairnloop/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/szTheory/cairnloop/releases/tag/v0.1.0

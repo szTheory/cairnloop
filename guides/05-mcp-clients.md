@@ -8,24 +8,20 @@ Because Cairnloop is embedded in your application, these tools have direct, secu
 
 By default, the Cairnloop router macros do not expose the MCP endpoint to the public internet. You must explicitly mount it in your `router.ex`.
 
-Since MCP clients expect a Bearer token, you should protect this endpoint using the `Cairnloop.Web.MCP.Auth` Plug, which validates tokens against your database.
+`Cairnloop.Web.MCP.Router` runs `Cairnloop.Web.MCP.AuthPlug` internally. The plug validates Bearer tokens against the configured Cairnloop repo and assigns `conn.assigns.mcp_token` for the router's token-required methods. You may still put your own host auth, rate limiting, or network controls before the forward, but Cairnloop's MCP Bearer token check remains required for JSON-RPC tool access.
 
 ```elixir
 # lib/my_app_web/router.ex
 
-pipeline :mcp_auth do
-  plug Cairnloop.Web.MCP.Auth
-end
-
 scope "/mcp" do
-  pipe_through :mcp_auth
-
-  # The MCP router handles both tools/list and tools/call
+  # The MCP router handles initialize, tools/list, and tools/call.
   forward "/", Cairnloop.Web.MCP.Router
 end
 ```
 
 With this configuration, your MCP endpoint is available at `https://your-app.com/mcp`.
+
+Public well-known OAuth/resource metadata may remain mounted for MCP client discovery. Treat that metadata as the public discovery surface only; `initialize`, `tools/list`, and `tools/call` require a valid Bearer token and return HTTP 401 before exposing capabilities, tool metadata, or governed write surfaces.
 
 ## 2. Generate a Bearer Token
 
@@ -34,7 +30,9 @@ MCP clients authenticate using a Bearer token. You can generate these tokens dir
 1. Navigate to the **Settings** surface in the Cairnloop dashboard (e.g., `/support/settings`).
 2. Locate the **MCP Access Tokens** section.
 3. Click **Generate Token**.
-4. Copy the generated token immediately. (It begins with `cl_mcp_...`). For security, the raw token is never stored in the database—only its SHA-256 hash is retained.
+4. Copy the generated raw token immediately. Treat it as an opaque copy-once value: Cairnloop does not
+   promise a stable public prefix or parseable token shape. For security, the raw token is never stored
+   in the database - only its SHA-256 hash is retained.
 
 ## 3. Configure Your Client
 
@@ -49,7 +47,7 @@ To add Cairnloop as an MCP server in Cursor:
 3. Add a new server:
    - **Name:** Cairnloop (or your app's name)
    - **Type:** command
-   - **Command:** Use a script that bridges HTTP to stdio (since Cursor natively expects stdio servers), or use a community HTTP MCP bridge, passing the URL `https://your-app.com/mcp` and the `Authorization: Bearer cl_mcp_***` header.
+   - **Command:** Use a script that bridges HTTP to stdio (since Cursor natively expects stdio servers), or use a community HTTP MCP bridge, passing the URL `https://your-app.com/mcp` and an `Authorization: Bearer <raw-token>` header.
 
 ### Example: Claude Desktop
 
@@ -66,7 +64,7 @@ If you are using Claude Desktop with an HTTP-to-stdio bridge, configure your `cl
         "--url",
         "https://your-app.com/mcp",
         "--header",
-        "Authorization: Bearer cl_mcp_your_token_here"
+        "Authorization: Bearer paste_the_raw_token_here"
       ]
     }
   }
@@ -75,8 +73,10 @@ If you are using Claude Desktop with an HTTP-to-stdio bridge, configure your `cl
 
 ## How It Works
 
-When an MCP client connects and issues a `tools/list` request, Cairnloop dynamically projects your registered `Cairnloop.Tool` implementations into the JSON-RPC response.
+When an MCP client connects with a valid Bearer token and issues an `initialize` request, Cairnloop returns the MCP protocol version and capabilities. When it issues a valid-token `tools/list` request, Cairnloop dynamically projects your registered `Cairnloop.Tool` implementations into the JSON-RPC response.
 
-When the client issues a `tools/call` request, Cairnloop does *not* execute the tool blindly. Instead, the request is intercepted by the `ToolCallHandler`, which passes it through the exact same `Cairnloop.Governance.propose/3` pipeline used by human operators. 
+When the client issues a valid-token `tools/call` request, Cairnloop does *not* execute the tool blindly. Instead, the request is routed through the exact same `Cairnloop.Governance.propose/3` pipeline used by human operators. That means MCP writes create a governed proposal; this is not inline `run/3` execution.
 
 If the tool's automation policy requires approval (`:require_approval`), the tool call returns a "Proposal created" message synchronously to the AI, and a human operator must approve the execution from the Cairnloop dashboard.
+
+Requests to `initialize`, `tools/list`, and `tools/call` without a valid Bearer token fail closed with HTTP 401 and `WWW-Authenticate: Bearer`. Malformed JSON and unsupported methods still use JSON-RPC error envelopes when the request is not trying to access a token-required method.

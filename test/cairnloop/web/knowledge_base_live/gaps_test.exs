@@ -97,6 +97,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       end
     end
 
+    def all(queryable, _opts), do: all(queryable)
+
     def one!(%Ecto.Query{} = query) do
       Process.put(:live_last_one_query, query)
 
@@ -112,6 +114,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       end
     end
 
+    def one!(query, _opts), do: one!(query)
+
     def one(%Ecto.Query{} = query) do
       Process.put(:live_last_one_query, query)
 
@@ -123,6 +127,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
           nil
       end
     end
+
+    def one(query, _opts), do: one(query)
 
     def insert(%Ecto.Changeset{} = changeset) do
       if changeset.valid? do
@@ -141,7 +147,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       end
     end
 
+    def insert(changeset, _opts), do: insert(changeset)
+
     def preload(record, _fields), do: record
+    def preload(record, fields, _opts), do: preload(record, fields)
 
     defp store_inserted(%ArticleSuggestion{} = suggestion) do
       Process.put(:live_last_inserted_suggestion, suggestion)
@@ -229,6 +238,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     end)
 
     :ok
+  end
+
+  test "KB Gaps renders inside cl-page--wide with title, subtitle, and subnav" do
+    {:ok, socket} = Gaps.mount(%{}, %{}, %Phoenix.LiveView.Socket{})
+    html = render_html(socket.assigns)
+
+    assert html =~ ~s(cl-page cl-page--wide)
+    assert html =~ ~s(cl-page__title)
+    assert html =~ "Knowledge gaps"
+    assert html =~ ~s(cl-page__subnav)
+    assert html =~ "Ranked maintenance signals"
   end
 
   test "operators can navigate to /knowledge-base/gaps from the dashboard shell" do
@@ -477,7 +497,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     Process.put(:live_gap_events, [
       %GapEvent{
         id: 301,
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
@@ -499,7 +519,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       },
       %GapEvent{
         id: 302,
-        occurred_at: ~U[2026-05-22 10:00:00Z],
+        occurred_at: ~U[2026-06-22 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
@@ -596,7 +616,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
     Process.put(:live_gap_events, [
       %GapEvent{
         id: 10,
-        occurred_at: ~U[2026-05-21 08:00:00Z],
+        occurred_at: ~U[2026-06-21 08:00:00Z],
         surface: :draft_generation,
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
@@ -611,7 +631,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       },
       %GapEvent{
         id: 301,
-        occurred_at: ~U[2026-05-21 10:00:00Z],
+        occurred_at: ~U[2026-06-21 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :weak_grounding,
         reason: :canonical_insufficient_detail,
@@ -633,7 +653,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
       },
       %GapEvent{
         id: 302,
-        occurred_at: ~U[2026-05-22 10:00:00Z],
+        occurred_at: ~U[2026-06-22 10:00:00Z],
         surface: :draft_generation,
         outcome_class: :policy_limit,
         reason: :clarification_limit_reached,
@@ -664,7 +684,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
         resolution_note: "Agent walked through the export manually.",
         actions_taken: ["shared export steps"],
         outcome: "resolved",
-        resolved_at: ~U[2026-05-21 07:30:00Z]
+        resolved_at: ~U[2026-06-21 07:30:00Z]
       }
     ])
 
@@ -724,6 +744,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.GapsTest do
 
     {:ok, index_socket} =
       Index.mount(%{}, %{"host_user_id" => "user-1"}, %Phoenix.LiveView.Socket{})
+
+    index_socket = %{index_socket | assigns: Map.put(index_socket.assigns, :flash, %{})}
 
     {:noreply, index_socket} =
       Index.handle_event("suggest_revision", %{"article_id" => "77"}, index_socket)

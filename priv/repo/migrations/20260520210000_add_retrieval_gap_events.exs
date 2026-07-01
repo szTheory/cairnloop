@@ -2,7 +2,10 @@ defmodule Cairnloop.Repo.Migrations.AddRetrievalGapEvents do
   use Ecto.Migration
 
   def change do
-    create table(:cairnloop_retrieval_gap_events) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+    ensure_schema(prefix)
+
+    create table(:cairnloop_retrieval_gap_events, prefix: prefix) do
       add(:occurred_at, :utc_datetime_usec, null: false)
       add(:surface, :string, null: false)
       add(:outcome_class, :string, null: false)
@@ -18,12 +21,21 @@ defmodule Cairnloop.Repo.Migrations.AddRetrievalGapEvents do
       timestamps(updated_at: false, type: :utc_datetime_usec)
     end
 
-    create(index(:cairnloop_retrieval_gap_events, [:occurred_at]))
-    create(index(:cairnloop_retrieval_gap_events, [:surface]))
-    create(index(:cairnloop_retrieval_gap_events, [:outcome_class]))
-    create(index(:cairnloop_retrieval_gap_events, [:reason]))
-    create(index(:cairnloop_retrieval_gap_events, [:host_user_id]))
-    create(index(:cairnloop_retrieval_gap_events, [:tenant_scope]))
-    create(index(:cairnloop_retrieval_gap_events, [:query_fingerprint]))
+    create(index(:cairnloop_retrieval_gap_events, [:occurred_at], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:surface], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:outcome_class], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:reason], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:host_user_id], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:tenant_scope], prefix: prefix))
+    create(index(:cairnloop_retrieval_gap_events, [:query_fingerprint], prefix: prefix))
+  end
+
+  defp ensure_schema(nil), do: :ok
+
+  defp ensure_schema(prefix) do
+    execute(
+      "CREATE SCHEMA IF NOT EXISTS #{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+      "SELECT 1"
+    )
   end
 end

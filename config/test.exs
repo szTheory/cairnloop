@@ -32,6 +32,17 @@ config :cairnloop, ecto_repos: [Cairnloop.Repo]
 # Application.fetch_env!(:cairnloop, :repo). Headless tests override per-test.
 config :cairnloop, :repo, Cairnloop.Repo
 
+# Phase 59 default: tests compile against the dedicated Cairnloop support schema. Existing
+# public-schema compatibility is exercised by compiling with CAIRNLOOP_SCHEMA_PREFIX=public.
+schema_prefix =
+  case System.get_env("CAIRNLOOP_SCHEMA_PREFIX", "cairnloop") do
+    "" -> nil
+    "nil" -> nil
+    value -> value
+  end
+
+config :cairnloop, :schema_prefix, schema_prefix
+
 # NOTE on Oban: Cairnloop is a library and ships NO Oban migration (the host owns
 # the oban_jobs table + Oban runtime). The integration suite therefore drives the
 # approval workers by calling `perform/1` directly (as the headless worker tests do)

@@ -75,6 +75,34 @@ defmodule Cairnloop.Web.AuditLogPresenterTest do
     end
   end
 
+  describe "subject_href/1" do
+    test "returns scope-root-relative path for a positive conversation_id" do
+      assert P.subject_href(%{conversation_id: 7}) == "/7"
+      assert P.subject_href(%{conversation_id: 100}) == "/100"
+    end
+
+    test "returns nil for nil conversation_id" do
+      assert P.subject_href(%{conversation_id: nil}) == nil
+    end
+
+    test "returns nil for a map missing the conversation_id key" do
+      assert P.subject_href(%{}) == nil
+      assert P.subject_href(%{action: :approved}) == nil
+    end
+
+    test "is total — returns nil for non-map and other garbage input" do
+      assert P.subject_href(nil) == nil
+      assert P.subject_href("nope") == nil
+      assert P.subject_href(42) == nil
+    end
+
+    test "path is scope-root-relative — no /support or mount prefix" do
+      href = P.subject_href(%{conversation_id: 5})
+      assert href == "/5"
+      refute String.starts_with?(href || "", "/support")
+    end
+  end
+
   describe "matches?/2" do
     setup do
       %{

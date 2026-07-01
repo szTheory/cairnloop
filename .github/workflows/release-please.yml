@@ -7,34 +7,35 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
-# Opt into Node.js 24 for all actions (actions/checkout, actions/cache, etc.)
-# GitHub forces this default on June 2, 2026 — opting in early avoids surprise breakage.
 env:
-  ACTIONS_RUNNER_NODE_VERSION: "24"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
   group: release-please-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       version: ${{ steps.release.outputs.version }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       sha: ${{ steps.release.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Run Release Please
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           token: ${{ secrets.RP_PAT || secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
@@ -54,31 +55,85 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release-please]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
     env:
       HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+      ELIXIR_VERSION: "1.19.5"
+      OTP_VERSION: "27.2"
+      MIX_CACHE_VERSION: "v1"
+      MIX_ENV: dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ needs.release-please.outputs.sha }}
+          persist-credentials: false
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.5"
-          otp-version: "27.2"
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Restore Mix deps cache
+        id: mix-deps-cache
+        uses: actions/cache@v6
+        with:
+          path: deps
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-
+
+      - name: Restore Mix build cache
+        id: mix-build-cache
+        uses: actions/cache@v6
+        with:
+          path: _build/dev
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-build-dev-publish-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock', 'mix.exs', 'config/*.exs') }}
+
+      - name: Release publish summary
+        run: |
+          {
+            echo "## Release publish"
+            echo "- version: ${{ needs.release-please.outputs.version }}"
+            echo "- tag: ${{ needs.release-please.outputs.tag_name }}"
+            echo "- release SHA: ${{ needs.release-please.outputs.sha }}"
+            echo "- Elixir/OTP: $(elixir -e 'IO.write(System.version() <> \"/\" <> :erlang.system_info(:otp_release))')"
+            echo "- deps cache hit: ${{ steps.mix-deps-cache.outputs.cache-hit }}"
+            echo "- build cache hit: ${{ steps.mix-build-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preflight Hex token
+        run: |
+          if [ -z "$HEX_API_KEY" ]; then
+            echo "::error::HEX_API_KEY is not configured; refusing to start publish steps."
+            exit 1
+          fi
 
       - name: Install dependencies
-        run: mix deps.get
+        run: mix deps.get --check-locked
+
+      - name: Release quality preflight
+        run: |
+          start="$(date +%s)"
+          mix ci.quality
+          end="$(date +%s)"
+          echo "- quality preflight seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish dry run
-        run: mix hex.publish --dry-run
+        run: |
+          start="$(date +%s)"
+          mix hex.publish --dry-run
+          end="$(date +%s)"
+          echo "- publish dry-run seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
       # Verify the packaged tarball actually contains the files we promise in `:files`, before the
       # irreversible publish. A Hex release is permanent after a ~60-minute revert window, so a
       # `:files`-glob regression (e.g. dropping `guides` or `priv`) must fail here, not after ship.
       - name: Verify packaged artifact contents
         run: |
+          start="$(date +%s)"
           mix hex.build
           tarball="$(ls cairnloop-*.tar | head -1)"
           echo "Inspecting packaged artifact: $tarball"
@@ -89,15 +144,26 @@ jobs:
               || { echo "::error::packaged artifact is missing expected path: $expected"; exit 1; }
           done
           echo "Packaged artifact contains all expected top-level paths."
+          end="$(date +%s)"
+          echo "- package inspection seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish package
-        run: mix hex.publish --yes
+        run: |
+          start="$(date +%s)"
+          mix hex.publish --yes
+          end="$(date +%s)"
+          echo "- hex publish seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify Hex package release
-        run: mix hex.info cairnloop "${{ needs.release-please.outputs.version }}"
+        run: |
+          start="$(date +%s)"
+          mix hex.info cairnloop "${{ needs.release-please.outputs.version }}"
+          end="$(date +%s)"
+          echo "- hex info seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify HexDocs release
         run: |
+          start="$(date +%s)"
           # Authoritative check: the docs are retrievable from Hex's docs store. If this
           # fails, docs were genuinely not published — fail the step.
           mix hex.docs fetch cairnloop "${{ needs.release-please.outputs.version }}"
@@ -105,14 +171,21 @@ jobs:
           # Best-effort: wait for the public hexdocs.pm CDN to propagate. This step runs AFTER
           # an already-successful publish, so CDN propagation lag must NOT fail a shipped
           # release — warn and pass instead of flapping red.
+          hexdocs_live=false
           for attempt in $(seq 1 10); do
             if curl --fail --silent --show-error --location \
               "https://hexdocs.pm/cairnloop/${{ needs.release-please.outputs.version }}/" >/dev/null; then
-              echo "HexDocs is live."
-              exit 0
+              hexdocs_live=true
+              break
             fi
             sleep 30
           done
 
-          echo "::warning::HexDocs CDN not yet propagated for ${{ needs.release-please.outputs.version }} after ~5m; docs were published to Hex (fetch succeeded above). Propagation lag, not a publish failure."
-          exit 0
+          if [ "$hexdocs_live" = "true" ]; then
+            echo "HexDocs is live."
+          else
+            echo "::warning::HexDocs CDN not yet propagated for ${{ needs.release-please.outputs.version }} after ~5m; docs were published to Hex (fetch succeeded above). Propagation lag, not a publish failure."
+          fi
+
+          end="$(date +%s)"
+          echo "- hexdocs verification seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"

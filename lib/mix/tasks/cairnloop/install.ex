@@ -12,6 +12,8 @@ defmodule Mix.Tasks.Cairnloop.Install do
 
   use Igniter.Mix.Task
 
+  @cairnloop_version Mix.Project.config()[:version]
+
   @impl Igniter.Mix.Task
   def info(_argv, _composing_task) do
     %Igniter.Mix.Task.Info{
@@ -24,7 +26,7 @@ defmodule Mix.Tasks.Cairnloop.Install do
   @impl Igniter.Mix.Task
   def igniter(igniter) do
     igniter
-    |> Igniter.Project.Deps.add_dep({:cairnloop, "~> 0.3"})
+    |> Igniter.Project.Deps.add_dep({:cairnloop, "~> #{@cairnloop_version}"})
     |> add_base_migration()
     |> Igniter.add_notice(next_steps_notice())
   end
@@ -44,26 +46,36 @@ defmodule Mix.Tasks.Cairnloop.Install do
           "create_cairnloop_tables",
           body: """
             def change do
-              create table(:cairnloop_conversations) do
+              prefix = Cairnloop.SchemaPrefix.configured()
+
+              if prefix do
+                execute(
+                  "CREATE SCHEMA IF NOT EXISTS \#{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+                  "SELECT 1"
+                )
+              end
+
+              create table(:cairnloop_conversations, prefix: prefix) do
                 add :status, :string, null: false
                 add :subject, :string
                 add :host_user_id, :string
+                add :customer_ref, :string
                 add :resolved_at, :utc_datetime_usec
                 add :csat_rating, :string
 
                 timestamps()
               end
 
-              create table(:cairnloop_messages) do
+              create table(:cairnloop_messages, prefix: prefix) do
                 add :content, :text, null: false
                 add :role, :string, null: false
                 add :metadata, :map
-                add :conversation_id, references(:cairnloop_conversations, on_delete: :delete_all), null: false
+                add :conversation_id, references(:cairnloop_conversations, prefix: prefix, on_delete: :delete_all), null: false
 
                 timestamps()
               end
 
-              create index(:cairnloop_messages, [:conversation_id])
+              create index(:cairnloop_messages, [:conversation_id], prefix: prefix)
             end
           """,
           on_exists: :skip
@@ -96,15 +108,41 @@ defmodule Mix.Tasks.Cairnloop.Install do
                session: {MyAppWeb.UserAuth, :cairnloop_session, []}
            end
 
-      2. Surface governed-action events in the audit log:
+      2. Configure Cairnloop to use your Ecto repo:
+
+           config :cairnloop, :repo, MyApp.Repo
+
+         New installs default Cairnloop support tables to the `cairnloop` Postgres schema:
+
+           config :cairnloop, :schema_prefix, "cairnloop"
+
+         Existing public-schema installs can explicitly keep public compatibility while migrating:
+
+           config :cairnloop, :schema_prefix, "public"
+
+         The legacy `nil` value is also accepted for existing public-schema installs, but new
+         compatibility configuration should prefer `"public"` because it is explicit.
+
+         Existing installs should add a nullable `customer_ref` column to their Cairnloop
+         conversations table before enabling the Phase 58 widget verifier path. Keep
+         `host_user_id` for signed-in operator/governance identity.
+
+      3. Surface governed-action events in the audit log:
 
            config :cairnloop, :auditor, Cairnloop.Auditor.Governance
 
          (Optional) scaffold a Notifier:  mix cairnloop.gen.notifier
 
-      3. Run the migration:  mix ecto.migrate
+      4. Run the host migration generated in your app, then the Cairnloop dependency migrations:
 
-      4. Verify the wiring:  mix cairnloop.doctor
+           mix ecto.migrate
+           mix ecto.migrate --migrations-path deps/cairnloop/priv/repo/migrations
+
+         Cairnloop migrations read `:schema_prefix` and qualify their own tables in source.
+         Do not use `mix ecto.migrate --prefix cairnloop` as a shortcut; that can move
+         migrator bookkeeping and still would not fix raw SQL, triggers, or generated host DDL.
+
+      5. Verify the wiring:  mix cairnloop.doctor
     """
   end
 end

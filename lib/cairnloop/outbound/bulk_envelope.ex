@@ -46,6 +46,7 @@ defmodule Cairnloop.Outbound.BulkEnvelope do
   underlying table definition (D-15).
   """
   use Ecto.Schema
+  @schema_prefix Application.compile_env(:cairnloop, :schema_prefix, "cairnloop")
   import Ecto.Changeset
 
   @primary_key {:id, :binary_id, autogenerate: false}

@@ -18,10 +18,13 @@ defmodule Cairnloop.Repo.Migrations.AddExecutionOutcomeIndex do
   use Ecto.Migration
 
   def change do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
     create(
       index(:cairnloop_tool_approvals, [:status, :decided_at],
         name: :cairnloop_tool_approvals_execution_outcome_index,
-        where: "status IN ('executed', 'execution_failed')"
+        where: "status IN ('executed', 'execution_failed')",
+        prefix: prefix
       )
     )
   end

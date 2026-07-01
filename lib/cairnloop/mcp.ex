@@ -8,6 +8,12 @@ defmodule Cairnloop.MCP do
 
   alias Cairnloop.MCP.Token
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   @doc """
   Issues a new token.
   Returns `{:ok, token_record, raw_token_string}` on success.
@@ -21,7 +27,7 @@ defmodule Cairnloop.MCP do
 
     %Token{}
     |> Token.changeset(attrs)
-    |> repo().insert()
+    |> repo().insert(repo_opts())
     |> case do
       {:ok, token} -> {:ok, token, raw_token}
       {:error, changeset} -> {:error, changeset}
@@ -36,7 +42,7 @@ defmodule Cairnloop.MCP do
     token_hash = :crypto.hash(:sha256, raw_token)
 
     query =
-      from(t in Token,
+      from(t in prefixed(Token),
         where: t.token_hash == ^token_hash,
         where: is_nil(t.revoked_at),
         where: is_nil(t.expires_at) or t.expires_at > ^DateTime.utc_now()
@@ -56,7 +62,7 @@ defmodule Cairnloop.MCP do
   def update_token(%Token{} = token, attrs) do
     token
     |> Token.changeset(attrs)
-    |> repo().update()
+    |> repo().update(repo_opts())
   end
 
   @doc """
@@ -65,7 +71,7 @@ defmodule Cairnloop.MCP do
   def revoke_token(%Token{} = token) do
     token
     |> Token.changeset(%{revoked_at: DateTime.utc_now()})
-    |> repo().update()
+    |> repo().update(repo_opts())
   end
 
   @doc """
@@ -73,7 +79,7 @@ defmodule Cairnloop.MCP do
   """
   def list_active_tokens do
     repo().all(
-      from(t in Token,
+      from(t in prefixed(Token),
         where: is_nil(t.revoked_at),
         order_by: [desc: t.inserted_at]
       )

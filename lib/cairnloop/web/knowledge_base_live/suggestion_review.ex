@@ -6,7 +6,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
 
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
-  alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter}
+  alias Cairnloop.Web.{ArticleSuggestionPresenter, DashboardPath, ReviewTaskPresenter}
+  alias Cairnloop.Web.BreadcrumbPresenter
 
   def mount(_params, session, socket) do
     scope_filters = scope_filters(session)
@@ -21,7 +22,8 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
        selected_task: selected_task,
        selected_diff: selected_diff(selected_task),
        scope_filters: scope_filters,
-       queue_filter: queue_filter
+       queue_filter: queue_filter,
+       dashboard_path: DashboardPath.from_session(session)
      )}
   end
 
@@ -160,12 +162,14 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           manual_edit_opened_at: opened_at_iso
         )
 
+      editor_path =
+        "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
+          "&review_task_id=#{task.id}&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
+
       {:noreply,
        push_navigate(
          socket,
-         to:
-           "/knowledge-base/#{target_article_id}/edit?suggestion_id=#{suggestion.id}" <>
-             "&review_task_id=#{task.id}&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
+         to: DashboardPath.to(dashboard_path(socket), editor_path)
        )}
     else
       _ ->
@@ -184,23 +188,26 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
   end
 
   def render(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
-    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations()}>
-      <.kb_nav current={:suggestions} />
+    <.cl_shell current={:knowledge} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
+      <.cl_page
+        title="Suggestion review"
+        subtitle="Inspect grounded KB proposals before any manual editing or later publish workflow begins."
+        width="wide"
+      >
+        <:breadcrumb>
+          <.cl_breadcrumb items={BreadcrumbPresenter.suggestions_items(suggestion_review_crumb_title(@selected_task)) |> DashboardPath.scope_items(@dashboard_path)} />
+        </:breadcrumb>
+        <:subnav><.kb_nav current={:suggestions} dashboard_path={@dashboard_path} /></:subnav>
 
-      <header class="cl-mb-7">
-        <h1>Suggestion review</h1>
-        <p class="cl-text-muted">
-          Inspect grounded KB proposals before any manual editing or later publish workflow begins.
-        </p>
-      </header>
-
-      <.cl_card class="cl-mb-7">
+        <.cl_card class="cl-mb-7">
         <:header><h2>Suggestion filters</h2></:header>
         <div class="cl-row cl-row--wrap">
           <.link
             :for={{filter, label} <- ReviewTaskPresenter.queue_filters()}
-            patch={queue_patch(filter, @selected_task)}
+            patch={DashboardPath.to(@dashboard_path, queue_patch(filter, @selected_task))}
             class="cl-button cl-button--ghost cl-button--sm"
           >
             {label}
@@ -217,14 +224,15 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           </p>
         </.cl_empty>
 
-        <table :if={@review_tasks != []} class="cl-table">
+        <div :if={@review_tasks != []} class="cl-table-scroll" role="region" tabindex="0" aria-label="Suggested KB edits">
+        <table class="cl-table">
           <thead>
             <tr><th>Suggestion</th><th>Suggestion status</th><th>Summary</th></tr>
           </thead>
           <tbody>
             <tr :for={task <- @review_tasks} id={"review-task-#{task.id}"}>
               <td>
-                <.link patch={task_patch(task.id, @queue_filter)}>{task_title(task)}</.link>
+                <.link patch={DashboardPath.to(@dashboard_path, task_patch(task.id, @queue_filter))}>{task_title(task)}</.link>
               </td>
               <td>
                 <.cl_chip
@@ -236,6 +244,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
             </tr>
           </tbody>
         </table>
+        </div>
       </.cl_card>
 
       <%= if @selected_task do %>
@@ -350,6 +359,7 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
           <.cl_banner variant="success">{ReviewTaskPresenter.publish_outcome(@selected_task)}</.cl_banner>
         </.cl_card>
       <% end %>
+      </.cl_page>
     </.cl_shell>
     """
   end
@@ -487,9 +497,17 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.SuggestionReview do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
   end
 
+  defp dashboard_path(socket), do: Map.get(socket.assigns, :dashboard_path, "")
+
   defp knowledge_base do
     Application.get_env(:cairnloop, :knowledge_base, Cairnloop.KnowledgeBase)
   end
+
+  # Returns the task title string for the breadcrumb (3-item trail) when a task is
+  # selected, or nil for the 2-item static lane crumb.
+  defp suggestion_review_crumb_title(nil), do: nil
+
+  defp suggestion_review_crumb_title(task), do: task_title(task)
 
   defp scope_filters(session) do
     host_user_id = Map.get(session, "host_user_id") || Map.get(session, :host_user_id)

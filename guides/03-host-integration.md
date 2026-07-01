@@ -11,6 +11,31 @@ as an observability reference.
 
 ---
 
+## Host-Owned Install Boundary
+
+Cairnloop is an embedded library, so the host app remains responsible for route auth and authorization,
+repo config, operator identity injection, Oban supervision, secrets, monitoring, and
+deployment. Cairnloop supplies installer scaffolding, runtime seams, source-qualified migrations,
+and `mix cairnloop.doctor`; it does not replace those host-owned responsibilities.
+
+For new installs, configure the host repo and the dedicated Cairnloop support schema:
+
+```elixir
+config :cairnloop, :repo, MyApp.Repo
+config :cairnloop, :schema_prefix, "cairnloop"
+```
+
+Existing public-schema installs should explicitly pin public compatibility while they plan a data
+migration:
+
+```elixir
+config :cairnloop, :schema_prefix, "public"
+```
+
+Run host migrations first, then Cairnloop dependency migrations without adding a broad
+`--prefix cairnloop` shortcut. Cairnloop migrations read `:schema_prefix` and qualify their own
+objects in source; Oban remains host-owned and is not moved by this setting.
+
 ## ContextProvider
 
 **Module:** `Cairnloop.ContextProvider`
@@ -83,8 +108,9 @@ for the outbound delivery lane (`Outbound.trigger/2` and `bulk_trigger/2` route 
 jobs, or any other side effect your app needs to trigger when support events occur. Cairnloop
 calls these callbacks from within Oban workers — `on_conversation_resolved/2` and
 `on_outbound_triggered/2` each have a dedicated Oban worker, while `on_sla_breach/3` is
-called directly within the SLA countdown worker. Raising in any callback retries the
-enclosing Oban job.
+called directly within the SLA countdown worker. Errors from the resolved and outbound callbacks can
+fail their dedicated workers; SLA breach callback exceptions are logged and swallowed by the
+countdown worker, so enqueue your own durable host job if SLA side effects need retries.
 
 **Callbacks (all three — implement all of them):**
 
@@ -110,11 +136,12 @@ defmodule MyApp.CairnloopNotifier do
     actor = metadata[:actor]
 
     # Enqueue a background job rather than performing the side effect inline.
-    %{conversation_id: conversation.id, resolved_by_id: actor && actor.id}
-    |> MyApp.Workers.CRMSyncJob.new()
-    |> Oban.insert()
-
-    :ok
+    case %{conversation_id: conversation.id, resolved_by_id: actor && actor.id}
+         |> MyApp.Workers.CRMSyncJob.new()
+         |> Oban.insert() do
+      {:ok, _job} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   @impl true
@@ -266,11 +293,15 @@ rather than raising — the support workflow continues without SLA enforcement.
 Cairnloop ships two plain plugs for infrastructure monitoring, mounted with one router
 helper:
 
-- `GET /health` → `Cairnloop.Web.HealthPlug` — liveness/readiness probe; returns
-  `200` with `{"status": "ok"}`.
+- `GET /health` → `Cairnloop.Web.HealthPlug` — liveness only; returns `200` with
+  `{"status": "ok"}`.
 - `GET /metrics` → `Cairnloop.Web.MetricsPlug` — Prometheus text exposition. Returns the
   scrape when `:telemetry_metrics_prometheus_core` is running, or `501` until you add and
   start it.
+
+`/health` does not prove database, Oban, pgvector, notifier, ingress, MCP, or Scrypath readiness.
+Use `mix cairnloop.doctor` for those trust and readiness diagnostics. Doctor names what it can
+prove and labels dependency state it cannot prove as "Not checked here".
 
 **Mounting** (`MyAppWeb.Router`):
 
@@ -310,6 +341,20 @@ rather than crashing.
 
 ---
 
+## Optional Scrypath automation
+
+Scrypath automation is disabled. Resolved conversations will stay inside Cairnloop unless the host opts in.
+
+To opt in, configure `:scrypath_automation_enabled` with a real API URL and API key. Cairnloop
+validates that state before enqueueing external indexing work. Scrypath automation is enabled but
+not ready when the URL or key is missing or still a placeholder; in that state Cairnloop will not
+enqueue external indexing.
+
+`mix cairnloop.doctor` reports disabled, ready, and blocked Scrypath states without printing the
+URL or key. Use the worker tests or a host integration test for the actual external dependency.
+
+---
+
 ## Telemetry (observability only)
 
 Cairnloop emits `:telemetry` events for observability. Per the project's architecture
@@ -319,6 +364,10 @@ for business-logic side effects.
 
 Cairnloop uses a **dual emission** architecture: bounded `:telemetry.span/3` events for
 APM tracing alongside past-tense domain events for business logic hooks.
+
+Default telemetry is bounded. Cairnloop reports event names, durations, outcomes, and durable
+identifiers such as `conversation_id`, not customer message bodies, secrets, or raw payloads.
+Treat telemetry as an observability lane, not a support-content transport or audit source.
 
 ### A. Tracing spans (performance and APMs)
 
@@ -343,8 +392,10 @@ function execution duration.
 
 ### B. Domain events (business lifecycle hooks)
 
-Use past-tense domain events to observe successful business actions. These events carry
-the resolved `Conversation` struct and actor metadata.
+Use past-tense domain events to observe successful business actions. Default conversation lifecycle
+events carry bounded metadata such as `conversation_id`, `operation`, and `outcome`. If you need
+durable support content for a side effect, fetch it inside your own worker or Notifier callback
+after host authorization, not from generic telemetry metadata.
 
 ```elixir
 :telemetry.attach(
@@ -353,16 +404,15 @@ the resolved `Conversation` struct and actor metadata.
   fn _event, measurements, metadata, _config ->
     require Logger
 
-    conversation = metadata.conversation
     Logger.info(
-      "Conversation #{conversation.id} resolved by #{metadata.actor.id} " <>
-      "in #{measurements.duration_seconds}s at #{conversation.resolved_at}"
+      "Cairnloop conversation #{metadata.conversation_id} resolved " <>
+      "in #{measurements.duration_seconds}s"
     )
 
     # Example: broadcast to a LiveView session to surface a CSAT prompt.
     # Phoenix.PubSub.broadcast(
     #   MyApp.PubSub,
-    #   "user_sessions:#{metadata.host_user_id}",
+    #   "support_conversations:#{metadata.conversation_id}",
     #   :support_issue_resolved
     # )
   end,

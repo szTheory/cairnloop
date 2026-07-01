@@ -435,7 +435,7 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
   end
 
   # ---------------------------------------------------------------------------
-  # describe: approval_outlook/1 (or approval_outlook_for_approval/1) (D15-16, 15-04-b)
+  # describe: approval_outlook_for_approval/1 (D15-16, 15-04-b)
   #
   # The Phase 14 honesty seam (approval_outlook/1) becomes real "Pending approval" copy
   # when an active :pending approval exists. No future-tense "Will require".
@@ -443,17 +443,8 @@ defmodule Cairnloop.Web.ToolProposalPresenterTest do
 
   describe "approval_outlook for active :pending approval (D15-16, 15-04-b)" do
     test "returns real 'Pending approval' copy (not future-tense) for :pending approval status" do
-      # D15-16: when an active :pending approval exists, the outlook must be present-tense.
-      # approval_outlook_for_approval/1 takes an approval struct or status.
-      # Use a map to avoid compile-time struct check (ToolApproval added in Wave 1).
       approval = %{status: :pending}
-
-      outlook =
-        if function_exported?(@presenter, :approval_outlook_for_approval, 1) do
-          apply(@presenter, :approval_outlook_for_approval, [approval])
-        else
-          apply(@presenter, :approval_outlook, [:pending])
-        end
+      outlook = apply(@presenter, :approval_outlook_for_approval, [approval])
 
       assert is_binary(outlook)
 

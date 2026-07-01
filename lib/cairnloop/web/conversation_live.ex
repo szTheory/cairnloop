@@ -7,12 +7,16 @@ defmodule Cairnloop.Web.ConversationLive do
   alias Cairnloop.Outbound
   alias Cairnloop.Retrieval.Result
   alias Cairnloop.Web.KnowledgeBaseLive.EditorHandoff
+  alias Cairnloop.Web.DashboardPath
   alias Cairnloop.Web.{ArticleSuggestionPresenter, ReviewTaskPresenter, SearchResultPresenter}
   alias Cairnloop.Web.ToolProposalPresenter
+  alias Phoenix.LiveView.JS
 
   import Cairnloop.Web.Components
 
-  def mount(%{"id" => id}, _session, socket) do
+  @missing_operator_identity_copy "Operator identity is missing. Cairnloop withheld this governed action so the audit trail does not guess who acted."
+
+  def mount(%{"id" => id}, session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(Cairnloop.PubSub, "conversation:#{id}")
     end
@@ -22,7 +26,9 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(
         form: to_form(%{"content" => ""}),
         pending_discard_draft_id: nil,
-        governed_actions_limit: 10
+        governed_actions_limit: 10,
+        operator_host_user_id: dashboard_session_actor(session),
+        dashboard_path: DashboardPath.from_session(session)
       )
       |> reload_conversation_with_context(id)
 
@@ -129,29 +135,34 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   def handle_event("start_quick_fix", _params, socket) do
-    conversation = socket.assigns.conversation
-    opts = quick_fix_scope_opts(conversation)
+    with_operator_actor(socket, fn actor ->
+      conversation = socket.assigns.conversation
+      opts = quick_fix_scope_opts(actor)
 
-    case knowledge_automation().create_or_reuse_conversation_quick_fix(
-           quick_fix_request_attrs(conversation),
-           opts
-         ) do
-      {:ok, %{suggestion: suggestion, review_task: review_task}} ->
-        card = quick_fix_card_state(suggestion, review_task)
-        socket = assign(socket, :quick_fix_card, card)
+      case knowledge_automation().create_or_reuse_conversation_quick_fix(
+             quick_fix_request_attrs(conversation, actor),
+             opts
+           ) do
+        {:ok, %{suggestion: suggestion, review_task: review_task}} ->
+          card = quick_fix_card_state(suggestion, review_task)
+          socket = assign(socket, :quick_fix_card, card)
 
-        case card.status do
-          status when status in [:ready, :shell_created] ->
-            {:noreply, push_navigate(socket, to: review_task_path(review_task.id))}
+          case card.status do
+            status when status in [:ready, :shell_created] ->
+              {:noreply,
+               push_navigate(socket,
+                 to: DashboardPath.to(dashboard_path(socket), review_task_path(review_task.id))
+               )}
 
-          _ ->
-            {:noreply, socket}
-        end
+            _ ->
+              {:noreply, socket}
+          end
 
-      {:error, _reason} ->
-        {:noreply,
-         put_flash(socket, :error, "Quick fix could not prepare a reviewable suggestion.")}
-    end
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(socket, :error, "Quick fix could not prepare a reviewable suggestion.")}
+      end
+    end)
   end
 
   def handle_event("open_review_task", _params, socket) do
@@ -161,7 +172,10 @@ defmodule Cairnloop.Web.ConversationLive do
          put_flash(socket, :error, "No review task is available for this quick fix yet.")}
 
       review_task_id ->
-        {:noreply, push_navigate(socket, to: review_task_path(review_task_id))}
+        {:noreply,
+         push_navigate(socket,
+           to: DashboardPath.to(dashboard_path(socket), review_task_path(review_task_id))
+         )}
     end
   end
 
@@ -172,53 +186,58 @@ defmodule Cairnloop.Web.ConversationLive do
          put_flash(socket, :error, "No manual draft is available for this quick fix yet.")}
 
       suggestion_id ->
-        case knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
-               suggestion_id,
-               quick_fix_scope_opts(socket.assigns.conversation)
-             ) do
-          {:ok, article_id} ->
-            case knowledge_automation().record_editor_handoff(
-                   suggestion_id,
-                   quick_fix_scope_opts(socket.assigns.conversation)
-                 ) do
-              {:ok, _suggestion, opened_at_iso} ->
-                return_path = "/#{socket.assigns.conversation.id}"
-                return_to = URI.encode_www_form(return_path)
+        with_operator_actor(socket, fn actor ->
+          opts = quick_fix_scope_opts(actor)
 
-                review_task_param =
-                  manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
+          case knowledge_automation().create_or_reuse_authoring_article_for_suggestion(
+                 suggestion_id,
+                 opts
+               ) do
+            {:ok, article_id} ->
+              case knowledge_automation().record_editor_handoff(suggestion_id, opts) do
+                {:ok, _suggestion, opened_at_iso} ->
+                  return_path = "/#{socket.assigns.conversation.id}"
+                  return_to = URI.encode_www_form(return_path)
 
-                handoff_token =
-                  EditorHandoff.sign(
-                    suggestion_id,
-                    article_id,
-                    socket.assigns.quick_fix_card[:review_task_id],
-                    return_path,
-                    manual_edit_opened_at: opened_at_iso
-                  )
+                  review_task_param =
+                    manual_review_task_param(socket.assigns.quick_fix_card[:review_task_id])
 
-                {:noreply,
-                 push_navigate(
-                   socket,
-                   to:
-                     "/knowledge-base/#{article_id}/edit?suggestion_id=#{suggestion_id}" <>
-                       review_task_param <>
-                       "&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
-                 )}
+                  handoff_token =
+                    EditorHandoff.sign(
+                      suggestion_id,
+                      article_id,
+                      socket.assigns.quick_fix_card[:review_task_id],
+                      return_path,
+                      manual_edit_opened_at: opened_at_iso
+                    )
 
-              {:error, _reason} ->
-                {:noreply,
-                 put_flash(socket, :error, "Manual draft could not be opened right now.")}
-            end
+                  editor_path =
+                    "/knowledge-base/#{article_id}/edit?suggestion_id=#{suggestion_id}" <>
+                      review_task_param <>
+                      "&return_to=#{return_to}&handoff=#{URI.encode_www_form(handoff_token)}"
 
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, "Manual draft could not be opened right now.")}
-        end
+                  {:noreply,
+                   push_navigate(
+                     socket,
+                     to: DashboardPath.to(dashboard_path(socket), editor_path)
+                   )}
+
+                {:error, _reason} ->
+                  {:noreply,
+                   put_flash(socket, :error, "Manual draft could not be opened right now.")}
+              end
+
+            {:error, _reason} ->
+              {:noreply, put_flash(socket, :error, "Manual draft could not be opened right now.")}
+          end
+        end)
     end
   end
 
   def handle_event("trigger_recovery_follow_up", _params, socket) do
     conversation = socket.assigns.conversation
+    actor = operator_actor(socket)
+    template_id = recovery_follow_up_template_id()
 
     cond do
       conversation.status != :resolved ->
@@ -229,14 +248,17 @@ defmodule Cairnloop.Web.ConversationLive do
            "Recovery follow-up is only available for resolved conversations."
          )}
 
-      is_nil(recovery_follow_up_template_id()) ->
+      is_nil(actor) ->
+        {:noreply, missing_operator_identity(socket)}
+
+      is_nil(template_id) ->
         {:noreply, put_flash(socket, :error, "Recovery follow-up template is not configured.")}
 
       true ->
         case outbound_module().trigger(
                conversation.id,
-               template_id: recovery_follow_up_template_id(),
-               actor: conversation.host_user_id
+               template_id: template_id,
+               actor: actor
              ) do
           {:ok, _results} ->
             {:noreply,
@@ -255,30 +277,53 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
+  def handle_event("resolve_conversation", _params, socket) do
+    conversation = socket.assigns.conversation
+
+    with_operator_actor(socket, fn actor ->
+      case chat_module().resolve_conversation(conversation.id, resolved_by: actor) do
+        {:ok, _results} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Conversation resolved. Recovery follow-up is now available.")
+           |> reload_conversation_with_context(conversation.id)}
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Conversation could not be resolved right now. Please try again."
+           )}
+      end
+    end)
+  end
+
   def handle_event("execute_tool", %{"tool" => tool_ref} = params, socket) do
-    actor_id = socket.assigns.conversation.host_user_id
-    context = socket.assigns.host_context
-    # Merge form params into context so Governance.validate/3 can call changeset/2 (D-27)
-    context = Map.put(context, :tool_params, params["tool_params"] || %{})
-    # D-07: thread server-trusted conversation_id into propose context (NOT from request params)
-    context = Map.put(context, :conversation_id, socket.assigns.conversation.id)
+    with_operator_actor(socket, fn actor_id ->
+      context = socket.assigns.host_context
+      # Merge form params into context so Governance.validate/3 can call changeset/2 (D-27)
+      context = Map.put(context, :tool_params, params["tool_params"] || %{})
+      # D-07: thread server-trusted conversation_id into propose context (NOT from request params)
+      context = Map.put(context, :conversation_id, socket.assigns.conversation.id)
 
-    case Cairnloop.Governance.propose(tool_ref, actor_id, context) do
-      {:ok, proposal} ->
-        {:noreply, put_flash(socket, :info, "Proposed — pending review. (##{proposal.id})")}
+      case governance_module().propose(tool_ref, actor_id, context) do
+        {:ok, proposal} ->
+          {:noreply, put_flash(socket, :info, "Proposed — pending review. (##{proposal.id})")}
 
-      {:blocked, outcome, reason} ->
-        {:noreply, put_flash(socket, :error, failure_reason_message(outcome, reason))}
+        {:blocked, outcome, reason} ->
+          {:noreply, put_flash(socket, :error, failure_reason_message(outcome, reason))}
 
-      {:error, _changeset} ->
-        # Fail closed: never surface a raw changeset to the operator (CR-01)
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           "This action could not be recorded right now. Please try again."
-         )}
-    end
+        {:error, _changeset} ->
+          # Fail closed: never surface a raw changeset to the operator (CR-01)
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "This action could not be recorded right now. Please try again."
+           )}
+      end
+    end)
   end
 
   # Phase 15: Approve/Reject/Defer handlers — persist + (approve) enqueue via facade; never inline execute (APRV-01).
@@ -286,68 +331,69 @@ defmodule Cairnloop.Web.ConversationLive do
   # Plain-assign, no streams (P14 D-02). Reason enforced by facade for reject/defer (FLOW-03).
 
   def handle_event("approve_action", %{"approval-id" => id}, socket) do
-    actor_id = socket.assigns.conversation.host_user_id
+    with_operator_actor(socket, fn actor_id ->
+      case governance_module().approve(String.to_integer(id), actor_id, []) do
+        {:ok, _approval} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Action approved.")
+           |> reload_conversation_with_context(socket.assigns.conversation.id)}
 
-    case Cairnloop.Governance.approve(String.to_integer(id), actor_id, []) do
-      {:ok, _approval} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Action approved.")
-         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+        {:error, :not_found} ->
+          {:noreply, put_flash(socket, :error, "Approval record not found.")}
 
-      {:error, :not_found} ->
-        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+        {:error, :not_pending} ->
+          {:noreply, put_flash(socket, :error, "This action has already been decided.")}
 
-      {:error, :not_pending} ->
-        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Approval could not be recorded. Please try again.")}
-    end
+        {:error, _} ->
+          {:noreply,
+           put_flash(socket, :error, "Approval could not be recorded. Please try again.")}
+      end
+    end)
   end
 
   def handle_event("reject_action", %{"approval-id" => id, "reason" => reason}, socket) do
-    actor_id = socket.assigns.conversation.host_user_id
+    with_operator_actor(socket, fn actor_id ->
+      case governance_module().reject(String.to_integer(id), actor_id, reason: reason) do
+        {:ok, _approval} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Action rejected.")
+           |> reload_conversation_with_context(socket.assigns.conversation.id)}
 
-    case Cairnloop.Governance.reject(String.to_integer(id), actor_id, reason: reason) do
-      {:ok, _approval} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Action rejected.")
-         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+        {:error, :not_found} ->
+          {:noreply, put_flash(socket, :error, "Approval record not found.")}
 
-      {:error, :not_found} ->
-        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+        {:error, :not_pending} ->
+          {:noreply, put_flash(socket, :error, "This action has already been decided.")}
 
-      {:error, :not_pending} ->
-        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
-
-      {:error, _} ->
-        # FLOW-03: missing reason or invalid changeset — calm error (never raw changeset to operator)
-        {:noreply, put_flash(socket, :error, "A reason is required to reject this action.")}
-    end
+        {:error, _} ->
+          # FLOW-03: missing reason or invalid changeset — calm error (never raw changeset to operator)
+          {:noreply, put_flash(socket, :error, "A reason is required to reject this action.")}
+      end
+    end)
   end
 
   def handle_event("defer_action", %{"approval-id" => id, "reason" => reason}, socket) do
-    actor_id = socket.assigns.conversation.host_user_id
+    with_operator_actor(socket, fn actor_id ->
+      case governance_module().defer(String.to_integer(id), actor_id, reason: reason) do
+        {:ok, _approval} ->
+          {:noreply,
+           socket
+           |> put_flash(:info, "Action deferred.")
+           |> reload_conversation_with_context(socket.assigns.conversation.id)}
 
-    case Cairnloop.Governance.defer(String.to_integer(id), actor_id, reason: reason) do
-      {:ok, _approval} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Action deferred.")
-         |> reload_conversation_with_context(socket.assigns.conversation.id)}
+        {:error, :not_found} ->
+          {:noreply, put_flash(socket, :error, "Approval record not found.")}
 
-      {:error, :not_found} ->
-        {:noreply, put_flash(socket, :error, "Approval record not found.")}
+        {:error, :not_pending} ->
+          {:noreply, put_flash(socket, :error, "This action has already been decided.")}
 
-      {:error, :not_pending} ->
-        {:noreply, put_flash(socket, :error, "This action has already been decided.")}
-
-      {:error, _} ->
-        # FLOW-03: missing reason or invalid changeset — calm error
-        {:noreply, put_flash(socket, :error, "A reason is required to defer this action.")}
-    end
+        {:error, _} ->
+          # FLOW-03: missing reason or invalid changeset — calm error
+          {:noreply, put_flash(socket, :error, "A reason is required to defer this action.")}
+      end
+    end)
   end
 
   def handle_event("load_more_actions", _params, socket) do
@@ -371,29 +417,36 @@ defmodule Cairnloop.Web.ConversationLive do
 
   defp reload_conversation_with_context(socket, conversation_id) do
     conversation = Chat.get_conversation!(conversation_id)
-    {context, context_error} = load_host_context(conversation)
-    quick_fix_card = load_quick_fix_card(conversation)
+    operator_host_user_id = operator_actor(socket)
+    {context, context_error} = load_host_context(operator_host_user_id)
+    quick_fix_card = load_quick_fix_card(conversation, operator_host_user_id)
     # D-09: load governed_actions via the narrow facade (never direct schema query from web layer)
     limit = socket.assigns[:governed_actions_limit] || 10
 
     governed_actions =
       Cairnloop.Governance.list_proposals_for_conversation(conversation_id, limit: limit)
 
+    # Phase 42 THREAD-01: next-open id for Next-in-queue affordance (structural nav read, not a
+    # trust fact — D-02). Recomputed on every PubSub reload so the affordance is never stale.
+    next_open_id = Chat.next_open_conversation(conversation_id)
+
     assign(socket,
       conversation: conversation,
+      operator_host_user_id: operator_host_user_id,
       host_context: context,
       context_error: context_error,
       quick_fix_card: quick_fix_card,
-      governed_actions: governed_actions
+      governed_actions: governed_actions,
+      next_open_id: next_open_id
     )
   end
 
-  defp load_host_context(conversation) do
+  defp load_host_context(operator_host_user_id) do
     provider =
       Application.get_env(:cairnloop, :context_provider, Cairnloop.DefaultContextProvider)
 
-    if conversation.host_user_id do
-      case provider.get_context(conversation.host_user_id, []) do
+    if operator_host_user_id do
+      case provider.get_context(operator_host_user_id, []) do
         {:ok, map} -> {map, nil}
         {:error, reason} -> {%{}, reason}
       end
@@ -402,10 +455,10 @@ defmodule Cairnloop.Web.ConversationLive do
     end
   end
 
-  defp load_quick_fix_card(conversation) do
-    opts =
-      [tenant_scope: :host_user_scoped, host_user_id: conversation.host_user_id]
-      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+  defp load_quick_fix_card(conversation, nil), do: idle_quick_fix_card(conversation)
+
+  defp load_quick_fix_card(conversation, operator_host_user_id) do
+    opts = quick_fix_scope_opts(operator_host_user_id)
 
     case knowledge_automation().get_conversation_quick_fix(conversation.id, opts) do
       {:ok, %{suggestion: suggestion, review_task: review_task}} ->
@@ -420,24 +473,48 @@ defmodule Cairnloop.Web.ConversationLive do
     assigns = assign(assigns, :quick_fix_card, normalize_quick_fix_card(assigns))
     # Default governed_actions to [] when not present (e.g. direct render_component tests)
     assigns = Map.put_new(assigns, :governed_actions, [])
+    # Default next_open_id to nil when not set (e.g. direct render_component tests)
+    assigns = Map.put_new(assigns, :next_open_id, nil)
+    assigns = Map.put_new(assigns, :dashboard_path, "")
+    assigns = Map.put_new(assigns, :operator_host_user_id, nil)
+
+    assigns =
+      assign(
+        assigns,
+        :operator_identity_missing?,
+        operator_identity_missing?(assigns.operator_host_user_id)
+      )
 
     ~H"""
-    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations()}>
+    <.cl_shell current={:inbox} destinations={Cairnloop.Web.Nav.destinations(@dashboard_path)}>
     <.live_component
       module={Cairnloop.Web.SearchModalComponent}
       id="search-modal"
       host_surface="conversation"
-      host_user_id={@conversation.host_user_id}
-      current_path={"/#{@conversation.id}"}
+      host_user_id={@operator_host_user_id}
+      dashboard_path={@dashboard_path}
+      current_path={DashboardPath.to(@dashboard_path, "/#{@conversation.id}")}
       preserve_reply_form={true}
     />
         <div class="cairnloop-conversation cl-stack">
-          <div class="cl-row cl-align-center cl-justify-between" style="margin-bottom: var(--cl-space-7);">
+          <div class="cl-conversation-header cl-row cl-align-center cl-justify-between">
             <div class="cl-stack cl-gap-2">
-              <.link navigate="/inbox" class="cl-text-muted cl-text-small">&larr; Back to Inbox</.link>
+              <.link navigate={DashboardPath.to(@dashboard_path, "/inbox")} class="cl-text-muted cl-text-small">&larr; Back to Inbox</.link>
               <h2 style="margin: 0;"><%= @conversation.subject || "No Subject" %></h2>
+              <%= if @conversation.customer_ref do %>
+                <p class="cl-text-muted cl-text-small" style="margin: 0;">
+                  Customer reference: <%= @conversation.customer_ref %>
+                </p>
+              <% end %>
             </div>
           </div>
+
+          <.conversation_decision_band
+            conversation={@conversation}
+            next_open_id={@next_open_id}
+            dashboard_path={@dashboard_path}
+            operator_identity_missing?={@operator_identity_missing?}
+          />
 
           <div class="conversation-layout">
         <div class="message-timeline">
@@ -447,7 +524,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <div class="message-card-header">
                   <.cl_chip label={message_role_label(msg.role)} />
                   <%= if outbound_status = outbound_status_label(msg) do %>
-                    <span class={["message-status-chip", outbound_status_class(msg)]}>
+                    <span class={["message-status-chip", outbound_status_class(msg), "cl-motion-state"]}>
                       <%= outbound_status %>
                     </span>
                   <% end %>
@@ -474,30 +551,80 @@ defmodule Cairnloop.Web.ConversationLive do
           </div>
         </div>
 
-        <div class="evidence-rail">
-          <.context_pane context={@host_context} error={@context_error} actor_id={@conversation.host_user_id} socket={@socket} />
-          <.outbound_recovery_card conversation={@conversation} />
-          <.quick_fix_card card={@quick_fix_card} />
+        <div
+          class="evidence-rail"
+          data-density="comfortable"
+          phx-hook=".RailDensity"
+          id="evidence-rail-density"
+          phx-mounted={JS.transition("cl-motion-reveal", time: 260)}
+        >
+          <.context_pane
+            context={@host_context}
+            error={@context_error}
+            actor_id={@operator_host_user_id}
+            operator_identity_missing?={@operator_identity_missing?}
+            socket={@socket}
+          />
+          <.operator_identity_trust_state
+            :if={@operator_identity_missing? and @conversation.status == :resolved}
+            state="recovery"
+          />
+          <.outbound_recovery_card
+            conversation={@conversation}
+            next_open_id={@next_open_id}
+            dashboard_path={@dashboard_path}
+            operator_identity_missing?={@operator_identity_missing?}
+          />
+          <.operator_identity_trust_state
+            :if={@operator_identity_missing?}
+            state="quick-fix"
+          />
+          <.quick_fix_card
+            card={@quick_fix_card}
+            dashboard_path={@dashboard_path}
+            operator_identity_missing?={@operator_identity_missing?}
+          />
 
           <%= if Ecto.assoc_loaded?(@conversation.drafts) and length(@conversation.drafts) > 0 do %>
             <%= for draft <- @conversation.drafts do %>
               <.draft_audit_card
                 draft={draft}
                 pending_discard_id={@pending_discard_draft_id}
+                dashboard_path={@dashboard_path}
               />
             <% end %>
           <% end %>
 
           <%!-- Governed actions rail section (D-01: right rail, not center timeline; D-02: plain assign, no streams) --%>
+          <.operator_identity_trust_state
+            :if={@operator_identity_missing?}
+            state="governed-actions"
+          />
           <.cl_card class="governed-actions-rail" aria-label="Governed actions">
             <div class="governed-actions-rail-header">
               <span class="governed-actions-rail-eyebrow">Governed actions</span>
+              <%!-- Rail controls: Expand-all / Collapse-all are pure Phoenix.LiveView.JS DOM ops
+                   scoped to [data-tier="2"] — NO handle_event (D2/D-09 invariant). Density
+                   toggle is hook-owned (no server phx-click). See colocated RailDensity hook
+                   below. --%>
+              <div class="cl-rail-controls">
+                <.cl_button variant="ghost" size="sm"
+                  phx-click={JS.set_attribute({"open", ""}, to: "[data-tier='2']")}>Expand all</.cl_button>
+                <.cl_button variant="ghost" size="sm"
+                  phx-click={JS.remove_attribute("open", to: "[data-tier='2']")}>Collapse all</.cl_button>
+                <button type="button" class="cl-button cl-button--ghost cl-button--sm cl-rail-density-toggle"
+                  data-density-toggle>Comfortable</button>
+              </div>
             </div>
             <%= if @governed_actions == [] do %>
               <p class="governed-actions-empty">No governed actions yet.</p>
             <% else %>
               <%= for proposal <- @governed_actions do %>
-                <.governed_action_card proposal={proposal} />
+                <.governed_action_card
+                  proposal={proposal}
+                  dashboard_path={@dashboard_path}
+                  operator_identity_missing?={@operator_identity_missing?}
+                />
               <% end %>
               <%= if length(@governed_actions) == Map.get(assigns, :governed_actions_limit, 10) do %>
                 <.cl_button type="button" variant="default" phx-click="load_more_actions" style="margin-top: 16px; width: 100%;">
@@ -513,9 +640,87 @@ defmodule Cairnloop.Web.ConversationLive do
     """
   end
 
+  attr(:state, :string, required: true)
+
+  def operator_identity_trust_state(assigns) do
+    assigns = assign(assigns, :message, @missing_operator_identity_copy)
+
+    ~H"""
+    <.cl_banner
+      variant="warning"
+      class="operator-trust-state"
+      data-operator-trust-state={@state}
+    >
+      <strong>Operator identity unavailable</strong>
+      <p><%= @message %></p>
+    </.cl_banner>
+    """
+  end
+
   attr(:conversation, :map, required: true)
+  attr(:next_open_id, :any, default: nil)
+  attr(:dashboard_path, :string, default: "")
+  attr(:operator_identity_missing?, :boolean, default: false)
+
+  def conversation_decision_band(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
+    ~H"""
+    <section class="cl-decision-band" aria-label="Conversation decision">
+      <div class="cl-decision-band__copy">
+        <span class="cl-decision-band__eyebrow">Next decision</span>
+        <%= if @conversation.status == :resolved do %>
+          <h3>Conversation resolved</h3>
+          <p>
+            Send a recovery follow-up from the rail, review any generated KB maintenance, or move
+            to the next open conversation.
+          </p>
+        <% else %>
+          <h3>Close the loop when the customer is handled</h3>
+          <p>
+            Keep replying until the issue is settled, then resolve the thread so it can feed
+            recovery, CSAT, and resolved-case learning.
+          </p>
+        <% end %>
+      </div>
+
+      <div class="cl-decision-band__actions">
+        <%= if @conversation.status == :resolved do %>
+          <%= case @next_open_id do %>
+            <% nil -> %>
+              <.link navigate={DashboardPath.to(@dashboard_path, "/inbox")} class="cl-button">
+                Back to inbox
+              </.link>
+            <% id -> %>
+              <.link navigate={DashboardPath.to(@dashboard_path, "/#{id}")} class="cl-button cl-button--primary">
+                Next in queue
+              </.link>
+          <% end %>
+        <% else %>
+          <%= if @operator_identity_missing? do %>
+            <.operator_identity_trust_state state="decision" />
+            <.cl_button type="button" variant="primary" disabled>
+              Resolve conversation
+            </.cl_button>
+          <% else %>
+            <.cl_button type="button" variant="primary" phx-click="resolve_conversation">
+              Resolve conversation
+            </.cl_button>
+          <% end %>
+        <% end %>
+      </div>
+    </section>
+    """
+  end
+
+  attr(:conversation, :map, required: true)
+  attr(:next_open_id, :any, default: nil)
+  attr(:dashboard_path, :string, default: "")
+  attr(:operator_identity_missing?, :boolean, default: false)
 
   def outbound_recovery_card(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
     <%= if @conversation.status == :resolved do %>
       <.cl_card class="outbound-action-card" aria-label="Outbound recovery">
@@ -524,28 +729,55 @@ defmodule Cairnloop.Web.ConversationLive do
         <p class="outbound-action-summary">
           Queue a support follow-up tied to this resolved conversation and keep the send outcome in the thread.
         </p>
-        <.cl_button
-          type="button"
-          class="outbound-action-button"
-          phx-click="trigger_recovery_follow_up"
-        >
-          Send Recovery Follow-up
-        </.cl_button>
+        <%= if @operator_identity_missing? do %>
+          <.cl_button type="button" class="outbound-action-button" disabled>
+            Send Recovery Follow-up
+          </.cl_button>
+        <% else %>
+          <.cl_button
+            type="button"
+            class="outbound-action-button"
+            phx-click="trigger_recovery_follow_up"
+          >
+            Send Recovery Follow-up
+          </.cl_button>
+        <% end %>
         <p class="outbound-action-hint">
           Uses the configured recovery template and appends a `system_outbound` message to the timeline.
         </p>
+        <%!-- Phase 42 THREAD-01: Next-in-queue affordance. case @next_open_id (D-06):
+             nil → calm Queue-clear state + /inbox back-link; id → scope-relative navigate link.
+             Never a disabled/dead "Next" and never a stale-id navigate (T-42-10, T-42-11). --%>
+        <%= case @next_open_id do %>
+          <% nil -> %>
+            <p class="cl-text-muted">Queue clear — no more open conversations.</p>
+            <.link navigate={DashboardPath.to(@dashboard_path, "/inbox")} class="cl-text-small">Back to inbox</.link>
+          <% id -> %>
+            <.link navigate={DashboardPath.to(@dashboard_path, "/#{id}")} class="cl-button">Next in queue &rarr;</.link>
+        <% end %>
       </.cl_card>
     <% end %>
     """
   end
 
   def context_pane(assigns) do
+    operator_identity_missing? =
+      Map.get(assigns, :operator_identity_missing?, operator_identity_missing?(assigns.actor_id))
+
+    available_tools =
+      if operator_identity_missing? do
+        []
+      else
+        Cairnloop.ToolRegistry.get_available_tools(assigns.actor_id, assigns.context)
+      end
+
     assigns =
       assign(
         assigns,
         :available_tools,
-        Cairnloop.ToolRegistry.get_available_tools(assigns.actor_id, assigns.context)
+        available_tools
       )
+      |> assign(:operator_identity_missing?, operator_identity_missing?)
 
     ~H"""
     <.cl_card class={"host-context" <> if(@error, do: " error", else: "")}>
@@ -563,7 +795,13 @@ defmodule Cairnloop.Web.ConversationLive do
             <% end %>
           </div>
           
-          <%= if length(@available_tools) > 0 do %>
+          <%= if @operator_identity_missing? do %>
+            <div class="actions-section">
+              <h3>Actions</h3>
+              <.operator_identity_trust_state state="tool-proposals" />
+            </div>
+          <% else %>
+            <%= if length(@available_tools) > 0 do %>
             <div class="actions-section">
               <h3>Actions</h3>
               <div class="tools-list">
@@ -572,6 +810,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <% end %>
               </div>
             </div>
+            <% end %>
           <% end %>
         <% end %>
       <% end %>
@@ -580,8 +819,12 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   attr(:card, :map, required: true)
+  attr(:dashboard_path, :string, default: "")
+  attr(:operator_identity_missing?, :boolean, default: false)
 
   def quick_fix_card(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
+
     ~H"""
     <.cl_card class="quick-fix-card" aria-live="polite">
       <div class="quick-fix-eyebrow">KB maintenance</div>
@@ -607,12 +850,18 @@ defmodule Cairnloop.Web.ConversationLive do
       <% end %>
 
       <div class="quick-fix-actions">
-        <button type="button" phx-click={@card.primary_action.event}>
-          <%= @card.primary_action.label %>
-        </button>
+        <%= if @operator_identity_missing? do %>
+          <button type="button" disabled aria-disabled="true">
+            <%= @card.primary_action.label %>
+          </button>
+        <% else %>
+          <button type="button" phx-click={@card.primary_action.event}>
+            <%= @card.primary_action.label %>
+          </button>
+        <% end %>
 
         <%= if @card.secondary_action do %>
-          <a href={@card.secondary_action.to}><%= @card.secondary_action.label %></a>
+          <a href={DashboardPath.to(@dashboard_path, @card.secondary_action.to)}><%= @card.secondary_action.label %></a>
         <% end %>
       </div>
 
@@ -748,9 +997,14 @@ defmodule Cairnloop.Web.ConversationLive do
     """
   end
 
+  attr(:draft, :map, required: true)
+  attr(:pending_discard_id, :any, default: nil)
+  attr(:dashboard_path, :string, default: "")
+
   def draft_audit_card(assigns) do
     assigns =
       assigns
+      |> assign_new(:dashboard_path, fn -> "" end)
       |> assign(:draft_reply, Draft.reply_content(assigns.draft))
       |> assign(:operator_summary, draft_operator_summary(assigns.draft))
       |> assign(:proposal_state_label, proposal_state_label(assigns.draft))
@@ -789,7 +1043,7 @@ defmodule Cairnloop.Web.ConversationLive do
         <% else %>
           <div>
             <%= for evidence <- @evidence do %>
-              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+              <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cl-border);">
                 <p>
                   <strong><%= SearchResultPresenter.source_label(evidence) %></strong>
                   ·
@@ -800,7 +1054,7 @@ defmodule Cairnloop.Web.ConversationLive do
                 <p><em><%= SearchResultPresenter.recency_label(evidence) %></em></p>
                 <%= if path = SearchResultPresenter.open_path(evidence) do %>
                   <p>
-                    <.link navigate={path}><%= SearchResultPresenter.open_action_label(evidence) %></.link>
+                    <.link navigate={DashboardPath.to(@dashboard_path, path)}><%= SearchResultPresenter.open_action_label(evidence) %></.link>
                   </p>
                 <% end %>
               </div>
@@ -829,8 +1083,11 @@ defmodule Cairnloop.Web.ConversationLive do
   end
 
   attr(:proposal, :map, required: true)
+  attr(:dashboard_path, :string, default: "")
+  attr(:operator_identity_missing?, :boolean, default: false)
 
   def governed_action_card(assigns) do
+    assigns = assign_new(assigns, :dashboard_path, fn -> "" end)
     proposal = assigns.proposal
 
     # Precompute presenter values before the ~H block (in-repo pattern — keep template declarative)
@@ -934,6 +1191,16 @@ defmodule Cairnloop.Web.ConversationLive do
           {"Governed action", tool_display}
       end
 
+    # D-08: static auto-open booleans — computed ONCE from already-resolved snapshot state.
+    # Never re-read live config; never bound to a post-event assign (D-09 invariant).
+    # pending? is true when the active approval is pending (D15-17 resolved above).
+    pending? = match?(%{status: :pending}, active_approval)
+    # auto_open_inputs: pending approval OR hard-blocked status (scope_invalid / policy_denied).
+    # Reuses the same status discriminant as block_reason_copy/1 in ToolProposalPresenter.
+    auto_open_inputs = pending? or proposal.status in [:scope_invalid, :policy_denied]
+    # auto_open_policy: only when the block is specifically policy_denied.
+    auto_open_policy = proposal.status == :policy_denied
+
     assigns =
       assigns
       |> assign(:status_label, status_label)
@@ -953,6 +1220,8 @@ defmodule Cairnloop.Web.ConversationLive do
       |> assign(:status_chip_class, status_chip_class)
       |> assign(:eyebrow, eyebrow)
       |> assign(:headline, headline)
+      |> assign(:auto_open_inputs, auto_open_inputs)
+      |> assign(:auto_open_policy, auto_open_policy)
 
     ~H"""
     <.cl_card class="governed-action-card" aria-label="Governed action proposal">
@@ -989,35 +1258,40 @@ defmodule Cairnloop.Web.ConversationLive do
         <p class="governed-action-scope-warning"><%= @block_reason %></p>
       <% end %>
 
-      <%!-- Input snapshot: humanized rows via input_rows/1 (D-22 masking choke point) --%>
-      <%= if @input_rows != [] do %>
-        <div class="governed-action-section">
-          <div class="governed-action-section-label">Inputs</div>
+      <%!-- Tier-2 "Inputs & scope" — humanized rows + scope summary + raw snapshot behind nested expander.
+           auto_open_inputs static boolean from D-08 (pending / scope_invalid / policy_denied). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-inputs"} open={@auto_open_inputs} data-tier="2">
+        <:summary>Inputs &amp; scope</:summary>
+        <%!-- Humanized input rows via input_rows/1 (D-22 masking choke point) --%>
+        <%= if @input_rows != [] do %>
           <%= for {label, value} <- @input_rows do %>
             <.context_field label={label} value={value} hide_label={false} />
           <% end %>
-        </div>
-        <%!-- Raw input_snapshot ONLY behind an explicit expander (D-22) --%>
-        <details style="margin-top: 8px;">
-          <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw input snapshot</summary>
-          <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
-        </details>
-      <% end %>
+        <% end %>
+        <%!-- Scope summary folded into this group (D-01: Inputs & scope = 1 Tier-2 group) --%>
+        <p class="cl-text-small" style="color: var(--cl-text);"><%= @scope_summary %></p>
+        <%!-- Raw input_snapshot ONLY behind a nested expander (D-22 masking choke point) --%>
+        <.cl_disclosure id={"ga-#{@proposal.id}-inputs-raw"}>
+          <:summary>Raw input snapshot</:summary>
+          <pre class="governed-action-trace" style="white-space: pre-wrap;"><%= inspect(@proposal.input_snapshot, pretty: true) %></pre>
+        </.cl_disclosure>
+      </.cl_disclosure>
 
-      <%!-- Event mini-timeline (D-24 guarded) --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">History</div>
+      <%!-- Tier-2 "History" — event mini-timeline (D-24 guarded). Per-event detail behind nested expanders.
+           Empty state "No history yet." preserved verbatim (already test-covered). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-history"} data-tier="2">
+        <:summary>History</:summary>
         <%= if @events_loaded do %>
-          <%= for event <- @events do %>
+          <%= for {event, idx} <- Enum.with_index(@events) do %>
             <div class="governed-action-event-item">
               <span><%= event.line %></span>
               <span class="governed-action-event-time"><%= event.timestamp %></span>
-              <%!-- Per-event detail (reason + metadata) behind expander (D-22) --%>
+              <%!-- Per-event detail (reason + metadata) behind nested expander (D-22) --%>
               <%!-- WR-04: guard on emptiness — empty %{} metadata must not open the expander --%>
               <%= if event.reason || (is_map(event.metadata) and map_size(event.metadata) > 0) do %>
-                <details style="margin-top: 4px;">
-                  <summary style="font-size: 0.75rem; color: #8b7355; cursor: pointer;">Details</summary>
-                  <div style="margin-top: 4px; font-size: 0.8rem; color: #4c4033;">
+                <.cl_disclosure id={"ga-#{@proposal.id}-evt-#{idx}"}>
+                  <:summary>Details</:summary>
+                  <div style="margin-top: 4px; font-size: 0.8rem; color: var(--cl-text);">
                     <%= if event.reason do %>
                       <p><strong>Reason:</strong> <%= event.reason %></p>
                     <% end %>
@@ -1025,97 +1299,132 @@ defmodule Cairnloop.Web.ConversationLive do
                       <pre class="governed-action-trace" style="margin-top: 4px; white-space: pre-wrap;"><%= inspect(event.metadata, pretty: true) %></pre>
                     <% end %>
                   </div>
-                </details>
+                </.cl_disclosure>
               <% end %>
             </div>
           <% end %>
         <% else %>
-          <p style="font-size: 0.85rem; color: #8b7355;">No history yet.</p>
+          <p class="cl-text-muted cl-text-small">No history yet.</p>
         <% end %>
-      </div>
+      </.cl_disclosure>
 
-      <%!-- Scope snapshot --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">Scope</div>
-        <p style="font-size: 0.85rem; color: #4c4033;"><%= @scope_summary %></p>
-      </div>
-
-      <%!-- Policy snapshot: calm sentence (D-22 / D-14); raw policy map behind expander --%>
-      <div class="governed-action-section">
-        <div class="governed-action-section-label">Policy</div>
-        <p style="font-size: 0.85rem; color: #4c4033;"><%= @policy_explanation %></p>
+      <%!-- Tier-2 "Policy explanation" — calm sentence + raw policy snapshot behind nested expander.
+           auto_open_policy static boolean from D-08 (policy_denied only). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-policy"} open={@auto_open_policy} data-tier="2">
+        <:summary>Policy explanation</:summary>
+        <%!-- Calm policy sentence (D-22 / D-14) --%>
+        <p class="cl-text-small" style="color: var(--cl-text);"><%= @policy_explanation %></p>
+        <%!-- Raw policy snapshot ONLY behind a nested expander (D-22 masking choke point) --%>
         <%= if @proposal.policy_snapshot do %>
-          <details style="margin-top: 4px;">
-            <summary style="font-size: 0.8rem; color: #8b7355; cursor: pointer;">Raw policy snapshot</summary>
+          <.cl_disclosure id={"ga-#{@proposal.id}-policy-raw"}>
+            <:summary>Raw policy snapshot</:summary>
             <pre class="governed-action-trace" style="margin-top: 8px; white-space: pre-wrap;"><%= inspect(@proposal.policy_snapshot, pretty: true) %></pre>
-          </details>
+          </.cl_disclosure>
         <% end %>
-      </div>
+      </.cl_disclosure>
 
-      <%!-- Trace metadata — de-emphasized mono, copyable (proposal id, tool_ref, version, idempotency key) --%>
-      <div class="governed-action-section">
-        <dl class="governed-action-trace">
-          <div><dt>Proposal:</dt><dd>#<%= @trace.proposal_id %></dd></div>
-          <div><dt>Tool:</dt><dd><%= @trace.tool_ref %></dd></div>
-          <div><dt>Version:</dt><dd><%= @trace.tool_version %></dd></div>
-          <div><dt>Idempotency key:</dt><dd><%= @trace.idempotency_key %></dd></div>
-        </dl>
-      </div>
+      <%!-- Tier-3 standalone "Identifiers & trace" (D-02) — default-closed; NO data-tier so Expand-all
+           (D-06) does not reach it. Body via cl_fact_list/1 (auto-escapes values, never raw/1). --%>
+      <.cl_disclosure id={"ga-#{@proposal.id}-trace"}>
+        <:summary>Identifiers &amp; trace</:summary>
+        <.cl_fact_list facts={[
+          %{label: "Proposal", value: "##{@trace.proposal_id}"},
+          %{label: "Tool", value: @trace.tool_ref},
+          %{label: "Version", value: @trace.tool_version},
+          %{label: "Idempotency key", value: @trace.idempotency_key}
+        ]} />
+        <%!-- Phase 42 THREAD-03a: audit-trail deep-link (D-10). Scope-root-relative declarative
+             navigate (D-14, Pitfall 3) — /audit-log?proposal=<id>, never mount-prefixed. --%>
+        <.link navigate={DashboardPath.to(@dashboard_path, "/audit-log?proposal=#{@trace.proposal_id}")}>View audit trail</.link>
+      </.cl_disclosure>
 
       <%!-- Footer action slot: Approve / Reject / Defer affordances when :pending approval exists.
            Status conveyed by text AND color — never color-alone (brand §7.5).
            Brand token var(--cl-primary) for primary affordance color (§2.2/§7). --%>
       <div class="governed-action-footer">
         <%= if @active_approval && @active_approval.status == :pending do %>
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="font-size: 0.85rem; color: #4c4033; font-weight: 600;">Approval required</div>
-            <%!-- Approve: primary affordance — color + text (brand §7.5) --%>
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;">
-              <button
-                phx-click="approve_action"
-                phx-value-approval-id={@active_approval.id}
-                style="padding: 8px 16px; border-radius: 6px; border: 1px solid var(--cl-primary); background: var(--cl-primary); color: #fffdf8; font-size: 0.85rem; font-weight: 600; min-height: 36px; cursor: pointer;"
-              >
-                Approve
-              </button>
-              <%!-- Reject: with inline reason capture --%>
-              <form phx-submit="reject_action" style="display: flex; flex-direction: column; gap: 6px;">
-                <input type="hidden" name="approval-id" value={@active_approval.id} />
-                <textarea
-                  name="reason"
-                  placeholder="Reason for rejection (required)"
-                  rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
-                ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #8b1a1a; background: #fdecea; color: #8b1a1a; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
+          <div class="cl-stack" style="gap: var(--cl-space-4);">
+            <div class="cl-text-small" style="color: var(--cl-text); font-weight: 600;">Approval required</div>
+            <%= if @operator_identity_missing? do %>
+              <.operator_identity_trust_state state="approval" />
+              <div class="cl-row cl-row--wrap" style="align-items: flex-start;">
+                <.cl_button variant="primary" disabled>Approve</.cl_button>
+                <.cl_button variant="danger" disabled>Reject</.cl_button>
+                <.cl_button variant="default" disabled>Defer</.cl_button>
+              </div>
+            <% else %>
+              <%!-- Approve: primary affordance — color + text (brand §7.5) --%>
+              <div class="cl-row cl-row--wrap" style="align-items: flex-start;">
+                <.cl_button
+                  variant="primary"
+                  phx-click="approve_action"
+                  phx-value-approval-id={@active_approval.id}
                 >
-                  Reject
-                </button>
-              </form>
-              <%!-- Defer: with inline reason capture --%>
-              <form phx-submit="defer_action" style="display: flex; flex-direction: column; gap: 6px;">
-                <input type="hidden" name="approval-id" value={@active_approval.id} />
-                <textarea
-                  name="reason"
-                  placeholder="Reason for deferral (required)"
-                  rows="2"
-                  style="padding: 6px 8px; border: 1px solid #c38f57; border-radius: 4px; font-size: 0.8rem; width: 100%; resize: vertical;"
-                ></textarea>
-                <button
-                  type="submit"
-                  style="padding: 6px 12px; border-radius: 6px; border: 1px solid #7a5c00; background: #fef9e5; color: #7a5c00; font-size: 0.8rem; font-weight: 600; min-height: 32px; cursor: pointer; align-self: flex-start;"
-                >
-                  Defer
-                </button>
-              </form>
-            </div>
-            <p style="font-size: 0.75rem; color: #8b7355; font-style: italic;">A reason is required for rejection or deferral.</p>
+                  Approve
+                </.cl_button>
+                <%!-- Reject: with inline reason capture --%>
+                <form phx-submit="reject_action" class="cl-stack">
+                  <input type="hidden" name="approval-id" value={@active_approval.id} />
+                  <textarea
+                    name="reason"
+                    placeholder="Reason for rejection (required)"
+                    rows="2"
+                    class="cl-textarea"
+                    required
+                  ></textarea>
+                  <.cl_button type="submit" variant="danger">Reject</.cl_button>
+                </form>
+                <%!-- Defer: with inline reason capture --%>
+                <form phx-submit="defer_action" class="cl-stack">
+                  <input type="hidden" name="approval-id" value={@active_approval.id} />
+                  <textarea
+                    name="reason"
+                    placeholder="Reason for deferral (required)"
+                    rows="2"
+                    class="cl-textarea"
+                    required
+                  ></textarea>
+                  <.cl_button type="submit" variant="default">Defer</.cl_button>
+                </form>
+              </div>
+              <p class="cl-text-muted cl-text-micro" style="font-style: italic;">A reason is required for rejection or deferral.</p>
+            <% end %>
           </div>
         <% end %>
       </div>
     </.cl_card>
+
+    <%!-- Colocated RailDensity hook (LiveView 1.1) — ships in phoenix-colocated/cairnloop namespace.
+         Consumer apps must: import {hooks as libHooks} from "phoenix-colocated/cairnloop" and merge
+         into LiveSocket hooks: {...colocatedHooks, ...libHooks}.
+         Reads/writes localStorage key "cl:rail:density"; applies data-density on .evidence-rail.
+         D-04: density = spacing only, never drives <details> open/closed.
+         D-09: no server handle_event for density — this hook is the sole owner of density state. --%>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".RailDensity">
+    export default {
+      mounted() {
+        const stored = localStorage.getItem("cl:rail:density") || "comfortable";
+        this.el.setAttribute("data-density", stored);
+        this._updateToggleLabel(stored);
+        const toggle = this.el.querySelector("[data-density-toggle]");
+        if (toggle) {
+          toggle.addEventListener("click", () => {
+            const current = this.el.getAttribute("data-density") || "comfortable";
+            const next = current === "comfortable" ? "compact" : "comfortable";
+            this.el.setAttribute("data-density", next);
+            localStorage.setItem("cl:rail:density", next);
+            this._updateToggleLabel(next);
+          });
+        }
+      },
+      _updateToggleLabel(density) {
+        const toggle = this.el.querySelector("[data-density-toggle]");
+        if (toggle) {
+          toggle.textContent = density === "comfortable" ? "Comfortable" : "Compact";
+        }
+      }
+    };
+    </script>
     """
   end
 
@@ -1402,10 +1711,10 @@ defmodule Cairnloop.Web.ConversationLive do
     ArticleSuggestionPresenter.quick_fix_summary(suggestion)
   end
 
-  defp quick_fix_request_attrs(conversation) do
+  defp quick_fix_request_attrs(conversation, operator_host_user_id) do
     %{
       conversation_id: conversation.id,
-      host_user_id: conversation.host_user_id,
+      host_user_id: operator_host_user_id,
       tenant_scope: :host_user_scoped,
       title: conversation.subject,
       thread_context: %{
@@ -1432,18 +1741,69 @@ defmodule Cairnloop.Web.ConversationLive do
     end)
   end
 
-  defp quick_fix_scope_opts(conversation) do
-    [tenant_scope: :host_user_scoped, host_user_id: conversation.host_user_id]
+  defp quick_fix_scope_opts(operator_host_user_id) do
+    [tenant_scope: :host_user_scoped, host_user_id: operator_host_user_id]
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
   end
 
   defp review_task_path(review_task_id), do: "/knowledge-base/suggestions?task=#{review_task_id}"
+
+  defp dashboard_path(socket), do: Map.get(socket.assigns, :dashboard_path, "")
+
+  defp operator_actor(socket) do
+    socket.assigns
+    |> Map.get(:operator_host_user_id)
+    |> normalize_operator_actor()
+  end
+
+  defp operator_identity_missing?(actor), do: is_nil(normalize_operator_actor(actor))
+
+  defp with_operator_actor(socket, fun) when is_function(fun, 1) do
+    case operator_actor(socket) do
+      nil -> {:noreply, missing_operator_identity(socket)}
+      actor -> fun.(actor)
+    end
+  end
+
+  defp missing_operator_identity(socket) do
+    put_flash(socket, :error, @missing_operator_identity_copy)
+  end
+
+  defp dashboard_session_actor(session) do
+    session
+    |> get_session_value("host_user_id")
+    |> normalize_operator_actor()
+  end
+
+  defp get_session_value(session, key) when is_map(session) do
+    Map.get(session, key) || Map.get(session, :host_user_id)
+  end
+
+  defp get_session_value(_session, _key), do: nil
+
+  defp normalize_operator_actor(actor) when is_binary(actor) do
+    case String.trim(actor) do
+      "" -> nil
+      value -> value
+    end
+  end
+
+  defp normalize_operator_actor(actor) when is_integer(actor), do: Integer.to_string(actor)
+  defp normalize_operator_actor(_actor), do: nil
 
   defp manual_review_task_param(nil), do: ""
   defp manual_review_task_param(review_task_id), do: "&review_task_id=#{review_task_id}"
 
   defp knowledge_automation do
     Application.get_env(:cairnloop, :knowledge_automation, KnowledgeAutomation)
+  end
+
+  defp chat_module do
+    Application.get_env(:cairnloop, :chat_module, Chat)
+  end
+
+  defp governance_module do
+    Application.get_env(:cairnloop, :governance_module, Cairnloop.Governance)
   end
 
   defp outbound_module do

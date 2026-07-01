@@ -12,7 +12,7 @@ defmodule Cairnloop.KnowledgeBase.MarkdownParser do
   end
 
   def parse_sections(markdown) when is_binary(markdown) do
-    case Earmark.Parser.as_ast(markdown) do
+    case Cairnloop.Markdown.to_ast(markdown) do
       {:ok, ast, _messages} ->
         ast
         |> extract_sections()

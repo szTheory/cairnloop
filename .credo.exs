@@ -51,6 +51,11 @@
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
       #
+      # Cairnloop.CredoChecks.NoHardcodedColor (P40 GATE-02) is intentionally NOT
+      # listed here: it lives under lib/ and is compiled into the app beam, so it
+      # is already on Credo's code path. Adding it to `requires:` would re-load it
+      # via Code.require_file and emit a "redefining module" warning on every run
+      # (Credo custom-check pitfall #4). It is wired solely via `enabled:` below.
       requires: [],
       #
       # If you want to enforce a style guide and need a more traditional linting
@@ -160,6 +165,7 @@
           #
           ## Warnings
           #
+          {Cairnloop.CredoChecks.NoHardcodedColor, [priority: :low]},
           {Credo.Check.Warning.ApplicationConfigInModuleAttribute, []},
           {Credo.Check.Warning.BoolOperationOnSameValues, []},
           {Credo.Check.Warning.Dbg, []},

@@ -9,28 +9,42 @@ defmodule Cairnloop.TestHost.Migrations.CreateHostOwnedTables do
   use Ecto.Migration
 
   def change do
-    create table(:cairnloop_conversations) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    if prefix do
+      execute(
+        "CREATE SCHEMA IF NOT EXISTS #{Cairnloop.SchemaPrefix.quote_identifier!(prefix)}",
+        "SELECT 1"
+      )
+    end
+
+    create table(:cairnloop_conversations, prefix: prefix) do
       add(:status, :string, null: false, default: "open")
       add(:subject, :string)
       add(:host_user_id, :string)
+      add(:customer_ref, :string)
       add(:resolved_at, :utc_datetime_usec)
       add(:csat_rating, :string)
 
       timestamps()
     end
 
-    create table(:cairnloop_messages) do
+    create table(:cairnloop_messages, prefix: prefix) do
       add(:content, :text)
       add(:role, :string, null: false, default: "user")
       add(:metadata, :map, default: %{})
-      add(:conversation_id, references(:cairnloop_conversations, on_delete: :delete_all))
+
+      add(
+        :conversation_id,
+        references(:cairnloop_conversations, prefix: prefix, on_delete: :delete_all)
+      )
 
       timestamps()
     end
 
-    create(index(:cairnloop_messages, [:conversation_id]))
+    create(index(:cairnloop_messages, [:conversation_id], prefix: prefix))
 
-    create table(:cairnloop_drafts) do
+    create table(:cairnloop_drafts, prefix: prefix) do
       add(:content, :text)
       add(:proposal_type, :string, null: false, default: "reply")
       add(:operator_summary, :text)
@@ -39,11 +53,15 @@ defmodule Cairnloop.TestHost.Migrations.CreateHostOwnedTables do
       add(:grounding_metadata, :map, default: %{})
       add(:clarification_attempts, :integer, default: 0)
       add(:status, :string, null: false, default: "pending")
-      add(:conversation_id, references(:cairnloop_conversations, on_delete: :delete_all))
+
+      add(
+        :conversation_id,
+        references(:cairnloop_conversations, prefix: prefix, on_delete: :delete_all)
+      )
 
       timestamps()
     end
 
-    create(index(:cairnloop_drafts, [:conversation_id]))
+    create(index(:cairnloop_drafts, [:conversation_id], prefix: prefix))
   end
 end

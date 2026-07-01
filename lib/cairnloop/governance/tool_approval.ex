@@ -29,6 +29,7 @@ defmodule Cairnloop.Governance.ToolApproval do
   """
 
   use Ecto.Schema
+  @schema_prefix Application.compile_env(:cairnloop, :schema_prefix, "cairnloop")
   import Ecto.Changeset
 
   alias Cairnloop.Governance.ToolProposal

@@ -1,13 +1,15 @@
 defmodule Cairnloop.Conversation do
   use Ecto.Schema
+  @schema_prefix Application.compile_env(:cairnloop, :schema_prefix, "cairnloop")
   import Ecto.Changeset
 
   schema "cairnloop_conversations" do
     field(:status, Ecto.Enum, values: [:open, :resolved, :archived], default: :open)
     field(:subject, :string)
 
-    # External reference for the user or host context
+    # Operator/governance actor identity. Customer/browser identity belongs in customer_ref.
     field(:host_user_id, :string)
+    field(:customer_ref, :string)
     field(:resolved_at, :utc_datetime_usec)
     field(:csat_rating, Ecto.Enum, values: [:positive, :negative])
 
@@ -20,7 +22,7 @@ defmodule Cairnloop.Conversation do
 
   def changeset(conversation, attrs) do
     conversation
-    |> cast(attrs, [:status, :subject, :host_user_id, :resolved_at, :csat_rating])
+    |> cast(attrs, [:status, :subject, :host_user_id, :customer_ref, :resolved_at, :csat_rating])
     |> validate_required([:status])
   end
 end

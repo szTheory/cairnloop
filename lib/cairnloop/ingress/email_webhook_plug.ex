@@ -5,10 +5,10 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
 
   def init(opts), do: opts
 
-  def call(conn, _opts) do
-    # T-M001-02 Mitigation: Require webhook signature verification or secret token.
-    with {:ok, :verified} <- verify_signature(conn),
-         {:ok, body, conn} <- Plug.Conn.read_body(conn),
+  def call(conn, opts) do
+    enqueue = Keyword.get(opts, :enqueue, &Oban.insert/1)
+
+    with {:ok, body, conn} <- read_verified_body(conn),
          {:ok, payload} <- Jason.decode(body) do
       content =
         payload
@@ -17,16 +17,13 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
 
       %{channel: "email", content: content}
       |> Cairnloop.Workers.ProcessMessage.new()
-      |> Oban.insert()
-
-      conn
-      |> put_resp_content_type("application/json")
-      |> send_resp(200, Jason.encode!(%{status: "ok"}))
+      |> enqueue_email(conn, enqueue)
     else
       {:error, :unauthorized} ->
         conn
         |> put_resp_content_type("application/json")
         |> send_resp(401, Jason.encode!(%{error: "Unauthorized"}))
+        |> halt()
 
       _ ->
         conn
@@ -35,14 +32,50 @@ defmodule Cairnloop.Ingress.EmailWebhookPlug do
     end
   end
 
-  defp verify_signature(conn) do
-    # In a real implementation, we would verify the signature of the provider.
-    case get_req_header(conn, "x-webhook-token") do
-      ["secret-token"] -> {:ok, :verified}
-      # For the sake of development and simple passing of this,
-      # we assume the request is valid if it has any token or we just allow it if no token checking is enforced yet.
-      # To be secure, let's strictly require the header.
-      _ -> {:error, :unauthorized}
+  defp read_verified_body(conn) do
+    if Cairnloop.Ingress.EmailWebhookVerifier.requires_body?() do
+      read_body_then_verify(conn)
+    else
+      verify_then_read_body(conn)
+    end
+  end
+
+  defp read_body_then_verify(conn) do
+    case Plug.Conn.read_body(conn) do
+      {:ok, body, conn} ->
+        with {:ok, :verified} <- Cairnloop.Ingress.EmailWebhookVerifier.verify(conn, body) do
+          {:ok, body, conn}
+        end
+
+      other ->
+        other
+    end
+  end
+
+  defp verify_then_read_body(conn) do
+    with {:ok, :verified} <- Cairnloop.Ingress.EmailWebhookVerifier.verify(conn) do
+      Plug.Conn.read_body(conn)
+    end
+  end
+
+  defp enqueue_email(changeset, conn, enqueue) do
+    case enqueue.(changeset) do
+      {:ok, _job} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(200, Jason.encode!(%{status: "ok"}))
+
+      {:error, _reason} ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(503, Jason.encode!(%{error: "Queue unavailable"}))
+        |> halt()
+
+      _other ->
+        conn
+        |> put_resp_content_type("application/json")
+        |> send_resp(503, Jason.encode!(%{error: "Queue unavailable"}))
+        |> halt()
     end
   end
 

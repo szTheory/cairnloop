@@ -2,22 +2,30 @@ defmodule Cairnloop.Workers.IngestScrypath do
   use Oban.Worker, queue: :default
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"conversation_id" => id, "text" => text}}) do
-    api_url =
-      Application.get_env(:cairnloop, :scrypath_api_url, "https://api.scrypath.local/v1/index")
+  def perform(%Oban.Job{args: %{"conversation_id" => id}}) do
+    case Cairnloop.ScrypathConfig.status() do
+      :disabled ->
+        {:discard, :scrypath_disabled}
 
-    api_key = Application.get_env(:cairnloop, :scrypath_api_key, "dummy")
+      {:misconfigured, reasons} ->
+        {:discard, {:scrypath_misconfigured, reasons}}
 
-    req_options = Application.get_env(:cairnloop, :scrypath_req_options, [])
+      {:ready, config} ->
+        post_conversation(id, config)
+    end
+  end
 
+  def perform(%Oban.Job{args: _args}), do: {:discard, :missing_conversation_id}
+
+  defp post_conversation(id, config) do
     req =
       Req.new(
-        url: api_url,
-        auth: {:bearer, api_key}
+        url: config.api_url,
+        auth: {:bearer, config.api_key}
       )
-      |> Req.merge(req_options)
+      |> Req.merge(config.req_options)
 
-    case Req.post(req, json: %{conversation_id: id, text: text}) do
+    case Req.post(req, json: build_payload(Cairnloop.Chat.get_conversation!(id))) do
       {:ok, %{status: status}} when status in 200..299 ->
         :ok
 
@@ -27,5 +35,23 @@ defmodule Cairnloop.Workers.IngestScrypath do
       {:error, exception} ->
         {:error, exception}
     end
+  rescue
+    Ecto.NoResultsError ->
+      {:discard, :conversation_not_found}
+  end
+
+  defp build_payload(conversation) do
+    %{
+      conversation_id: conversation.id,
+      subject: conversation.subject,
+      messages: Enum.map(conversation.messages || [], &message_payload/1)
+    }
+  end
+
+  defp message_payload(message) do
+    %{
+      role: to_string(message.role),
+      content: message.content
+    }
   end
 end

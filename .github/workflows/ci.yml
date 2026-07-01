@@ -8,110 +8,201 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Opt into Node.js 24 for all actions (actions/checkout, actions/cache, etc.)
-# GitHub forces this default on June 2, 2026 — opting in early avoids surprise breakage.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
-  ACTIONS_RUNNER_NODE_VERSION: "24"
+  # Exercise the GitHub Actions Node 24 runtime early; this is the official opt-in knob.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  ELIXIR_VERSION: "1.19.5"
+  OTP_VERSION: "27.2"
+  MIX_CACHE_VERSION: "v1"
 
 jobs:
-  phase-12-shift-left:
+  changes:
+    name: changes
     runs-on: ubuntu-latest
+    outputs:
+      e2e_required: ${{ steps.e2e-required.outputs.e2e_required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide E2E requirement
+        id: e2e-required
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "e2e_required=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git diff --name-only "$BASE_SHA"...HEAD > changed-files.txt
+
+          e2e_required=false
+          while IFS= read -r path; do
+            case "$path" in
+              examples/cairnloop_example/*|\
+              lib/cairnloop/web/*|\
+              priv/static/*|\
+              test/cairnloop/web/*|\
+              examples/cairnloop_example/test/*|\
+              .github/workflows/ci.yml|\
+              mix.exs|\
+              mix.lock|\
+              config/*|\
+              examples/cairnloop_example/mix.exs|\
+              examples/cairnloop_example/mix.lock|\
+              examples/cairnloop_example/assets/package.json|\
+              examples/cairnloop_example/assets/package-lock.json)
+                e2e_required=true
+                ;;
+            esac
+          done < changed-files.txt
+
+          echo "e2e_required=$e2e_required" >> "$GITHUB_OUTPUT"
+
+  fast:
+    name: fast
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.5"
-          otp-version: "27.2"
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
-      - name: Restore Mix cache
-        uses: actions/cache@v4
+      - name: Restore Mix deps cache
+        id: mix-deps-cache
+        uses: actions/cache@v6
         with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          path: deps
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-
 
-      - name: Install dependencies
-        run: mix deps.get
+      - name: Restore Mix build cache
+        id: mix-build-cache
+        uses: actions/cache@v6
+        with:
+          path: _build/test
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-build-test-fast-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock', 'mix.exs', 'config/*.exs', 'test/support/**/*.ex') }}
 
-      - name: Check formatting
-        run: mix format --check-formatted
+      - name: Versions and cache summary
+        run: |
+          {
+            echo "## fast"
+            echo "- Elixir/OTP: $(elixir -e 'IO.write(System.version() <> "/" <> to_string(:erlang.system_info(:otp_release)))')"
+            echo "- schedulers_online: $(elixir -e 'IO.write(System.schedulers_online())')"
+            echo "- deps cache hit: ${{ steps.mix-deps-cache.outputs.cache-hit }}"
+            echo "- build cache hit: ${{ steps.mix-build-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run Phase 12 shift-left suite
-        run: >
-          mix test
-          test/cairnloop/knowledge_automation/article_suggestion_test.exs
-          test/cairnloop/knowledge_automation/review_task_test.exs
-          test/cairnloop/retrieval/telemetry_test.exs
-          test/cairnloop/automation/scoria_engine_test.exs
-          test/cairnloop/automation/draft_generator/anthropic_test.exs
-          test/cairnloop/automation/workers/draft_worker_test.exs
-          test/cairnloop/web/conversation_live_test.exs
-          test/cairnloop/web/knowledge_base_live/suggestion_review_test.exs
-          test/cairnloop/knowledge_base/workers/chunk_revision_test.exs
-          test/cairnloop/web/health_plug_test.exs
-          test/cairnloop/web/metrics_plug_test.exs
-          test/cairnloop/web/health_metrics_route_test.exs
-          test/cairnloop/auditor_test.exs
-          test/cairnloop/governance_test.exs
-          test/cairnloop/doctor_test.exs
+      - name: Compile timing profile
+        run: |
+          start="$(date +%s)"
+          MIX_ENV=test mix compile --force --profile time --warnings-as-errors 2>&1 | tee compile-profile.log
+          end="$(date +%s)"
+          {
+            echo "### Compile profile"
+            echo "- compile duration seconds: $((end - start))"
+            echo '```'
+            tail -n 40 compile-profile.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
-  # Static quality gate (mirrors the `mix check` alias): credo --strict, ex_doc with
-  # warnings-as-errors, the packaged-tarball build, and a dependency CVE audit. Runs in the
-  # default (:dev) env so the dev-only ex_doc + credo/mix_audit deps are present.
+      - name: Run fast CI lane
+        run: |
+          start="$(date +%s)"
+          mix ci.fast
+          end="$(date +%s)"
+          echo "- fast lane duration seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Slowest headless tests
+        run: |
+          mix test --exclude integration --slowest 20 --warnings-as-errors 2>&1 | tee slowest-tests.log
+          {
+            echo "### Slowest headless tests"
+            echo '```'
+            awk '/Slowest tests/{show=1} show{print}' slowest-tests.log | tail -n 80
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   quality:
+    name: quality
     runs-on: ubuntu-latest
+    env:
+      MIX_ENV: dev
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.5"
-          otp-version: "27.2"
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
-      - name: Restore Mix cache
-        uses: actions/cache@v4
+      - name: Restore Mix deps cache
+        id: mix-deps-cache
+        uses: actions/cache@v6
         with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          path: deps
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-
 
-      - name: Install dependencies
-        run: mix deps.get
+      - name: Restore Mix build cache
+        id: mix-build-cache
+        uses: actions/cache@v6
+        with:
+          path: _build/dev
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-build-dev-quality-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock', 'mix.exs', 'config/*.exs') }}
 
-      - name: Credo (strict)
-        run: mix credo --strict
+      - name: Versions and cache summary
+        run: |
+          {
+            echo "## quality"
+            echo "- Elixir/OTP: $(elixir -e 'IO.write(System.version() <> "/" <> to_string(:erlang.system_info(:otp_release)))')"
+            echo "- deps cache hit: ${{ steps.mix-deps-cache.outputs.cache-hit }}"
+            echo "- build cache hit: ${{ steps.mix-build-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Docs (warnings as errors)
-        run: mix docs --warnings-as-errors
+      - name: Run quality CI lane
+        run: |
+          start="$(date +%s)"
+          mix ci.quality
+          end="$(date +%s)"
+          echo "- quality lane duration seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Package build
-        run: mix hex.build
-
-      - name: Dependency audit
-        run: mix deps.audit
-
-  # DB-backed integration suite: exercises the real Postgres + Oban-worker + LiveView legs
-  # that the headless suite cannot (Phase 15 approval flow). Tagged :integration and run
-  # explicitly via `mix test.integration` (test.setup creates both repos + migrates first).
   integration:
+    name: integration
     runs-on: ubuntu-latest
 
     services:
       db:
-        # pgvector image: migration 20260516000000 runs `CREATE EXTENSION vector`.
         image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
@@ -133,47 +224,202 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.19.5"
-          otp-version: "27.2"
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
-      - name: Restore Mix cache
-        uses: actions/cache@v4
+      - name: Restore Mix deps cache
+        id: mix-deps-cache
+        uses: actions/cache@v6
         with:
-          path: |
-            deps
-            _build
-          key: ${{ runner.os }}-mix-${{ hashFiles('mix.lock') }}
+          path: deps
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-deps-${{ env.MIX_ENV }}-${{ env.MIX_CACHE_VERSION }}-
 
-      - name: Install dependencies
-        run: mix deps.get
+      - name: Restore Mix build cache
+        id: mix-build-cache
+        uses: actions/cache@v6
+        with:
+          path: _build/test
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-mix-build-test-integration-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock', 'mix.exs', 'config/*.exs', 'test/support/**/*.ex', 'priv/repo/migrations/**/*.exs', 'priv/test_host/migrations/**/*.exs') }}
 
-      - name: Compile (warnings as errors)
-        run: mix compile --warnings-as-errors
+      - name: Versions and cache summary
+        run: |
+          {
+            echo "## integration"
+            echo "- Elixir/OTP: $(elixir -e 'IO.write(System.version() <> "/" <> to_string(:erlang.system_info(:otp_release)))')"
+            echo "- schedulers_online: $(elixir -e 'IO.write(System.schedulers_online())')"
+            echo "- deps cache hit: ${{ steps.mix-deps-cache.outputs.cache-hit }}"
+            echo "- build cache hit: ${{ steps.mix-build-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Run integration suite (creates DBs, migrates, runs test/integration)
-        run: mix test.integration
+      - name: Run integration suite
+        run: |
+          start="$(date +%s)"
+          mix ci.integration
+          end="$(date +%s)"
+          echo "- integration lane duration seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
 
-  # Single required status check for branch protection (solo-OSS true CI/CD).
-  # Branch protection requires only `release_gate`; this job's `needs:` is the real
-  # contract. Gates on the headless shift-left suite, the DB-backed `integration` suite
-  # (greened on PR #6), and the static `quality` lane (credo/docs/build/audit).
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: ${{ needs.changes.outputs.e2e_required == 'true' }}
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    env:
+      MIX_ENV: test
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGPORT: "5432"
+      PW_TRACE: "true"
+      PW_SCREENSHOT: "true"
+
+    defaults:
+      run:
+        working-directory: examples/cairnloop_example
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: examples/cairnloop_example/assets/package-lock.json
+
+      - name: Restore example Mix deps cache
+        id: example-mix-deps-cache
+        uses: actions/cache@v6
+        with:
+          path: examples/cairnloop_example/deps
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-example-mix-deps-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('examples/cairnloop_example/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-example-mix-deps-${{ env.MIX_CACHE_VERSION }}-
+
+      - name: Restore example Mix build cache
+        id: example-mix-build-cache
+        uses: actions/cache@v6
+        with:
+          path: examples/cairnloop_example/_build/test
+          key: ${{ runner.os }}-otp-${{ env.OTP_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-example-mix-build-test-e2e-${{ env.MIX_CACHE_VERSION }}-${{ hashFiles('mix.lock', 'mix.exs', 'lib/**/*.ex', 'priv/static/cairnloop.css', 'examples/cairnloop_example/mix.lock', 'examples/cairnloop_example/mix.exs', 'examples/cairnloop_example/config/*.exs') }}
+
+      - name: Restore Playwright browser cache
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('examples/cairnloop_example/assets/package-lock.json') }}
+
+      - name: Versions and cache summary
+        run: |
+          {
+            echo "## e2e"
+            echo "- Elixir/OTP: $(elixir -e 'IO.write(System.version() <> "/" <> to_string(:erlang.system_info(:otp_release)))')"
+            echo "- Node: $(node --version)"
+            echo "- example deps cache hit: ${{ steps.example-mix-deps-cache.outputs.cache-hit }}"
+            echo "- example build cache hit: ${{ steps.example-mix-build-cache.outputs.cache-hit }}"
+            echo "- Playwright cache hit: ${{ steps.playwright-cache.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install Elixir dependencies
+        run: |
+          start="$(date +%s)"
+          mix deps.get --check-locked
+          end="$(date +%s)"
+          echo "- Elixir deps seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install assets dependencies and Chromium
+        run: |
+          start="$(date +%s)"
+          npm --prefix assets ci
+          end="$(date +%s)"
+          echo "- npm deps seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+          start="$(date +%s)"
+          npx --prefix assets playwright install --with-deps chromium
+          end="$(date +%s)"
+          echo "- Playwright Chromium install seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup, migrate, and build assets
+        run: |
+          start="$(date +%s)"
+          if [ -d deps/cairnloop/priv/repo/migrations ]; then
+            CAIRNLOOP_MIGRATIONS="deps/cairnloop/priv/repo/migrations"
+          else
+            CAIRNLOOP_MIGRATIONS="../../priv/repo/migrations"
+          fi
+
+          mix assets.setup
+          mix assets.build
+          mix ecto.create --quiet
+          mix ecto.migrate --quiet
+          mix ecto.migrate --migrations-path "$CAIRNLOOP_MIGRATIONS" --quiet
+          end="$(date +%s)"
+          echo "- setup/migrate/assets seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run example E2E suite
+        run: |
+          start="$(date +%s)"
+          mix test --only e2e
+          end="$(date +%s)"
+          echo "- browser tests seconds: $((end - start))" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-traces
+          path: |
+            examples/cairnloop_example/traces/
+            examples/cairnloop_example/screenshots/
+          if-no-files-found: warn
+          retention-days: 3
+
   release_gate:
     name: release_gate
     runs-on: ubuntu-latest
-    needs: [phase-12-shift-left, integration, quality]
+    needs: [changes, fast, integration, quality, e2e]
     if: ${{ always() }}
     steps:
       - name: Gate on required jobs
         run: |
-          if [ "${{ needs.phase-12-shift-left.result }}" != "success" ]; then
-            echo "Required job 'phase-12-shift-left' did not succeed (got: ${{ needs.phase-12-shift-left.result }})."
+          e2e_required="${{ needs.changes.outputs.e2e_required }}"
+          e2e_result="${{ needs.e2e.result }}"
+
+          if [ "${{ needs.fast.result }}" != "success" ]; then
+            echo "Required job 'fast' did not succeed (got: ${{ needs.fast.result }})."
             exit 1
           fi
           if [ "${{ needs.integration.result }}" != "success" ]; then
@@ -184,4 +430,14 @@ jobs:
             echo "Required job 'quality' did not succeed (got: ${{ needs.quality.result }})."
             exit 1
           fi
+
+          if [ "$e2e_result" = "success" ]; then
+            echo "E2E passed."
+          elif [ "$e2e_required" = "false" ] && [ "$e2e_result" = "skipped" ]; then
+            echo "E2E skipped because no E2E-relevant paths changed."
+          else
+            echo "Required job 'e2e' did not succeed or skip intentionally (required: $e2e_required, got: $e2e_result)."
+            exit 1
+          fi
+
           echo "All required jobs passed."

@@ -79,11 +79,14 @@ defmodule CairnloopExample.SeedRun do
   alias Cairnloop.KnowledgeAutomation.ArticleSuggestion
   alias Cairnloop.KnowledgeAutomation.GapCandidate
   alias Cairnloop.KnowledgeAutomation.GapCandidateMembership
+  alias Cairnloop.MCP
+  alias Cairnloop.MCP.Token
   alias Cairnloop.Retrieval.GapEvent
 
   # Showcase-state builders (JTBD stages 4/5/6/8) go through the real facades.
   alias Cairnloop.Automation
   alias Cairnloop.Governance
+  alias Cairnloop.Governance.{ToolActionEvent, ToolApproval}
   alias Cairnloop.Workers.{ApprovalResumeWorker, ToolExecutionWorker}
 
   # --------------------------------------------------------------------------
@@ -98,6 +101,7 @@ defmodule CairnloopExample.SeedRun do
     showcase = build_showcase_states()
     gaps = build_gaps(conversations)
     {suggestion, _review_task} = build_suggestion(articles, conversations)
+    build_phase45_evidence_states()
 
     drain_summary = drain_embedding_pipeline()
 
@@ -1328,7 +1332,9 @@ defmodule CairnloopExample.SeedRun do
   # and never depends on async Oban timing.
 
   @internal_note_ref Atom.to_string(Cairnloop.Tools.InternalNote)
+  @high_risk_demo_ref Atom.to_string(CairnloopExample.Tools.HighRiskDemoAction)
   @showcase_operator "demo_operator"
+  @phase45_audit_anchor ~U[2026-06-26 12:00:00Z]
 
   defp build_showcase_states do
     [
@@ -1530,6 +1536,366 @@ defmodule CairnloopExample.SeedRun do
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp noop_enqueue(_job), do: :ok
+
+  # --------------------------------------------------------------------------
+  # Phase 45 evidence states — final-brand screenshot and verification fixtures
+  # --------------------------------------------------------------------------
+
+  defp build_phase45_evidence_states do
+    ensure_phase45_review_task_state(
+      "demo:article_suggestion:phase45:rejected",
+      :rejected,
+      article_title: "Resetting your Trailmark API key",
+      reason: :insufficient_evidence,
+      note:
+        "Rejected for screenshot proof: the cited case did not include enough canonical evidence."
+    )
+
+    ensure_phase45_review_task_state(
+      "demo:article_suggestion:phase45:deferred",
+      :deferred,
+      article_title: "Updating your billing email",
+      reason: :needs_manual_edit,
+      note: "Deferred until finance confirms the billing-window copy."
+    )
+
+    ensure_phase45_review_task_state(
+      "demo:article_suggestion:phase45:approved-ready",
+      :approved_ready_to_publish,
+      article_title: "Adding a team seat",
+      note: "Approved for publish after operator review; held open for the screenshot lane."
+    )
+
+    ensure_phase45_review_task_state(
+      "demo:article_suggestion:phase45:published",
+      :published,
+      article_title: "Why a CI run was skipped",
+      note: "Published from the review lane for Phase 45 proof."
+    )
+
+    ensure_phase45_governed_decision(
+      "[demo-18] CI pipeline stuck — needs an internal escalation note",
+      @internal_note_ref,
+      :rejected,
+      "Rejected for screenshot proof: wait for customer confirmation before escalating this CI run."
+    )
+
+    ensure_phase45_governed_decision(
+      "[demo-20] Following up after your token rotation",
+      @internal_note_ref,
+      :deferred,
+      "Deferred until the customer confirms production traffic is stable after token rotation."
+    )
+
+    ensure_phase45_governed_decision(
+      "[demo-17] Refund for a double charge this month",
+      @high_risk_demo_ref,
+      :pending,
+      "High-risk demo boundary: requires approval before any account-impacting action."
+    )
+
+    ensure_phase45_demo_mcp_token("Demo docs integration")
+    ensure_phase45_demo_mcp_token("Demo audit export")
+    ensure_phase45_draft_article()
+    backdate_phase45_audit_events!()
+  end
+
+  defp ensure_phase45_review_task_state(stable_key, target_status, opts) do
+    import Ecto.Query
+
+    suggestion = ensure_phase45_review_suggestion(stable_key, opts)
+
+    task =
+      Repo.one(
+        from t in Cairnloop.KnowledgeAutomation.ReviewTask,
+          where: t.article_suggestion_id == ^suggestion.id,
+          order_by: [desc: t.id],
+          limit: 1
+      ) ||
+        case KnowledgeAutomation.ensure_review_task_for_suggestion(
+               suggestion.id,
+               actor_id: @showcase_operator
+             ) do
+          {:ok, review_task} -> review_task
+        end
+
+    transition_phase45_review_task(task, target_status, opts)
+  end
+
+  defp ensure_phase45_review_suggestion(stable_key, opts) do
+    import Ecto.Query
+
+    article_title = Keyword.fetch!(opts, :article_title)
+    article = Repo.get_by!(Article, title: article_title)
+
+    base_revision =
+      Repo.one!(
+        from r in Revision,
+          where: r.article_id == ^article.id and r.state == :published,
+          order_by: [desc: r.version],
+          limit: 1
+      )
+
+    case Repo.get_by(ArticleSuggestion, stable_key: stable_key) do
+      nil ->
+        proposed_markdown = phase45_review_markdown(article.title, stable_key)
+
+        attrs = %{
+          stable_key: stable_key,
+          suggestion_type: :revision,
+          status: :ready,
+          tenant_scope: :host_user_scoped,
+          host_user_id: "demo_operator",
+          entrypoint_type: :article_revision,
+          entrypoint_id: article.id,
+          article_id: article.id,
+          base_revision_id: base_revision.id,
+          title: article.title <> " — Phase 45 review proof",
+          change_summary: "Phase 45 screenshot fixture for #{article.title}.",
+          operator_summary:
+            "Phase 45 seeded review state for #{article.title}; created through ReviewTask transitions.",
+          proposed_markdown: proposed_markdown,
+          grounding_metadata: %{
+            "status" => "strong",
+            "phase" => "45",
+            "source" => "seed"
+          },
+          evidence_snapshot: [
+            %{
+              source_type: :knowledge_base,
+              trust_level: :canonical,
+              title: article.title,
+              excerpt: "Seeded Phase 45 review evidence for #{article.title}.",
+              citation_target: %{
+                article_id: article.id,
+                revision_id: base_revision.id,
+                chunk_index: 0
+              },
+              metadata: %{
+                destination: %{
+                  article_id: article.id,
+                  revision_id: base_revision.id
+                }
+              },
+              match_reasons: ["phase45 review fixture"]
+            }
+          ],
+          evidence_digest:
+            :crypto.hash(:sha256, stable_key)
+            |> Base.encode16(case: :lower),
+          generated_at: @phase45_audit_anchor
+        }
+
+        %ArticleSuggestion{}
+        |> ArticleSuggestion.changeset(attrs)
+        |> Repo.insert!()
+
+      existing ->
+        existing
+    end
+  end
+
+  defp transition_phase45_review_task(%{status: status} = task, status, _opts), do: task
+
+  defp transition_phase45_review_task(task, :rejected, opts) do
+    {:ok, updated} =
+      KnowledgeAutomation.reject_review_task(task.id,
+        actor_id: @showcase_operator,
+        reason: Keyword.get(opts, :reason, :insufficient_evidence),
+        note: Keyword.get(opts, :note)
+      )
+
+    updated
+  end
+
+  defp transition_phase45_review_task(task, :deferred, opts) do
+    {:ok, updated} =
+      KnowledgeAutomation.defer_review_task(task.id,
+        actor_id: @showcase_operator,
+        reason: Keyword.get(opts, :reason, :needs_manual_edit),
+        note: Keyword.get(opts, :note)
+      )
+
+    updated
+  end
+
+  defp transition_phase45_review_task(task, :approved_ready_to_publish, opts) do
+    {:ok, updated} =
+      KnowledgeAutomation.approve_review_task(task.id,
+        actor_id: @showcase_operator,
+        note: Keyword.get(opts, :note)
+      )
+
+    updated
+  end
+
+  defp transition_phase45_review_task(
+         %{status: :approved_ready_to_publish} = task,
+         :published,
+         opts
+       ) do
+    {:ok, updated} =
+      KnowledgeAutomation.publish_review_task(task.id,
+        actor_id: @showcase_operator,
+        note: Keyword.get(opts, :note)
+      )
+
+    updated
+  end
+
+  defp transition_phase45_review_task(task, :published, opts) do
+    task
+    |> transition_phase45_review_task(:approved_ready_to_publish, opts)
+    |> transition_phase45_review_task(:published, opts)
+  end
+
+  defp ensure_phase45_governed_decision(conversation_subject, tool_ref, decision, reason) do
+    import Ecto.Query
+
+    conversation = Repo.get_by!(Conversation, subject: conversation_subject)
+
+    {:ok, proposal} =
+      Governance.propose(tool_ref, @showcase_operator, %{
+        conversation_id: conversation.id,
+        scopes: [],
+        idempotency_token: "phase45:#{decision}:#{tool_ref}",
+        tool_params: phase45_tool_params(tool_ref, conversation, decision, reason)
+      })
+
+    case decision do
+      :pending ->
+        ensure_phase45_pending_approval(proposal)
+
+      terminal_status when terminal_status in [:rejected, :deferred] ->
+        Repo.one(
+          from a in ToolApproval,
+            where: a.tool_proposal_id == ^proposal.id and a.status == ^terminal_status,
+            limit: 1
+        ) ||
+          proposal
+          |> ensure_phase45_pending_approval()
+          |> apply_phase45_governed_decision(terminal_status, reason)
+    end
+  end
+
+  defp phase45_tool_params(tool_ref, conversation, decision, reason) do
+    if tool_ref == @high_risk_demo_ref do
+      %{
+        conversation_id: to_string(conversation.id),
+        reason: reason
+      }
+    else
+      %{
+        conversation_id: to_string(conversation.id),
+        content: "[demo-phase45] governed #{decision}: #{reason}"
+      }
+    end
+  end
+
+  defp ensure_phase45_pending_approval(proposal) do
+    case Governance.get_active_approval(proposal.id) do
+      nil ->
+        {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: &noop_enqueue/1)
+        approval
+
+      approval ->
+        approval
+    end
+  end
+
+  defp apply_phase45_governed_decision(approval, :rejected, reason) do
+    {:ok, updated} = Governance.reject(approval.id, @showcase_operator, reason: reason)
+    updated
+  end
+
+  defp apply_phase45_governed_decision(approval, :deferred, reason) do
+    {:ok, updated} = Governance.defer(approval.id, @showcase_operator, reason: reason)
+    updated
+  end
+
+  defp ensure_phase45_demo_mcp_token(name) do
+    import Ecto.Query
+
+    case Repo.one(from t in Token, where: t.name == ^name and is_nil(t.revoked_at), limit: 1) do
+      nil ->
+        {:ok, token, _raw_token} = MCP.issue_token(%{name: name})
+        token
+
+      token ->
+        token
+    end
+  end
+
+  defp ensure_phase45_draft_article do
+    import Ecto.Query
+
+    title = "Draft: Reconciling disputed receipt exports"
+
+    article =
+      case Repo.get_by(Article, title: title) do
+        nil ->
+          {:ok, created} = KnowledgeBase.create_article(%{title: title, status: :draft})
+          created
+
+        existing ->
+          existing
+      end
+
+    unless Repo.one(
+             from r in Revision,
+               where: r.article_id == ^article.id and r.state == :draft,
+               limit: 1
+           ) do
+      {:ok, _draft} =
+        KnowledgeBase.save_draft(article, %{
+          content: """
+          ## Draft guidance
+
+          Confirm the receipt date, billing email, and export window before publishing this article.
+
+          ## Operator note
+
+          This seeded draft remains unpublished so the editor has a calm draft state for Phase 45 screenshots.
+          """
+        })
+    end
+
+    Repo.get!(Article, article.id)
+  end
+
+  defp backdate_phase45_audit_events! do
+    import Ecto.Query
+
+    offsets = [14, 12, 10, 8, 6, 4, 2, 0]
+
+    ToolActionEvent
+    |> order_by([event], asc: event.id)
+    |> Repo.all()
+    |> Enum.with_index()
+    |> Enum.each(fn {event, index} ->
+      inserted_at =
+        DateTime.add(@phase45_audit_anchor, -Enum.at(offsets, rem(index, length(offsets))), :day)
+
+      # Seed-only passive chronology tweak for the audit-log screenshot; all
+      # behaviorful approval/proposal transitions above went through Governance.
+      Repo.update_all(
+        from(e in ToolActionEvent, where: e.id == ^event.id),
+        set: [inserted_at: inserted_at]
+      )
+    end)
+  end
+
+  defp phase45_review_markdown(article_title, stable_key) do
+    """
+    ## #{article_title}
+
+    This Phase 45 fixture keeps the review lane populated with realistic state evidence.
+
+    ## Seed key
+
+    #{stable_key}
+    """
+  end
 
   # --------------------------------------------------------------------------
   # Idempotency helper (D-02)

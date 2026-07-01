@@ -14,13 +14,16 @@ defmodule Cairnloop.TestHost.Migrations.AddRunKeyToMessages do
   use Ecto.Migration
 
   def change do
-    alter table(:cairnloop_messages) do
+    prefix = Cairnloop.SchemaPrefix.configured()
+
+    alter table(:cairnloop_messages, prefix: prefix) do
       add(:run_key, :string)
     end
 
     create(
       unique_index(:cairnloop_messages, [:run_key],
         name: :cairnloop_messages_run_key_unique_index,
+        prefix: prefix,
         where: "run_key IS NOT NULL"
       )
     )

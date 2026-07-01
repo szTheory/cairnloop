@@ -45,9 +45,11 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"approval_id" => approval_id}}) do
-    case repo().get(ToolApproval, approval_id) do
+    case repo().get(ToolApproval, approval_id, repo_opts()) do
       nil ->
         # Deleted — idempotent no-op (mirrors SlaCountdownWorker nil branch)
         :ok
@@ -73,7 +75,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
   # Re-calls the pure Governance.validate/3 against CURRENT context (D15-10).
   # validate/3 is free by construction — no side effects, no DB reads.
   defp revalidate_and_transition(approval) do
-    proposal = repo().get!(ToolProposal, approval.tool_proposal_id)
+    proposal = repo().get!(ToolProposal, approval.tool_proposal_id, repo_opts())
 
     # Rebuild context from the proposal's snapshot fields.
     # String keys from JSONB are rehydrated to atoms safely via String.to_existing_atom/1
@@ -155,7 +157,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
         decided_at: DateTime.utc_now()
       })
 
-    with {:ok, updated} <- repo().update(cs),
+    with {:ok, updated} <- repo().update(cs, repo_opts()),
          {:ok, _event} <-
            %ToolActionEvent{}
            |> ToolActionEvent.changeset(%{
@@ -170,7 +172,7 @@ defmodule Cairnloop.Workers.ApprovalResumeWorker do
                new_approval_status: new_status
              }
            })
-           |> repo().insert() do
+           |> repo().insert(repo_opts()) do
       # Telemetry AFTER with success — never inside the with clause list (D-29)
       Cairnloop.Telemetry.execute(
         [:governance, :approval_transition],

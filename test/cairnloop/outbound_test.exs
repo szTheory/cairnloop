@@ -8,7 +8,9 @@ defmodule Cairnloop.OutboundTest do
     # operator-facing audit row exists even if the caller has no telemetry handler).
     # We also record the inserted row in the process dictionary so tests can
     # assert on the refused envelope shape without needing a real DB.
-    def insert(changeset_or_struct) do
+    def insert(changeset_or_struct, opts \\ []) do
+      record_insert_opts(changeset_or_struct, opts)
+
       # CR-02 regression hook: tests can force the next `insert/1` call to
       # fail with a synthetic `{:error, %Ecto.Changeset{}}` to exercise the
       # refusal-audit-failure observability lane (telemetry outcome
@@ -76,7 +78,9 @@ defmodule Cairnloop.OutboundTest do
       operations = Ecto.Multi.to_list(multi)
 
       Enum.reduce_while(operations, {:ok, acc}, fn
-        {name, {:insert, changeset, _}}, {:ok, results} ->
+        {name, {:insert, changeset, opts}}, {:ok, results} ->
+          record_insert_opts(changeset, opts)
+
           if changeset.valid? do
             applied = Ecto.Changeset.apply_changes(changeset)
             # Per-recipient :message_* rows still need a synthesized id (the
@@ -114,17 +118,34 @@ defmodule Cairnloop.OutboundTest do
           end
       end)
     end
+
+    defp record_insert_opts(%Ecto.Changeset{data: %{__struct__: schema}}, opts) do
+      calls = Process.get(:mock_repo_insert_opts, [])
+      Process.put(:mock_repo_insert_opts, calls ++ [%{schema: schema, opts: opts}])
+    end
+
+    defp record_insert_opts(%{__struct__: schema}, opts) do
+      calls = Process.get(:mock_repo_insert_opts, [])
+      Process.put(:mock_repo_insert_opts, calls ++ [%{schema: schema, opts: opts}])
+    end
+
+    defp record_insert_opts(_other, opts) do
+      calls = Process.get(:mock_repo_insert_opts, [])
+      Process.put(:mock_repo_insert_opts, calls ++ [%{schema: :unknown, opts: opts}])
+    end
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
     Process.put(:mock_repo_inserts, [])
+    Process.put(:mock_repo_insert_opts, [])
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
       # Pitfall 7: max_batch_size env tweaks must not leak across tests.
       Application.delete_env(:cairnloop, :max_batch_size)
       Process.delete(:mock_repo_inserts)
+      Process.delete(:mock_repo_insert_opts)
       # CR-02 regression hook: never leak the forced-failure stub across tests.
       Process.delete(:mock_repo_force_insert_failure)
       # Phase 26 D-03 regression hooks: never leak forced shapes across tests.
@@ -134,6 +155,77 @@ defmodule Cairnloop.OutboundTest do
     end)
 
     :ok
+  end
+
+  defp insert_opts_calls, do: Process.get(:mock_repo_insert_opts, [])
+
+  defp assert_insert_prefix!(schema) do
+    assert Enum.any?(insert_opts_calls(), fn call ->
+             call.schema == schema and Keyword.get(call.opts, :prefix) == "cairnloop"
+           end),
+           "expected #{inspect(schema)} insert to use prefix: \"cairnloop\"; got #{inspect(insert_opts_calls())}"
+  end
+
+  defp refute_insert_prefix!(schema) do
+    refute Enum.any?(insert_opts_calls(), fn call ->
+             call.schema == schema and Keyword.has_key?(call.opts, :prefix)
+           end),
+           "expected #{inspect(schema)} insert to stay host-owned without Cairnloop prefix; got #{inspect(insert_opts_calls())}"
+  end
+
+  defp with_schema_prefix(prefix, fun) do
+    original = Application.get_env(:cairnloop, :schema_prefix)
+    Application.put_env(:cairnloop, :schema_prefix, prefix)
+    Process.put(:mock_repo_insert_opts, [])
+
+    try do
+      fun.()
+    after
+      restore_env(:schema_prefix, original)
+      Process.delete(:mock_repo_insert_opts)
+    end
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:cairnloop, key)
+  defp restore_env(key, value), do: Application.put_env(:cairnloop, key, value)
+
+  describe "DB-05 schema prefix contract" do
+    test "trigger/2 prefixes message persistence while leaving Oban jobs host-owned" do
+      with_schema_prefix("cairnloop", fn ->
+        assert {:ok, _results} = Outbound.trigger(1, template_id: "recovery_v1")
+
+        assert_insert_prefix!(Cairnloop.Message)
+        refute_insert_prefix!(Oban.Job)
+      end)
+    end
+
+    test "bulk submit prefixes envelope and message persistence while leaving Oban jobs host-owned" do
+      with_schema_prefix("cairnloop", fn ->
+        assert {:ok, _results} =
+                 Outbound.bulk_trigger([1, 2],
+                   template_id: "recovery_v1",
+                   rendered_body: "Hi",
+                   actor: "agent_1"
+                 )
+
+        assert_insert_prefix!(Cairnloop.Outbound.BulkEnvelope)
+        assert_insert_prefix!(Cairnloop.Message)
+        refute_insert_prefix!(Oban.Job)
+      end)
+    end
+
+    test "bulk cap-refusal prefixes the durable refusal envelope" do
+      with_schema_prefix("cairnloop", fn ->
+        assert {:error, :batch_too_large} =
+                 Outbound.bulk_trigger(Enum.to_list(1..26),
+                   template_id: "recovery_v1",
+                   rendered_body: "Hi",
+                   actor: "agent_1"
+                 )
+
+        assert_insert_prefix!(Cairnloop.Outbound.BulkEnvelope)
+      end)
+    end
   end
 
   describe "trigger/2" do
@@ -202,10 +294,12 @@ defmodule Cairnloop.OutboundTest do
 
     test "integrates with auditor" do
       defmodule TestAuditor do
+        @behaviour Cairnloop.Auditor
+
         @impl true
         def list_events(_opts), do: []
 
-        @behaviour Cairnloop.Auditor
+        @impl true
         def audit(multi, action, actor, metadata) do
           Ecto.Multi.run(multi, :audit, fn _repo, _changes ->
             {:ok, %{action: action, actor: actor, metadata: metadata}}
@@ -742,10 +836,12 @@ defmodule Cairnloop.OutboundTest do
     # `MockNotifier.on_outbound_triggered/2` pattern in
     # `test/cairnloop/workers/outbound_worker_test.exs`.
     defmodule MapShapeAuditor do
+      @behaviour Cairnloop.Auditor
+
       @impl true
       def list_events(_opts), do: []
 
-      @behaviour Cairnloop.Auditor
+      @impl true
       def audit(multi, action, actor, metadata) do
         send(self(), {:audited, %{action: action, actor: actor, metadata: metadata}})
 

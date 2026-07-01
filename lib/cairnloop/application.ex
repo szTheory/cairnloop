@@ -7,7 +7,7 @@ defmodule Cairnloop.Application do
 
   @impl true
   def start(_type, _args) do
-    attach_telemetry()
+    attach_optional_telemetry()
 
     # Fail fast at boot if any declared tool is misconfigured (D-07).
     # A non-conforming tool raises ArgumentError here rather than at first user interaction.
@@ -24,28 +24,46 @@ defmodule Cairnloop.Application do
     Supervisor.start_link(children, opts)
   end
 
-  defp attach_telemetry do
-    :telemetry.attach(
-      "cairnloop-conversation-resolved-scrypath",
-      [:cairnloop, :conversation, :resolved],
-      &__MODULE__.handle_conversation_resolved/4,
-      nil
-    )
+  defp attach_optional_telemetry do
+    if Cairnloop.ScrypathConfig.ready?() do
+      :telemetry.attach(
+        "cairnloop-conversation-resolved-scrypath",
+        [:cairnloop, :conversation, :resolved],
+        &__MODULE__.handle_conversation_resolved/4,
+        nil
+      )
+    end
   end
 
   @doc false
-  def handle_conversation_resolved(_event, _measurements, metadata, _config) do
-    job =
-      %{
-        "conversation_id" => metadata[:conversation_id] || metadata[:id],
-        "text" => metadata[:text] || ""
-      }
-      |> Cairnloop.Workers.IngestScrypath.new()
+  def handle_conversation_resolved(_event, _measurements, metadata, config) do
+    config = config || []
 
-    try do
-      Oban.insert(job)
-    rescue
-      _ -> :ok
+    case Cairnloop.ScrypathConfig.status(config) do
+      {:ready, _ready_config} -> enqueue_scrypath_ingest(metadata, config)
+      :disabled -> :ok
+      {:misconfigured, _reasons} -> :ok
+    end
+  end
+
+  defp enqueue_scrypath_ingest(metadata, config) do
+    conversation_id = metadata[:conversation_id] || metadata[:id]
+
+    if is_nil(conversation_id) do
+      :ok
+    else
+      job =
+        %{"conversation_id" => conversation_id}
+        |> Cairnloop.Workers.IngestScrypath.new()
+
+      enqueue_fn = Keyword.get(config, :enqueue_fn, &Oban.insert/1)
+
+      try do
+        enqueue_fn.(job)
+        :ok
+      rescue
+        _ -> :ok
+      end
     end
   end
 end

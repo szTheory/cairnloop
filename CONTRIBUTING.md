@@ -23,29 +23,76 @@ Unlike typical libraries, you cannot just run `mix test` out of the box or rely 
 1.  **Host Tables:** The tables that your Phoenix app would typically own (e.g., the primary `cairnloop_conversations` table) must be created first.
 2.  **Library Tables:** Cairnloop's internal tables (knowledge base, audit logs, MCP tokens) are created second.
 
-The `mix test.setup` alias handles this automatically by dropping the test database (if it exists), creating it, running the host migrations (found in `priv/test_host/repo/migrations`), and then running the library's internal migrations (found in `priv/repo/migrations`).
+The `mix test.setup` alias handles this automatically by creating the test databases, running the
+host migrations (found in `priv/test_host/migrations`), and then running the library's internal
+migrations (found in `priv/repo/migrations`).
 
-## Running Tests
+## Running Checks
 
-Cairnloop splits its test suite to keep the feedback loop fast for unit tests, while still providing robust end-to-end guarantees.
+Cairnloop splits its checks to keep contributor feedback fast while still preserving DB-backed and
+browser confidence.
 
-### 1. Isolated Unit Suite (Fast)
+### 1. Fast Headless CI Lane
 
-For TDD and fast feedback, run the isolated unit suite. These tests do not touch the database.
-
-```bash
-mix test
-```
-
-### 2. Integration Suite (DB-backed)
-
-To run the full suite, including all Ecto-backed repository tests and full E2E state machine integration tests, use the integration alias:
+For normal library work, run the same fast lane CI uses:
 
 ```bash
-mix test.integration
+mix ci.fast
 ```
 
-Always ensure `mix test.integration` passes before opening a Pull Request.
+This verifies locked deps, formatting, warnings-as-errors compilation, and the full headless ExUnit
+suite with `:integration` excluded.
+
+For release-sized changes, run the full local gate:
+
+```bash
+mix ci
+```
+
+This shells out to the fast, integration, and quality lanes so each lane keeps the same environment
+it uses in CI.
+
+### 2. Static Quality Lane
+
+For docs, public API, packaging, or dependency changes:
+
+```bash
+mix ci.quality
+```
+
+This checks unused deps, warnings-as-errors compilation, Credo, ExDoc warnings, Hex package build,
+and dependency audit.
+
+### 3. Integration Suite (DB-backed)
+
+For DB-backed workflows and full state-machine integration tests:
+
+```bash
+mix ci.integration
+```
+
+### 4. Example Browser Lane
+
+For mounted dashboard UI, LiveView browser behavior, or example app changes:
+
+```bash
+cd examples/cairnloop_example
+mix test.e2e
+```
+
+If your local example database is running on the expected port, `mix ci.full` runs `mix ci` and then
+the example E2E lane.
+
+### 5. Docker Adoption Smoke
+
+For Docker/demo setup, docs, or adoption-flow changes:
+
+```bash
+./bin/demo smoke
+```
+
+The smoke command uses an isolated Compose project, checks the main demo routes, and removes its
+containers and volumes when it finishes.
 
 ## Generating Documentation
 
@@ -62,5 +109,6 @@ open doc/index.html
 2.  **Documentation:** If you add a new `@callback` behaviour or change the public API, update the relevant guides in the `guides/` directory.
 3.  **Format:** Ensure your code is formatted correctly by running `mix format`.
 4.  **Changelog:** Do not update `CHANGELOG.md` in your PR. The maintainers will update it during the release process.
+5.  **Operator UI:** Read `docs/operator-ui-principles.md` before changing dashboard UI. Reuse the Cairnloop component/token system instead of adding one-off styles.
 
 Thank you for helping make Cairnloop better!

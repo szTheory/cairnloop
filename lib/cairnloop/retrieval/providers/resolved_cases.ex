@@ -7,6 +7,11 @@ defmodule Cairnloop.Retrieval.Providers.ResolvedCases do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   def search(query, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
     embedding_vector = Keyword.get_lazy(opts, :embedding_vector, fn -> nil end)
@@ -24,16 +29,19 @@ defmodule Cairnloop.Retrieval.Providers.ResolvedCases do
 
   def keyword_candidates(query, limit, opts \\ []) do
     host_user_id = Keyword.get(opts, :host_user_id)
+    evidence_query = prefixed(ResolvedCaseEvidence)
 
     ResolvedCaseChunk
-    |> join(:inner, [chunk], evidence in ResolvedCaseEvidence,
+    |> prefixed()
+    |> join(:inner, [chunk], evidence in ^evidence_query,
       on: evidence.id == chunk.resolved_case_evidence_id
     )
     |> maybe_filter_host_user(host_user_id)
     |> where(
       [chunk, _evidence],
       fragment(
-        "cairnloop_resolved_case_chunks.search_vector @@ websearch_to_tsquery('english', ?)",
+        "? @@ websearch_to_tsquery('english', ?)",
+        field(chunk, :search_vector),
         ^query
       )
     )
@@ -41,7 +49,8 @@ defmodule Cairnloop.Retrieval.Providers.ResolvedCases do
       [chunk, _evidence],
       desc:
         fragment(
-          "ts_rank(cairnloop_resolved_case_chunks.search_vector, websearch_to_tsquery('english', ?))",
+          "ts_rank(?, websearch_to_tsquery('english', ?))",
+          field(chunk, :search_vector),
           ^query
         )
     )
@@ -84,9 +93,11 @@ defmodule Cairnloop.Retrieval.Providers.ResolvedCases do
 
   def semantic_candidates(embedding_vector, limit, opts) do
     host_user_id = Keyword.get(opts, :host_user_id)
+    evidence_query = prefixed(ResolvedCaseEvidence)
 
     ResolvedCaseChunk
-    |> join(:inner, [chunk], evidence in ResolvedCaseEvidence,
+    |> prefixed()
+    |> join(:inner, [chunk], evidence in ^evidence_query,
       on: evidence.id == chunk.resolved_case_evidence_id
     )
     |> maybe_filter_host_user(host_user_id)

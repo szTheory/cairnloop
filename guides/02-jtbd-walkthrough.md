@@ -41,7 +41,7 @@ open, awaiting customer, and resolved. Each row shows the conversation subject, 
 identifier, the time since the last message, and a status chip. The just-seeded conversation
 appears at or near the top of the list.
 
-![The operator inbox at /support, listing conversations across the lifecycle](assets/02-operator-inbox.png)
+![The operator inbox at /support, listing conversations across the lifecycle](assets/02b-operator-inbox.png)
 
 At this stage, the operator can orient themselves across the support queue before selecting a
 conversation to work.

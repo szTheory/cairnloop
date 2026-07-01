@@ -12,7 +12,7 @@ defmodule Cairnloop.Workers.ProcessMessage do
     Follows the canonical "Worker → context facade → broadcast" pattern established by
     `Cairnloop.Automation.Workers.DraftWorker` (lines 101-114).
 
-  - **`"email"`** — preserves the sealed logger stub from before Phase 28. The
+  - **`"email"`** — preserves the sealed unhandled-email stub from before Phase 28. The
     `Cairnloop.Ingress.EmailWebhookPlug` is a silent secondary caller that enqueues
     `ProcessMessage.new(%{channel: "email", content: content})`. The email branch must
     keep that arg shape working (Pitfall 2 / OQ-2). Full email-to-Conversation wiring
@@ -49,15 +49,16 @@ defmodule Cairnloop.Workers.ProcessMessage do
     end
   end
 
-  def perform(%Oban.Job{args: %{"channel" => "email", "content" => content}}) do
+  def perform(%Oban.Job{args: %{"channel" => "email", "content" => _content}}) do
     # Pitfall 2 / OQ-2: email branch — sealed stub from before Phase 28.
     # Cairnloop.Ingress.EmailWebhookPlug (lib/cairnloop/ingress/email_webhook_plug.ex:18-20)
     # calls ProcessMessage.new(%{channel: "email", content: content}) — this clause exists
     # specifically to keep that secondary caller working under D-07's arg reshape.
     # Full email ingress wiring into a Conversation row is deferred to a future phase.
-    # Using Logger.warning (not :info) because: (1) the test config sets level: :warning,
-    # and (2) :warning is semantically accurate — email ingress is intentionally unhandled.
-    Logger.warning("Processed email message: #{content}")
+    Logger.warning(
+      "Received email ingress message but no email conversation handler is configured"
+    )
+
     :ok
   end
 end

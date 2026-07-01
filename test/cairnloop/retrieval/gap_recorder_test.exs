@@ -4,12 +4,21 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
   alias Cairnloop.Retrieval.{GapEvent, GapRecorder}
 
   defmodule MockRepo do
-    def one(_query), do: nil
+    def one(query), do: one(query, [])
 
-    def transaction(multi) do
+    def one(_query, opts) do
+      record_repo_call(:one, Cairnloop.Retrieval.GapEvent, opts)
+      nil
+    end
+
+    def transaction(multi, opts \\ []) do
+      record_repo_call(:transaction, :multi, opts)
+
       results =
         Enum.reduce(Ecto.Multi.to_list(multi), %{}, fn
-          {:gap_event, {:insert, changeset, _opts}}, acc ->
+          {:gap_event, {:insert, changeset, opts}}, acc ->
+            record_repo_call(:multi_insert, Cairnloop.Retrieval.GapEvent, opts)
+
             gap_event =
               changeset
               |> Ecto.Changeset.apply_action!(:insert)
@@ -23,16 +32,28 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
       {:ok, results}
     end
 
-    def all(%Ecto.Query{}), do: Process.get(:gap_events, []) |> Enum.reverse()
+    def all(query), do: all(query, [])
+
+    def all(%Ecto.Query{}, opts) do
+      record_repo_call(:all, Cairnloop.Retrieval.GapEvent, opts)
+      Process.get(:gap_events, []) |> Enum.reverse()
+    end
+
+    defp record_repo_call(operation, schema, opts) do
+      calls = Process.get(:repo_calls, [])
+      Process.put(:repo_calls, calls ++ [%{operation: operation, schema: schema, opts: opts}])
+    end
   end
 
   setup do
     original_repo = Application.get_env(:cairnloop, :repo)
     Application.put_env(:cairnloop, :repo, MockRepo)
     Process.put(:gap_events, [])
+    Process.put(:repo_calls, [])
 
     on_exit(fn ->
       Process.delete(:gap_events)
+      Process.delete(:repo_calls)
 
       if original_repo do
         Application.put_env(:cairnloop, :repo, original_repo)
@@ -42,6 +63,14 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
     end)
 
     :ok
+  end
+
+  defp assert_prefixed_repo_call!(operation) do
+    assert Enum.any?(Process.get(:repo_calls, []), fn call ->
+             call.schema == GapEvent and call.operation == operation and
+               Keyword.get(call.opts, :prefix) == "cairnloop"
+           end),
+           "expected #{inspect(operation)} GapEvent call to use prefix: \"cairnloop\"; got #{inspect(Process.get(:repo_calls, []))}"
   end
 
   test "records a sanitized append-only gap event synchronously and makes it immediately queryable" do
@@ -105,6 +134,9 @@ defmodule Cairnloop.Retrieval.GapRecorderTest do
     assert stored_event.id == gap_event.id
     assert stored_event.reason == :no_canonical_results
     assert hd(stored_event.attempted_evidence_snapshots).content_excerpt =~ "[redacted-email]"
+
+    assert_prefixed_repo_call!(:multi_insert)
+    assert_prefixed_repo_call!(:all)
   end
 
   test "keeps prune scheduling secondary to the primary insert path" do

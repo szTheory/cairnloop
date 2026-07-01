@@ -10,13 +10,19 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"revision_id" => revision_id}}) do
     :telemetry.execute([:openinference, :span, :start], %{}, %{name: "chunk_revision"})
     _ = knowledge_automation().record_review_task_reindex_started(revision_id)
 
     result =
-      case repo().get(Revision, revision_id) do
+      case repo().get(Revision, revision_id, repo_opts()) do
         nil ->
           {:error, :revision_not_found}
 
@@ -27,6 +33,7 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
           case ExternalApi.generate_embeddings(chunk_texts) do
             {:ok, embeddings} ->
               now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+              chunk_query = prefixed(Chunk)
 
               chunk_records =
                 Enum.zip(chunk_sections, embeddings)
@@ -45,9 +52,10 @@ defmodule Cairnloop.KnowledgeBase.Workers.ChunkRevision do
               Ecto.Multi.new()
               |> Ecto.Multi.delete_all(
                 :delete_old_chunks,
-                from(c in Chunk, where: c.revision_id == ^revision_id)
+                chunk_query |> where([c], c.revision_id == ^revision_id),
+                repo_opts()
               )
-              |> Ecto.Multi.insert_all(:insert_chunks, Chunk, chunk_records)
+              |> Ecto.Multi.insert_all(:insert_chunks, Chunk, chunk_records, repo_opts())
               |> repo().transaction()
 
               :ok

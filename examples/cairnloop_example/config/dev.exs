@@ -1,14 +1,27 @@
 import Config
 
+database_hostname = System.get_env("PGHOST") || "localhost"
+database_port = String.to_integer(System.get_env("PGPORT") || "5433")
+database_username = System.get_env("PGUSER") || "postgres"
+database_password = System.get_env("PGPASSWORD") || "postgres"
+database_name = System.get_env("PGDATABASE") || "cairnloop_example_dev"
+
+bind_ip =
+  case System.get_env("PHX_BIND") || "127.0.0.1" do
+    "0.0.0.0" -> {0, 0, 0, 0}
+    "127.0.0.1" -> {127, 0, 0, 1}
+    other -> raise "Unsupported PHX_BIND=#{inspect(other)}. Use 127.0.0.1 or 0.0.0.0."
+  end
+
 # Configure your database
 config :cairnloop_example, CairnloopExample.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "cairnloop_example_dev",
+  username: database_username,
+  password: database_password,
+  hostname: database_hostname,
+  database: database_name,
   # Honor PGPORT (matches docker-compose.yml + the library's config/test.exs) so the
   # demo DB port is overridable without editing config. Defaults to 5433.
-  port: String.to_integer(System.get_env("PGPORT") || "5433"),
+  port: database_port,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -18,11 +31,11 @@ config :cairnloop_example, CairnloopExample.Repo,
 # LiveView dev log forwarding) with "missing the :database key" errors. Point it at the demo DB
 # so it connects quietly and stays idle.
 config :chimeway, Chimeway.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "localhost",
-  database: "cairnloop_example_dev",
-  port: String.to_integer(System.get_env("PGPORT") || "5433"),
+  username: database_username,
+  password: database_password,
+  hostname: database_hostname,
+  database: database_name,
+  port: database_port,
   pool_size: 2
 
 # For development, we disable any cache and enable
@@ -34,10 +47,14 @@ config :chimeway, Chimeway.Repo,
 config :cairnloop_example, CairnloopExampleWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  # Honor PORT (default 4000) so the demo can sidestep a port already in use.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  # Honor PORT (default 4000) so the demo can sidestep a port already in use. Docker sets
+  # PHX_BIND=0.0.0.0 so the published container port can receive host browser traffic.
+  http: [ip: bind_ip, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
+  # The demo edits the library and the host app side-by-side. Include the path dependency so
+  # changes under ../../lib/cairnloop are recompiled on request without rebuilding the image.
+  reloadable_apps: [:cairnloop_example, :cairnloop],
   debug_errors: true,
   secret_key_base: "toRX4Kr+2AHLpJr5bTeiK39tVP6RDPf4K3X5ajaXWf02C8mg5rODatgbm7zWUom3",
   watchers: [
@@ -47,6 +64,8 @@ config :cairnloop_example, CairnloopExampleWeb.Endpoint,
 
 config :cairnloop, Cairnloop.KnowledgeAutomation.EditorHandoff,
   secret_key_base: "dev_only_64_byte_minimum_secret_for_editor_handoff_tokens_cairnloop"
+
+config :cairnloop, :widget_token_verifier, Cairnloop.Widget.Verifier.Demo
 
 # ## SSL Support
 #
@@ -80,7 +99,9 @@ config :cairnloop_example, CairnloopExampleWeb.Endpoint,
       ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
       # Router, Controllers, LiveViews and LiveComponents
       ~r"lib/cairnloop_example_web/router\.ex$"E,
-      ~r"lib/cairnloop_example_web/(controllers|live|components)/.*\.(ex|heex)$"E
+      ~r"lib/cairnloop_example_web/(controllers|live|components)/.*\.(ex|heex)$"E,
+      # The demo dogfoods the local path dependency, so reload on library UI changes too.
+      ~r"lib/cairnloop/web/.*\.(ex|heex)$"E
     ]
   ]
 

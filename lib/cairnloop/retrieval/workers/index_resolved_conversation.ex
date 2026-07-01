@@ -7,20 +7,33 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
   alias Cairnloop.Embedder.ExternalApi
   alias Cairnloop.KnowledgeAutomation
   alias Cairnloop.KnowledgeBase.MarkdownParser
+  alias Cairnloop.Message
   alias Cairnloop.Retrieval.{ResolvedCaseChunk, ResolvedCaseEvidence}
 
   defp repo do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"conversation_id" => conversation_id} = args}) do
-    case repo().get(Conversation, conversation_id) do
+    case repo().get(Conversation, conversation_id, repo_opts()) do
       nil ->
         {:error, :conversation_not_found}
 
       conversation ->
-        conversation = repo().preload(conversation, :messages)
+        message_query = prefixed(Message)
+
+        conversation =
+          repo().preload(conversation,
+            messages: message_query |> order_by([message], asc: message.inserted_at)
+          )
+
         metadata = normalize_metadata(Map.get(args, "metadata", %{}))
         citation_backreferences = build_citation_backreferences(conversation.messages)
         evidence_attrs = build_evidence_attrs(conversation, metadata, citation_backreferences)
@@ -38,16 +51,18 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
 
   defp persist_evidence(conversation, evidence_attrs, chunk_sections, embeddings) do
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    evidence_query = prefixed(ResolvedCaseEvidence)
+    chunk_query = prefixed(ResolvedCaseChunk)
 
     repo().transaction(fn ->
       evidence =
-        repo().one(from(e in ResolvedCaseEvidence, where: e.conversation_id == ^conversation.id))
+        repo().one(evidence_query |> where([e], e.conversation_id == ^conversation.id))
 
       evidence_changeset =
         (evidence || %ResolvedCaseEvidence{})
         |> ResolvedCaseEvidence.changeset(evidence_attrs)
 
-      with {:ok, evidence_record} <- repo().insert_or_update(evidence_changeset) do
+      with {:ok, evidence_record} <- repo().insert_or_update(evidence_changeset, repo_opts()) do
         chunk_records =
           Enum.zip(chunk_sections, embeddings)
           |> Enum.map(fn {section, embedding} ->
@@ -64,9 +79,10 @@ defmodule Cairnloop.Retrieval.Workers.IndexResolvedConversation do
         Ecto.Multi.new()
         |> Ecto.Multi.delete_all(
           :delete_old_chunks,
-          from(c in ResolvedCaseChunk, where: c.resolved_case_evidence_id == ^evidence_record.id)
+          chunk_query |> where([c], c.resolved_case_evidence_id == ^evidence_record.id),
+          repo_opts()
         )
-        |> Ecto.Multi.insert_all(:insert_chunks, ResolvedCaseChunk, chunk_records)
+        |> Ecto.Multi.insert_all(:insert_chunks, ResolvedCaseChunk, chunk_records, repo_opts())
         |> repo().transaction()
 
         :ok

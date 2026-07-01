@@ -7,15 +7,15 @@ defmodule Cairnloop.Channels.WidgetChannel do
   # Pitfall 5: Rejoin race acceptance — duplicate join calls within the same session are
   # possible on reconnect; the Oban unique: option on ProcessMessage mitigates duplicate
   # message processing, and orphan conversations are tolerable per D-04.
-  # The host_user_id field is :string on Conversation, so the binary token from
-  # socket.assigns[:user_token] is fine without coercion (carried decision).
   def join("widget:lobby", _payload, socket) do
-    token = socket.assigns[:user_token]
-
-    case Cairnloop.Chat.create_customer_conversation(%{host_user_id: token}) do
-      {:ok, conversation} ->
-        updated_socket = Phoenix.Socket.assign(socket, :conversation_id, conversation.id)
-        {:ok, %{conversation_id: conversation.id}, updated_socket}
+    with {:ok, customer_ref} <- verified_customer_ref(socket),
+         {:ok, conversation} <-
+           Cairnloop.Chat.create_customer_conversation(%{customer_ref: customer_ref}) do
+      updated_socket = Phoenix.Socket.assign(socket, :conversation_id, conversation.id)
+      {:ok, %{conversation_id: conversation.id}, updated_socket}
+    else
+      {:error, :missing_customer_ref} ->
+        {:error, %{reason: "unauthorized"}}
 
       {:error, _changeset} ->
         {:error, %{reason: "could_not_create_conversation"}}
@@ -29,10 +29,27 @@ defmodule Cairnloop.Channels.WidgetChannel do
   def join("widget:" <> _private_room_id, _payload, socket) do
     # For a real implementation, we would check if the user has access to this room.
     # For now, allow it if they are authenticated.
-    if socket.assigns[:user_token] do
+    if has_verified_customer_ref?(socket) do
       {:ok, socket}
     else
       {:error, %{reason: "unauthorized"}}
+    end
+  end
+
+  defp verified_customer_ref(socket) do
+    case socket.assigns[:customer_ref] do
+      customer_ref when is_binary(customer_ref) and customer_ref != "" -> {:ok, customer_ref}
+      _ -> {:error, :missing_customer_ref}
+    end
+  end
+
+  defp has_verified_customer_ref?(socket) do
+    case verified_customer_ref(socket) do
+      {:ok, _customer_ref} ->
+        true
+
+      {:error, _} ->
+        false
     end
   end
 

@@ -72,9 +72,11 @@ defmodule Cairnloop.Workers.OutboundWorker do
   alias Cairnloop.{Chat, Message}
   alias Cairnloop.Outbound.Telemetry.Traces
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
   def perform(%Oban.Job{args: %{"message_id" => message_id} = args}) do
     repo = Application.fetch_env!(:cairnloop, :repo)
-    message = repo.get!(Message, message_id)
+    message = repo.get!(Message, message_id, repo_opts())
     conversation = Chat.get_conversation!(message.conversation_id)
 
     case Application.get_env(:cairnloop, :notifier) do
@@ -120,7 +122,7 @@ defmodule Cairnloop.Workers.OutboundWorker do
 
     message
     |> Ecto.Changeset.change(%{metadata: metadata})
-    |> repo.update()
+    |> repo.update(repo_opts())
   end
 
   # Phase 26 OBS-01 D-02 + D-03: bounded-metrics + OI trace, side-by-side, enum-only labels.

@@ -10,6 +10,11 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp support_prefix, do: Cairnloop.SchemaPrefix.configured()
+
+  defp prefixed(queryable),
+    do: queryable |> Ecto.Queryable.to_query() |> put_query_prefix(support_prefix())
+
   def search(query, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
     embedding_vector = Keyword.get_lazy(opts, :embedding_vector, fn -> nil end)
@@ -21,19 +26,26 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
   end
 
   def keyword_candidates(query, limit, _opts \\ []) do
+    revision_query = prefixed(Revision)
+    article_query = prefixed(Article)
+
     Chunk
-    |> join(:inner, [chunk], revision in Revision, on: revision.id == chunk.revision_id)
-    |> join(:inner, [_chunk, revision], article in Article, on: article.id == revision.article_id)
+    |> prefixed()
+    |> join(:inner, [chunk], revision in ^revision_query, on: revision.id == chunk.revision_id)
+    |> join(:inner, [_chunk, revision], article in ^article_query,
+      on: article.id == revision.article_id
+    )
     |> where([_chunk, revision], revision.state == :published)
     |> where(
       [chunk, _revision, _article],
-      fragment("cairnloop_chunks.search_vector @@ websearch_to_tsquery('english', ?)", ^query)
+      fragment("? @@ websearch_to_tsquery('english', ?)", field(chunk, :search_vector), ^query)
     )
     |> order_by(
       [chunk, _revision, _article],
       desc:
         fragment(
-          "ts_rank(cairnloop_chunks.search_vector, websearch_to_tsquery('english', ?))",
+          "ts_rank(?, websearch_to_tsquery('english', ?))",
+          field(chunk, :search_vector),
           ^query
         )
     )
@@ -74,9 +86,15 @@ defmodule Cairnloop.Retrieval.Providers.KnowledgeBase do
   def semantic_candidates(nil, _limit, _opts), do: []
 
   def semantic_candidates(embedding_vector, limit, _opts) do
+    revision_query = prefixed(Revision)
+    article_query = prefixed(Article)
+
     Chunk
-    |> join(:inner, [chunk], revision in Revision, on: revision.id == chunk.revision_id)
-    |> join(:inner, [_chunk, revision], article in Article, on: article.id == revision.article_id)
+    |> prefixed()
+    |> join(:inner, [chunk], revision in ^revision_query, on: revision.id == chunk.revision_id)
+    |> join(:inner, [_chunk, revision], article in ^article_query,
+      on: article.id == revision.article_id
+    )
     |> where([_chunk, revision], revision.state == :published)
     |> order_by(
       [chunk, _revision, _article],

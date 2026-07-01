@@ -10,12 +10,26 @@ defmodule Cairnloop.Telemetry do
   The following events are emitted using `:telemetry.span/3`:
 
   * `[:cairnloop, :conversation, :resolve, :start]`
-  * `[:cairnloop, :conversation, :resolve, :stop]` - Metadata includes `:business_duration_seconds`
+  * `[:cairnloop, :conversation, :resolve, :stop]`
   * `[:cairnloop, :conversation, :resolve, :exception]`
 
   * `[:cairnloop, :conversation, :reply, :start]`
   * `[:cairnloop, :conversation, :reply, :stop]`
   * `[:cairnloop, :conversation, :reply, :exception]`
+
+  The following conversation point event is emitted after a successful durable resolve:
+
+  * `[:cairnloop, :conversation, :resolved]`
+
+  Conversation resolve metadata is bounded by default. It carries only the durable
+  `:conversation_id` pointer required by optional side-effect workers plus coarse
+  lifecycle fields such as `:operation` and `:outcome`. Support message bodies,
+  raw request/email payloads, secrets, arbitrary host/customer metadata, full
+  structs, and host/customer/operator identifiers stay out of default telemetry.
+  Durable database rows, audit records, and jobs remain workflow truth; telemetry
+  is observability only. Optional Scrypath automation uses the bounded
+  `:conversation_id` pointer and fetches support content inside its enabled worker
+  path.
 
   ## Feedback Events
 

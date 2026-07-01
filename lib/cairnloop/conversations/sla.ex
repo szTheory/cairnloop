@@ -1,5 +1,6 @@
 defmodule Cairnloop.Conversations.SLA do
   use Ecto.Schema
+  @schema_prefix Application.compile_env(:cairnloop, :schema_prefix, "cairnloop")
   import Ecto.Changeset
 
   schema "cairnloop_conversation_slas" do

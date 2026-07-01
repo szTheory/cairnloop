@@ -15,38 +15,54 @@ If you haven't yet, read the [Host Integration guide](03-host-integration.html) 
 
 ## Defining Custom Tools (`Cairnloop.Tool`)
 
-The most powerful way to extend Cairnloop is by writing your own operator tools. Tools are discrete, idempotent actions that can be executed by human operators, triggered by AI drafts, or invoked via external MCP clients.
+The most powerful way to extend Cairnloop is by writing your own operator tools. Tools are discrete,
+idempotent actions proposed by human operators, AI-assisted flows, or authenticated MCP clients.
+They do not run inline from MCP: external `tools/call` requests route through
+`Cairnloop.Governance.propose/3`, creating the same governed proposal an operator would review in
+the dashboard.
 
-To create a tool, implement the `Cairnloop.Tool` behaviour:
+To create a tool, use the `Cairnloop.Tool` macro and implement the required callbacks:
 
 ```elixir
 defmodule MyApp.Tools.IssueRefund do
-  use Cairnloop.Tool
+  use Cairnloop.Tool,
+    risk_tier: :low_write,
+    title: "Issue refund",
+    description: "Issues a refund to the customer's payment method."
 
-  @impl true
-  def spec do
-    %Cairnloop.Tool.Spec{
-      name: "issue_refund",
-      description: "Issues a refund to the customer's payment method.",
-      parameters: %{
-        type: "object",
-        properties: %{
-          "amount" => %{type: "number", description: "Amount to refund"},
-          "reason" => %{type: "string", description: "Reason for the refund"}
-        },
-        required: ["amount", "reason"]
-      },
-      risk_tier: :requires_approval # Requires human review when proposed by AI
-    }
+  embedded_schema do
+    field :conversation_id, :string
+    field :amount_cents, :integer
+    field :reason, :string
   end
 
   @impl true
-  def run(params, context, _opts) do
-    # Implement your business logic here.
-    # Return {:ok, result_string} or {:error, reason}
-    case MyApp.Billing.refund(context.account_id, params["amount"]) do
-      :ok -> {:ok, "Refund of $#{params["amount"]} issued successfully."}
-      {:error, reason} -> {:error, "Failed to issue refund: #{reason}"}
+  def changeset(struct, attrs) do
+    struct
+    |> cast(attrs, [:conversation_id, :amount_cents, :reason])
+    |> validate_required([:conversation_id, :amount_cents, :reason])
+    |> validate_number(:amount_cents, greater_than: 0)
+  end
+
+  @impl true
+  def scope, do: [:billing]
+
+  @impl true
+  def authorize(_actor_id, context) do
+    if :billing in Map.get(context, :scopes, []) do
+      :ok
+    else
+      {:error, :missing_billing_scope}
+    end
+  end
+
+  @impl true
+  def run(%__MODULE__{} = tool, _actor_id, context) do
+    run_key = Map.fetch!(context, :run_idempotency_key)
+
+    case MyApp.Billing.refund_once(tool.conversation_id, tool.amount_cents, tool.reason, run_key) do
+      {:ok, refund} -> {:ok, %{refund_id: refund.id}}
+      {:error, reason} -> {:error, reason}
     end
   end
 end
@@ -58,7 +74,15 @@ Once defined, register your tool in your `config.exs`:
 config :cairnloop, tools: [MyApp.Tools.IssueRefund]
 ```
 
-Cairnloop automatically handles projecting this tool to the LLM context, rendering its inputs in the UI, enforcing governance policies, and dispatching execution via background workers.
+Cairnloop validates the macro options at compile time, derives a fail-closed approval mode from the
+tool's risk tier when you do not provide one, projects the embedded schema to MCP input metadata,
+validates proposed input through `changeset/2`, checks `scope/0` and `authorize/2`, snapshots the
+proposal, and calls `run/3` only from the background execution worker after approval and
+re-validation.
+
+Keep `run/3` atomic and idempotent. The execution context includes a `:run_idempotency_key`; use it
+as the unique key for the one durable write your tool performs, or wrap multiple writes in a single
+transaction you can safely replay.
 
 ## Advanced Extension Points
 
@@ -67,7 +91,8 @@ Cairnloop automatically handles projecting this tool to the LLM context, renderi
 By default, Cairnloop relies on `pgvector` for its Knowledge Base embeddings. If you need to customize how text is vectorized (for instance, switching from the default OpenAI `text-embedding-3-small` to a local model or another provider), you can implement the `Cairnloop.Embedder` behaviour.
 
 ```elixir
-@callback embed(text :: String.t(), opts :: keyword()) :: {:ok, list(float())} | {:error, term()}
+@callback generate_embeddings(chunks :: [String.t()], opts :: keyword()) ::
+            {:ok, [[float()]]} | {:error, term()}
 ```
 
 Configure it in your `config.exs`:
@@ -109,10 +134,20 @@ Return a proposal map with `:proposal_type`, `:operator_summary`, `:customer_rep
 
 ### `Cairnloop.Auditor`
 
-Cairnloop maintains a rigorous audit trail of all governance decisions, tool executions, and system events. If you need to route these audit logs to an external compliance system (like Datadog, AWS CloudTrail, or an internal SIEM), implement the `Cairnloop.Auditor` behaviour.
+Cairnloop maintains a durable audit trail of governance decisions, tool executions, and support
+events. The default `Cairnloop.Auditor.Governance` reads governed-action events through the
+`Cairnloop.Governance` facade so the Audit Log has useful rows without extra host setup. If you need
+to co-commit your own audit rows or read from your own audit store, implement `Cairnloop.Auditor`.
 
 ```elixir
-@callback log_event(event_type :: atom(), payload :: map(), metadata :: map()) :: :ok
+@callback audit(
+            multi :: Ecto.Multi.t(),
+            action :: atom(),
+            actor :: map() | String.t() | nil,
+            metadata :: map()
+          ) :: Ecto.Multi.t()
+
+@callback list_events(opts :: keyword()) :: [map()]
 ```
 
 Configure it in your `config.exs`:
@@ -121,4 +156,7 @@ Configure it in your `config.exs`:
 config :cairnloop, :auditor, MyApp.ComplianceAuditor
 ```
 
-Whenever an operator approves a tool execution or an AI draft is generated, your auditor will receive the structured event synchronously before the action completes, ensuring your external records are always complete.
+`audit/4` receives an existing `Ecto.Multi` so your audit operation can participate in the same
+transaction as the Cairnloop write. `list_events/1` returns plain maps for the operator Audit Log.
+Keep returned metadata bounded and human-readable; raw payloads and support bodies should stay in
+your own controlled systems, not in generic audit metadata.

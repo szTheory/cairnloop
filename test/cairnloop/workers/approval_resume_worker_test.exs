@@ -171,6 +171,11 @@ defmodule Cairnloop.Workers.ApprovalResumeWorkerTest do
       send(self(), {:repo_insert, changeset})
       {:ok, Ecto.Changeset.apply_changes(changeset)}
     end
+
+    def get(schema, id, _opts), do: get(schema, id)
+    def get!(schema, id, _opts), do: get!(schema, id)
+    def update(changeset, _opts), do: update(changeset)
+    def insert(changeset, _opts), do: insert(changeset)
   end
 
   setup do

@@ -11,6 +11,13 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
     Application.fetch_env!(:cairnloop, :repo)
   end
 
+  defp repo_opts, do: Cairnloop.SchemaPrefix.repo_opts()
+
+  defp prefixed(queryable) do
+    query = Ecto.Queryable.to_query(queryable)
+    put_query_prefix(query, Cairnloop.SchemaPrefix.configured())
+  end
+
   def build(gap_events, manual_signals, opts \\ []) do
     now = Keyword.get(opts, :now, DateTime.utc_now())
 
@@ -67,9 +74,10 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
     cutoff = DateTime.add(DateTime.utc_now(), -@retention_days * 86_400, :second)
 
     GapEvent
+    |> prefixed()
     |> where([event], event.occurred_at >= ^cutoff)
     |> order_by([event], desc: event.occurred_at, desc: event.id)
-    |> repo().all()
+    |> repo().all(repo_opts())
   end
 
   defp bucketed_gap_event(%GapEvent{} = event) do
@@ -188,49 +196,55 @@ defmodule Cairnloop.KnowledgeAutomation.CandidateBuilder do
     now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
     stable_keys = Enum.map(candidates, & &1.candidate.stable_key)
 
-    repo().transaction(fn ->
-      Enum.each(candidates, fn %{candidate: attrs, memberships: memberships} ->
-        existing =
-          GapCandidate
-          |> where([candidate], candidate.stable_key == ^attrs.stable_key)
-          |> repo().one()
+    repo().transaction(
+      fn ->
+        Enum.each(candidates, fn %{candidate: attrs, memberships: memberships} ->
+          existing =
+            GapCandidate
+            |> prefixed()
+            |> where([candidate], candidate.stable_key == ^attrs.stable_key)
+            |> repo().one(repo_opts())
 
-        candidate =
-          (existing || %GapCandidate{})
-          |> GapCandidate.changeset(attrs)
-          |> repo().insert_or_update!()
+          candidate =
+            (existing || %GapCandidate{})
+            |> GapCandidate.changeset(attrs)
+            |> repo().insert_or_update!(repo_opts())
 
-        Telemetry.emit(:gap_candidate, %{count: 1}, %{
-          surface: candidate.ui_surface,
-          entrypoint_type: :gap_candidate,
-          outcome: :created,
-          reason: candidate_reason_for_telemetry(candidate.candidate_type),
-          canonical_evidence_count: candidate.evidence_count,
-          assistive_evidence_count: candidate.manual_case_count
-        })
+          Telemetry.emit(:gap_candidate, %{count: 1}, %{
+            surface: candidate.ui_surface,
+            entrypoint_type: :gap_candidate,
+            outcome: :created,
+            reason: candidate_reason_for_telemetry(candidate.candidate_type),
+            canonical_evidence_count: candidate.evidence_count,
+            assistive_evidence_count: candidate.manual_case_count
+          })
 
-        GapCandidateMembership
-        |> where([membership], membership.gap_candidate_id == ^candidate.id)
-        |> repo().delete_all()
+          GapCandidateMembership
+          |> prefixed()
+          |> where([membership], membership.gap_candidate_id == ^candidate.id)
+          |> repo().delete_all(repo_opts())
 
-        Enum.each(memberships, fn membership ->
-          membership
-          |> Map.put(:gap_candidate_id, candidate.id)
-          |> Map.put(:inserted_at, now)
-          |> GapCandidateMembership.changeset(%GapCandidateMembership{})
-          |> repo().insert!()
+          Enum.each(memberships, fn membership ->
+            membership
+            |> Map.put(:gap_candidate_id, candidate.id)
+            |> Map.put(:inserted_at, now)
+            |> GapCandidateMembership.changeset(%GapCandidateMembership{})
+            |> repo().insert!(repo_opts())
+          end)
         end)
-      end)
 
-      GapCandidate
-      |> where(
-        [candidate],
-        candidate.status == :open and candidate.stable_key not in ^stable_keys
-      )
-      |> repo().delete_all()
+        GapCandidate
+        |> prefixed()
+        |> where(
+          [candidate],
+          candidate.status == :open and candidate.stable_key not in ^stable_keys
+        )
+        |> repo().delete_all(repo_opts())
 
-      :ok
-    end)
+        :ok
+      end,
+      repo_opts()
+    )
   end
 
   defp earliest_seen_at(gap_events, manual_signals) do

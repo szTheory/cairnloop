@@ -16,7 +16,10 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
 
   use Phoenix.Component
 
+  alias Cairnloop.Web.DashboardPath
+
   attr(:current, :atom, required: true)
+  attr(:dashboard_path, :string, default: "")
 
   def kb_nav(assigns) do
     ~H"""
@@ -25,9 +28,21 @@ defmodule Cairnloop.Web.KnowledgeBaseLive.NavComponent do
       class="cl-tabs"
       style="padding: 0 24px; background: var(--cl-surface);"
     >
-      <.kb_nav_link to="/knowledge-base" label="Knowledge base" active={@current == :index} />
-      <.kb_nav_link to="/knowledge-base/suggestions" label="Suggestions" active={@current == :suggestions} />
-      <.kb_nav_link to="/knowledge-base/gaps" label="Gaps" active={@current == :gaps} />
+      <.kb_nav_link
+        to={DashboardPath.to(@dashboard_path, "/knowledge-base")}
+        label="Knowledge base"
+        active={@current == :index}
+      />
+      <.kb_nav_link
+        to={DashboardPath.to(@dashboard_path, "/knowledge-base/suggestions")}
+        label="Suggestions"
+        active={@current == :suggestions}
+      />
+      <.kb_nav_link
+        to={DashboardPath.to(@dashboard_path, "/knowledge-base/gaps")}
+        label="Gaps"
+        active={@current == :gaps}
+      />
     </nav>
     """
   end

@@ -3,6 +3,8 @@ defmodule Cairnloop.AutomationTest do
 
   defmodule MockRepo do
     def get!(Cairnloop.Automation.Draft, id) do
+      record_repo_call(:get!, Cairnloop.Automation.Draft, [])
+
       if id == 1 do
         %Cairnloop.Automation.Draft{
           id: 1,
@@ -20,7 +22,14 @@ defmodule Cairnloop.AutomationTest do
       end
     end
 
-    def transaction(multi) do
+    def get!(schema, id, opts) do
+      record_repo_call(:get!, schema, opts)
+      get!(schema, id)
+    end
+
+    def transaction(multi, opts \\ []) do
+      record_repo_call(:transaction, :multi, opts)
+
       # Simulate a successful transaction
       # We extract the changes from the multi
       operations = Ecto.Multi.to_list(multi)
@@ -28,10 +37,12 @@ defmodule Cairnloop.AutomationTest do
       # We can just return a dummy map based on what multi contains
       results =
         Enum.into(operations, %{}, fn
-          {name, {:insert, changeset, _}} ->
+          {name, {:insert, changeset, opts}} ->
+            record_repo_call(:multi_insert, schema_from_changeset(changeset), opts)
             {name, Ecto.Changeset.apply_changes(changeset)}
 
-          {name, {:update, changeset, _}} ->
+          {name, {:update, changeset, opts}} ->
+            record_repo_call(:multi_update, schema_from_changeset(changeset), opts)
             {name, Ecto.Changeset.apply_changes(changeset)}
 
           {name, {:run, run_fn}} ->
@@ -41,10 +52,18 @@ defmodule Cairnloop.AutomationTest do
 
       {:ok, results}
     end
+
+    defp schema_from_changeset(%Ecto.Changeset{data: %{__struct__: schema}}), do: schema
+
+    defp record_repo_call(operation, schema, opts) do
+      calls = Process.get(:repo_calls, [])
+      Process.put(:repo_calls, calls ++ [%{operation: operation, schema: schema, opts: opts}])
+    end
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.put(:repo_calls, [])
     # attach telemetry handler
     parent = self()
     handler_id = "test-automation-#{System.unique_integer()}"
@@ -66,9 +85,18 @@ defmodule Cairnloop.AutomationTest do
     on_exit(fn ->
       :telemetry.detach(handler_id)
       Application.delete_env(:cairnloop, :repo)
+      Process.delete(:repo_calls)
     end)
 
     :ok
+  end
+
+  defp assert_prefixed_repo_call!(schema, operation) do
+    assert Enum.any?(Process.get(:repo_calls, []), fn call ->
+             call.schema == schema and call.operation == operation and
+               Keyword.get(call.opts, :prefix) == "cairnloop"
+           end),
+           "expected #{inspect(operation)} #{inspect(schema)} call to use prefix: \"cairnloop\"; got #{inspect(Process.get(:repo_calls, []))}"
   end
 
   describe "create_draft/2" do
@@ -93,6 +121,9 @@ defmodule Cairnloop.AutomationTest do
 
       assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :created], %{count: 1},
                       %{draft_id: _}}
+
+      assert_prefixed_repo_call!(Cairnloop.Automation.Draft, :multi_insert)
+      assert_prefixed_repo_call!(:multi, :transaction)
     end
   end
 
@@ -105,6 +136,10 @@ defmodule Cairnloop.AutomationTest do
 
       assert_receive {:telemetry_event, [:cairnloop, :automation, :draft, :approved], %{count: 1},
                       %{draft_id: 1}}
+
+      assert_prefixed_repo_call!(Cairnloop.Automation.Draft, :get!)
+      assert_prefixed_repo_call!(Cairnloop.Message, :multi_insert)
+      assert_prefixed_repo_call!(Cairnloop.Automation.Draft, :multi_update)
     end
   end
 

@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1.7
+
+FROM hexpm/elixir:1.19.5-erlang-27.2.4-debian-trixie-20260623-slim
+
+ARG UID=1000
+ARG GID=1000
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      ca-certificates \
+      curl \
+      git \
+      inotify-tools \
+      postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN if ! getent group "${GID}" >/dev/null; then groupadd --gid "${GID}" app; fi && \
+    useradd --uid "${UID}" --gid "${GID}" --create-home --shell /bin/bash app && \
+    mkdir -p \
+      /workspace/examples/cairnloop_example/deps \
+      /workspace/examples/cairnloop_example/_build \
+      /workspace/examples/cairnloop_example/priv/static/assets \
+      /home/app/.mix \
+      /home/app/.hex \
+      /home/app/.cache/rebar3 && \
+    chown -R "${UID}:${GID}" /workspace /home/app
+
+USER app
+WORKDIR /workspace/examples/cairnloop_example
+
+RUN mix local.hex --force && mix local.rebar --force
+
+EXPOSE 4000
+
+CMD ["sh", "-lc", "mix setup && exec mix phx.server"]

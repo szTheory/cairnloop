@@ -4,7 +4,12 @@ defmodule Cairnloop.Retrieval.Workers.PruneGapEventsTest do
   alias Cairnloop.Retrieval.Workers.PruneGapEvents
 
   defmodule MockRepo do
-    def delete_all(_query) do
+    def delete_all(query), do: delete_all(query, [])
+
+    def delete_all(_query, opts) do
+      calls = Process.get(:repo_calls, [])
+      Process.put(:repo_calls, calls ++ [%{operation: :delete_all, opts: opts}])
+
       now = Process.get(:prune_now)
       cutoff = DateTime.add(now, -90 * 86_400, :second)
 
@@ -20,10 +25,12 @@ defmodule Cairnloop.Retrieval.Workers.PruneGapEventsTest do
   setup do
     original_repo = Application.get_env(:cairnloop, :repo)
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.put(:repo_calls, [])
 
     on_exit(fn ->
       Process.delete(:gap_events)
       Process.delete(:prune_now)
+      Process.delete(:repo_calls)
 
       if original_repo do
         Application.put_env(:cairnloop, :repo, original_repo)
@@ -67,6 +74,10 @@ defmodule Cairnloop.Retrieval.Workers.PruneGapEventsTest do
 
     assert :ok == PruneGapEvents.perform(%Oban.Job{args: %{"retention_days" => 90}})
     assert Enum.map(Process.get(:gap_events), & &1.id) == [2]
+
+    assert Enum.any?(Process.get(:repo_calls, []), fn call ->
+             call.operation == :delete_all and Keyword.get(call.opts, :prefix) == "cairnloop"
+           end)
   end
 
   test "cutoff_datetime/1 computes the default 90-day boundary" do

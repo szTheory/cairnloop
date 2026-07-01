@@ -4,6 +4,7 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
 
   defmodule MockRepo do
     def one(_query), do: Process.get(:latest_draft)
+    def one(query, _opts), do: one(query)
 
     def transaction(multi) do
       # Simulate a successful transaction
@@ -20,6 +21,8 @@ defmodule Cairnloop.Automation.Workers.DraftWorkerTest do
 
       {:ok, results}
     end
+
+    def transaction(multi, _opts), do: transaction(multi)
   end
 
   defmodule RetrievalMock do

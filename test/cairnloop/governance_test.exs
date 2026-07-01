@@ -4,6 +4,7 @@ defmodule Cairnloop.GovernanceTest do
   alias Cairnloop.Governance
   alias Cairnloop.Governance.ToolProposal
   alias Cairnloop.Governance.ToolActionEvent
+  alias Cairnloop.Governance.ToolApproval
   alias Cairnloop.Conversation
 
   # ---------------------------------------------------------------------------
@@ -11,7 +12,9 @@ defmodule Cairnloop.GovernanceTest do
   # ---------------------------------------------------------------------------
 
   defmodule MockRepo do
-    def insert(%Ecto.Changeset{} = changeset) do
+    def insert(%Ecto.Changeset{} = changeset, opts \\ []) do
+      record_repo_call(:insert, schema_from_changeset(changeset), opts)
+
       if changeset.valid? do
         struct =
           changeset
@@ -28,7 +31,9 @@ defmodule Cairnloop.GovernanceTest do
       end
     end
 
-    def get_by(schema, clauses) do
+    def get_by(schema, clauses, opts \\ []) do
+      record_repo_call(:get_by, schema, opts)
+
       case schema do
         ToolProposal ->
           key = Keyword.get(clauses, :idempotency_key)
@@ -69,7 +74,11 @@ defmodule Cairnloop.GovernanceTest do
     # `query.limit.expr`. Returns the resulting list. NO `Process.put(:filter,
     # ...)` parallel-channel — pure query inspection only (mirrors the
     # cairnloop_conversations arm below).
-    def all(%Ecto.Query{from: %{source: {"cairnloop_outbound_bulk_envelopes", _}}} = query) do
+    def all(query, opts \\ [])
+
+    def all(%Ecto.Query{from: %{source: {"cairnloop_outbound_bulk_envelopes", _}}} = query, opts) do
+      record_query_call(:all, query, opts)
+
       status_atom = extract_envelope_status_filter(query)
 
       rows =
@@ -87,7 +96,9 @@ defmodule Cairnloop.GovernanceTest do
       end
     end
 
-    def all(%Ecto.Query{from: %{source: {"cairnloop_conversations", _}}} = query) do
+    def all(%Ecto.Query{from: %{source: {"cairnloop_conversations", _}}} = query, opts) do
+      record_query_call(:all, query, opts)
+
       # Phase 25 plan 01 (D-14): cohort-eligibility reads against the Conversation
       # schema. We extract the candidate_ids list from the query's params and apply
       # the `status == :resolved` invariant (D-01) here in Elixir, then apply
@@ -121,7 +132,9 @@ defmodule Cairnloop.GovernanceTest do
       end
     end
 
-    def all(%Ecto.Query{} = query) do
+    def all(%Ecto.Query{} = query, opts) do
+      record_query_call(:all, query, opts)
+
       # Extract conversation_id from the first where clause param
       conversation_id =
         case query.wheres do
@@ -153,6 +166,14 @@ defmodule Cairnloop.GovernanceTest do
         nil -> proposals
         n when is_integer(n) and n >= 0 -> Enum.take(proposals, n)
       end
+    end
+
+    def one(%Ecto.Query{} = query, opts \\ []) do
+      record_query_call(:one, query, opts)
+
+      query
+      |> all(opts)
+      |> List.first()
     end
 
     # Conversation queries use `where([c], c.id in ^candidate_ids and ...)`. The
@@ -231,7 +252,9 @@ defmodule Cairnloop.GovernanceTest do
 
     defp persist_inserted(_struct), do: :ok
 
-    def update(%Ecto.Changeset{} = changeset) do
+    def update(%Ecto.Changeset{} = changeset, opts \\ []) do
+      record_repo_call(:update, schema_from_changeset(changeset), opts)
+
       if changeset.valid? do
         updated = Ecto.Changeset.apply_changes(changeset)
         send(self(), {:repo_update, changeset})
@@ -257,7 +280,9 @@ defmodule Cairnloop.GovernanceTest do
       end
     end
 
-    def get(schema, id) do
+    def get(schema, id, opts \\ []) do
+      record_repo_call(:get, schema, opts)
+
       case schema do
         Cairnloop.Governance.ToolApproval ->
           Process.get(:tool_approvals, [])
@@ -273,6 +298,22 @@ defmodule Cairnloop.GovernanceTest do
         _ ->
           nil
       end
+    end
+
+    defp record_query_call(operation, %Ecto.Query{from: %{source: {_table, schema}}}, opts) do
+      record_repo_call(operation, schema, opts)
+    end
+
+    defp record_query_call(operation, _query, opts) do
+      record_repo_call(operation, :unknown_query_source, opts)
+    end
+
+    defp schema_from_changeset(%Ecto.Changeset{data: %{__struct__: schema}}), do: schema
+    defp schema_from_changeset(_), do: :unknown_changeset_schema
+
+    defp record_repo_call(operation, schema, opts) do
+      calls = Process.get(:repo_calls, [])
+      Process.put(:repo_calls, calls ++ [%{operation: operation, schema: schema, opts: opts}])
     end
   end
 
@@ -445,9 +486,93 @@ defmodule Cairnloop.GovernanceTest do
       # Phase 26 plan 02 (D-06): clean per-test bulk-envelope seed so state
       # never leaks between describes (async: false).
       Process.delete(:bulk_envelopes)
+      Process.delete(:repo_calls)
     end)
 
     :ok
+  end
+
+  defp repo_calls, do: Process.get(:repo_calls, [])
+
+  defp assert_prefixed_repo_call!(schema, operation) do
+    assert Enum.any?(repo_calls(), fn call ->
+             call.schema == schema and call.operation == operation and
+               Keyword.get(call.opts, :prefix) == "cairnloop"
+           end),
+           "expected #{inspect(operation)} #{inspect(schema)} call to use prefix: \"cairnloop\"; got #{inspect(repo_calls())}"
+  end
+
+  defp with_schema_prefix(prefix, fun) do
+    original = Application.get_env(:cairnloop, :schema_prefix)
+    Application.put_env(:cairnloop, :schema_prefix, prefix)
+    Process.put(:repo_calls, [])
+
+    try do
+      fun.()
+    after
+      restore_env(:schema_prefix, original)
+      Process.delete(:repo_calls)
+    end
+  end
+
+  defp restore_env(key, nil), do: Application.delete_env(:cairnloop, key)
+  defp restore_env(key, value), do: Application.put_env(:cairnloop, key, value)
+
+  describe "DB-05 schema prefix contract" do
+    test "proposal and action-event persistence uses the configured Cairnloop prefix" do
+      with_schema_prefix("cairnloop", fn ->
+        tool_ref = Atom.to_string(ValidTool)
+        context = %{tool_params: %{order_id: "order_prefix"}, scopes: []}
+
+        assert {:ok, _proposal} = Governance.propose(tool_ref, "user_1", context)
+
+        assert_prefixed_repo_call!(ToolProposal, :get_by)
+        assert_prefixed_repo_call!(ToolProposal, :insert)
+        assert_prefixed_repo_call!(ToolActionEvent, :insert)
+      end)
+    end
+
+    test "approval persistence uses the configured prefix while enqueue stays outside Repo opts" do
+      with_schema_prefix("cairnloop", fn ->
+        proposal = %ToolProposal{
+          id: 42,
+          actor_id: "user_1",
+          approval_mode: :requires_approval
+        }
+
+        enqueue_fn = fn job ->
+          send(self(), {:enqueued_job, job})
+          {:ok, job}
+        end
+
+        assert {:ok, approval} = Governance.request_approval(proposal, enqueue_fn: enqueue_fn)
+        assert approval.status == :pending
+
+        assert_prefixed_repo_call!(ToolApproval, :insert)
+        assert_prefixed_repo_call!(ToolApproval, :update)
+        assert_prefixed_repo_call!(ToolActionEvent, :insert)
+
+        assert_receive {:enqueued_job, job}
+        assert get_job_worker(job) == "Cairnloop.Workers.ApprovalExpiryWorker"
+      end)
+    end
+
+    test "proposal, approval, and event read helpers use the configured prefix" do
+      with_schema_prefix("cairnloop", fn ->
+        Process.put(:tool_approvals, [
+          %ToolApproval{id: 1, tool_proposal_id: 123, status: :pending}
+        ])
+
+        _ = Governance.get_proposal(123)
+        _ = Governance.get_active_approval(123)
+        _ = Governance.list_events(123)
+        _ = Governance.list_action_events(proposal_id: 123)
+
+        assert_prefixed_repo_call!(ToolProposal, :get)
+        assert_prefixed_repo_call!(ToolApproval, :get_by)
+        assert_prefixed_repo_call!(ToolActionEvent, :all)
+      end)
+    end
   end
 
   # ---------------------------------------------------------------------------

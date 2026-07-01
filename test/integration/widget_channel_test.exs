@@ -56,7 +56,7 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
     # socket/3 builds the socket struct without going through the endpoint mount.
     {:ok, reply, channel_socket} =
       socket(Cairnloop.Channels.WidgetSocket, "widget_socket:demo_customer", %{
-        user_token: "demo_customer"
+        customer_ref: "demo_customer"
       })
       |> subscribe_and_join(Cairnloop.Channels.WidgetChannel, "widget:lobby", %{})
 
@@ -93,8 +93,9 @@ defmodule Cairnloop.Integration.WidgetChannelTest do
 
     # Load-bearing operator-delivery proof: InboxLive re-renders after
     # handle_info({:conversations_changed}, socket) reloads Chat.list_conversations().
-    # The conversation created on join has host_user_id="demo_customer" (the token).
-    # InboxLive renders conversation.id in the link href and subject in the <strong> tag.
+    # The conversation created on join has customer_ref="demo_customer"; host_user_id stays
+    # reserved for operator/governance identity. InboxLive renders conversation.id in the
+    # link href and subject in the <strong> tag.
     # Assert the conversation_id appears in the rendered HTML as the definitive proof
     # that the new conversation row reached the operator inbox.
     html = render(inbox_view)

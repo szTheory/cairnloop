@@ -10,6 +10,8 @@ defmodule Cairnloop.Channels.WidgetChannelTest do
       }
     end
 
+    def get!(schema, id, _opts), do: get!(schema, id)
+
     def update(%Ecto.Changeset{} = changeset) do
       if changeset.changes[:csat_rating] in [:positive, :negative] do
         {:ok, Ecto.Changeset.apply_changes(changeset)}
@@ -18,15 +20,18 @@ defmodule Cairnloop.Channels.WidgetChannelTest do
       end
     end
 
-    # Phase 28 Plan 02: top-level insert/1 for create_customer_conversation/1.
-    # Returns a Conversation with id: 42 as the sentinel value for join tests.
     def insert(%Ecto.Changeset{} = changeset) do
-      {:ok, Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 42)}
+      conversation = Ecto.Changeset.apply_changes(changeset) |> Map.put(:id, 42)
+      send(self(), {:inserted_conversation, conversation})
+      {:ok, conversation}
     end
+
+    def insert(%Ecto.Changeset{} = changeset, _opts), do: insert(changeset)
   end
 
   setup do
     Application.put_env(:cairnloop, :repo, MockRepo)
+    Process.delete(:inserted_conversation)
 
     on_exit(fn ->
       Application.delete_env(:cairnloop, :repo)
@@ -68,12 +73,12 @@ defmodule Cairnloop.Channels.WidgetChannelTest do
     end
   end
 
-  # Phase 28 Plan 02 D-01: join("widget:lobby") creates a Conversation via Chat facade
-  # and stores conversation_id in socket assigns.
+  # Phase 58 Plan 02: join("widget:lobby") creates a Conversation via Chat facade
+  # with verified customer_ref identity and stores conversation_id in socket assigns.
   describe "join/3 widget:lobby" do
-    test "creates a conversation and replies with conversation_id" do
+    test "creates a customer conversation with customer_ref and no operator host_user_id" do
       socket = %Phoenix.Socket{
-        assigns: %{user_token: "demo_customer"},
+        assigns: %{customer_ref: "customer_123"},
         topic: "widget:lobby"
       }
 
@@ -83,6 +88,32 @@ defmodule Cairnloop.Channels.WidgetChannelTest do
       # MockRepo.insert/1 returns id: 42 as sentinel
       assert id == 42
       assert updated_socket.assigns[:conversation_id] == 42
+
+      assert_received {:inserted_conversation, conversation}
+      assert conversation.customer_ref == "customer_123"
+      assert conversation.host_user_id == nil
+    end
+
+    test "fails closed without verified customer_ref and does not create a conversation" do
+      socket = %Phoenix.Socket{
+        assigns: %{},
+        topic: "widget:lobby"
+      }
+
+      assert {:error, %{reason: "unauthorized"}} =
+               WidgetChannel.join("widget:lobby", %{}, socket)
+
+      refute_received {:inserted_conversation, _conversation}
+    end
+  end
+
+  describe "handle_in/3 with new_message" do
+    test "keeps conversation_id server-assigned instead of payload-provided" do
+      source = File.read!("lib/cairnloop/channels/widget_channel.ex")
+
+      assert source =~ "conversation_id = socket.assigns[:conversation_id]"
+      assert source =~ "conversation_id: conversation_id"
+      refute source =~ ~r/conversation_id\s*=\s*.*payload/
     end
   end
 end

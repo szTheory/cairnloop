@@ -52,6 +52,23 @@ defmodule Cairnloop.Web.ComponentsTest do
     assert html =~ "Outbound delivery failed."
   end
 
+  test "cl_flash renders a token-driven toast with dismiss wiring" do
+    assigns = %{flash: %{"info" => "Saved policy changes."}}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_flash kind={:info} flash={@flash} />
+      """)
+
+    assert html =~ "cl-toast cl-toast--info"
+    assert html =~ ~s(role="status")
+    assert html =~ ~s(aria-live="polite")
+    assert html =~ "Saved policy changes."
+    assert html =~ "cl-toast-enter"
+    assert html =~ "lv:clear-flash"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
   test "cl_stat renders an actionable count card linking to its queue" do
     assigns = %{}
 
@@ -99,5 +116,418 @@ defmodule Cairnloop.Web.ComponentsTest do
     assert html =~ "<svg"
     assert html =~ "polyline" or html =~ "path"
     assert html =~ ~s(aria-hidden="true")
+  end
+
+  # --- cl_stat numeric contract (UIC-02 / D-01) ---
+
+  test "cl_stat renders an integer count inside .cl-stat__count" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_stat job="Triage replies" count={42} href="/inbox" />
+      """)
+
+    assert html =~ ~s(cl-stat__count)
+    assert html =~ "42"
+    assert html =~ "Triage replies"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_stat preserves job label and href with integer count" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_stat job="Open conversations" count={0} href="/inbox" calm?={true} />
+      """)
+
+    assert html =~ "Open conversations"
+    assert html =~ ~s(href="/inbox")
+    assert html =~ "cl-stat__count--calm"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_page shell component (UIC-01 / D-08) ---
+
+  test "cl_page renders title as h1 and emits cl-page--wide by default" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Audit Log">
+        <p>content</p>
+      </.cl_page>
+      """)
+
+    assert html =~ ~s(<h1 class="cl-page__title">Audit Log</h1>)
+    assert html =~ "cl-page--wide"
+    assert html =~ "content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page with width='reading' renders cl-page--reading" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Conversation" width="reading">
+        <p>body</p>
+      </.cl_page>
+      """)
+
+    assert html =~ "cl-page--reading"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page renders breadcrumb, actions, subnav slots and subtitle when provided" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Inbox" subtitle="Manage your queue">
+        <:breadcrumb><nav>Home / Inbox</nav></:breadcrumb>
+        <:actions><button>New</button></:actions>
+        <:subnav><ul><li>Filter</li></ul></:subnav>
+        <p>main content</p>
+      </.cl_page>
+      """)
+
+    assert html =~ "cl-page__subtitle"
+    assert html =~ "Manage your queue"
+    assert html =~ "Home / Inbox"
+    assert html =~ "New"
+    assert html =~ "Filter"
+    assert html =~ "main content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_page token-pure: no hex in default render" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_page title="Settings">
+        <p>content</p>
+      </.cl_page>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_hero primary-count component (UIC-02 / D-02) ---
+
+  test "cl_hero renders integer count inside .cl-hero__count and job label" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={128} job="Work the queue" />
+      """)
+
+    assert html =~ "cl-hero__count"
+    assert html =~ "128"
+    assert html =~ "cl-hero__job"
+    assert html =~ "Work the queue"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero with calm?={true} renders .cl-hero__count--calm" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={0} job="Work the queue" calm?={true} />
+      """)
+
+    assert html =~ "cl-hero__count--calm"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero with cta and href renders a cl_button primary CTA; detail slot renders cl-hero__detail" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={5} job="Work the queue" cta="Open inbox" href="/inbox">
+        <:detail>2 recovered recently</:detail>
+      </.cl_hero>
+      """)
+
+    assert html =~ "cl-button--primary"
+    assert html =~ "Open inbox"
+    assert html =~ "cl-hero__detail"
+    assert html =~ "2 recovered recently"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_hero token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_hero count={42} job="Recover resolved" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_disclosure patch-safe native disclosure (UIC-03 / D-03) ---
+
+  test "cl_disclosure open=true renders <details with phx-update=ignore, stable id, open attr, and classes" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="inputs-scope" open={true}>
+        <:summary>Inputs &amp; scope</:summary>
+        <p>body content</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="inputs-scope")
+    assert html =~ "open"
+    assert html =~ "cl-details"
+    assert html =~ "cl-disclosure"
+    assert html =~ "cl-details__summary"
+    assert html =~ "Inputs"
+    assert html =~ "body content"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure open=false (default) omits the open attribute but retains phx-update=ignore and id" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="x">
+        <:summary>Hidden section</:summary>
+        <p>details</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ "<details"
+    assert html =~ ~s(phx-update="ignore")
+    assert html =~ ~s(id="x")
+    # open=false — HEEx boolean-attr must NOT emit the open attribute
+    refute html =~ ~r/\bopen\b/
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_disclosure token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="token-test">
+        <:summary>Summary</:summary>
+        <p>content</p>
+      </.cl_disclosure>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # Phase 41 Wave 0 RED scaffold: assert the :global passthrough Wave 1 adds
+  # (attr(:rest, :global) + {@rest} on <details>) passes data-tier="2" through.
+  # RED now — cl_disclosure/1 has no :rest attr, so the attribute is silently dropped.
+  test "cl_disclosure passes data-tier=2 through to the <details> element (:global passthrough — RAIL-02)" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_disclosure id="inputs-scope" open={true} data-tier="2">
+        <:summary>Inputs &amp; scope</:summary>
+        <p>body content</p>
+      </.cl_disclosure>
+      """)
+
+    assert html =~ ~s(data-tier="2"),
+           "data-tier=\"2\" must reach the rendered <details> element via :global passthrough (RAIL-02 — RED until Wave 1 adds attr(:rest, :global))"
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_fact_list label/value list (UIC-04 / D-05) ---
+
+  test "cl_fact_list renders a <dl> with dt/dd pairs for each fact" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}, %{label: "Risk tier", value: "Low"}]} />
+      """)
+
+    assert html =~ ~s(<dl class="cl-fact-list">)
+    assert html =~ "cl-fact-list__row"
+    assert html =~ ~s(<dt class="cl-fact-list__label">Plan</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Pro</dd>)
+    assert html =~ ~s(<dt class="cl-fact-list__label">Risk tier</dt>)
+    assert html =~ ~s(<dd class="cl-fact-list__value">Low</dd>)
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list with inner_block renders custom rows inside the <dl>" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Plan", value: "Pro"}]}>
+        <div class="custom-row">Extra info</div>
+      </.cl_fact_list>
+      """)
+
+    assert html =~ "cl-fact-list"
+    assert html =~ "Plan"
+    assert html =~ "Pro"
+    assert html =~ "custom-row"
+    assert html =~ "Extra info"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_fact_list token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_fact_list facts={[%{label: "Account", value: "Acme Corp"}]} />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_switch role=switch toggle (UIC-04 / D-04) ---
+
+  test "cl_switch renders role=switch, string aria-checked=false, label, and phx-click passthrough" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Draft mode" phx-click="toggle" />
+      """)
+
+    assert html =~ ~s(role="switch")
+    assert html =~ ~s(aria-checked="false")
+    assert html =~ "Draft mode"
+    assert html =~ ~s(phx-click="toggle")
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch checked={true} renders aria-checked=true (string, not boolean attr)" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={true} label="Notifications" />
+      """)
+
+    assert html =~ ~s(aria-checked="true")
+    assert html =~ "Notifications"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_switch token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_switch checked={false} label="Dark theme" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_status_cell table-cell chip wrapper (UIC-04 / D-07) ---
+
+  test "cl_status_cell renders .cl-status-cell wrapping cl-chip--success with label and icon" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="success" label="Approved" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "cl-chip--success"
+    assert html =~ "Approved"
+    assert html =~ "<svg"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell with default neutral variant renders label without error" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell label="Pending review" />
+      """)
+
+    assert html =~ "cl-status-cell"
+    assert html =~ "Pending review"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_status_cell token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_status_cell variant="warning" label="Needs attention" />
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  # --- cl_source_card status surface (UIC-04 / D-06) ---
+
+  test "cl_source_card source_variant=success renders cl-source-card--success with icon and title" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="success">
+        <:title>KB Article: Refund Policy</:title>
+        <p>Refunds are processed within 5 business days.</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--success"
+    assert html =~ "<svg"
+    assert html =~ "KB Article: Refund Policy"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card source_variant=info renders cl-source-card--info, resolves info icon, and renders optional :meta slot" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="info">
+        <:title>Documentation reference</:title>
+        <:meta>v1.2.3 · 3 weeks ago</:meta>
+        <p>body content</p>
+      </.cl_source_card>
+      """)
+
+    assert html =~ "cl-source-card--info"
+    assert html =~ "<svg"
+    assert html =~ "cl-source-card__meta"
+    assert html =~ "v1.2.3"
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
+  end
+
+  test "cl_source_card token-pure: no hex in rendered output" do
+    assigns = %{}
+
+    html =
+      rendered_to_string(~H"""
+      <.cl_source_card source_variant="neutral">
+        <:title>Source title</:title>
+      </.cl_source_card>
+      """)
+
+    refute html =~ ~r/#[0-9a-fA-F]{3,6}/
   end
 end
