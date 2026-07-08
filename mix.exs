@@ -172,7 +172,7 @@ defmodule Cairnloop.MixProject do
       {:jason, "~> 1.2"},
       {:nimble_options, "~> 1.0"},
       {:oban, "~> 2.17"},
-      {:mailglass, "~> 0.2"},
+      {:mailglass, "~> 2.0"},
       {:earmark_parser, "~> 1.4"},
       {:req, "~> 0.5"},
       {:chimeway, "~> 1.0", optional: true},
